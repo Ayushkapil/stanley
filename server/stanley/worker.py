@@ -1,0 +1,49 @@
+"""Standalone decay worker: `python -m stanley.worker --once` or looping.
+
+In production this can be a single process next to the API, or replaced by
+pg_cron once on Postgres (§9). The logic is identical either way: sweep,
+purge, digest.
+"""
+from __future__ import annotations
+
+import argparse
+import time
+
+from . import decay, notifications
+from .clock import SystemClock
+from .config import Settings
+from .db import Base, make_engine, make_sessionmaker
+from .notifications import Notifier
+from .storage import BlobStore
+
+
+def run_once(settings: Settings | None = None) -> None:
+    settings = settings or Settings()
+    engine = make_engine(settings.database_url)
+    Base.metadata.create_all(engine)
+    clock = SystemClock()
+    notifier = Notifier()
+    storage = BlobStore(settings.blob_dir)
+    with make_sessionmaker(engine)() as session:
+        advanced = decay.sweep(session, clock, notifier)
+        purged = decay.run_purges(session, storage, clock)
+        digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)
+        session.commit()
+    print(f"sweep: {advanced} transitions, {purged} purged, {digests} digests")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Stanley decay worker")
+    parser.add_argument("--once", action="store_true", help="run a single pass and exit")
+    args = parser.parse_args()
+    settings = Settings()
+    if args.once:
+        run_once(settings)
+        return
+    while True:
+        run_once(settings)
+        time.sleep(settings.sweep_interval_seconds)
+
+
+if __name__ == "__main__":
+    main()
