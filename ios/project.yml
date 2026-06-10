@@ -1,0 +1,26 @@
+name: Stanley
+options:
+  bundleIdPrefix: app.stanley
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  Stanley:
+    type: application
+    platform: iOS
+    sources: [Stanley]
+    info:
+      path: Stanley/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDisplayName: Stanley
+        NSCameraUsageDescription: >-
+          Stanley captures one photo a day, in the moment. The camera is the
+          only way in — there is no roll, no retakes.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.stanley.ios
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait

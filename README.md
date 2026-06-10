@@ -13,6 +13,10 @@ This repo implements the [system specification](#spec) — currently the backend
 ## Layout
 
 ```
+ios/                SwiftUI client (iOS 17+), XcodeGen project
+  Stanley/          Today feed w/ ambient fade, capture-as-commitment,
+                    anchors (no counts), story-comments, Kept archive,
+                    Returned card + rest-a-memory, Quiet settings
 server/             FastAPI monolith (Python 3.11+)
   stanley/
     physics.py      THE LOCKED PHYSICS — decay timeline, one-per-day + 12h rule
@@ -41,6 +45,22 @@ Dev auth is on by default (`POST /auth/dev {"display_name": "ana"}` → JWT).
 Config via env: `STANLEY_DATABASE_URL` (SQLite default, Postgres for prod),
 `STANLEY_BLOB_DIR`, `STANLEY_SECRET_KEY`, `STANLEY_DEV_AUTH`, `STANLEY_RUN_SWEEPER`.
 
+## Run the iOS app
+
+```bash
+# 1. backend up (above), then seed a living circle:
+.venv/bin/python scripts/seed_demo.py     # prints an invite code
+
+# 2. open ios/Stanley.xcodeproj in Xcode, pick an iPhone simulator, Run
+#    (project regenerable anytime with `xcodegen generate` in ios/)
+```
+
+In the app: enter a name → **Begin** → paste the invite code → **Join**. The
+feed is alive from the first session. The simulator has no camera, so capture
+uses a generated stand-in frame there; on a real device it opens the camera
+(set a signing team in Xcode, and point `STANLEY_API` in the scheme's
+environment at your Mac's LAN IP instead of 127.0.0.1).
+
 ## The invariants (non-negotiable, tested)
 
 | Invariant | Where enforced | Where tested |
@@ -64,7 +84,6 @@ from `decay_progress` + `state_deadline`.
 
 ## Not yet built (deliberately)
 
-- **iOS client** (SwiftUI, capture-only camera, circle-first onboarding) — M1+
 - **Sign in with Apple verification** — `/auth/apple` is a 501 stub; dev auth
   gates the pilot
 - **APNs transport** — the `Notifier` transport hook is where it plugs in
