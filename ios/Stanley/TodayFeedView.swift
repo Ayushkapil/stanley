@@ -51,9 +51,15 @@ struct PhotoCard: View {
     let photo: Photo
     @State private var newComment = ""
 
-    // The fade is ambient, never numeric (§8.1): opacity and desaturation
-    // driven by decay_progress. No countdowns anywhere.
-    private var fade: Double { photo.decayProgress }
+    // The fade is ambient, never numeric (§8.1). decay_progress spans the whole
+    // 144h public life, but LIVE (< 1/3) must render fully visible — so the
+    // fade starts at the FADING boundary and eases (smoothstep) to "barely
+    // visible" by the end of LAST_LIGHT. No countdowns anywhere.
+    private var fade: Double {
+        let fadingStart = 1.0 / 3.0  // 48h of 144h
+        let t = min(1.0, max(0.0, (photo.decayProgress - fadingStart) / (1.0 - fadingStart)))
+        return t * t * (3.0 - 2.0 * t)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -74,8 +80,8 @@ struct PhotoCard: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 320)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
-                .saturation(1.0 - 0.7 * fade)
-                .opacity(1.0 - 0.65 * fade)
+                .saturation(1.0 - 0.85 * fade)
+                .opacity(1.0 - 0.82 * fade)
             }
             HStack(alignment: .top) {
                 if let caption = photo.caption, !caption.isEmpty {
