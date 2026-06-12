@@ -49,10 +49,12 @@ class Api:
     def h(self) -> dict:
         return {"Authorization": f"Bearer {self.token}"}
 
-    def post_photo(self, tz: str = NY, caption: str | None = None, image: bytes | None = None, claim: str | None = None):
+    def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None):
         data = {"tz": tz}
         if caption is not None:
             data["caption"] = caption
+        if location is not None:
+            data["location"] = location
         if claim is not None:
             data["taken_at_claim"] = claim
         files = {"file": ("photo.jpg", image or jpeg_bytes(), "image/jpeg")}

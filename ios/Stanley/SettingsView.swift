@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppState.self) private var state
+    @AppStorage("stanley.appearance") private var appearance = "system"
     @State private var lastLight = false
     @State private var loaded = false
 
@@ -11,6 +12,13 @@ struct SettingsView: View {
                 if let circle = state.circle {
                     Section("Circle") {
                         LabeledContent("Name", value: circle.name)
+                        ForEach(circle.members ?? []) { member in
+                            NavigationLink {
+                                MemberProfileView(memberId: member.id)
+                            } label: {
+                                Text(member.displayName ?? "departed")
+                            }
+                        }
                         if let code = state.inviteCode {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Invite code")
@@ -21,6 +29,14 @@ struct SettingsView: View {
                             }
                         }
                     }
+                }
+                Section("Appearance") {
+                    Picker("Appearance", selection: $appearance) {
+                        Text("System").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    .pickerStyle(.segmented)
                 }
                 Section {
                     Toggle("Tell me when my own photo is fading", isOn: $lastLight)

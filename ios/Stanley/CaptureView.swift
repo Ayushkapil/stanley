@@ -8,6 +8,7 @@ struct CaptureView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @State private var caption = ""
+    @State private var location = ""
     @State private var showCamera = false
     @State private var uploading = false
 
@@ -21,6 +22,9 @@ struct CaptureView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 TextField("A few words, if you like", text: $caption)
+                    .textFieldStyle(.roundedBorder)
+                // a typed place name, as you'd say it — never GPS, never a map
+                TextField("Where was this? (a place, optional)", text: $location)
                     .textFieldStyle(.roundedBorder)
                 if uploading {
                     ProgressView()
@@ -66,7 +70,8 @@ struct CaptureView: View {
             do {
                 try await state.capture(
                     jpeg: jpeg,
-                    caption: caption.trimmingCharacters(in: .whitespaces)
+                    caption: caption.trimmingCharacters(in: .whitespaces),
+                    location: location.trimmingCharacters(in: .whitespaces)
                 )
                 dismiss()
             } catch {

@@ -46,10 +46,16 @@ struct TodayFeedView: View {
     }
 }
 
+struct ViewedMember: Identifiable {
+    let id: String
+}
+
 struct PhotoCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.colorScheme) private var colorScheme
     let photo: Photo
     @State private var newComment = ""
+    @State private var viewedMember: ViewedMember?
 
     // The fade is ambient, never numeric (§8.1). decay_progress spans the whole
     // 144h public life, but LIVE (< 1/3) must render fully visible — so the
@@ -61,11 +67,25 @@ struct PhotoCard: View {
         return t * t * (3.0 - 2.0 * t)
     }
 
+    // Fading toward black hides dark photos sooner than fading toward white
+    // hides bright ones, so dark mode keeps a higher opacity floor (0.38 vs
+    // 0.18) — the desaturation carries more of the "fading" feel there.
+    private var opacityDrop: Double {
+        colorScheme == .dark ? 0.62 : 0.82
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(photo.owner.displayName)
-                    .font(.subheadline.weight(.medium))
+                Button {
+                    if let ownerId = photo.owner.id {
+                        viewedMember = ViewedMember(id: ownerId)
+                    }
+                } label: {
+                    Text(photo.owner.displayName)
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.plain)
                 Spacer()
                 Text(photo.takenAt, format: .relative(presentation: .named))
                     .font(.caption)
@@ -81,12 +101,21 @@ struct PhotoCard: View {
                 .frame(height: 320)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .saturation(1.0 - 0.85 * fade)
-                .opacity(1.0 - 0.82 * fade)
+                .opacity(1.0 - opacityDrop * fade)
             }
             HStack(alignment: .top) {
-                if let caption = photo.caption, !caption.isEmpty {
-                    Text(caption)
-                        .font(.body)
+                VStack(alignment: .leading, spacing: 2) {
+                    if let caption = photo.caption, !caption.isEmpty {
+                        Text(caption)
+                            .font(.body)
+                    }
+                    // a place as a remembered word, not a pin — never tappable
+                    if let location = photo.location, !location.isEmpty {
+                        Text(location)
+                            .font(.footnote)
+                            .italic()
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 // Anchoring: a private act of keeping. No counts, ever (A2).
@@ -124,6 +153,10 @@ struct PhotoCard: View {
             }
         }
         .padding(.bottom, 8)
+        .sheet(item: $viewedMember) { member in
+            MemberProfileView(memberId: member.id)
+                .presentationDetents([.medium, .large])
+        }
     }
 }
 

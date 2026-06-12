@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_clock, get_current_user, get_db, member_count, require_membership
 from ..models import Circle, Membership, User
+from ..serialize import blocked_ids
 
 router = APIRouter(tags=["circles"])
 
@@ -82,3 +83,27 @@ def join_circle(
 def my_circle(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _, circle = require_membership(db, user)
     return {"id": circle.id, "name": circle.name, "members": _members_payload(db, circle)}
+
+
+@router.get("/members/{user_id}")
+def member_profile(
+    user_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """A circle member's profile: their name and their words, nothing else.
+    Invariant A2 extends to identity surfaces — keepings are owner-private, so
+    this payload structurally has no field for anchors, kept grids, or counts."""
+    membership, _ = require_membership(db, user)
+    target_membership = db.get(Membership, (membership.circle_id, user_id))
+    if target_membership is None or user_id in blocked_ids(db, user.id):
+        raise HTTPException(404, "not found")
+    target = db.get(User, user_id)
+    if target is None or target.deleted_at is not None:
+        raise HTTPException(404, "not found")
+    return {
+        "id": target.id,
+        "display_name": target.display_name,
+        "username": target.username,
+        "bio": target.bio,
+    }

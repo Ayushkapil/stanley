@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, UTCDateTime
@@ -16,10 +16,13 @@ def new_id() -> str:
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (Index("uq_users_username", "username", unique=True),)
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     apple_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    username: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tz_last_seen: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # §10 N2: the last-light notice is off by default, offerable in settings.
@@ -64,6 +67,9 @@ class Photo(Base):
     taken_tz: Mapped[str] = mapped_column(String(64))
     local_date: Mapped[date] = mapped_column(Date)
     caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A human-written place label ("Dunn Meadow"), never coordinates. EXIF GPS
+    # is stripped at ingest (§9); location is memory detail, not device data.
+    location: Mapped[str | None] = mapped_column(String(120), nullable=True)
     state: Mapped[str] = mapped_column(String(12), default=LIVE)
     state_deadline: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     last_light_notified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

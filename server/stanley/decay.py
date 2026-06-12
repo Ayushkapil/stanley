@@ -95,6 +95,7 @@ def scrub(
             storage.delete(key)
     photo.blob_key = photo.deriv_key = photo.thumb_key = None
     photo.caption = None
+    photo.location = None
 
     if owner_requested:
         anchorer_ids = set(

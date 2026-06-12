@@ -10,6 +10,7 @@ final class AppState {
     var feed: [Photo] = []
     var returned: ReturnedItem?
     var threads: [MemoryThread] = []
+    var profile: MyProfile?
     var errorMessage: String?
     var checkedCircle = false
 
@@ -110,10 +111,38 @@ final class AppState {
         }
     }
 
+    // MARK: profile
+
+    func loadProfile() async {
+        do {
+            profile = try await api.send("GET", "/me") as MyProfile
+        } catch {
+            surface(error)
+        }
+    }
+
+    func updateProfile(displayName: String, username: String, bio: String) async -> Bool {
+        var body: [String: Any?] = ["display_name": displayName, "bio": bio]
+        if !username.isEmpty {
+            body["username"] = username
+        }
+        do {
+            profile = try await api.send("PATCH", "/me/profile", json: body) as MyProfile
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    func loadMember(_ memberId: String) async throws -> MemberProfile {
+        try await api.send("GET", "/members/\(memberId)")
+    }
+
     // MARK: gestures
 
-    func capture(jpeg: Data, caption: String?) async throws {
-        _ = try await api.uploadPhoto(jpeg: jpeg, caption: caption)
+    func capture(jpeg: Data, caption: String?, location: String?) async throws {
+        _ = try await api.uploadPhoto(jpeg: jpeg, caption: caption, location: location)
         await refreshToday()
     }
 

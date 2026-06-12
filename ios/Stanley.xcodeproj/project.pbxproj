@@ -12,6 +12,7 @@
 		26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */; };
 		34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C775715F391ED80D954D9ED /* WelcomeView.swift */; };
 		4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */; };
+		4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DB333BECC60813C685C4A7 /* ProfileView.swift */; };
 		617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9649D2EC31D301586F01D82 /* APIClient.swift */; };
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
@@ -27,6 +28,7 @@
 		54B7A0448179C1D07FE2922B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayFeedView.swift; sourceTree = "<group>"; };
 		8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriesView.swift; sourceTree = "<group>"; };
+		98DB333BECC60813C685C4A7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B371E63EBC11AC20695ED507 /* StanleyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanleyApp.swift; sourceTree = "<group>"; };
 		C9649D2EC31D301586F01D82 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -53,6 +55,7 @@
 				54B7A0448179C1D07FE2922B /* Info.plist */,
 				8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */,
 				0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */,
+				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
 				E1D927F2B4D7F02207747D21 /* SettingsView.swift */,
 				B371E63EBC11AC20695ED507 /* StanleyApp.swift */,
 				894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */,
@@ -130,6 +133,7 @@
 				085A358993C019819E3E1743 /* CircleGateView.swift in Sources */,
 				26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */,
 				EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */,
+				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,
 				7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */,
 				1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */,
 				69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */,

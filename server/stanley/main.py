@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from . import __version__, decay, notifications
 from .clock import Clock, SystemClock
 from .config import Settings
-from .db import Base, make_engine, make_sessionmaker
+from .db import Base, ensure_schema, make_engine, make_sessionmaker
 from .notifications import Notifier
 from .routes import auth_routes, blobs, circles, feed, me, memories, photos, safety
 from .storage import BlobStore
@@ -44,6 +44,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     engine = make_engine(settings.database_url)
     Base.metadata.create_all(engine)
+    ensure_schema(engine)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

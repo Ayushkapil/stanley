@@ -49,6 +49,7 @@ def capture(
     file: UploadFile = File(...),
     tz: str = Form(...),
     caption: str | None = Form(default=None),
+    location: str | None = Form(default=None),
     taken_at_claim: str | None = Form(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -61,6 +62,11 @@ def capture(
         ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError):
         raise HTTPException(400, {"code": "bad_timezone"})
+
+    # Location is a human-written place label, never device metadata (§9).
+    location = (location or "").strip() or None
+    if location is not None and len(location) > 120:
+        raise HTTPException(400, {"code": "location_too_long"})
 
     now = clock.now()
     taken_at = physics.reconcile_taken_at(now, _parse_claim(taken_at_claim))
@@ -103,6 +109,7 @@ def capture(
         taken_tz=tz,
         local_date=physics.local_capture_date(taken_at, tz),
         caption=caption,
+        location=location,
         state=physics.LIVE,
         state_deadline=physics.state_deadline(physics.LIVE, taken_at),
         created_at=now,

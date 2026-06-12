@@ -76,6 +76,9 @@ def photo_payload(
         "owner": user_brief(session, photo.owner_id),
         "taken_at": iso(photo.taken_at),
         "caption": photo.caption,
+        # A typed place label, part of the memory like the caption. Never
+        # coordinates, never a map link (§9: EXIF GPS is stripped at ingest).
+        "location": photo.location,
         "state": photo.state,
         "decay_progress": physics.decay_progress(photo.taken_at, now),
         # §13: clients interpolate the fade between syncs from this deadline.

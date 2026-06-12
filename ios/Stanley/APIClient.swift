@@ -15,6 +15,10 @@ enum APIError: LocalizedError {
             case "already_in_circle": return "You're already part of a circle."
             case "no_circle": return "Join a circle first."
             case "faded": return "This moment has already faded."
+            case "username_taken": return "That username is taken."
+            case "bad_username": return "Usernames are 3–30 characters: lowercase letters, numbers, dots, dashes."
+            case "bad_display_name": return "A name can't be empty."
+            case "location_too_long": return "Keep the place name short."
             default: return "Something went wrong (\(code))."
             }
         case .message(let text):
@@ -86,8 +90,9 @@ final class APIClient {
         return try await perform(request)
     }
 
-    /// Capture upload (§8.4): multipart, in-app camera bytes only.
-    func uploadPhoto(jpeg: Data, caption: String?) async throws -> Photo {
+    /// Capture upload (§8.4): multipart, in-app camera bytes only. Location is
+    /// a typed place label — never GPS, which the server strips anyway.
+    func uploadPhoto(jpeg: Data, caption: String?, location: String?) async throws -> Photo {
         let boundary = "stanley-\(UUID().uuidString)"
         var request = URLRequest(url: baseURL.appending(path: "/photos"))
         request.httpMethod = "POST"
@@ -106,6 +111,7 @@ final class APIClient {
         field("tz", TimeZone.current.identifier)
         field("taken_at_claim", ISO8601DateFormatter().string(from: Date()))
         if let caption, !caption.isEmpty { field("caption", caption) }
+        if let location, !location.isEmpty { field("location", location) }
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n")
         append("Content-Type: image/jpeg\r\n\r\n")

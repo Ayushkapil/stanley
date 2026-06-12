@@ -51,3 +51,37 @@ def make_engine(url: str):
 
 def make_sessionmaker(engine):
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+# Columns added after the first release. create_all() only creates missing
+# tables, so existing pilot databases get these via ALTER on startup.
+_LATER_COLUMNS = {
+    "users": {"username": "VARCHAR(30)", "bio": "TEXT"},
+    "photos": {"location": "VARCHAR(120)"},
+}
+_LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
+
+
+def ensure_schema(engine) -> list[str]:
+    """Tiny forward-only migration: add any missing late columns. Returns the
+    list of columns added (for logging/tests)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    added = []
+    with engine.begin() as conn:
+        tables = set(inspector.get_table_names())
+        for table, columns in _LATER_COLUMNS.items():
+            if table not in tables:
+                continue
+            have = {c["name"] for c in inspector.get_columns(table)}
+            for name, ddl in columns.items():
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+                    added.append(f"{table}.{name}")
+        for index, table, column in _LATER_UNIQUE_INDEXES:
+            if table in tables:
+                conn.execute(
+                    text(f"CREATE UNIQUE INDEX IF NOT EXISTS {index} ON {table} ({column})")
+                )
+    return added

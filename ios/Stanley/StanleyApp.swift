@@ -14,6 +14,15 @@ struct StanleyApp: App {
 
 struct RootView: View {
     @Environment(AppState.self) private var state
+    @AppStorage("stanley.appearance") private var appearance = "system"
+
+    private var colorScheme: ColorScheme? {
+        switch appearance {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
 
     var body: some View {
         @Bindable var state = state
@@ -38,6 +47,7 @@ struct RootView: View {
         ) {
             Button("OK", role: .cancel) {}
         }
+        .preferredColorScheme(colorScheme)
     }
 }
 
@@ -48,6 +58,8 @@ struct HomeView: View {
                 .tabItem { Label("Today", systemImage: "sun.haze") }
             MemoriesView()
                 .tabItem { Label("Kept", systemImage: "bookmark") }
+            ProfileView()
+                .tabItem { Label("You", systemImage: "person") }
             SettingsView()
                 .tabItem { Label("Quiet", systemImage: "moon") }
         }

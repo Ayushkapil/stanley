@@ -12,7 +12,7 @@ import time
 from . import decay, notifications
 from .clock import SystemClock
 from .config import Settings
-from .db import Base, make_engine, make_sessionmaker
+from .db import Base, ensure_schema, make_engine, make_sessionmaker
 from .notifications import Notifier
 from .storage import BlobStore
 
@@ -21,6 +21,7 @@ def run_once(settings: Settings | None = None) -> None:
     settings = settings or Settings()
     engine = make_engine(settings.database_url)
     Base.metadata.create_all(engine)
+    ensure_schema(engine)
     clock = SystemClock()
     notifier = Notifier()
     storage = BlobStore(settings.blob_dir)

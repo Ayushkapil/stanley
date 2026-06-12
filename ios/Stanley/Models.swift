@@ -25,6 +25,7 @@ struct Photo: Codable, Identifiable, Hashable {
     let owner: UserBrief
     let takenAt: Date
     let caption: String?
+    let location: String?
     let state: String
     let decayProgress: Double
     let stateDeadline: Date?
@@ -50,6 +51,7 @@ struct Memory: Codable, Identifiable, Hashable {
     let photoPayloadId: String?
     let takenAt: Date?
     let caption: String?
+    let location: String?
     let urls: PhotoURLs?
     let comments: [Comment]?
     // both
@@ -59,7 +61,7 @@ struct Memory: Codable, Identifiable, Hashable {
     var id: String { photoId ?? photoPayloadId ?? UUID().uuidString }
 
     enum CodingKeys: String, CodingKey {
-        case tombstone, photoId, date, takenAt, caption, urls, comments, note, anchoredAt
+        case tombstone, photoId, date, takenAt, caption, location, urls, comments, note, anchoredAt
         case photoPayloadId = "id"
     }
 }
@@ -108,4 +110,22 @@ struct AuthResponse: Codable {
 
 struct MeSettings: Codable {
     let lastLightNoticeEnabled: Bool
+}
+
+/// Own profile (GET /me, PATCH /me/profile). Identity only — the API has no
+/// counts to decode, and neither does this struct.
+struct MyProfile: Codable {
+    let id: String
+    let displayName: String?
+    let username: String?
+    let bio: String?
+    let lastLightNoticeEnabled: Bool?
+}
+
+/// Another circle member's profile: their name and their words, nothing else.
+struct MemberProfile: Codable {
+    let id: String
+    let displayName: String?
+    let username: String?
+    let bio: String?
 }

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+import re
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -14,17 +16,61 @@ from ..serialize import memory_payload, user_brief
 router = APIRouter(tags=["me"])
 
 
+USERNAME_RE = re.compile(r"^[a-z0-9._-]{3,30}$")
+
+
 class SettingsPatch(BaseModel):
     last_light_notice_enabled: bool | None = None
 
 
-@router.get("/me")
-def me(user: User = Depends(get_current_user)):
+class ProfilePatch(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    username: str | None = None
+    # A real bio: multi-line free text, room to write about yourself.
+    bio: str | None = Field(default=None, max_length=1000)
+
+
+def _profile_payload(user: User) -> dict:
+    # Identity only — no counts of any kind exist on a profile.
     return {
         "id": user.id,
         "display_name": user.display_name,
+        "username": user.username,
+        "bio": user.bio,
+    }
+
+
+@router.get("/me")
+def me(user: User = Depends(get_current_user)):
+    return _profile_payload(user) | {
         "last_light_notice_enabled": user.last_light_notice_enabled,
     }
+
+
+@router.patch("/me/profile")
+def patch_profile(
+    body: ProfilePatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if body.display_name is not None:
+        name = body.display_name.strip()
+        if not name:
+            raise HTTPException(400, {"code": "bad_display_name"})
+        user.display_name = name
+    if body.username is not None:
+        username = body.username.strip().lower()
+        if not USERNAME_RE.match(username):
+            raise HTTPException(400, {"code": "bad_username"})
+        taken = db.scalars(
+            select(User).where(User.username == username, User.id != user.id)
+        ).first()
+        if taken is not None:
+            raise HTTPException(409, {"code": "username_taken"})
+        user.username = username
+    if body.bio is not None:
+        user.bio = body.bio  # newlines preserved verbatim
+    return _profile_payload(user)
 
 
 @router.patch("/me/settings")

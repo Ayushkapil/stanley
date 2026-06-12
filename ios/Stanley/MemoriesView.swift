@@ -65,6 +65,13 @@ struct MemoryRow: View {
                     } else if let takenAt = memory.takenAt {
                         Text(takenAt, style: .date).font(.callout)
                     }
+                    if let location = memory.location, !location.isEmpty {
+                        Text(location)
+                            .font(.caption)
+                            .italic()
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     if let note = memory.note, !note.isEmpty {
                         Text(note)
                             .font(.caption)
