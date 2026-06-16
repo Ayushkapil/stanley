@@ -26,16 +26,18 @@ struct RootView: View {
 
     var body: some View {
         @Bindable var state = state
-        Group {
-            if !state.signedIn {
-                WelcomeView()
-            } else if !state.checkedCircle {
-                ProgressView()
-                    .task { await state.loadCircle() }
-            } else if state.circle == nil {
-                CircleGateView()
-            } else {
-                HomeView()
+        LockGate {
+            Group {
+                if !state.signedIn {
+                    WelcomeView()
+                } else if !state.checkedCircle {
+                    ProgressView()
+                        .task { await state.loadCircle() }
+                } else if state.circle == nil {
+                    CircleGateView()
+                } else {
+                    HomeView()
+                }
             }
         }
         .alert(
@@ -56,12 +58,13 @@ struct HomeView: View {
         TabView {
             TodayFeedView()
                 .tabItem { Label("Today", systemImage: "sun.haze") }
+            // Held: light that didn't go out — a flame to Today's sun.
             MemoriesView()
-                .tabItem { Label("Kept", systemImage: "bookmark") }
+                .tabItem { Label("Held", systemImage: "flame") }
             ProfileView()
                 .tabItem { Label("You", systemImage: "person") }
             SettingsView()
-                .tabItem { Label("Quiet", systemImage: "moon") }
+                .tabItem { Label("Settings", systemImage: "gearshape") }
         }
     }
 }

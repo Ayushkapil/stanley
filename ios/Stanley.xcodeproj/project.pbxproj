@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		085A358993C019819E3E1743 /* CircleGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */; };
+		118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB8427334A459A620854705 /* AvatarPicker.swift */; };
 		1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B371E63EBC11AC20695ED507 /* StanleyApp.swift */; };
 		26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */; };
 		34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C775715F391ED80D954D9ED /* WelcomeView.swift */; };
@@ -16,6 +17,9 @@
 		617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9649D2EC31D301586F01D82 /* APIClient.swift */; };
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
+		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
+		A218937F0265E72919AAE872 /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38170E6EF5384B93F19F643 /* UIComponents.swift */; };
+		D5D40121434D7046D84E7057 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28BF0640C2B868C0AD896FBF /* AboutView.swift */; };
 		EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */; };
 		F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1401F690E1241EB4B8D190DC /* AppState.swift */; };
 /* End PBXBuildFile section */
@@ -25,11 +29,15 @@
 		0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 		1401F690E1241EB4B8D190DC /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		28BF0640C2B868C0AD896FBF /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		54B7A0448179C1D07FE2922B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		59A4482F0EEC4500194DB4B1 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayFeedView.swift; sourceTree = "<group>"; };
 		8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriesView.swift; sourceTree = "<group>"; };
 		98DB333BECC60813C685C4A7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		9BB8427334A459A620854705 /* AvatarPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarPicker.swift; sourceTree = "<group>"; };
 		B371E63EBC11AC20695ED507 /* StanleyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanleyApp.swift; sourceTree = "<group>"; };
+		C38170E6EF5384B93F19F643 /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
 		C9649D2EC31D301586F01D82 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -48,8 +56,11 @@
 		445ECFEFF67B97B6B801C9BD /* Stanley */ = {
 			isa = PBXGroup;
 			children = (
+				28BF0640C2B868C0AD896FBF /* AboutView.swift */,
 				C9649D2EC31D301586F01D82 /* APIClient.swift */,
+				59A4482F0EEC4500194DB4B1 /* AppLock.swift */,
 				1401F690E1241EB4B8D190DC /* AppState.swift */,
+				9BB8427334A459A620854705 /* AvatarPicker.swift */,
 				0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */,
 				E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */,
 				54B7A0448179C1D07FE2922B /* Info.plist */,
@@ -59,6 +70,7 @@
 				E1D927F2B4D7F02207747D21 /* SettingsView.swift */,
 				B371E63EBC11AC20695ED507 /* StanleyApp.swift */,
 				894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */,
+				C38170E6EF5384B93F19F643 /* UIComponents.swift */,
 				0C775715F391ED80D954D9ED /* WelcomeView.swift */,
 			);
 			path = Stanley;
@@ -128,7 +140,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */,
+				D5D40121434D7046D84E7057 /* AboutView.swift in Sources */,
+				9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */,
 				F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */,
+				118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */,
 				4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */,
 				085A358993C019819E3E1743 /* CircleGateView.swift in Sources */,
 				26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */,
@@ -137,6 +152,7 @@
 				7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */,
 				1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */,
 				69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */,
+				A218937F0265E72919AAE872 /* UIComponents.swift in Sources */,
 				34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

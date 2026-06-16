@@ -121,6 +121,41 @@ final class APIClient {
         return try await perform(request)
     }
 
+    /// Avatar upload (Part 6): identity, not content. Multipart, like capture.
+    func uploadAvatar(jpeg: Data) async throws -> AvatarResponse {
+        let boundary = "stanley-\(UUID().uuidString)"
+        var request = URLRequest(url: baseURL.appending(path: "/me/avatar"))
+        request.httpMethod = "POST"
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type"
+        )
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        var body = Data()
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.jpg\"\r\n".utf8))
+        body.append(Data("Content-Type: image/jpeg\r\n\r\n".utf8))
+        body.append(jpeg)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        request.httpBody = body
+        return try await perform(request)
+    }
+
+    /// Raw authed GET, for the export zip (not JSON).
+    func fetchData(_ path: String) async throws -> Data {
+        var request = URLRequest(url: baseURL.appending(path: path))
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else {
+            throw Self.errorFrom(data: data, status: status)
+        }
+        return data
+    }
+
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

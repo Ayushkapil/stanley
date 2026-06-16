@@ -16,6 +16,8 @@ targets:
         NSCameraUsageDescription: >-
           Stanley captures one photo a day, in the moment. The camera is the
           only way in — there is no roll, no retakes.
+        NSFaceIDUsageDescription: >-
+          Stanley can lock itself behind Face ID so only you can open it.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:

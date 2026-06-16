@@ -56,6 +56,16 @@ struct PhotoCard: View {
     let photo: Photo
     @State private var newComment = ""
     @State private var viewedMember: ViewedMember?
+    @State private var showFaces = false
+
+    // Press-and-hold feedback (Part 4): color deepens under the thumb, then a
+    // soft settle on commit — never applause.
+    @State private var holdProgress: Double = 0
+    @State private var settleScale: CGFloat = 1
+    // Warmth feedback (Part 5): a gentle glow on double-tap, not a burst.
+    @State private var warmGlow: Double = 0
+
+    private var isMine: Bool { state.myId != nil && state.myId == photo.owner.id }
 
     // The fade is ambient, never numeric (§8.1). decay_progress spans the whole
     // 144h public life, but LIVE (< 1/3) must render fully visible — so the
@@ -76,87 +86,191 @@ struct PhotoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Button {
-                    if let ownerId = photo.owner.id {
-                        viewedMember = ViewedMember(id: ownerId)
-                    }
-                } label: {
-                    Text(photo.owner.displayName)
-                        .font(.subheadline.weight(.medium))
-                }
-                .buttonStyle(.plain)
-                Spacer()
-                Text(photo.takenAt, format: .relative(presentation: .named))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
-                AsyncImage(url: url) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle().fill(.quaternary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 320)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .saturation(1.0 - 0.85 * fade)
-                .opacity(1.0 - opacityDrop * fade)
-            }
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let caption = photo.caption, !caption.isEmpty {
-                        Text(caption)
-                            .font(.body)
-                    }
-                    // a place as a remembered word, not a pin — never tappable
-                    if let location = photo.location, !location.isEmpty {
-                        Text(location)
-                            .font(.footnote)
-                            .italic()
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                // Anchoring: a private act of keeping. No counts, ever (A2).
-                Button {
-                    Task { await state.toggleAnchor(photo) }
-                } label: {
-                    Image(systemName: photo.anchoredByMe ? "bookmark.fill" : "bookmark")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(photo.anchoredByMe ? Color.accentColor : Color.secondary)
-            }
-            if !photo.comments.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(photo.comments) { comment in
-                        // Story additions, flat and chronological (§8.3).
-                        (Text(comment.author.displayName).fontWeight(.medium)
-                            + Text("  ") + Text(comment.body))
-                            .font(.callout)
-                    }
-                }
-                .padding(.top, 2)
-            }
-            HStack {
-                TextField("Add to the story…", text: $newComment)
-                    .textFieldStyle(.plain)
-                    .font(.callout)
-                if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Button("Add") {
-                        let body = newComment.trimmingCharacters(in: .whitespaces)
-                        newComment = ""
-                        Task { await state.comment(on: photo, body: body) }
-                    }
-                    .font(.callout)
-                }
-            }
+            header
+            photoImage
+            actionRow
+            comments
+            commentField
         }
         .padding(.bottom, 8)
         .sheet(item: $viewedMember) { member in
             MemberProfileView(memberId: member.id)
                 .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showFaces) {
+            FacesSheet(photoId: photo.id)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Button {
+                if let ownerId = photo.owner.id {
+                    viewedMember = ViewedMember(id: ownerId)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    AvatarView(url: photo.owner.avatarUrl, name: photo.owner.displayName, size: 28)
+                    Text(photo.owner.displayName)
+                        .font(.subheadline.weight(.medium))
+                }
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            // Absolute time of day (Part 6), e.g. "1:06 AM" — not "2 hours ago".
+            Text(photo.takenAt, format: .dateTime.hour().minute())
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var photoImage: some View {
+        if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
+            AsyncImage(url: url) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle().fill(.quaternary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 320)
+            .clipped()
+            .saturation(1.0 - 0.85 * fade)
+            .opacity(1.0 - opacityDrop * fade)
+            // Press-and-hold deepens a warm wash under the thumb.
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.orange.opacity(0.38 * holdProgress))
+            )
+            // Double-tap warmth: a soft glow, no burst.
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.yellow.opacity(0.45 * warmGlow))
+                    .blendMode(.plusLighter)
+                    .allowsHitTesting(false)
+            )
+            // Held marker: a small steady flame, top-leading. Warmth marker:
+            // a small sun, top-trailing — shown only to me, my own state.
+            .overlay(alignment: .topLeading) {
+                if photo.anchoredByMe {
+                    marker(systemName: "flame.fill", tint: .orange)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if photo.warmedByMe {
+                    marker(systemName: "sun.min.fill", tint: .yellow)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .scaleEffect(settleScale)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { warm() }
+            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 30) {
+                hold()
+            } onPressingChanged: { pressing in
+                withAnimation(.easeOut(duration: pressing ? 0.45 : 0.25)) {
+                    holdProgress = pressing && !photo.anchoredByMe ? 1 : 0
+                }
+            }
+            // VoiceOver paths for gestures that can't be tapped out (no conflict
+            // with the press-and-hold/double-tap above).
+            .accessibilityAction(named: photo.warmedByMe ? "Cool" : "Warm") { warm() }
+            .accessibilityAction(named: photo.anchoredByMe ? "Let go" : "Hold") {
+                Task { await state.toggleAnchor(photo) }
+            }
+        }
+    }
+
+    private func marker(systemName: String, tint: Color) -> some View {
+        Image(systemName: systemName)
+            .font(.footnote)
+            .foregroundStyle(tint)
+            .padding(6)
+            .background(.ultraThinMaterial, in: Circle())
+            .padding(8)
+    }
+
+    private var actionRow: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                if let caption = photo.caption, !caption.isEmpty {
+                    Text(caption).font(.body)
+                }
+                // a place as a remembered word, not a pin — never tappable
+                if let location = photo.location, !location.isEmpty {
+                    Text(location)
+                        .font(.footnote)
+                        .italic()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            // Owner-only: peek at the warmth + keeping this gathered — faces.
+            if isMine {
+                Button { showFaces = true } label: {
+                    Image(systemName: "person.2")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+            // Held: the keep gesture. Tap is the accessible path; press-and-hold
+            // the photo is the primary one. No counts, ever (A2).
+            Button {
+                Task { await state.toggleAnchor(photo) }
+            } label: {
+                Image(systemName: photo.anchoredByMe ? "flame.fill" : "flame")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(photo.anchoredByMe ? .orange : .secondary)
+            .accessibilityLabel(photo.anchoredByMe ? "Let go of this memory" : "Hold this memory")
+        }
+    }
+
+    @ViewBuilder
+    private var comments: some View {
+        if !photo.comments.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(photo.comments) { comment in
+                    // Story additions, flat and chronological (§8.3).
+                    (Text(comment.author.displayName).fontWeight(.medium)
+                        + Text("  ") + Text(comment.body))
+                        .font(.callout)
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private var commentField: some View {
+        HStack {
+            TextField("Add to the story…", text: $newComment)
+                .textFieldStyle(.plain)
+                .font(.callout)
+            if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
+                Button("Add") {
+                    let body = newComment.trimmingCharacters(in: .whitespaces)
+                    newComment = ""
+                    Task { await state.comment(on: photo, body: body) }
+                }
+                .font(.callout)
+            }
+        }
+    }
+
+    private func hold() {
+        guard !photo.anchoredByMe else { return }
+        withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
+        // a soft settle, not a pop
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { settleScale = 0.97 }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.12)) { settleScale = 1 }
+        Task { await state.hold(photo) }
+    }
+
+    private func warm() {
+        withAnimation(.easeOut(duration: 0.18)) { warmGlow = 1 }
+        withAnimation(.easeIn(duration: 0.5).delay(0.18)) { warmGlow = 0 }
+        Task { await state.toggleWarmth(photo) }
     }
 }
 

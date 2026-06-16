@@ -17,13 +17,16 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(state.profile?.displayName ?? " ")
-                            .font(.title2.weight(.medium))
-                        if let username = state.profile?.username {
-                            Text("@\(username)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    HStack(alignment: .center, spacing: 16) {
+                        AvatarEditor()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(state.profile?.displayName ?? " ")
+                                .font(.keepsake(30))
+                            if let username = state.profile?.username {
+                                Text("@\(username)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     if let bio = state.profile?.bio, !bio.isEmpty {
@@ -36,18 +39,27 @@ struct ProfileView: View {
                             .foregroundStyle(.secondary)
                             .buttonStyle(.plain)
                     }
+                    if let members = state.circle?.members, !members.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Your circle")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.secondary)
+                            AvatarCluster(members: members)
+                        }
+                        .padding(.top, 6)
+                    }
                     Divider()
                         .padding(.vertical, 8)
-                    Text("Kept")
-                        .font(.headline)
+                    Text("Held")
+                        .font(.keepsake(24))
                     if kept.isEmpty {
-                        Text("Moments you anchor will gather here. Only you see this.")
+                        Text("Moments you hold will gather here at full light. Only you see this — nothing here fades.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     } else {
                         LazyVGrid(columns: columns, spacing: 3) {
                             ForEach(kept) { memory in
-                                KeptTile(memory: memory)
+                                HeldTile(memory: memory)
                             }
                         }
                     }
@@ -74,15 +86,22 @@ struct ProfileView: View {
     }
 }
 
-struct KeptTile: View {
+/// A Held tile (Part 6): full saturation — Held is the one place nothing fades
+/// — with a faint "held · date" trace. Reads well at three tiles or thirty.
+struct HeldTile: View {
     @Environment(AppState.self) private var state
     let memory: Memory
+
+    private var trace: String? {
+        guard let taken = memory.takenAt else { return nil }
+        return "held · \(taken.formatted(.dateTime.month(.abbreviated).day()))"
+    }
 
     var body: some View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .overlay {
-                if memory.tombstone {
+                if memory.isTombstone {
                     ZStack {
                         Rectangle().fill(.quinary)
                         Image(systemName: "leaf")
@@ -96,7 +115,18 @@ struct KeptTile: View {
                     }
                 }
             }
-            .clipped()
+            .overlay(alignment: .bottomLeading) {
+                if let trace {
+                    Text(trace)
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.28), in: Capsule())
+                        .padding(5)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
     }
 }
@@ -172,8 +202,10 @@ struct MemberProfileView: View {
             if let member {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
+                        AvatarView(url: member.avatarUrl, name: member.displayName, size: 72)
+                            .padding(.bottom, 4)
                         Text(member.displayName ?? "departed")
-                            .font(.title2.weight(.medium))
+                            .font(.keepsake(28))
                         if let username = member.username {
                             Text("@\(username)")
                                 .font(.subheadline)

@@ -11,6 +11,7 @@ final class AppState {
     var returned: ReturnedItem?
     var threads: [MemoryThread] = []
     var profile: MyProfile?
+    var myId: String?
     var errorMessage: String?
     var checkedCircle = false
 
@@ -30,6 +31,7 @@ final class AppState {
                 "POST", "/auth/dev", json: ["display_name": name]
             )
             api.token = auth.token
+            myId = auth.user.id
             signedIn = true
             await loadCircle()
         } catch {
@@ -45,6 +47,8 @@ final class AppState {
         feed = []
         returned = nil
         threads = []
+        profile = nil
+        myId = nil
     }
 
     func loadCircle() async {
@@ -60,7 +64,8 @@ final class AppState {
 
     func createCircle(name: String) async {
         do {
-            circle = try await api.send("POST", "/circles", json: ["name": name]) as CircleInfo
+            _ = try await api.send("POST", "/circles", json: ["name": name]) as CircleInfo
+            await loadCircle()  // pull the full shape: invite token, roster, creator
         } catch {
             surface(error)
         }
@@ -74,9 +79,10 @@ final class AppState {
             return
         }
         do {
-            circle = try await api.send(
+            _ = try await api.send(
                 "POST", "/circles/\(parts[0])/join", json: ["invite_token": parts[1]]
             ) as CircleInfo
+            await loadCircle()  // pull the full shape: roster + creator flag
         } catch {
             surface(error)
         }
@@ -116,6 +122,17 @@ final class AppState {
     func loadProfile() async {
         do {
             profile = try await api.send("GET", "/me") as MyProfile
+            myId = profile?.id
+        } catch {
+            surface(error)
+        }
+    }
+
+    func uploadAvatar(jpeg: Data) async {
+        do {
+            _ = try await api.uploadAvatar(jpeg: jpeg)
+            await loadProfile()
+            await loadCircle()  // so the roster cluster shows the new face
         } catch {
             surface(error)
         }
@@ -161,6 +178,54 @@ final class AppState {
         }
     }
 
+    /// Press-and-hold commit: hold a photo into Held. Idempotent — holding an
+    /// already-held photo keeps it held (the icon-tap path does the un-hold).
+    func hold(_ photo: Photo) async {
+        if photo.anchoredByMe { return }
+        do {
+            let _: Empty = try await api.send(
+                "POST", "/photos/\(photo.id)/anchor", json: ["note": nil]
+            )
+            await refreshToday()
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// Warmth — the light, ephemeral gesture (Part 5). Double-tap toggles.
+    func toggleWarmth(_ photo: Photo) async {
+        do {
+            if photo.warmedByMe {
+                let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/warm")
+            } else {
+                let _: Empty = try await api.send("POST", "/photos/\(photo.id)/warm")
+            }
+            await refreshToday()
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// Owner-only: who warmed this photo, as faces. Never a count.
+    func warmthFaces(_ photoId: String) async -> [UserBrief] {
+        do {
+            return (try await api.send("GET", "/photos/\(photoId)/warmth") as WarmthResponse).faces
+        } catch {
+            surface(error)
+            return []
+        }
+    }
+
+    /// Owner-only: who held this photo, as faces. Never a count (A2).
+    func heldByFaces(_ photoId: String) async -> [HeldByEntry] {
+        do {
+            return (try await api.send("GET", "/photos/\(photoId)/anchors") as HeldByResponse).anchors
+        } catch {
+            surface(error)
+            return []
+        }
+    }
+
     func comment(on photo: Photo, body: String) async {
         do {
             let _: Empty = try await api.send(
@@ -178,6 +243,56 @@ final class AppState {
             returned = nil  // gone quietly; no confirmation, no reason prompt (§14)
         } catch {
             surface(error)
+        }
+    }
+
+    // MARK: circle admin & account
+
+    func rotateInvite() async {
+        guard let circle else { return }
+        do {
+            let _: InviteResponse = try await api.send("POST", "/circles/\(circle.id)/rotate_invite")
+            await loadCircle()  // reload to surface the new token in the UI
+        } catch {
+            surface(error)
+        }
+    }
+
+    func removeMember(_ memberId: String) async {
+        guard let circle else { return }
+        do {
+            let _: Empty = try await api.send("DELETE", "/circles/\(circle.id)/members/\(memberId)")
+            await loadCircle()
+        } catch {
+            surface(error)
+        }
+    }
+
+    func leaveCircle() async {
+        guard let circle else { return }
+        do {
+            let _: Empty = try await api.send("POST", "/circles/\(circle.id)/leave")
+            await loadCircle()  // -> no_circle -> back to the circle gate
+        } catch {
+            surface(error)
+        }
+    }
+
+    func deleteAccount() async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/me")
+            signOut()
+        } catch {
+            surface(error)
+        }
+    }
+
+    func exportMemories() async -> Data? {
+        do {
+            return try await api.fetchData("/me/export")
+        } catch {
+            surface(error)
+            return nil
         }
     }
 }

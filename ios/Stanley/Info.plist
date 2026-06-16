@@ -27,6 +27,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Stanley captures one photo a day, in the moment. The camera is the only way in — there is no roll, no retakes.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Stanley can lock itself behind Face ID so only you can open it.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

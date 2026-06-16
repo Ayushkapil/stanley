@@ -3,9 +3,12 @@ import Foundation
 // Codable mirrors of the server payloads (server/stanley/serialize.py).
 // Snake-case keys are converted by the decoder in APIClient.
 
-struct UserBrief: Codable, Hashable {
+struct UserBrief: Codable, Hashable, Identifiable {
     let id: String?
     let displayName: String
+    let avatarUrl: String?
+
+    // A person reduced to a face and a name — never a number.
 }
 
 struct PhotoURLs: Codable, Hashable {
@@ -33,6 +36,8 @@ struct Photo: Codable, Identifiable, Hashable {
     let comments: [Comment]
     let anchoredByMe: Bool
     let myAnchorNote: String?
+    // The caller's own warmth state only — never a count, never who else (Part 5).
+    let warmedByMe: Bool
 }
 
 struct FeedResponse: Codable {
@@ -43,7 +48,9 @@ struct FeedResponse: Codable {
 /// ("a memory was here"). The server sends different shapes; everything that
 /// can be absent is optional here.
 struct Memory: Codable, Identifiable, Hashable {
-    let tombstone: Bool
+    // Absent in the Returned "rescue" payload (a raw photo), so optional.
+    let tombstone: Bool?
+    var isTombstone: Bool { tombstone ?? false }
     // tombstone shape
     let photoId: String?
     let date: String?
@@ -88,13 +95,16 @@ struct ReturnedResponse: Codable {
 struct CircleMember: Codable, Identifiable, Hashable {
     let id: String
     let displayName: String?
+    let avatarUrl: String?
     let joinedAt: Date
+    let isCreator: Bool?
 }
 
 struct CircleInfo: Codable {
     let id: String
     let name: String
     let inviteToken: String?
+    let isCreator: Bool?
     let members: [CircleMember]?
 }
 
@@ -119,13 +129,41 @@ struct MyProfile: Codable {
     let displayName: String?
     let username: String?
     let bio: String?
+    let avatarUrl: String?
+    let createdAt: Date?
     let lastLightNoticeEnabled: Bool?
 }
 
-/// Another circle member's profile: their name and their words, nothing else.
+/// Another circle member's profile: their face, name and words, nothing else.
 struct MemberProfile: Codable {
     let id: String
     let displayName: String?
     let username: String?
     let bio: String?
+    let avatarUrl: String?
+}
+
+struct AvatarResponse: Codable {
+    let avatarUrl: String?
+}
+
+struct InviteResponse: Codable {
+    let inviteToken: String
+}
+
+/// Owner-only faces of who warmed a photo — never a count (Part 5).
+struct WarmthResponse: Codable {
+    let faces: [UserBrief]
+}
+
+/// Owner-only entry of who held a photo. Faces, not numbers (A2).
+struct HeldByEntry: Codable, Identifiable, Hashable {
+    let user: UserBrief
+    let createdAt: Date
+    let note: String?
+    var id: String { user.id ?? UUID().uuidString }
+}
+
+struct HeldByResponse: Codable {
+    let anchors: [HeldByEntry]
 }
