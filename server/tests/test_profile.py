@@ -47,11 +47,13 @@ def test_member_profile_shows_words_only(circle):
     r = circle.ben.client.get(f"/members/{circle.ana.id}", headers=circle.ben.h)
     assert r.status_code == 200
     payload = r.json()
+    # A face, a name, and words — and avatar_url is the only addition allowed.
     assert payload == {
         "id": circle.ana.id,
         "display_name": "ana",
         "username": None,
         "bio": "I keep doors.",
+        "avatar_url": None,
     }
     # …and none of them leak: no anchors, no memories, no numbers
     assert not any("anchor" in k or "count" in k or "memor" in k for k in payload)

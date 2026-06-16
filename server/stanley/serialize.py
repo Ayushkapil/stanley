@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .config import Settings
-from .models import Anchor, Block, Comment, Photo, User
+from .models import Anchor, Block, Comment, Photo, User, Warmth
 from .storage import signed_url
 
 DEPARTED = "departed"
@@ -18,6 +18,14 @@ DEPARTED = "departed"
 
 def iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt else None
+
+
+def avatar_url(settings: Settings | None, key: str | None, now: datetime | None) -> str | None:
+    """Avatars are identity, not content — they don't decay, but reads are still
+    short-TTL signed (§9). None when there's no avatar or no signing context."""
+    if not settings or not key or now is None:
+        return None
+    return signed_url(settings.secret_key, key, now, settings.signed_url_ttl_seconds)
 
 
 def blocked_ids(session: Session, user_id: str) -> set[str]:
@@ -31,30 +39,49 @@ def blocked_ids(session: Session, user_id: str) -> set[str]:
     return out
 
 
-def user_brief(session: Session, user_id: str | None) -> dict:
+def user_brief(
+    session: Session,
+    user_id: str | None,
+    settings: Settings | None = None,
+    now: datetime | None = None,
+) -> dict:
+    """A person, reduced to a face and a name — never a number. Pass settings+now
+    to include a signed avatar URL."""
     user = session.get(User, user_id) if user_id else None
     if user is None or user.deleted_at is not None or not user.display_name:
-        return {"id": user_id, "display_name": DEPARTED}
-    return {"id": user.id, "display_name": user.display_name}
+        return {"id": user_id, "display_name": DEPARTED, "avatar_url": None}
+    return {
+        "id": user.id,
+        "display_name": user.display_name,
+        "avatar_url": avatar_url(settings, user.avatar_key, now),
+    }
 
 
-def comment_payload(session: Session, comment: Comment) -> dict:
+def comment_payload(
+    session: Session, comment: Comment, settings: Settings | None = None, now: datetime | None = None
+) -> dict:
     return {
         "id": comment.id,
-        "author": user_brief(session, comment.author_id),
+        "author": user_brief(session, comment.author_id, settings, now),
         "body": comment.body,
         "created_at": iso(comment.created_at),
     }
 
 
-def visible_comments(session: Session, photo_id: str, viewer_id: str) -> list[dict]:
+def visible_comments(
+    session: Session,
+    photo_id: str,
+    viewer_id: str,
+    settings: Settings | None = None,
+    now: datetime | None = None,
+) -> list[dict]:
     hidden = blocked_ids(session, viewer_id)
     comments = session.scalars(
         select(Comment)
         .where(Comment.photo_id == photo_id, Comment.deleted_at.is_(None))
         .order_by(Comment.created_at)  # flat, chronological (§8.3)
     ).all()
-    return [comment_payload(session, c) for c in comments if c.author_id not in hidden]
+    return [comment_payload(session, c, settings, now) for c in comments if c.author_id not in hidden]
 
 
 def photo_payload(
@@ -71,9 +98,10 @@ def photo_payload(
             "thumb": signed_url(settings.secret_key, photo.thumb_key, now, settings.signed_url_ttl_seconds),
         }
     my_anchor = session.get(Anchor, (photo.id, viewer.id))
+    my_warmth = session.get(Warmth, (photo.id, viewer.id))
     return {
         "id": photo.id,
-        "owner": user_brief(session, photo.owner_id),
+        "owner": user_brief(session, photo.owner_id, settings, now),
         "taken_at": iso(photo.taken_at),
         "caption": photo.caption,
         # A typed place label, part of the memory like the caption. Never
@@ -84,9 +112,11 @@ def photo_payload(
         # §13: clients interpolate the fade between syncs from this deadline.
         "state_deadline": iso(photo.state_deadline),
         "urls": urls,
-        "comments": visible_comments(session, photo.id, viewer.id),
+        "comments": visible_comments(session, photo.id, viewer.id, settings, now),
         "anchored_by_me": my_anchor is not None,
         "my_anchor_note": my_anchor.note if my_anchor else None,
+        # The caller's own warmth state only — never a count, never who else.
+        "warmed_by_me": my_warmth is not None,
     }
 
 

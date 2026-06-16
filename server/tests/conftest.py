@@ -72,6 +72,36 @@ class Api:
     def anchor(self, pid, note=None):
         return self.client.post(f"/photos/{pid}/anchor", json={"note": note}, headers=self.h)
 
+    def warm(self, pid):
+        return self.client.post(f"/photos/{pid}/warm", headers=self.h)
+
+    def unwarm(self, pid):
+        return self.client.delete(f"/photos/{pid}/warm", headers=self.h)
+
+    def warmth_of(self, pid):
+        return self.client.get(f"/photos/{pid}/warmth", headers=self.h)
+
+    def set_avatar(self, image: bytes | None = None):
+        files = {"file": ("a.jpg", image or jpeg_bytes(), "image/jpeg")}
+        return self.client.post("/me/avatar", files=files, headers=self.h)
+
+    def export(self):
+        return self.client.get("/me/export", headers=self.h)
+
+    def rotate_invite(self, circle_id):
+        return self.client.post(f"/circles/{circle_id}/rotate_invite", headers=self.h)
+
+    def remove_member(self, circle_id, uid):
+        return self.client.delete(f"/circles/{circle_id}/members/{uid}", headers=self.h)
+
+    def leave(self, circle_id):
+        return self.client.post(f"/circles/{circle_id}/leave", headers=self.h)
+
+    def join(self, circle_id, token):
+        return self.client.post(
+            f"/circles/{circle_id}/join", json={"invite_token": token}, headers=self.h
+        )
+
     def unanchor(self, pid):
         return self.client.delete(f"/photos/{pid}/anchor", headers=self.h)
 

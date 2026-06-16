@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import io
+import json
 import re
+import zipfile
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
-from ..models import Anchor, Block, Comment, Membership, Photo, Rest, User
-from ..serialize import memory_payload, user_brief
+from ..images import BadImage, process_avatar
+from ..models import Anchor, Block, Comment, Membership, Photo, Rest, User, Warmth
+from ..serialize import avatar_url, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
 
@@ -41,10 +46,42 @@ def _profile_payload(user: User) -> dict:
 
 
 @router.get("/me")
-def me(user: User = Depends(get_current_user)):
+def me(
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+):
+    now = clock.now()
     return _profile_payload(user) | {
+        "avatar_url": avatar_url(settings, user.avatar_key, now),
+        # join date for "About your account" — nothing else lives there.
+        "created_at": iso(user.created_at),
         "last_light_notice_enabled": user.last_light_notice_enabled,
     }
+
+
+@router.post("/me/avatar")
+def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+    storage=Depends(get_storage),
+):
+    """Avatar is identity, not content: a soft square, never decays, EXIF
+    dropped entirely. The client crops; the server guarantees the square."""
+    data = file.file.read(settings.max_upload_bytes + 1)
+    if len(data) > settings.max_upload_bytes:
+        raise HTTPException(413, {"code": "too_large"})
+    try:
+        jpeg = process_avatar(data)
+    except BadImage:
+        raise HTTPException(400, {"code": "bad_image"})
+    key = f"avatars/{user.id}.jpg"
+    storage.put(key, jpeg)
+    user.avatar_key = key
+    return {"avatar_url": avatar_url(settings, key, clock.now())}
 
 
 @router.patch("/me/profile")
@@ -112,6 +149,56 @@ def my_memories(
     return {"threads": list(threads.values())}
 
 
+@router.get("/me/export")
+def export_memories(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    storage=Depends(get_storage),
+):
+    """Bundle the user's Held photos + captions into a zip (§15 data export).
+    Held only — there is no 'all my posts' archive. Tombstones appear in the
+    manifest as an honest note, with no image."""
+    now = clock.now()
+    rows = db.execute(
+        select(Anchor, Photo)
+        .join(Photo, Photo.id == Anchor.photo_id)
+        .where(Anchor.user_id == user.id)
+        .order_by(Photo.taken_at)
+    ).all()
+
+    manifest = {
+        "exported_at": iso(now),
+        "display_name": user.display_name,
+        "held": [],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, (anchor, photo) in enumerate(rows, start=1):
+            entry = {
+                "date": photo.taken_at.date().isoformat(),
+                "caption": photo.caption,
+                "location": photo.location,
+                "note": anchor.note,
+                "from": user_brief(db, photo.owner_id)["display_name"],
+            }
+            if photo.state != physics.PURGED and photo.deriv_key and storage.exists(photo.deriv_key):
+                name = f"held/{i:03d}_{photo.taken_at.date().isoformat()}.jpg"
+                zf.writestr(name, storage.get(photo.deriv_key))
+                entry["image"] = name
+            else:
+                entry["image"] = None
+                entry["tombstone"] = True
+            manifest["held"].append(entry)
+        zf.writestr("memories.json", json.dumps(manifest, indent=2))
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="stanley-memories.zip"'},
+    )
+
+
 @router.delete("/me", status_code=204)
 def delete_account(
     db: Session = Depends(get_db),
@@ -140,6 +227,9 @@ def delete_account(
 
     for comment in db.scalars(select(Comment).where(Comment.author_id == user.id)).all():
         db.delete(comment)
+    # Warmth the user gave on others' photos is withdrawn — their face must not
+    # linger on anyone's owner-view once they're gone (it's ephemeral anyway).
+    db.execute(delete(Warmth).where(Warmth.user_id == user.id))
     for rest in db.scalars(select(Rest).where(Rest.user_id == user.id)).all():
         db.delete(rest)
     for block in db.scalars(
@@ -151,6 +241,8 @@ def delete_account(
     ).all():
         db.delete(membership)
 
+    if user.avatar_key:
+        storage.delete(user.avatar_key)
     user.display_name = None
     user.apple_sub = None
     user.avatar_key = None

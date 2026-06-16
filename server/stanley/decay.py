@@ -9,12 +9,12 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from . import physics
 from .clock import Clock
-from .models import Anchor, Comment, DecayAudit, Photo, PurgeQueueItem
+from .models import Anchor, Comment, DecayAudit, Photo, PurgeQueueItem, Warmth
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
 
@@ -59,6 +59,9 @@ def sweep(session: Session, clock: Clock, notifier: Notifier) -> int:
                 expiry = photo.state_deadline
                 photo.state = physics.EXPIRED
                 photo.state_deadline = None
+                # Part 5: warmth decays WITH the photo. Leaving Today is the
+                # end of it — gone forever, never archived, never counted.
+                session.execute(delete(Warmth).where(Warmth.photo_id == photo.id))
                 # §8.2 retention rule: blob survives purge iff ≥1 anchor at expiry.
                 if _anchor_count(session, photo.id) == 0:
                     enqueue_purge(session, photo, expiry + TOMBSTONE)
@@ -96,6 +99,9 @@ def scrub(
     photo.blob_key = photo.deriv_key = photo.thumb_key = None
     photo.caption = None
     photo.location = None
+    # Warmth never outlives the photo it belonged to (Part 5). A delete before
+    # expiry takes its warmth with it, just as expiry would have.
+    session.execute(delete(Warmth).where(Warmth.photo_id == photo.id))
 
     if owner_requested:
         anchorer_ids = set(

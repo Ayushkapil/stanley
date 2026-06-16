@@ -93,6 +93,22 @@ class Anchor(Base):
     last_viewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
+class Warmth(Base):
+    """Ephemeral appreciation — the light 'like', on-physics (Part 5).
+
+    Warmth decays WITH the photo: when the photo leaves Today (EXPIRED), every
+    warmth row for it is deleted forever — never archived, never shown again,
+    never counted anywhere. Owner-only visibility (the owner sees faces, never
+    a number); nobody else sees warmth at all.
+    """
+
+    __tablename__ = "warmth"
+
+    photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
 class Comment(Base):
     """Story additions (§8.3): flat, chronological, part of the artifact."""
 

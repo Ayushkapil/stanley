@@ -18,6 +18,7 @@ EXIF_KEEP = {306}  # 306 = DateTime
 
 DERIVATIVE_EDGE = 1080
 THUMB_EDGE = 320
+AVATAR_EDGE = 512
 JPEG_QUALITY = 90
 
 
@@ -60,3 +61,24 @@ def process_upload(data: bytes) -> ProcessedImage:
         derivative=encode(DERIVATIVE_EDGE),
         thumbnail=encode(THUMB_EDGE),
     )
+
+
+def process_avatar(data: bytes) -> bytes:
+    """Center-crop to a square and downscale. Avatar is identity, not content,
+    so all EXIF is dropped (no timestamp kept) and it never decays. The client
+    crops too; this just guarantees a square regardless of what arrives."""
+    try:
+        img = Image.open(BytesIO(data))
+        img.load()
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise BadImage(f"could not decode avatar: {exc}") from exc
+
+    rgb = img.convert("RGB")
+    edge = min(rgb.width, rgb.height)
+    left = (rgb.width - edge) // 2
+    top = (rgb.height - edge) // 2
+    square = rgb.crop((left, top, left + edge, top + edge))
+    square.thumbnail((AVATAR_EDGE, AVATAR_EDGE))
+    buf = BytesIO()
+    square.save(buf, format="JPEG", quality=JPEG_QUALITY)
+    return buf.getvalue()
