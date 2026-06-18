@@ -276,15 +276,10 @@ struct MomentCard: View {
                 }
                 Spacer()
                 if let members = item.members {
-                    HStack(spacing: -8) {
-                        ForEach(members, id: \.id) { face in
-                            AvatarView(url: face.avatarUrl, name: face.displayName, size: 26)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 26 * 0.28, style: .continuous)
-                                        .strokeBorder(Color(.systemBackground), lineWidth: 1.5)
-                                )
-                        }
-                    }
+                    FaceCluster(
+                        faces: members.map { (id: $0.id ?? $0.displayName, url: $0.avatarUrl, name: $0.displayName) },
+                        size: 30
+                    )
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -400,11 +395,18 @@ struct ReturnedCard: View {
 
     private var subheading: String {
         switch item.source {
-        case "rescue": return "Your photo from today, almost gone. Keep it?"
+        case "rescue": return rescueSubheading
         case "anniversary": return "From the memories you've held."
         case "near_forgotten": return "From a while back."
         default: return ""
         }
+    }
+
+    // A rescue is always a last-light photo (~5–6 days old), so name the real
+    // day — never "today", which can't be true here.
+    private var rescueSubheading: String {
+        guard let taken = item.photo.takenAt else { return "Your moment, fading." }
+        return "Your moment from \(taken.formatted(.dateTime.weekday(.wide)))."
     }
 
     private var anniversaryLabel: String {
@@ -446,7 +448,7 @@ struct ReturnedCard: View {
                 Button {
                     Task { await state.keepReturned(photoId: item.photo.id) }
                 } label: {
-                    Label("Keep it before it's gone", systemImage: "bookmark")
+                    Label("Keep this", systemImage: "bookmark")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

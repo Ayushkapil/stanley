@@ -19,6 +19,10 @@ struct AvatarView: View {
     let url: String?
     let name: String?
     var size: CGFloat = 44
+    // A single identity avatar is a soft square (echoes memory tiles, Part 6).
+    // A presence *stack* uses circles — the universal "who's here" idiom — so it
+    // never reads as a row of toggle chips.
+    var circular: Bool = false
 
     @Environment(AppState.self) private var state
 
@@ -26,8 +30,13 @@ struct AvatarView: View {
         String(name?.trimmingCharacters(in: .whitespaces).first ?? "·").uppercased()
     }
 
+    private var clip: AnyShape {
+        circular
+            ? AnyShape(Circle())
+            : AnyShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+    }
+
     var body: some View {
-        let radius = size * 0.28
         Group {
             if let url, let resolved = state.api.absoluteURL(url) {
                 AsyncImage(url: resolved) { image in
@@ -40,11 +49,8 @@ struct AvatarView: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .strokeBorder(.separator, lineWidth: 0.5)
-        )
+        .clipShape(clip)
+        .overlay(clip.stroke(.separator, lineWidth: 0.5))
     }
 
     private var placeholder: some View {
@@ -57,21 +63,32 @@ struct AvatarView: View {
     }
 }
 
-/// The circle as faces, not a number (Part 6): overlapping soft squares.
+/// A "who's here" stack: overlapping circular avatars, tucked into each other so
+/// the eye reads people, not buttons (and never a count). Faces, not numbers.
+struct FaceCluster: View {
+    let faces: [(id: String, url: String?, name: String?)]
+    var size: CGFloat = 30
+
+    var body: some View {
+        HStack(spacing: -size * 0.42) {
+            ForEach(faces, id: \.id) { face in
+                AvatarView(url: face.url, name: face.name, size: size, circular: true)
+                    .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+            }
+        }
+    }
+}
+
+/// The circle as faces, not a number (Part 6).
 struct AvatarCluster: View {
     let members: [CircleMember]
     var size: CGFloat = 36
 
     var body: some View {
-        HStack(spacing: -size * 0.28) {
-            ForEach(members) { member in
-                AvatarView(url: member.avatarUrl, name: member.displayName, size: size)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                            .strokeBorder(Color(.systemBackground), lineWidth: 2)
-                    )
-            }
-        }
+        FaceCluster(
+            faces: members.map { (id: $0.id, url: $0.avatarUrl, name: $0.displayName) },
+            size: size
+        )
     }
 }
 
