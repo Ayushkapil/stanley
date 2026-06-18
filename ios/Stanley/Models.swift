@@ -118,6 +118,11 @@ struct ReturnedResponse: Codable {
     let item: ReturnedItem?
 }
 
+/// The Rested view's data: memories set never to resurface, still browsable.
+struct RestedResponse: Codable {
+    let memories: [Memory]
+}
+
 struct CircleMember: Codable, Identifiable, Hashable {
     let id: String
     let displayName: String?

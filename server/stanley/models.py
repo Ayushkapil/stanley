@@ -200,6 +200,9 @@ class ReturnedLog(Base):
     local_date: Mapped[date] = mapped_column(Date, primary_key=True)
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"))
     source: Mapped[str] = mapped_column(String(16))
+    # "Not now" for today (distinct from rest, which is forever). Cleared with
+    # the day, since the row is keyed by local_date.
+    dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class NotificationLog(Base):

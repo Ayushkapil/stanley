@@ -6,9 +6,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from zoneinfo import ZoneInfo
+
 from .. import physics
 from ..deps import get_clock, get_current_user, get_db, get_settings, require_membership
-from ..models import Photo, User
+from ..models import Photo, ReturnedLog, User
 from ..returned import returned_item
 from ..serialize import blocked_ids, community_note_payload, photo_payload, user_brief
 
@@ -98,3 +100,20 @@ def returned(
     if tz:
         user.tz_last_seen = tz
     return {"item": returned_item(db, settings, clock, user, tz_name)}
+
+
+@router.post("/feed/returned/dismiss", status_code=204)
+def dismiss_returned(
+    tz: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """'Not now' — clear today's Returned card without resting it (§14). It may
+    surface again another day; only rest stops it forever. Keyed by local day,
+    so it naturally resets tomorrow."""
+    tz_name = tz or user.tz_last_seen or "UTC"
+    today = clock.now().astimezone(ZoneInfo(tz_name)).date()
+    log = db.get(ReturnedLog, (user.id, today))
+    if log is not None:
+        log.dismissed = True

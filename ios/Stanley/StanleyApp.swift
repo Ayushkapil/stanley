@@ -49,6 +49,23 @@ struct RootView: View {
         ) {
             Button("OK", role: .cancel) {}
         }
+        .overlay(alignment: .bottom) {
+            if let flash = state.flash {
+                Text(flash)
+                    .font(.callout)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(.bottom, 28)
+                    .shadow(radius: 8, y: 2)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .task(id: flash) {
+                        try? await Task.sleep(nanoseconds: 2_600_000_000)
+                        withAnimation { state.flash = nil }
+                    }
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: state.flash)
         .preferredColorScheme(colorScheme)
     }
 }

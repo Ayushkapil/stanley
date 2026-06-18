@@ -58,6 +58,7 @@ def make_sessionmaker(engine):
 _LATER_COLUMNS = {
     "users": {"username": "VARCHAR(30)", "bio": "TEXT"},
     "photos": {"location": "VARCHAR(120)"},
+    "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
 # Tables left behind by a rename. Their data was ephemeral by design, so a drop

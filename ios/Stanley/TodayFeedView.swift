@@ -9,10 +9,11 @@ struct TodayFeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 24) {
-                    NoteBar(note: state.communityNote) { editingNote = true }
+                    // Returned sits above the circle's own content, set apart.
                     if let item = state.returned {
                         ReturnedCard(item: item)
                     }
+                    NoteBar(note: state.communityNote) { editingNote = true }
                     if state.feedItems.isEmpty {
                         VStack(spacing: 8) {
                             Text("Nothing here right now.")
@@ -378,31 +379,55 @@ struct NoteEditor: View {
     }
 }
 
+/// The one quiet Returned card (§14), set apart from circle content. Rescue is
+/// time-critical (keep your own fading photo); anniversary and near-forgotten
+/// resurface held memories. Two distinct exits: Rest (never again) and
+/// Dismiss (not now).
 struct ReturnedCard: View {
     @Environment(AppState.self) private var state
     let item: ReturnedItem
 
+    private var isRescue: Bool { item.source == "rescue" }
+
     private var heading: String {
         switch item.source {
-        case "anniversary": return "Returned · from this day"
-        case "near_forgotten": return "Returned · nearly forgotten"
-        case "rescue": return "Fading soon · yours"
+        case "rescue": return "Fading soon"
+        case "anniversary": return anniversaryLabel
+        case "near_forgotten": return "You'd forgotten this one"
         default: return "Returned"
         }
     }
 
+    private var subheading: String {
+        switch item.source {
+        case "rescue": return "Your photo from today, almost gone. Keep it?"
+        case "anniversary": return "From the memories you've held."
+        case "near_forgotten": return "From a while back."
+        default: return ""
+        }
+    }
+
+    private var anniversaryLabel: String {
+        guard let taken = item.photo.takenAt else { return "On this day" }
+        let months = Calendar.current.dateComponents([.month], from: taken, to: Date()).month ?? 0
+        if months >= 12 {
+            let years = months / 12
+            return years == 1 ? "A year ago" : "\(years) years ago"
+        }
+        return months <= 1 ? "One month ago" : "\(months) months ago"
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(heading)
-                    .font(.caption.weight(.medium))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                Spacer()
-                Button("Rest this memory") {
-                    Task { await state.restMemory(photoId: item.photo.id) }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(heading).font(.subheadline.weight(.medium))
+                    Text(subheading).font(.caption2).foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Spacer()
             }
             if let urls = item.photo.urls, let url = state.api.absoluteURL(urls.thumb) {
                 AsyncImage(url: url) { image in
@@ -410,14 +435,41 @@ struct ReturnedCard: View {
                 } placeholder: {
                     Rectangle().fill(.quaternary)
                 }
-                .frame(height: 140)
+                .frame(maxWidth: .infinity)
+                .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             if let caption = item.photo.caption, !caption.isEmpty {
                 Text(caption).font(.callout)
             }
+            if isRescue {
+                Button {
+                    Task { await state.keepReturned(photoId: item.photo.id) }
+                } label: {
+                    Label("Keep it before it's gone", systemImage: "bookmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            HStack {
+                Button("Rest this memory") {
+                    Task { await state.restReturned(photoId: item.photo.id) }
+                }
+                Spacer()
+                Button("Dismiss") {
+                    Task { await state.dismissReturned() }
+                }
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.top, 2)
         }
-        .padding(12)
-        .background(.quinary, in: RoundedRectangle(cornerRadius: 16))
+        .padding(14)
+        // Softer, distinct from circle cards: a thin material with an accent edge.
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 1)
+        )
     }
 }

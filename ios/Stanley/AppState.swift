@@ -14,6 +14,7 @@ final class AppState {
     var profile: MyProfile?
     var myId: String?
     var errorMessage: String?
+    var flash: String?  // gentle, transient confirmation (e.g. after resting)
     var checkedCircle = false
 
     init() {
@@ -252,10 +253,62 @@ final class AppState {
         }
     }
 
-    func restMemory(photoId: String) async {
+    /// Rest a memory — one tap, no confirmation (§14). Works from a Returned
+    /// card or any held row. Gentle, unexplaining confirmation after.
+    func rest(photoId: String) async {
         do {
             let _: Empty = try await api.send("POST", "/memories/\(photoId)/rest")
-            returned = nil  // gone quietly; no confirmation, no reason prompt (§14)
+            flash = "Rested. It won't come back on its own."
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// "Let it return" — undo a rest from the Rested view.
+    func unrest(photoId: String) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/memories/\(photoId)/rest")
+        } catch {
+            surface(error)
+        }
+    }
+
+    func loadRested() async -> [Memory] {
+        do {
+            return (try await api.send("GET", "/memories/rested") as RestedResponse).memories
+        } catch {
+            surface(error)
+            return []
+        }
+    }
+
+    // MARK: Returned card actions
+
+    /// Rest from the Returned card: stop it ever resurfacing, clear the card.
+    func restReturned(photoId: String) async {
+        await rest(photoId: photoId)
+        returned = nil
+    }
+
+    /// Keep (rescue): anchor the photo so it survives, then refresh — the card
+    /// clears because a kept photo no longer needs rescuing.
+    func keepReturned(photoId: String) async {
+        do {
+            let _: Empty = try await api.send("POST", "/photos/\(photoId)/anchor", json: ["note": nil])
+            flash = "Kept. It's yours now."
+            await refreshToday()
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// Dismiss = "not now": clear today's card without resting it.
+    func dismissReturned() async {
+        do {
+            let _: Empty = try await api.send(
+                "POST", "/feed/returned/dismiss", query: ["tz": TimeZone.current.identifier]
+            )
+            returned = nil
         } catch {
             surface(error)
         }

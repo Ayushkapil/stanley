@@ -17,6 +17,16 @@ struct MemoriesView: View {
                     Section {
                         ForEach(thread.memories) { memory in
                             MemoryRow(memory: memory)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    if !memory.isTombstone {
+                                        Button {
+                                            Task { await state.rest(photoId: memory.id) }
+                                        } label: {
+                                            Label("Rest this memory", systemImage: "moon.zzz")
+                                        }
+                                        .tint(.indigo)
+                                    }
+                                }
                         }
                     } header: {
                         HStack(spacing: 8) {
@@ -27,9 +37,58 @@ struct MemoriesView: View {
                 }
             }
             .navigationTitle("Held")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        RestedView()
+                    } label: {
+                        Label("Rested", systemImage: "moon.zzz")
+                    }
+                }
+            }
             .refreshable { await state.refreshMemories() }
             .task { await state.refreshMemories() }
         }
+    }
+}
+
+/// Rested memories (§14): set never to resurface, but not deleted — still here,
+/// each with a gentle "let it return" undo.
+struct RestedView: View {
+    @Environment(AppState.self) private var state
+    @State private var memories: [Memory] = []
+    @State private var loaded = false
+
+    var body: some View {
+        List {
+            if loaded && memories.isEmpty {
+                Text("Nothing rested. Memories you rest stay in Held but never resurface on their own.")
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+            }
+            ForEach(memories) { memory in
+                HStack(spacing: 12) {
+                    MemoryRow(memory: memory)
+                    Button("Let it return") {
+                        Task {
+                            await state.unrest(photoId: memory.id)
+                            await reload()
+                        }
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.tint)
+                }
+            }
+        }
+        .navigationTitle("Rested")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await reload() }
+    }
+
+    private func reload() async {
+        memories = await state.loadRested()
+        loaded = true
     }
 }
 

@@ -87,6 +87,12 @@ class Api:
     def returned(self, tz: str = NY):
         return self.client.get("/feed/returned", params={"tz": tz}, headers=self.h)
 
+    def dismiss_returned(self, tz: str = NY):
+        return self.client.post("/feed/returned/dismiss", params={"tz": tz}, headers=self.h)
+
+    def rested(self):
+        return self.client.get("/memories/rested", headers=self.h)
+
     def anchor(self, pid, note=None):
         return self.client.post(f"/photos/{pid}/anchor", json={"note": note}, headers=self.h)
 
