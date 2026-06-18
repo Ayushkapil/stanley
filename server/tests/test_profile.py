@@ -76,7 +76,7 @@ def test_location_is_a_label_stored_and_shown(circle):
     assert r.status_code == 201, r.text
     assert r.json()["location"] == "Dunn Meadow"
 
-    feed_photo = circle.ben.feed().json()["photos"][0]
+    feed_photo = circle.ben.feed_photos()[0]
     assert feed_photo["location"] == "Dunn Meadow"
     # a label is all there is — no coordinates anywhere in the payload
     assert not any(("lat" == k or "lng" in k or "coord" in k) for k in feed_photo)

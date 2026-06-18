@@ -3,15 +3,17 @@ import SwiftUI
 struct TodayFeedView: View {
     @Environment(AppState.self) private var state
     @State private var showCapture = false
+    @State private var editingNote = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 24) {
+                    NoteBar(note: state.communityNote) { editingNote = true }
                     if let item = state.returned {
                         ReturnedCard(item: item)
                     }
-                    if state.feed.isEmpty {
+                    if state.feedItems.isEmpty {
                         VStack(spacing: 8) {
                             Text("Nothing here right now.")
                                 .foregroundStyle(.secondary)
@@ -21,8 +23,12 @@ struct TodayFeedView: View {
                         }
                         .padding(.top, 80)
                     }
-                    ForEach(state.feed) { photo in
-                        PhotoCard(photo: photo)
+                    ForEach(state.feedItems) { item in
+                        if item.isMoment {
+                            MomentCard(item: item)
+                        } else if let photo = item.photo {
+                            PhotoCard(photo: photo)
+                        }
                     }
                 }
                 .padding()
@@ -30,16 +36,11 @@ struct TodayFeedView: View {
             .navigationTitle("Today")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showCapture = true
-                    } label: {
-                        Image(systemName: "camera")
-                    }
+                    Button { showCapture = true } label: { Image(systemName: "camera") }
                 }
             }
-            .sheet(isPresented: $showCapture) {
-                CaptureView()
-            }
+            .sheet(isPresented: $showCapture) { CaptureView() }
+            .sheet(isPresented: $editingNote) { NoteEditor() }
             .refreshable { await state.refreshToday() }
             .task { await state.refreshToday() }
         }
@@ -50,44 +51,118 @@ struct ViewedMember: Identifiable {
     let id: String
 }
 
-struct PhotoCard: View {
+/// The image with its two gestures: double-tap to like (ephemeral, a heart),
+/// press-and-hold to hold (permanent, a bookmark). Color deepens under the
+/// thumb while held, with a soft settle on commit — never applause. Reused by
+/// both standalone photos and the tiles inside a shared moment.
+struct PhotoImageView: View {
     @Environment(AppState.self) private var state
     @Environment(\.colorScheme) private var colorScheme
+    let photo: Photo
+    var height: CGFloat = 320
+    var cornerRadius: CGFloat = 16
+
+    @State private var holdProgress: Double = 0
+    @State private var settleScale: CGFloat = 1
+    @State private var likeGlow: Double = 0
+
+    private var fade: Double {
+        let fadingStart = 1.0 / 3.0
+        let t = min(1.0, max(0.0, (photo.decayProgress - fadingStart) / (1.0 - fadingStart)))
+        return t * t * (3.0 - 2.0 * t)
+    }
+
+    private var opacityDrop: Double { colorScheme == .dark ? 0.62 : 0.82 }
+
+    var body: some View {
+        Group {
+            if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
+                AsyncImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(.quaternary)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: height)
+                .clipped()
+                .saturation(1.0 - 0.85 * fade)
+                .opacity(1.0 - opacityDrop * fade)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(Color.accentColor.opacity(0.38 * holdProgress))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(Color.pink.opacity(0.40 * likeGlow))
+                        .blendMode(.plusLighter)
+                        .allowsHitTesting(false)
+                )
+                .overlay(alignment: .topLeading) {
+                    if photo.anchoredByMe { marker("bookmark.fill", .accentColor) }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if photo.likedByMe { marker("heart.fill", .pink) }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                .scaleEffect(settleScale)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) { like() }
+                .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 30) {
+                    hold()
+                } onPressingChanged: { pressing in
+                    withAnimation(.easeOut(duration: pressing ? 0.45 : 0.25)) {
+                        holdProgress = pressing && !photo.anchoredByMe ? 1 : 0
+                    }
+                }
+                .contextMenu {
+                    Button { Task { await state.toggleLike(photo) } } label: {
+                        Label(photo.likedByMe ? "Unlike" : "Like", systemImage: "heart")
+                    }
+                    Button { Task { await state.toggleAnchor(photo) } } label: {
+                        Label(photo.anchoredByMe ? "Let go" : "Hold", systemImage: "bookmark")
+                    }
+                }
+            }
+        }
+    }
+
+    private func marker(_ systemName: String, _ tint: Color) -> some View {
+        Image(systemName: systemName)
+            .font(.footnote)
+            .foregroundStyle(tint)
+            .padding(6)
+            .background(.ultraThinMaterial, in: Circle())
+            .padding(8)
+    }
+
+    private func hold() {
+        guard !photo.anchoredByMe else { return }
+        withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { settleScale = 0.97 }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.12)) { settleScale = 1 }
+        Task { await state.hold(photo) }
+    }
+
+    private func like() {
+        withAnimation(.easeOut(duration: 0.18)) { likeGlow = 1 }
+        withAnimation(.easeIn(duration: 0.5).delay(0.18)) { likeGlow = 0 }
+        Task { await state.toggleLike(photo) }
+    }
+}
+
+struct PhotoCard: View {
+    @Environment(AppState.self) private var state
     let photo: Photo
     @State private var newComment = ""
     @State private var viewedMember: ViewedMember?
     @State private var showFaces = false
 
-    // Press-and-hold feedback (Part 4): color deepens under the thumb, then a
-    // soft settle on commit — never applause.
-    @State private var holdProgress: Double = 0
-    @State private var settleScale: CGFloat = 1
-    // Warmth feedback (Part 5): a gentle glow on double-tap, not a burst.
-    @State private var warmGlow: Double = 0
-
     private var isMine: Bool { state.myId != nil && state.myId == photo.owner.id }
-
-    // The fade is ambient, never numeric (§8.1). decay_progress spans the whole
-    // 144h public life, but LIVE (< 1/3) must render fully visible — so the
-    // fade starts at the FADING boundary and eases (smoothstep) to "barely
-    // visible" by the end of LAST_LIGHT. No countdowns anywhere.
-    private var fade: Double {
-        let fadingStart = 1.0 / 3.0  // 48h of 144h
-        let t = min(1.0, max(0.0, (photo.decayProgress - fadingStart) / (1.0 - fadingStart)))
-        return t * t * (3.0 - 2.0 * t)
-    }
-
-    // Fading toward black hides dark photos sooner than fading toward white
-    // hides bright ones, so dark mode keeps a higher opacity floor (0.38 vs
-    // 0.18) — the desaturation carries more of the "fading" feel there.
-    private var opacityDrop: Double {
-        colorScheme == .dark ? 0.62 : 0.82
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
-            photoImage
+            PhotoImageView(photo: photo)
             actionRow
             comments
             commentField
@@ -106,89 +181,19 @@ struct PhotoCard: View {
     private var header: some View {
         HStack(spacing: 8) {
             Button {
-                if let ownerId = photo.owner.id {
-                    viewedMember = ViewedMember(id: ownerId)
-                }
+                if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
             } label: {
                 HStack(spacing: 8) {
                     AvatarView(url: photo.owner.avatarUrl, name: photo.owner.displayName, size: 28)
-                    Text(photo.owner.displayName)
-                        .font(.subheadline.weight(.medium))
+                    Text(photo.owner.displayName).font(.subheadline.weight(.medium))
                 }
             }
             .buttonStyle(.plain)
             Spacer()
-            // Absolute time of day (Part 6), e.g. "1:06 AM" — not "2 hours ago".
             Text(photo.takenAt, format: .dateTime.hour().minute())
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-    }
-
-    @ViewBuilder
-    private var photoImage: some View {
-        if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
-            AsyncImage(url: url) { image in
-                image.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle().fill(.quaternary)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 320)
-            .clipped()
-            .saturation(1.0 - 0.85 * fade)
-            .opacity(1.0 - opacityDrop * fade)
-            // Press-and-hold deepens a warm wash under the thumb.
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.orange.opacity(0.38 * holdProgress))
-            )
-            // Double-tap warmth: a soft glow, no burst.
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.yellow.opacity(0.45 * warmGlow))
-                    .blendMode(.plusLighter)
-                    .allowsHitTesting(false)
-            )
-            // Held marker: a small steady flame, top-leading. Warmth marker:
-            // a small sun, top-trailing — shown only to me, my own state.
-            .overlay(alignment: .topLeading) {
-                if photo.anchoredByMe {
-                    marker(systemName: "flame.fill", tint: .orange)
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                if photo.warmedByMe {
-                    marker(systemName: "sun.min.fill", tint: .yellow)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .scaleEffect(settleScale)
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) { warm() }
-            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 30) {
-                hold()
-            } onPressingChanged: { pressing in
-                withAnimation(.easeOut(duration: pressing ? 0.45 : 0.25)) {
-                    holdProgress = pressing && !photo.anchoredByMe ? 1 : 0
-                }
-            }
-            // VoiceOver paths for gestures that can't be tapped out (no conflict
-            // with the press-and-hold/double-tap above).
-            .accessibilityAction(named: photo.warmedByMe ? "Cool" : "Warm") { warm() }
-            .accessibilityAction(named: photo.anchoredByMe ? "Let go" : "Hold") {
-                Task { await state.toggleAnchor(photo) }
-            }
-        }
-    }
-
-    private func marker(systemName: String, tint: Color) -> some View {
-        Image(systemName: systemName)
-            .font(.footnote)
-            .foregroundStyle(tint)
-            .padding(6)
-            .background(.ultraThinMaterial, in: Circle())
-            .padding(8)
     }
 
     private var actionRow: some View {
@@ -197,32 +202,23 @@ struct PhotoCard: View {
                 if let caption = photo.caption, !caption.isEmpty {
                     Text(caption).font(.body)
                 }
-                // a place as a remembered word, not a pin — never tappable
                 if let location = photo.location, !location.isEmpty {
-                    Text(location)
-                        .font(.footnote)
-                        .italic()
-                        .foregroundStyle(.secondary)
+                    Text(location).font(.footnote).italic().foregroundStyle(.secondary)
                 }
             }
             Spacer()
-            // Owner-only: peek at the warmth + keeping this gathered — faces.
             if isMine {
-                Button { showFaces = true } label: {
-                    Image(systemName: "person.2")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+                Button { showFaces = true } label: { Image(systemName: "person.2") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
             }
             // Held: the keep gesture. Tap is the accessible path; press-and-hold
             // the photo is the primary one. No counts, ever (A2).
-            Button {
-                Task { await state.toggleAnchor(photo) }
-            } label: {
-                Image(systemName: photo.anchoredByMe ? "flame.fill" : "flame")
+            Button { Task { await state.toggleAnchor(photo) } } label: {
+                Image(systemName: photo.anchoredByMe ? "bookmark.fill" : "bookmark")
             }
             .buttonStyle(.plain)
-            .foregroundStyle(photo.anchoredByMe ? .orange : .secondary)
+            .foregroundStyle(photo.anchoredByMe ? Color.accentColor : Color.secondary)
             .accessibilityLabel(photo.anchoredByMe ? "Let go of this memory" : "Hold this memory")
         }
     }
@@ -232,7 +228,6 @@ struct PhotoCard: View {
         if !photo.comments.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(photo.comments) { comment in
-                    // Story additions, flat and chronological (§8.3).
                     (Text(comment.author.displayName).fontWeight(.medium)
                         + Text("  ") + Text(comment.body))
                         .font(.callout)
@@ -257,20 +252,129 @@ struct PhotoCard: View {
             }
         }
     }
+}
 
-    private func hold() {
-        guard !photo.anchoredByMe else { return }
-        withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
-        // a soft settle, not a pop
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { settleScale = 0.97 }
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.12)) { settleScale = 1 }
-        Task { await state.hold(photo) }
+/// A shared moment (Part 3): one event, many phones. Header shows the place and
+/// the faces who posted from it (never a count); the photos scroll horizontally,
+/// each keeping its own like, Held, and decay.
+struct MomentCard: View {
+    let item: FeedItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.location ?? "Shared moment")
+                        .font(.subheadline.weight(.medium))
+                    Text("from your circle")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if let members = item.members {
+                    HStack(spacing: -8) {
+                        ForEach(members, id: \.id) { face in
+                            AvatarView(url: face.avatarUrl, name: face.displayName, size: 26)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 26 * 0.28, style: .continuous)
+                                        .strokeBorder(Color(.systemBackground), lineWidth: 1.5)
+                                )
+                        }
+                    }
+                }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(item.photos ?? []) { photo in
+                        VStack(alignment: .leading, spacing: 4) {
+                            PhotoImageView(photo: photo, height: 240, cornerRadius: 12)
+                                .frame(width: 240)
+                            Text(photo.owner.displayName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(width: 240)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.quinary, in: RoundedRectangle(cornerRadius: 18))
     }
+}
 
-    private func warm() {
-        withAnimation(.easeOut(duration: 0.18)) { warmGlow = 1 }
-        withAnimation(.easeIn(duration: 0.5).delay(0.18)) { warmGlow = 0 }
-        Task { await state.toggleWarmth(photo) }
+/// The community note (Part 4), pinned at the top of Today. A shared line, not
+/// a chat — tapping it just lets you set or replace it.
+struct NoteBar: View {
+    let note: CommunityNote?
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                Image(systemName: "pin")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if let note {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(note.text).font(.callout)
+                        Text("— \(note.author.displayName)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Leave a note for the circle…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quinary, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct NoteEditor: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+
+    private let limit = 90
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("One line for the whole circle", text: $text, axis: .vertical)
+                        .lineLimit(1...3)
+                        .onChange(of: text) { _, new in
+                            if new.count > limit { text = String(new.prefix(limit)) }
+                        }
+                } footer: {
+                    Text("Everyone sees this line. It clears at the end of the day — it's a sticky note, not a chat.")
+                }
+            }
+            .navigationTitle("Today's note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Set") {
+                        let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        Task { await state.setNote(line) }
+                        dismiss()
+                    }
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear { text = state.communityNote?.text ?? "" }
+        }
     }
 }
 

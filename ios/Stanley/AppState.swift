@@ -7,7 +7,8 @@ final class AppState {
 
     var signedIn: Bool
     var circle: CircleInfo?
-    var feed: [Photo] = []
+    var feedItems: [FeedItem] = []
+    var communityNote: CommunityNote?
     var returned: ReturnedItem?
     var threads: [MemoryThread] = []
     var profile: MyProfile?
@@ -44,7 +45,8 @@ final class AppState {
         signedIn = false
         circle = nil
         checkedCircle = false
-        feed = []
+        feedItems = []
+        communityNote = nil
         returned = nil
         threads = []
         profile = nil
@@ -97,12 +99,25 @@ final class AppState {
 
     func refreshToday() async {
         do {
-            let response: FeedResponse = try await api.send("GET", "/feed/today")
-            feed = response.photos
+            let response: TodayResponse = try await api.send("GET", "/feed/today")
+            feedItems = response.items
+            communityNote = response.note
             let returnedResponse: ReturnedResponse = try await api.send(
                 "GET", "/feed/returned", query: ["tz": TimeZone.current.identifier]
             )
             returned = returnedResponse.item
+        } catch {
+            surface(error)
+        }
+    }
+
+    func setNote(_ text: String) async {
+        guard let circle else { return }
+        do {
+            let _: CommunityNote = try await api.send(
+                "PUT", "/circles/\(circle.id)/note", json: ["text": text]
+            )
+            await refreshToday()
         } catch {
             surface(error)
         }
@@ -192,13 +207,13 @@ final class AppState {
         }
     }
 
-    /// Warmth — the light, ephemeral gesture (Part 5). Double-tap toggles.
-    func toggleWarmth(_ photo: Photo) async {
+    /// The like — double-tap toggles (Part 1). Ephemeral, owner-private, no count.
+    func toggleLike(_ photo: Photo) async {
         do {
-            if photo.warmedByMe {
-                let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/warm")
+            if photo.likedByMe {
+                let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/like")
             } else {
-                let _: Empty = try await api.send("POST", "/photos/\(photo.id)/warm")
+                let _: Empty = try await api.send("POST", "/photos/\(photo.id)/like")
             }
             await refreshToday()
         } catch {
@@ -206,10 +221,10 @@ final class AppState {
         }
     }
 
-    /// Owner-only: who warmed this photo, as faces. Never a count.
-    func warmthFaces(_ photoId: String) async -> [UserBrief] {
+    /// Owner-only: who liked this photo, as faces. Never a count.
+    func likeFaces(_ photoId: String) async -> [UserBrief] {
         do {
-            return (try await api.send("GET", "/photos/\(photoId)/warmth") as WarmthResponse).faces
+            return (try await api.send("GET", "/photos/\(photoId)/likes") as LikesResponse).faces
         } catch {
             surface(error)
             return []

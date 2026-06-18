@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,7 +10,7 @@ from .. import physics
 from ..deps import get_clock, get_current_user, get_db, get_settings, require_membership
 from ..models import Photo, User
 from ..returned import returned_item
-from ..serialize import blocked_ids, photo_payload
+from ..serialize import blocked_ids, community_note_payload, photo_payload, user_brief
 
 router = APIRouter(tags=["feed"])
 
@@ -21,8 +23,13 @@ def today(
     settings=Depends(get_settings),
 ):
     """The Today feed: a handful of fading photos from the circle, ordered by
-    time and nothing else. Non-goal §7: never reordered by engagement; anchors
-    never extend visibility (A1) — the query simply has no access to them."""
+    time and nothing else. Non-goal §7: never reordered by engagement; holding
+    never extends visibility (A1) — the query simply has no access to it.
+
+    Photos posted with the same location label on the same local day by 2+
+    people are grouped into a 'shared moment' (Part 3): a presentation grouping
+    only — each photo keeps its own decay, like, and Held state.
+    """
     membership, _ = require_membership(db, user)
     now = clock.now()
     hidden = blocked_ids(db, user.id)
@@ -35,12 +42,47 @@ def today(
         )
         .order_by(Photo.taken_at.desc())
     ).all()
+    visible = [p for p in photos if p.owner_id not in hidden]
+
+    # Group by (normalized location label, local capture day).
+    groups: dict[tuple[str, object], list[Photo]] = defaultdict(list)
+    singles: list[Photo] = []
+    for p in visible:
+        label = (p.location or "").strip().lower()
+        if label:
+            groups[(label, p.local_date)].append(p)
+        else:
+            singles.append(p)
+
+    items: list[dict] = []
+    for plist in groups.values():
+        owners = {p.owner_id for p in plist}
+        if len(owners) >= 2:
+            plist.sort(key=lambda p: p.taken_at, reverse=True)
+            items.append(
+                {
+                    "kind": "moment",
+                    "location": plist[0].location,  # original-cased newest label
+                    "members": [user_brief(db, p.owner_id, settings, now) for p in plist],
+                    "sort_at": plist[0].taken_at,
+                    "photos": [photo_payload(db, settings, now, p, user) for p in plist],
+                }
+            )
+        else:
+            singles.extend(plist)  # a lone photo at a place is just a photo
+
+    for p in singles:
+        items.append(
+            {"kind": "photo", "sort_at": p.taken_at, "photo": photo_payload(db, settings, now, p, user)}
+        )
+
+    items.sort(key=lambda i: i["sort_at"], reverse=True)
+    for i in items:
+        i.pop("sort_at")
+
     return {
-        "photos": [
-            photo_payload(db, settings, now, p, user)
-            for p in photos
-            if p.owner_id not in hidden
-        ]
+        "note": community_note_payload(db, settings, now, membership.circle_id),
+        "items": items,
     }
 
 

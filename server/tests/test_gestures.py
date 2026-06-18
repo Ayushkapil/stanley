@@ -11,7 +11,7 @@ def test_anchor_identities_are_owner_only(circle):
 
     # A2, structural half: the photo payload simply has no field for it.
     for viewer in (circle.cam, circle.ben, circle.ana):
-        payload = viewer.feed().json()["photos"][0]
+        payload = viewer.feed_photos()[0]
         assert "anchors" not in payload
         assert not any("count" in k for k in payload)
 
@@ -37,7 +37,7 @@ def test_comments_are_flat_and_chronological(circle, clock):
     clock.advance(timedelta(minutes=5))
     circle.cam.comment(pid, "we stayed til midnight")
 
-    payload = circle.ana.feed().json()["photos"][0]
+    payload = circle.ana.feed_photos()[0]
     bodies = [c["body"] for c in payload["comments"]]
     assert bodies == ["the lake!", "we stayed til midnight"]
     authors = [c["author"]["display_name"] for c in payload["comments"]]

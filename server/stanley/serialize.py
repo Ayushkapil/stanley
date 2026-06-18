@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .config import Settings
-from .models import Anchor, Block, Comment, Photo, User, Warmth
+from .models import Anchor, Block, Comment, CommunityNote, Like, Photo, User
 from .storage import signed_url
 
 DEPARTED = "departed"
@@ -57,6 +57,21 @@ def user_brief(
     }
 
 
+def community_note_payload(
+    session: Session, settings: Settings, now: datetime, circle_id: str
+) -> dict | None:
+    """The active community note (Part 4), or None. A note stops showing at the
+    end of the author's local day — same as everything else, it's gone by then."""
+    note = session.get(CommunityNote, circle_id)
+    if note is None or now >= note.expires_at:
+        return None
+    return {
+        "text": note.body,
+        "author": user_brief(session, note.author_id, settings, now),
+        "set_at": iso(note.created_at),
+    }
+
+
 def comment_payload(
     session: Session, comment: Comment, settings: Settings | None = None, now: datetime | None = None
 ) -> dict:
@@ -98,7 +113,7 @@ def photo_payload(
             "thumb": signed_url(settings.secret_key, photo.thumb_key, now, settings.signed_url_ttl_seconds),
         }
     my_anchor = session.get(Anchor, (photo.id, viewer.id))
-    my_warmth = session.get(Warmth, (photo.id, viewer.id))
+    my_like = session.get(Like, (photo.id, viewer.id))
     return {
         "id": photo.id,
         "owner": user_brief(session, photo.owner_id, settings, now),
@@ -115,8 +130,8 @@ def photo_payload(
         "comments": visible_comments(session, photo.id, viewer.id, settings, now),
         "anchored_by_me": my_anchor is not None,
         "my_anchor_note": my_anchor.note if my_anchor else None,
-        # The caller's own warmth state only — never a count, never who else.
-        "warmed_by_me": my_warmth is not None,
+        # The caller's own like state only — never a count, never who else.
+        "liked_by_me": my_like is not None,
     }
 
 

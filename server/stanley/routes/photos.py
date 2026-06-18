@@ -20,7 +20,7 @@ from ..deps import (
     require_membership,
 )
 from ..images import BadImage, process_upload
-from ..models import Anchor, Comment, Photo, User, Warmth, new_id
+from ..models import Anchor, Comment, Like, Photo, User, new_id
 from ..serialize import photo_payload, user_brief
 
 router = APIRouter(tags=["photos"])
@@ -216,43 +216,43 @@ def anchor_list(
     }
 
 
-@router.post("/photos/{photo_id}/warm", status_code=201)
-def warm(
+@router.post("/photos/{photo_id}/like", status_code=201)
+def like(
     photo_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
-    """Warmth — the light, ephemeral gesture (Part 5). Double-tap in the
-    client. Possible only while the photo is in Today; it dies when the photo
-    leaves. Self-warming is allowed (one law for everyone), idempotent."""
+    """The like — double-tap in the client (Part 1). Possible only while the
+    photo is in Today; it dies when the photo leaves. Self-liking is allowed
+    (one law for everyone), idempotent. There is no count, anywhere."""
     photo = get_circle_photo(db, user, photo_id)
     _require_public(photo)
-    if db.get(Warmth, (photo.id, user.id)) is None:
-        db.add(Warmth(photo_id=photo.id, user_id=user.id, created_at=clock.now()))
-    return {"warmed": True}
+    if db.get(Like, (photo.id, user.id)) is None:
+        db.add(Like(photo_id=photo.id, user_id=user.id, created_at=clock.now()))
+    return {"liked": True}
 
 
-@router.delete("/photos/{photo_id}/warm", status_code=204)
-def unwarm(
+@router.delete("/photos/{photo_id}/like", status_code=204)
+def unlike(
     photo_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    existing = db.get(Warmth, (photo_id, user.id))
+    existing = db.get(Like, (photo_id, user.id))
     if existing is not None:
         db.delete(existing)
 
 
-@router.get("/photos/{photo_id}/warmth")
-def warmth_faces(
+@router.get("/photos/{photo_id}/likes")
+def like_faces(
     photo_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
 ):
-    """Who warmed this — faces, for the owner's eyes only, never a number.
+    """Who liked this — faces, for the owner's eyes only, never a number.
     Mirrors the anchor list: the circle sees nothing, and there is no count
     field anywhere in the response."""
     photo = db.get(Photo, photo_id)
@@ -261,11 +261,11 @@ def warmth_faces(
     if photo.owner_id != user.id:
         raise HTTPException(403, "owner only")
     now = clock.now()
-    warmers = db.scalars(
-        select(Warmth).where(Warmth.photo_id == photo.id).order_by(Warmth.created_at)
+    likers = db.scalars(
+        select(Like).where(Like.photo_id == photo.id).order_by(Like.created_at)
     ).all()
     return {
-        "faces": [user_brief(db, w.user_id, settings, now) for w in warmers],
+        "faces": [user_brief(db, lk.user_id, settings, now) for lk in likers],
     }
 
 

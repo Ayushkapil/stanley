@@ -21,7 +21,10 @@ MIN_GAP = timedelta(hours=12)                  # between consecutive captures
 DEVICE_CLAIM_TOLERANCE = timedelta(minutes=10)  # taken_at reconciliation
 
 # --- Circle shape (§16) -------------------------------------------------------
-CIRCLE_CAP = 12
+# Raised from 12 to 30: Stanley is a small-community app now, not a clique.
+# Still one circle per person; still bounded so the feed stays a glance and
+# faces stay legible (above ~30 a wall of faces collapses back into a number).
+CIRCLE_CAP = 30
 
 # --- States -------------------------------------------------------------------
 LIVE = "LIVE"

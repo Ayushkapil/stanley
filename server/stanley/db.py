@@ -60,11 +60,14 @@ _LATER_COLUMNS = {
     "photos": {"location": "VARCHAR(120)"},
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
+# Tables left behind by a rename. Their data was ephemeral by design, so a drop
+# is safe — "warmth" became "likes" (same mechanic, cosmetic heart).
+_LEGACY_TABLES = ["warmth"]
 
 
 def ensure_schema(engine) -> list[str]:
-    """Tiny forward-only migration: add any missing late columns. Returns the
-    list of columns added (for logging/tests)."""
+    """Tiny forward-only migration: add any missing late columns, drop renamed
+    legacy tables. Returns the list of columns added (for logging/tests)."""
     from sqlalchemy import inspect, text
 
     inspector = inspect(engine)
@@ -84,4 +87,7 @@ def ensure_schema(engine) -> list[str]:
                 conn.execute(
                     text(f"CREATE UNIQUE INDEX IF NOT EXISTS {index} ON {table} ({column})")
                 )
+        for table in _LEGACY_TABLES:
+            if table in tables:
+                conn.execute(text(f"DROP TABLE {table}"))
     return added

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -13,8 +16,8 @@ from ..deps import (
     member_count,
     require_membership,
 )
-from ..models import Circle, Membership, User, new_id
-from ..serialize import avatar_url, blocked_ids
+from ..models import Circle, CommunityNote, Membership, User, new_id
+from ..serialize import avatar_url, blocked_ids, community_note_payload
 
 router = APIRouter(tags=["circles"])
 
@@ -25,6 +28,10 @@ class CircleCreate(BaseModel):
 
 class JoinBody(BaseModel):
     invite_token: str
+
+
+class NoteBody(BaseModel):
+    text: str = Field(min_length=1, max_length=90)
 
 
 def _members_payload(db: Session, circle: Circle, settings=None, now=None) -> list[dict]:
@@ -172,6 +179,44 @@ def leave_circle(
         if successor is not None:
             circle.created_by = successor.user_id
             successor.role = "creator"
+
+
+@router.put("/circles/{circle_id}/note")
+def set_note(
+    circle_id: str,
+    body: NoteBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+):
+    """Set or replace the circle's shared line (Part 4). Single active note,
+    last-writer-wins. It expires at the end of the setter's local day. Not a
+    chat — there is nowhere to reply, and nothing is notified."""
+    membership, circle = require_membership(db, user)
+    if circle.id != circle_id:
+        raise HTTPException(404, "not found")
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(400, {"code": "empty_note"})
+
+    now = clock.now()
+    tz = ZoneInfo(user.tz_last_seen or "UTC")
+    local_next_midnight = (now.astimezone(tz) + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    expires_at = local_next_midnight.astimezone(ZoneInfo("UTC"))
+
+    note = db.get(CommunityNote, circle.id)
+    if note is None:
+        note = CommunityNote(circle_id=circle.id)
+        db.add(note)
+    note.author_id = user.id
+    note.body = text
+    note.expires_at = expires_at
+    note.created_at = now
+    db.flush()
+    return community_note_payload(db, settings, now, circle.id)
 
 
 @router.get("/members/{user_id}")

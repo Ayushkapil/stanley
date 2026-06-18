@@ -18,7 +18,7 @@ def _photo_row(db, pid):
 
 
 def _feed_ids(api):
-    return [p["id"] for p in api.feed().json()["photos"]]
+    return [p["id"] for p in api.feed_photos()]
 
 
 def test_full_lifecycle_of_an_unanchored_photo(circle, clock, sweep, db, app):
@@ -170,5 +170,5 @@ def test_feed_order_is_time_only_anchors_cannot_rank(circle, clock):
     pid_new = circle.ben.post_photo().json()["id"]
 
     circle.cam.anchor(pid_old)
-    ids = [p["id"] for p in circle.cam.feed().json()["photos"]]
+    ids = [p["id"] for p in circle.cam.feed_photos()]
     assert ids == [pid_new, pid_old]  # newest first, regardless of anchors

@@ -14,8 +14,8 @@ def test_block_hides_content_bidirectionally(circle):
 
     assert circle.ben.block(circle.cam.id).status_code == 204
 
-    ben_feed = [p["id"] for p in circle.ben.feed().json()["photos"]]
-    cam_feed = [p["id"] for p in circle.cam.feed().json()["photos"]]
+    ben_feed = [p["id"] for p in circle.ben.feed_photos()]
+    cam_feed = [p["id"] for p in circle.cam.feed_photos()]
     assert cam_pid not in ben_feed and ana_pid in ben_feed
     assert ben_pid not in cam_feed and ana_pid in cam_feed
 
@@ -24,7 +24,7 @@ def test_block_hides_content_bidirectionally(circle):
     assert circle.cam.comment(ben_pid, "hello?").status_code == 404
 
     assert circle.ben.unblock(circle.cam.id).status_code == 204
-    assert cam_pid in [p["id"] for p in circle.ben.feed().json()["photos"]]
+    assert cam_pid in [p["id"] for p in circle.ben.feed_photos()]
 
 
 def test_comments_by_blocked_member_are_hidden(circle):
@@ -32,9 +32,9 @@ def test_comments_by_blocked_member_are_hidden(circle):
     circle.cam.comment(pid, "from cam")
     circle.ben.block(circle.cam.id)
 
-    ben_view = circle.ben.feed().json()["photos"][0]
+    ben_view = circle.ben.feed_photos()[0]
     assert all(c["author"]["display_name"] != "cam" for c in ben_view["comments"])
-    ana_view = circle.ana.feed().json()["photos"][0]
+    ana_view = circle.ana.feed_photos()[0]
     assert any(c["body"] == "from cam" for c in ana_view["comments"])
 
 
@@ -49,7 +49,7 @@ def test_report_creates_reviewable_record(circle):
 
 def test_signed_urls_expire_and_reject_tampering(circle, clock):
     circle.ana.post_photo()
-    url = circle.ben.feed().json()["photos"][0]["urls"]["thumb"]
+    url = circle.ben.feed_photos()[0]["urls"]["thumb"]
     assert circle.ben.client.get(url).status_code == 200
 
     tampered = url[:-1] + ("0" if url[-1] != "0" else "1")

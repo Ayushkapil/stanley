@@ -22,7 +22,7 @@ def test_capture_appears_in_circle_feed(circle):
     assert photo["state"] == "LIVE"
     assert photo["decay_progress"] == 0.0
 
-    feed = circle.ben.feed().json()["photos"]
+    feed = circle.ben.feed_photos()
     assert len(feed) == 1
     assert feed[0]["owner"]["display_name"] == "ana"
     assert feed[0]["caption"] == "move-in day"
@@ -122,8 +122,9 @@ def test_exif_is_stripped_to_timestamp_only(circle, app, db):
     assert tags <= {306}
 
 
-def test_circle_cap_is_twelve(client, circle):
-    for i in range(9):
+def test_circle_cap_is_thirty(client, circle):
+    # circle fixture already has 3 members; fill to 30, then the 31st is refused.
+    for i in range(27):
         extra = make_user(client, f"member{i}")
         r = extra.client.post(
             f"/circles/{circle.id}/join",
@@ -131,11 +132,11 @@ def test_circle_cap_is_twelve(client, circle):
             headers=extra.h,
         )
         assert r.status_code == 201, f"member {i}: {r.text}"
-    thirteenth = make_user(client, "thirteenth")
-    r = thirteenth.client.post(
+    thirty_first = make_user(client, "thirty_first")
+    r = thirty_first.client.post(
         f"/circles/{circle.id}/join",
         json={"invite_token": circle.invite_token},
-        headers=thirteenth.h,
+        headers=thirty_first.h,
     )
     assert r.status_code == 409
     assert r.json()["detail"]["code"] == "circle_full"

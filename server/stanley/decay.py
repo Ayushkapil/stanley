@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .clock import Clock
-from .models import Anchor, Comment, DecayAudit, Photo, PurgeQueueItem, Warmth
+from .models import Anchor, Comment, DecayAudit, Like, Photo, PurgeQueueItem
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
 
@@ -59,9 +59,9 @@ def sweep(session: Session, clock: Clock, notifier: Notifier) -> int:
                 expiry = photo.state_deadline
                 photo.state = physics.EXPIRED
                 photo.state_deadline = None
-                # Part 5: warmth decays WITH the photo. Leaving Today is the
-                # end of it — gone forever, never archived, never counted.
-                session.execute(delete(Warmth).where(Warmth.photo_id == photo.id))
+                # Likes decay WITH the photo. Leaving Today is the end of them —
+                # gone forever, never archived, never recountable.
+                session.execute(delete(Like).where(Like.photo_id == photo.id))
                 # §8.2 retention rule: blob survives purge iff ≥1 anchor at expiry.
                 if _anchor_count(session, photo.id) == 0:
                     enqueue_purge(session, photo, expiry + TOMBSTONE)
@@ -99,9 +99,9 @@ def scrub(
     photo.blob_key = photo.deriv_key = photo.thumb_key = None
     photo.caption = None
     photo.location = None
-    # Warmth never outlives the photo it belonged to (Part 5). A delete before
-    # expiry takes its warmth with it, just as expiry would have.
-    session.execute(delete(Warmth).where(Warmth.photo_id == photo.id))
+    # Likes never outlive the photo they belonged to. A delete before expiry
+    # takes its likes with it, just as expiry would have.
+    session.execute(delete(Like).where(Like.photo_id == photo.id))
 
     if owner_requested:
         anchorer_ids = set(

@@ -3,12 +3,13 @@ import Foundation
 // Codable mirrors of the server payloads (server/stanley/serialize.py).
 // Snake-case keys are converted by the decoder in APIClient.
 
-struct UserBrief: Codable, Hashable, Identifiable {
+struct UserBrief: Codable, Hashable {
     let id: String?
     let displayName: String
     let avatarUrl: String?
 
     // A person reduced to a face and a name — never a number.
+    // Not Identifiable (its id is optional); iterate with ForEach(_, id: \.id).
 }
 
 struct PhotoURLs: Codable, Hashable {
@@ -36,12 +37,37 @@ struct Photo: Codable, Identifiable, Hashable {
     let comments: [Comment]
     let anchoredByMe: Bool
     let myAnchorNote: String?
-    // The caller's own warmth state only — never a count, never who else (Part 5).
-    let warmedByMe: Bool
+    // The caller's own like state only — never a count, never who else (Part 1).
+    let likedByMe: Bool
 }
 
-struct FeedResponse: Codable {
-    let photos: [Photo]
+/// One short shared line for the circle (Part 4). A sticky note the day erases
+/// — not a chat: there are no replies or reactions to decode.
+struct CommunityNote: Codable, Hashable {
+    let text: String
+    let author: UserBrief
+    let setAt: Date?
+}
+
+/// A Today entry: either a standalone photo or a shared moment (Part 3).
+struct FeedItem: Codable, Identifiable {
+    let kind: String
+    let photo: Photo?
+    // moment fields
+    let location: String?
+    let members: [UserBrief]?
+    let photos: [Photo]?
+
+    var isMoment: Bool { kind == "moment" }
+    var id: String {
+        if isMoment { return "moment:\(location ?? "")|\(photos?.first?.id ?? "")" }
+        return photo?.id ?? UUID().uuidString
+    }
+}
+
+struct TodayResponse: Codable {
+    let note: CommunityNote?
+    let items: [FeedItem]
 }
 
 /// A memory thread item: either a full artifact or an honest tombstone
@@ -151,8 +177,8 @@ struct InviteResponse: Codable {
     let inviteToken: String
 }
 
-/// Owner-only faces of who warmed a photo — never a count (Part 5).
-struct WarmthResponse: Codable {
+/// Owner-only faces of who liked a photo — never a count (Part 1).
+struct LikesResponse: Codable {
     let faces: [UserBrief]
 }
 

@@ -22,7 +22,7 @@ def test_owner_delete_leaves_honest_tombstones(circle, db, app):
 
     assert circle.ana.delete_photo(pid).status_code == 204
     assert not app.state.storage.exists(blob_key)
-    assert circle.ben.feed().json()["photos"] == []
+    assert circle.ben.feed_photos() == []
 
     # ben (anchorer) keeps a tombstone and his own comment text only
     threads = circle.ben.memories().json()["threads"]
@@ -71,7 +71,7 @@ def test_account_deletion_cascades(circle, db):
     assert threads[0]["friend"]["display_name"] == "departed"
 
     # ana's words on others' photos are withdrawn
-    ben_photo = circle.ben.feed().json()["photos"][0]
+    ben_photo = circle.ben.feed_photos()[0]
     assert ben_photo["comments"] == []
 
 

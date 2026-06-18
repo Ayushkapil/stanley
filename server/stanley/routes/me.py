@@ -15,7 +15,7 @@ from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
 from ..images import BadImage, process_avatar
-from ..models import Anchor, Block, Comment, Membership, Photo, Rest, User, Warmth
+from ..models import Anchor, Block, Comment, Like, Membership, Photo, Rest, User
 from ..serialize import avatar_url, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
@@ -227,9 +227,9 @@ def delete_account(
 
     for comment in db.scalars(select(Comment).where(Comment.author_id == user.id)).all():
         db.delete(comment)
-    # Warmth the user gave on others' photos is withdrawn — their face must not
+    # Likes the user gave on others' photos are withdrawn — their face must not
     # linger on anyone's owner-view once they're gone (it's ephemeral anyway).
-    db.execute(delete(Warmth).where(Warmth.user_id == user.id))
+    db.execute(delete(Like).where(Like.user_id == user.id))
     for rest in db.scalars(select(Rest).where(Rest.user_id == user.id)).all():
         db.delete(rest)
     for block in db.scalars(

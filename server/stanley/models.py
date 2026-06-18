@@ -93,19 +93,34 @@ class Anchor(Base):
     last_viewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
-class Warmth(Base):
-    """Ephemeral appreciation — the light 'like', on-physics (Part 5).
+class Like(Base):
+    """The like — a heart in the UI, but on Stanley's physics, not Instagram's.
 
-    Warmth decays WITH the photo: when the photo leaves Today (EXPIRED), every
-    warmth row for it is deleted forever — never archived, never shown again,
-    never counted anywhere. Owner-only visibility (the owner sees faces, never
-    a number); nobody else sees warmth at all.
+    A like decays WITH the photo: when the photo leaves Today (EXPIRED), every
+    like row for it is deleted forever — never archived, never recountable.
+    Owner-only visibility (the owner sees faces, never a number); nobody else
+    sees likes at all. There is no count, anywhere — the heart is cosmetic.
     """
 
-    __tablename__ = "warmth"
+    __tablename__ = "likes"
 
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class CommunityNote(Base):
+    """One short shared line for the whole circle (Part 4) — a sticky note the
+    day erases, not a chat. Single active row per circle (last-writer-wins);
+    it stops showing at the end of the author's local day. No replies, no
+    reactions, no threads — by construction there's nowhere to put them."""
+
+    __tablename__ = "community_notes"
+
+    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"), primary_key=True)
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(String(90))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 

@@ -75,14 +75,14 @@ struct AvatarCluster: View {
     }
 }
 
-/// Owner-only peek at the warmth and keeping a photo gathered — faces, never a
-/// count. The circle never sees this; the server enforces owner-only too.
+/// Owner-only peek at who liked and who held a photo — faces, never a count.
+/// The circle never sees this; the server enforces owner-only too.
 struct FacesSheet: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     let photoId: String
 
-    @State private var warmed: [UserBrief] = []
+    @State private var liked: [UserBrief] = []
     @State private var held: [HeldByEntry] = []
     @State private var loaded = false
 
@@ -93,13 +93,8 @@ struct FacesSheet: View {
                     if held.isEmpty {
                         Text("No one yet.").foregroundStyle(.secondary)
                     }
-                    ForEach(held) { entry in
-                        HStack(spacing: 12) {
-                            AvatarView(url: entry.user.avatarUrl, name: entry.user.displayName, size: 36)
-                            Text(entry.user.displayName)
-                            Spacer()
-                            Image(systemName: "flame.fill").foregroundStyle(.orange)
-                        }
+                    ForEach(held, id: \.id) { entry in
+                        FaceRow(face: entry.user, glyph: "bookmark.fill", tint: .accentColor)
                     }
                 } header: {
                     Text("Held by")
@@ -107,21 +102,16 @@ struct FacesSheet: View {
                     Text("Who kept this moment. Only you can see this.")
                 }
                 Section {
-                    if warmed.isEmpty {
-                        Text("No warmth yet.").foregroundStyle(.secondary)
+                    if liked.isEmpty {
+                        Text("No likes yet.").foregroundStyle(.secondary)
                     }
-                    ForEach(warmed) { face in
-                        HStack(spacing: 12) {
-                            AvatarView(url: face.avatarUrl, name: face.displayName, size: 36)
-                            Text(face.displayName)
-                            Spacer()
-                            Image(systemName: "sun.min.fill").foregroundStyle(.yellow)
-                        }
+                    ForEach(liked, id: \.id) { face in
+                        FaceRow(face: face, glyph: "heart.fill", tint: .pink)
                     }
                 } header: {
-                    Text("Warmth")
+                    Text("Liked by")
                 } footer: {
-                    Text("Warmth fades with the photo — when it leaves Today, this is gone for good.")
+                    Text("Likes fade with the photo — when it leaves Today, this is gone for good.")
                 }
             }
             .navigationTitle("Your circle's care")
@@ -132,10 +122,26 @@ struct FacesSheet: View {
             .task {
                 if !loaded {
                     held = await state.heldByFaces(photoId)
-                    warmed = await state.warmthFaces(photoId)
+                    liked = await state.likeFaces(photoId)
                     loaded = true
                 }
             }
+        }
+    }
+}
+
+/// One face in an owner-only list (who held / who liked).
+struct FaceRow: View {
+    let face: UserBrief
+    let glyph: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AvatarView(url: face.avatarUrl, name: face.displayName, size: 36)
+            Text(face.displayName)
+            Spacer()
+            Image(systemName: glyph).foregroundStyle(tint)
         }
     }
 }

@@ -58,9 +58,8 @@ struct HomeView: View {
         TabView {
             TodayFeedView()
                 .tabItem { Label("Today", systemImage: "sun.haze") }
-            // Held: light that didn't go out — a flame to Today's sun.
             MemoriesView()
-                .tabItem { Label("Held", systemImage: "flame") }
+                .tabItem { Label("Held", systemImage: "bookmark") }
             ProfileView()
                 .tabItem { Label("You", systemImage: "person") }
             SettingsView()

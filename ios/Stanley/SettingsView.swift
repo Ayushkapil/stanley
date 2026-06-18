@@ -121,7 +121,7 @@ struct SettingsView: View {
             } header: {
                 Text("Circle")
             } footer: {
-                Text("A circle holds at most twelve people. People, not numbers.")
+                Text("A circle holds at most thirty people. People, not numbers.")
             }
         }
     }

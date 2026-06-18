@@ -66,20 +66,38 @@ class Api:
     def feed(self):
         return self.client.get("/feed/today", headers=self.h)
 
+    def feed_photos(self):
+        """Flatten the Today feed (moments + standalone) to a list of photos."""
+        out = []
+        for item in self.feed().json().get("items", []):
+            if item["kind"] == "photo":
+                out.append(item["photo"])
+            else:
+                out.extend(item["photos"])
+        return out
+
+    def feed_items(self):
+        return self.feed().json().get("items", [])
+
+    def set_note(self, circle_id, text):
+        return self.client.put(
+            f"/circles/{circle_id}/note", json={"text": text}, headers=self.h
+        )
+
     def returned(self, tz: str = NY):
         return self.client.get("/feed/returned", params={"tz": tz}, headers=self.h)
 
     def anchor(self, pid, note=None):
         return self.client.post(f"/photos/{pid}/anchor", json={"note": note}, headers=self.h)
 
-    def warm(self, pid):
-        return self.client.post(f"/photos/{pid}/warm", headers=self.h)
+    def like(self, pid):
+        return self.client.post(f"/photos/{pid}/like", headers=self.h)
 
-    def unwarm(self, pid):
-        return self.client.delete(f"/photos/{pid}/warm", headers=self.h)
+    def unlike(self, pid):
+        return self.client.delete(f"/photos/{pid}/like", headers=self.h)
 
-    def warmth_of(self, pid):
-        return self.client.get(f"/photos/{pid}/warmth", headers=self.h)
+    def likes_of(self, pid):
+        return self.client.get(f"/photos/{pid}/likes", headers=self.h)
 
     def set_avatar(self, image: bytes | None = None):
         files = {"file": ("a.jpg", image or jpeg_bytes(), "image/jpeg")}

@@ -169,14 +169,14 @@ def test_export_renders_tombstone_for_deleted_original(circle):
     assert entry["note"] == "kept"
 
 
-def test_account_deletion_clears_avatar_and_given_warmth(circle, db, app):
+def test_account_deletion_clears_avatar_and_given_likes(circle, db, app):
     from sqlalchemy import func, select
 
-    from stanley.models import User, Warmth
+    from stanley.models import Like, User
 
     circle.ana.set_avatar()
     pid = circle.ben.post_photo().json()["id"]
-    circle.ana.warm(pid)
+    circle.ana.like(pid)
     with db() as session:
         avatar_key = session.get(User, circle.ana.id).avatar_key
     assert app.state.storage.exists(avatar_key)
@@ -184,4 +184,4 @@ def test_account_deletion_clears_avatar_and_given_warmth(circle, db, app):
     assert circle.ana.delete_me().status_code == 204
     assert not app.state.storage.exists(avatar_key)
     with db() as session:
-        assert session.scalar(select(func.count()).select_from(Warmth)) == 0
+        assert session.scalar(select(func.count()).select_from(Like)) == 0
