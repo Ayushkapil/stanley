@@ -130,6 +130,36 @@ class CommunityNote(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
+class PhotoTag(Base):
+    """'Who was there' (Part 3): a memory detail, not a mention. No notification,
+    not a profile link. Decays/held/purged with the photo it belongs to."""
+
+    __tablename__ = "photo_tags"
+    __table_args__ = (Index("ix_phototags_photo", "photo_id"),)
+
+    photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
+    tagged_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class Milestone(Base):
+    """Quiet, private reflections (Part 4). Surfaced at most one per week, shown
+    once, dismissable. (kind, mkey) makes each milestone fire exactly once."""
+
+    __tablename__ = "milestones"
+    __table_args__ = (
+        UniqueConstraint("user_id", "kind", "mkey", name="uq_milestone_once"),
+        Index("ix_milestones_user", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    kind: Mapped[str] = mapped_column(String(24))
+    mkey: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class Comment(Base):
     """Story additions (§8.3): flat, chronological, part of the artifact."""
 

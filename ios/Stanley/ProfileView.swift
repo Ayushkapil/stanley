@@ -6,6 +6,7 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(AppState.self) private var state
     @State private var showEdit = false
+    @State private var milestones: [Milestone] = []
 
     private var kept: [Memory] {
         state.threads.flatMap(\.memories)
@@ -48,6 +49,14 @@ struct ProfileView: View {
                         }
                         .padding(.top, 6)
                     }
+                    ForEach(milestones) { milestone in
+                        MilestoneCard(milestone: milestone) {
+                            Task {
+                                await state.dismissMilestone(milestone.id)
+                                milestones.removeAll { $0.id == milestone.id }
+                            }
+                        }
+                    }
                     Divider()
                         .padding(.vertical, 8)
                     Text("Held")
@@ -67,6 +76,7 @@ struct ProfileView: View {
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .atmosphereWash()
             .navigationTitle("You")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -77,12 +87,70 @@ struct ProfileView: View {
             .task {
                 await state.loadProfile()
                 await state.refreshMemories()
+                milestones = await state.loadMilestones()
             }
             .refreshable {
                 await state.loadProfile()
                 await state.refreshMemories()
+                milestones = await state.loadMilestones()
             }
         }
+    }
+}
+
+/// A milestone card (Part 4): a journal noticing its own age. Private, gentle,
+/// dismissable. No progress bars, no scores, no unlock language.
+struct MilestoneCard: View {
+    @Environment(AppState.self) private var state
+    let milestone: Milestone
+    let onDismiss: () -> Void
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 3), count: 4)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                Text(milestone.title)
+                    .font(.keepsake(20))
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            if let body = milestone.body, !body.isEmpty {
+                Text(body).font(.callout).foregroundStyle(.secondary)
+            }
+            if let faces = milestone.faces, !faces.isEmpty {
+                FaceCluster(
+                    faces: faces.map { (id: $0.id ?? $0.displayName, url: $0.avatarUrl, name: $0.displayName) },
+                    size: 32
+                )
+            }
+            if let photos = milestone.photos, !photos.isEmpty {
+                LazyVGrid(columns: columns, spacing: 3) {
+                    ForEach(photos, id: \.self) { thumb in
+                        Color.clear
+                            .aspectRatio(1, contentMode: .fit)
+                            .overlay {
+                                if let url = state.api.absoluteURL(thumb) {
+                                    AsyncImage(url: url) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Rectangle().fill(.quaternary)
+                                    }
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

@@ -36,6 +36,7 @@ struct MemoriesView: View {
                     }
                 }
             }
+            .atmosphereWash()
             .navigationTitle("Held")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -81,6 +82,7 @@ struct RestedView: View {
                 }
             }
         }
+        .atmosphereWash()
         .navigationTitle("Rested")
         .navigationBarTitleDisplayMode(.inline)
         .task { await reload() }

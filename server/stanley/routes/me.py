@@ -15,7 +15,8 @@ from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
 from ..images import BadImage, process_avatar
-from ..models import Anchor, Block, Comment, Like, Membership, Photo, Rest, User
+from ..milestones import milestone_payload, surface_due
+from ..models import Anchor, Block, Comment, Like, Membership, Milestone, Photo, PhotoTag, Rest, User
 from ..serialize import avatar_url, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
@@ -149,6 +150,37 @@ def my_memories(
     return {"threads": list(threads.values())}
 
 
+@router.get("/me/milestones")
+def my_milestones(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+):
+    """Private milestones (Part 4). Surfaces at most one new one per week on
+    fetch, then returns all undismissed ones. No counts framed as scores."""
+    surface_due(db, clock, user)
+    now = clock.now()
+    rows = db.scalars(
+        select(Milestone)
+        .where(Milestone.user_id == user.id, Milestone.dismissed.is_(False))
+        .order_by(Milestone.created_at.desc())
+    ).all()
+    return {"milestones": [milestone_payload(db, settings, now, user, m) for m in rows]}
+
+
+@router.delete("/me/milestones/{milestone_id}", status_code=204)
+def dismiss_milestone(
+    milestone_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Dismissed milestones don't reappear (Part 4)."""
+    m = db.get(Milestone, milestone_id)
+    if m is not None and m.user_id == user.id:
+        m.dismissed = True
+
+
 @router.get("/me/export")
 def export_memories(
     db: Session = Depends(get_db),
@@ -230,6 +262,9 @@ def delete_account(
     # Likes the user gave on others' photos are withdrawn — their face must not
     # linger on anyone's owner-view once they're gone (it's ephemeral anyway).
     db.execute(delete(Like).where(Like.user_id == user.id))
+    # Their 'who was there' tags on others' photos go too, and their milestones.
+    db.execute(delete(PhotoTag).where(PhotoTag.tagged_user_id == user.id))
+    db.execute(delete(Milestone).where(Milestone.user_id == user.id))
     for rest in db.scalars(select(Rest).where(Rest.user_id == user.id)).all():
         db.delete(rest)
     for block in db.scalars(

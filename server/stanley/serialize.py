@@ -3,14 +3,15 @@ payload has no field for anchor identities or counts — only the caller's own
 anchor state. Who-anchored lists exist solely on the owner-only endpoint."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import physics
 from .config import Settings
-from .models import Anchor, Block, Comment, CommunityNote, Like, Photo, User
+from .models import Anchor, Block, Comment, CommunityNote, Like, Photo, PhotoTag, User
 from .storage import read_url
 
 DEPARTED = "departed"
@@ -72,6 +73,48 @@ def community_note_payload(
     }
 
 
+def weekly_mosaic(session: Session, settings: Settings, now: datetime, circle, viewer_id: str) -> dict | None:
+    """The week's photos as one ephemeral artifact (Part 2). Appears only on the
+    circle creator's local Sunday and Monday; None otherwise. View-only — no
+    holds, likes, comments, or counts. Empty week → None (no guilt message)."""
+    creator = session.get(User, circle.created_by)
+    tz = ZoneInfo(creator.tz_last_seen or "UTC") if creator else ZoneInfo("UTC")
+    local = now.astimezone(tz)
+    weekday = local.weekday()  # Mon=0 .. Sun=6
+    if weekday == 6:        # Sunday: the week ending today
+        week_end = local.date()
+    elif weekday == 0:      # Monday: the week that ended yesterday
+        week_end = local.date() - timedelta(days=1)
+    else:
+        return None
+    week_start = week_end - timedelta(days=6)  # the Monday
+
+    hidden = blocked_ids(session, viewer_id)
+    photos = session.scalars(
+        select(Photo)
+        .where(
+            Photo.circle_id == circle.id,
+            Photo.local_date >= week_start,
+            Photo.local_date <= week_end,
+            Photo.deleted_at.is_(None),
+            Photo.state != physics.PURGED,
+            Photo.thumb_key.is_not(None),
+        )
+        .order_by(Photo.taken_at)
+    ).all()
+    tiles = [
+        {
+            "thumb": read_url(settings, p.thumb_key, now),
+            "owner": user_brief(session, p.owner_id, settings, now),
+        }
+        for p in photos
+        if p.owner_id not in hidden
+    ]
+    if not tiles:
+        return None
+    return {"week_start": week_start.isoformat(), "week_end": week_end.isoformat(), "tiles": tiles}
+
+
 def comment_payload(
     session: Session, comment: Comment, settings: Settings | None = None, now: datetime | None = None
 ) -> dict:
@@ -97,6 +140,22 @@ def visible_comments(
         .order_by(Comment.created_at)  # flat, chronological (§8.3)
     ).all()
     return [comment_payload(session, c, settings, now) for c in comments if c.author_id not in hidden]
+
+
+def tagged_faces(
+    session: Session, photo_id: str, viewer_id: str, settings: Settings | None, now: datetime | None
+) -> list[dict]:
+    """'Who was there' faces (Part 3) — a memory detail. Blocked pairs are
+    hidden, like everything else."""
+    hidden = blocked_ids(session, viewer_id)
+    rows = session.scalars(
+        select(PhotoTag).where(PhotoTag.photo_id == photo_id).order_by(PhotoTag.created_at)
+    ).all()
+    return [
+        user_brief(session, t.tagged_user_id, settings, now)
+        for t in rows
+        if t.tagged_user_id not in hidden
+    ]
 
 
 def photo_payload(
@@ -132,6 +191,8 @@ def photo_payload(
         "my_anchor_note": my_anchor.note if my_anchor else None,
         # The caller's own like state only — never a count, never who else.
         "liked_by_me": my_like is not None,
+        # 'Who was there' (Part 3): part of the artifact, not a mention.
+        "tagged": tagged_faces(session, photo.id, viewer.id, settings, now),
     }
 
 

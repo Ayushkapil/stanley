@@ -49,16 +49,27 @@ class Api:
     def h(self) -> dict:
         return {"Authorization": f"Bearer {self.token}"}
 
-    def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None):
-        data = {"tz": tz}
+    def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None, tagged: list[str] | None = None):
+        data: dict = {"tz": tz}
         if caption is not None:
             data["caption"] = caption
         if location is not None:
             data["location"] = location
         if claim is not None:
             data["taken_at_claim"] = claim
+        if tagged:
+            data["tagged"] = tagged  # list → repeated form fields
         files = {"file": ("photo.jpg", image or jpeg_bytes(), "image/jpeg")}
         return self.client.post("/photos", files=files, data=data, headers=self.h)
+
+    def untag_me(self, pid):
+        return self.client.delete(f"/photos/{pid}/tags/me", headers=self.h)
+
+    def milestones(self):
+        return self.client.get("/me/milestones", headers=self.h)
+
+    def dismiss_milestone(self, mid):
+        return self.client.delete(f"/me/milestones/{mid}", headers=self.h)
 
     def delete_photo(self, pid):
         return self.client.delete(f"/photos/{pid}", headers=self.h)

@@ -15,6 +15,7 @@ struct StanleyApp: App {
 struct RootView: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.appearance") private var appearance = "system"
+    @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
 
     private var colorScheme: ColorScheme? {
         switch appearance {
@@ -67,6 +68,8 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: state.flash)
         .preferredColorScheme(colorScheme)
+        // Ambient seasonal tint — accents, tab bar, card edges (Part 5).
+        .tint(Atmosphere.resolve(atmosphere).palette.accent)
     }
 }
 

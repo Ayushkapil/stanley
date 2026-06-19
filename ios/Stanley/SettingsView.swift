@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.appearance") private var appearance = "system"
+    @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.appLock") private var appLock = false
     @State private var lastLight = false
     @State private var loaded = false
@@ -28,6 +29,7 @@ struct SettingsView: View {
                 dataSection
                 accountSection
             }
+            .atmosphereWash()
             .navigationTitle("Settings")
             .task {
                 if !loaded {
@@ -127,13 +129,22 @@ struct SettingsView: View {
     }
 
     private var appearanceSection: some View {
-        Section("Appearance") {
+        Section {
             Picker("Appearance", selection: $appearance) {
                 Text("System").tag("system")
                 Text("Light").tag("light")
                 Text("Dark").tag("dark")
             }
             .pickerStyle(.segmented)
+            Picker("Atmosphere", selection: $atmosphere) {
+                ForEach(Atmosphere.allCases) { a in
+                    Text(a.label).tag(a.rawValue)
+                }
+            }
+        } header: {
+            Text("Appearance")
+        } footer: {
+            Text("Atmosphere shifts the color with the season (Auto), or you can pick a mood. Rain is the quiet one. It's only color — nothing about how Stanley works changes.")
         }
     }
 

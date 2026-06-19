@@ -12,7 +12,13 @@ from .. import physics
 from ..deps import get_clock, get_current_user, get_db, get_settings, require_membership
 from ..models import Photo, ReturnedLog, User
 from ..returned import returned_item
-from ..serialize import blocked_ids, community_note_payload, photo_payload, user_brief
+from ..serialize import (
+    blocked_ids,
+    community_note_payload,
+    photo_payload,
+    user_brief,
+    weekly_mosaic,
+)
 
 router = APIRouter(tags=["feed"])
 
@@ -32,7 +38,7 @@ def today(
     people are grouped into a 'shared moment' (Part 3): a presentation grouping
     only — each photo keeps its own decay, like, and Held state.
     """
-    membership, _ = require_membership(db, user)
+    membership, circle = require_membership(db, user)
     now = clock.now()
     hidden = blocked_ids(db, user.id)
     photos = db.scalars(
@@ -83,6 +89,7 @@ def today(
         i.pop("sort_at")
 
     return {
+        "mosaic": weekly_mosaic(db, settings, now, circle, user.id),
         "note": community_note_payload(db, settings, now, membership.circle_id),
         "items": items,
     }

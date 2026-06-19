@@ -24,7 +24,7 @@ from ..deps import (
     require_membership,
 )
 from ..images import BadImage, process_upload
-from ..models import Anchor, Comment, Like, Photo, User, new_id
+from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
 from ..serialize import photo_payload, user_brief
 
 router = APIRouter(tags=["photos"])
@@ -54,6 +54,7 @@ def capture(
     tz: str = Form(...),
     caption: str | None = Form(default=None),
     location: str | None = Form(default=None),
+    tagged: list[str] = Form(default=[]),
     taken_at_claim: str | None = Form(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -149,7 +150,23 @@ def capture(
                 storage.delete(key)
         raise HTTPException(503, {"code": "upload_failed"})
 
+    # 'Who was there' (Part 3): tag only real members of this circle, deduped.
+    # A bad/non-member id is ignored, not an error.
+    wanted = {t for t in tagged if t}
+    if wanted:
+        members = set(
+            db.scalars(
+                select(Membership.user_id).where(
+                    Membership.circle_id == membership.circle_id,
+                    Membership.user_id.in_(wanted),
+                )
+            ).all()
+        )
+        for uid in members:
+            db.add(PhotoTag(photo_id=photo.id, tagged_user_id=uid, created_at=now))
+
     user.tz_last_seen = tz
+    db.flush()
     return photo_payload(db, settings, now, photo, user)
 
 
@@ -299,6 +316,18 @@ def like_faces(
     return {
         "faces": [user_brief(db, lk.user_id, settings, now) for lk in likers],
     }
+
+
+@router.delete("/photos/{photo_id}/tags/me", status_code=204)
+def untag_me(
+    photo_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Opt out: remove your own 'who was there' tag from someone's photo (Part 3)."""
+    existing = db.get(PhotoTag, (photo_id, user.id))
+    if existing is not None:
+        db.delete(existing)
 
 
 @router.post("/photos/{photo_id}/comments", status_code=201)

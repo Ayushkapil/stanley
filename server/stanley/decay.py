@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .clock import Clock
-from .models import Anchor, Comment, DecayAudit, Like, Photo, PurgeQueueItem
+from .models import Anchor, Comment, DecayAudit, Like, Photo, PhotoTag, PurgeQueueItem
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
 
@@ -102,6 +102,8 @@ def scrub(
     # Likes never outlive the photo they belonged to. A delete before expiry
     # takes its likes with it, just as expiry would have.
     session.execute(delete(Like).where(Like.photo_id == photo.id))
+    # 'Who was there' tags are part of the artifact — purged with it (Part 3).
+    session.execute(delete(PhotoTag).where(PhotoTag.photo_id == photo.id))
 
     if owner_requested:
         anchorer_ids = set(

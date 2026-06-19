@@ -9,6 +9,7 @@ final class AppState {
     var circle: CircleInfo?
     var feedItems: [FeedItem] = []
     var communityNote: CommunityNote?
+    var mosaic: Mosaic?
     var returned: ReturnedItem?
     var threads: [MemoryThread] = []
     var profile: MyProfile?
@@ -63,6 +64,7 @@ final class AppState {
         checkedCircle = false
         feedItems = []
         communityNote = nil
+        mosaic = nil
         returned = nil
         threads = []
         profile = nil
@@ -118,6 +120,7 @@ final class AppState {
             let response: TodayResponse = try await api.send("GET", "/feed/today")
             feedItems = response.items
             communityNote = response.note
+            mosaic = response.mosaic
             let returnedResponse: ReturnedResponse = try await api.send(
                 "GET", "/feed/returned", query: ["tz": TimeZone.current.identifier]
             )
@@ -189,9 +192,28 @@ final class AppState {
 
     // MARK: gestures
 
-    func capture(jpeg: Data, caption: String?, location: String?) async throws {
-        _ = try await api.uploadPhoto(jpeg: jpeg, caption: caption, location: location)
+    func capture(jpeg: Data, caption: String?, location: String?, tagged: [String]) async throws {
+        _ = try await api.uploadPhoto(jpeg: jpeg, caption: caption, location: location, tagged: tagged)
         await refreshToday()
+    }
+
+    // MARK: milestones (Part 4)
+
+    func loadMilestones() async -> [Milestone] {
+        do {
+            return (try await api.send("GET", "/me/milestones") as MilestonesResponse).milestones
+        } catch {
+            surface(error)
+            return []
+        }
+    }
+
+    func dismissMilestone(_ id: Int) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/me/milestones/\(id)")
+        } catch {
+            surface(error)
+        }
     }
 
     func toggleAnchor(_ photo: Photo) async {

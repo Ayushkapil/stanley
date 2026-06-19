@@ -9,16 +9,27 @@ struct CaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var caption = ""
     @State private var location = ""
+    @State private var tagged: Set<String> = []
     @State private var showCamera = false
     @State private var uploading = false
 
+    private var members: [CircleMember] {
+        (state.circle?.members ?? []).filter { $0.id != state.myId }
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 Text("One photo. This is today's.")
                     .font(.headline)
-                Text("No retakes. It fades in six days unless someone keeps it.")
+                // The day's prompt — a whisper, not an instruction (Part 1).
+                Text(DailyPrompt.forToday())
                     .font(.callout)
+                    .italic()
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                Text("No retakes. It fades in six days unless someone keeps it.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 TextField("A few words, if you like", text: $caption)
@@ -26,6 +37,9 @@ struct CaptureView: View {
                 // a typed place name, as you'd say it — never GPS, never a map
                 TextField("Where was this? (a place, optional)", text: $location)
                     .textFieldStyle(.roundedBorder)
+                if !members.isEmpty {
+                    WhoWasThere(members: members, selected: $tagged)
+                }
                 if uploading {
                     ProgressView()
                 } else {
@@ -71,7 +85,8 @@ struct CaptureView: View {
                 try await state.capture(
                     jpeg: jpeg,
                     caption: caption.trimmingCharacters(in: .whitespaces),
-                    location: location.trimmingCharacters(in: .whitespaces)
+                    location: location.trimmingCharacters(in: .whitespaces),
+                    tagged: Array(tagged)
                 )
                 dismiss()
             } catch {
@@ -105,6 +120,46 @@ struct CaptureView: View {
         return image.jpegData(compressionQuality: 0.9)!
     }
     #endif
+}
+
+/// 'Who was there?' (Part 3): tap circle members present in the moment. A
+/// memory detail — no notifications, no mentions.
+struct WhoWasThere: View {
+    let members: [CircleMember]
+    @Binding var selected: Set<String>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Who was there?")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(members) { member in
+                        let on = selected.contains(member.id)
+                        Button {
+                            if on { selected.remove(member.id) } else { selected.insert(member.id) }
+                        } label: {
+                            VStack(spacing: 4) {
+                                AvatarView(url: member.avatarUrl, name: member.displayName, size: 44)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 44 * 0.28, style: .continuous)
+                                            .strokeBorder(Color.accentColor, lineWidth: on ? 2.5 : 0)
+                                    )
+                                    .opacity(on ? 1 : 0.7)
+                                Text(member.displayName ?? "—")
+                                    .font(.caption2)
+                                    .foregroundStyle(on ? Color.accentColor : .secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
 }
 
 struct CameraPicker: UIViewControllerRepresentable {

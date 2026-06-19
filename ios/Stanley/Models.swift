@@ -39,6 +39,8 @@ struct Photo: Codable, Identifiable, Hashable {
     let myAnchorNote: String?
     // The caller's own like state only — never a count, never who else (Part 1).
     let likedByMe: Bool
+    // 'Who was there' — a memory detail, faces not mentions (Part 3).
+    let tagged: [UserBrief]
 }
 
 /// One short shared line for the circle (Part 4). A sticky note the day erases
@@ -65,9 +67,36 @@ struct FeedItem: Codable, Identifiable {
     }
 }
 
+/// The weekly mosaic (Part 2): ephemeral, view-only, no interactions.
+struct MosaicTile: Codable, Hashable {
+    let thumb: String
+    let owner: UserBrief
+}
+
+struct Mosaic: Codable, Hashable {
+    let weekStart: String
+    let weekEnd: String
+    let tiles: [MosaicTile]
+}
+
 struct TodayResponse: Codable {
+    let mosaic: Mosaic?
     let note: CommunityNote?
     let items: [FeedItem]
+}
+
+/// A quiet, private milestone (Part 4) — a reflection, never a score.
+struct Milestone: Codable, Identifiable, Hashable {
+    let id: Int
+    let kind: String
+    let title: String
+    let body: String?
+    let faces: [UserBrief]?
+    let photos: [String]?
+}
+
+struct MilestonesResponse: Codable {
+    let milestones: [Milestone]
 }
 
 /// A memory thread item: either a full artifact or an honest tombstone
@@ -87,6 +116,7 @@ struct Memory: Codable, Identifiable, Hashable {
     let location: String?
     let urls: PhotoURLs?
     let comments: [Comment]?
+    let tagged: [UserBrief]?
     // both
     let note: String?
     let anchoredAt: Date?
@@ -94,7 +124,7 @@ struct Memory: Codable, Identifiable, Hashable {
     var id: String { photoId ?? photoPayloadId ?? UUID().uuidString }
 
     enum CodingKeys: String, CodingKey {
-        case tombstone, photoId, date, takenAt, caption, location, urls, comments, note, anchoredAt
+        case tombstone, photoId, date, takenAt, caption, location, urls, comments, tagged, note, anchoredAt
         case photoPayloadId = "id"
     }
 }

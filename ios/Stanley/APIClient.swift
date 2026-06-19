@@ -106,7 +106,7 @@ final class APIClient {
 
     /// Capture upload (§8.4): multipart, in-app camera bytes only. Location is
     /// a typed place label — never GPS, which the server strips anyway.
-    func uploadPhoto(jpeg: Data, caption: String?, location: String?) async throws -> Photo {
+    func uploadPhoto(jpeg: Data, caption: String?, location: String?, tagged: [String] = []) async throws -> Photo {
         let boundary = "stanley-\(UUID().uuidString)"
         var request = URLRequest(url: baseURL.appending(path: "/photos"))
         request.httpMethod = "POST"
@@ -126,6 +126,7 @@ final class APIClient {
         field("taken_at_claim", ISO8601DateFormatter().string(from: Date()))
         if let caption, !caption.isEmpty { field("caption", caption) }
         if let location, !location.isEmpty { field("location", location) }
+        for uid in tagged { field("tagged", uid) }  // repeated form fields
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n")
         append("Content-Type: image/jpeg\r\n\r\n")

@@ -9,6 +9,10 @@ struct TodayFeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 24) {
+                    // The weekly mosaic sits at the very top (Part 2), Sun/Mon only.
+                    if let mosaic = state.mosaic {
+                        MosaicCard(mosaic: mosaic)
+                    }
                     // Returned sits above the circle's own content, set apart.
                     if let item = state.returned {
                         ReturnedCard(item: item)
@@ -34,6 +38,7 @@ struct TodayFeedView: View {
                 }
                 .padding()
             }
+            .atmosphereWash()
             .navigationTitle("Today")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -205,6 +210,20 @@ struct PhotoCard: View {
                 }
                 if let location = photo.location, !location.isEmpty {
                     Text(location).font(.footnote).italic().foregroundStyle(.secondary)
+                }
+                // 'Who was there' — faces as a memory detail, not tappable (Part 3).
+                if !photo.tagged.isEmpty {
+                    HStack(spacing: 6) {
+                        FaceCluster(
+                            faces: photo.tagged.map { (id: $0.id ?? $0.displayName, url: $0.avatarUrl, name: $0.displayName) },
+                            size: 20
+                        )
+                        Text("with " + photo.tagged.map(\.displayName).joined(separator: ", "))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.top, 1)
                 }
             }
             Spacer()
@@ -378,6 +397,54 @@ struct NoteEditor: View {
 /// time-critical (keep your own fading photo); anniversary and near-forgotten
 /// resurface held memories. Two distinct exits: Rest (never again) and
 /// Dismiss (not now).
+/// The weekly mosaic (Part 2): the week's photos as one fleeting artifact.
+/// View-only — no holds, likes, comments, or counts. Each tile shows its
+/// owner's face. Appears Sun/Mon, gone Tuesday.
+struct MosaicCard: View {
+    @Environment(AppState.self) private var state
+    let mosaic: Mosaic
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 3)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Your week").font(.subheadline.weight(.medium))
+                    Text("The circle's photos, together once.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            LazyVGrid(columns: columns, spacing: 4) {
+                ForEach(mosaic.tiles, id: \.thumb) { tile in
+                    Color.clear
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            if let url = state.api.absoluteURL(tile.thumb) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Rectangle().fill(.quaternary)
+                                }
+                            }
+                        }
+                        .overlay(alignment: .bottomLeading) {
+                            AvatarView(url: tile.owner.avatarUrl, name: tile.owner.displayName, size: 18, circular: true)
+                                .padding(3)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
 struct ReturnedCard: View {
     @Environment(AppState.self) private var state
     let item: ReturnedItem
