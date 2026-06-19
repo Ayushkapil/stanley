@@ -9,7 +9,7 @@ struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 28) {
             Spacer()
-            Text("One Day, One Photo")
+            Text("Welcome to Stanley")
                 .font(.keepsake(34))
             Text("A small circle. One photo a day.\nMoments fade unless someone keeps them.")
                 .font(.callout)
@@ -50,22 +50,38 @@ struct WelcomeView: View {
 }
 
 #if DEBUG
-/// Developer-only sign-in, compiled out of release builds.
+/// Developer-only sign-in, compiled out of release builds. Styled to sit
+/// quietly beneath the real Apple button — same width and shape, muted tone.
 private struct DevSignIn: View {
     @Environment(AppState.self) private var state
     @Binding var devName: String
     @State private var busy = false
 
+    private let width: CGFloat = 280
+    private let radius: CGFloat = 10
+
+    private var canBegin: Bool {
+        !devName.trimmingCharacters(in: .whitespaces).isEmpty && !busy
+    }
+
     var body: some View {
         VStack(spacing: 12) {
-            Divider().frame(width: 200)
             Text("developer sign-in")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .padding(.top, 8)
+
             TextField("Your name", text: $devName)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
                 .textInputAutocapitalization(.words)
-                .frame(maxWidth: 260)
+                .padding(.horizontal, 14)
+                .frame(width: width, height: 48)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(.separator, lineWidth: 0.5)
+                )
+
             Button {
                 busy = true
                 Task {
@@ -73,11 +89,17 @@ private struct DevSignIn: View {
                     busy = false
                 }
             } label: {
-                Text("Begin").frame(maxWidth: 260)
+                Text("Begin")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(canBegin ? Color.primary : Color.secondary)
+                    .frame(width: width, height: 48)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             }
-            .buttonStyle(.bordered)
-            .disabled(devName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
+            .buttonStyle(.plain)
+            .disabled(!canBegin)
+            .opacity(canBegin ? 1 : 0.6)
         }
+        .padding(.top, 4)
     }
 }
 #endif
