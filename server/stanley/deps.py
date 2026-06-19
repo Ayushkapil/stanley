@@ -28,6 +28,10 @@ def get_notifier(request: Request):
     return request.app.state.notifier
 
 
+def get_apple_verifier(request: Request):
+    return request.app.state.apple_verifier
+
+
 def get_db(request: Request):
     session: Session = request.app.state.sessionmaker()
     try:

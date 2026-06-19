@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from ..deps import (
@@ -207,14 +208,15 @@ def set_note(
     )
     expires_at = local_next_midnight.astimezone(ZoneInfo("UTC"))
 
-    note = db.get(CommunityNote, circle.id)
-    if note is None:
-        note = CommunityNote(circle_id=circle.id)
-        db.add(note)
-    note.author_id = user.id
-    note.body = text
-    note.expires_at = expires_at
-    note.created_at = now
+    # I6: atomic last-writer-wins — no get-or-create PK race.
+    db.execute(
+        sqlite_insert(CommunityNote)
+        .values(circle_id=circle.id, author_id=user.id, body=text, expires_at=expires_at, created_at=now)
+        .on_conflict_do_update(
+            index_elements=["circle_id"],
+            set_={"author_id": user.id, "body": text, "expires_at": expires_at, "created_at": now},
+        )
+    )
     db.flush()
     return community_note_payload(db, settings, now, circle.id)
 

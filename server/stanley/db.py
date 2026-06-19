@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import DateTime, TypeDecorator, create_engine
+from sqlalchemy import DateTime, TypeDecorator, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -36,16 +36,38 @@ class UTCDateTime(TypeDecorator):
         return value.replace(tzinfo=timezone.utc)
 
 
+def _install_sqlite_pragmas(engine, *, wal: bool) -> None:
+    """Per-connection PRAGMAs (audit C2 + I1 + I9):
+      - WAL: readers don't block the writer; far fewer 'database is locked'.
+      - busy_timeout: wait up to 5s for a lock instead of failing instantly.
+      - foreign_keys=ON: SQLite enforces FKs off by default — turn them on so
+        orphaned rows are impossible.
+    WAL is skipped for in-memory DBs (it's a no-op there)."""
+
+    @event.listens_for(engine, "connect")
+    def _set_pragmas(dbapi_conn, _record):
+        cur = dbapi_conn.cursor()
+        if wal:
+            cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+
+
 def make_engine(url: str):
     if url.startswith("sqlite"):
         if url in ("sqlite://", "sqlite:///:memory:") or ":memory:" in url:
-            return create_engine(
+            engine = create_engine(
                 url,
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool,
             )
+            _install_sqlite_pragmas(engine, wal=False)
+            return engine
         Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-        return create_engine(url, connect_args={"check_same_thread": False})
+        engine = create_engine(url, connect_args={"check_same_thread": False})
+        _install_sqlite_pragmas(engine, wal=True)
+        return engine
     return create_engine(url, pool_pre_ping=True)
 
 
@@ -61,16 +83,29 @@ _LATER_COLUMNS = {
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
+# Hot-path indexes (audit M3). Idempotent CREATE INDEX IF NOT EXISTS so existing
+# pilot DBs get them without create_all (which only adds missing tables).
+_LATER_INDEXES = [
+    ("ix_photos_circle_state", "photos", "circle_id, state"),
+    ("ix_comments_photo", "comments", "photo_id"),
+    ("ix_likes_photo", "likes", "photo_id"),
+    ("ix_anchors_photo", "anchors", "photo_id"),
+]
 # Tables left behind by a rename. Their data was ephemeral by design, so a drop
 # is safe — "warmth" became "likes" (same mechanic, cosmetic heart).
 _LEGACY_TABLES = ["warmth"]
 
 
 def ensure_schema(engine) -> list[str]:
-    """Tiny forward-only migration: add any missing late columns, drop renamed
-    legacy tables. Returns the list of columns added (for logging/tests)."""
+    """Tiny forward-only migration: add missing late columns + indexes, bump
+    legacy circle caps, drop renamed legacy tables. Returns the columns added."""
+    import logging
+
     from sqlalchemy import inspect, text
 
+    from .physics import CIRCLE_CAP
+
+    log = logging.getLogger("stanley")
     inspector = inspect(engine)
     added = []
     with engine.begin() as conn:
@@ -88,6 +123,19 @@ def ensure_schema(engine) -> list[str]:
                 conn.execute(
                     text(f"CREATE UNIQUE INDEX IF NOT EXISTS {index} ON {table} ({column})")
                 )
+        for index, table, columns in _LATER_INDEXES:
+            if table in tables:
+                conn.execute(
+                    text(f"CREATE INDEX IF NOT EXISTS {index} ON {table} ({columns})")
+                )
+        # I7: circles created before the cap was raised keep their old per-row
+        # cap. Bump them so the pilot isn't silently capped at the old value.
+        if "circles" in tables:
+            result = conn.execute(
+                text("UPDATE circles SET cap = :cap WHERE cap < :cap"), {"cap": CIRCLE_CAP}
+            )
+            if result.rowcount:
+                log.info("ensure_schema: raised cap to %d on %d circle(s)", CIRCLE_CAP, result.rowcount)
         for table in _LEGACY_TABLES:
             if table in tables:
                 conn.execute(text(f"DROP TABLE {table}"))

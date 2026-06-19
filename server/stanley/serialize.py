@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from . import physics
 from .config import Settings
 from .models import Anchor, Block, Comment, CommunityNote, Like, Photo, User
-from .storage import signed_url
+from .storage import read_url
 
 DEPARTED = "departed"
 
@@ -25,7 +25,7 @@ def avatar_url(settings: Settings | None, key: str | None, now: datetime | None)
     short-TTL signed (§9). None when there's no avatar or no signing context."""
     if not settings or not key or now is None:
         return None
-    return signed_url(settings.secret_key, key, now, settings.signed_url_ttl_seconds)
+    return read_url(settings, key, now)
 
 
 def blocked_ids(session: Session, user_id: str) -> set[str]:
@@ -109,8 +109,8 @@ def photo_payload(
     urls = None
     if photo.deriv_key and photo.thumb_key:
         urls = {
-            "image": signed_url(settings.secret_key, photo.deriv_key, now, settings.signed_url_ttl_seconds),
-            "thumb": signed_url(settings.secret_key, photo.thumb_key, now, settings.signed_url_ttl_seconds),
+            "image": read_url(settings, photo.deriv_key, now),
+            "thumb": read_url(settings, photo.thumb_key, now),
         }
     my_anchor = session.get(Anchor, (photo.id, viewer.id))
     my_like = session.get(Like, (photo.id, viewer.id))

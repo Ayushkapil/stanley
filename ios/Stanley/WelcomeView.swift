@@ -1,40 +1,83 @@
+import AuthenticationServices
 import SwiftUI
 
 struct WelcomeView: View {
     @Environment(AppState.self) private var state
-    @State private var name = ""
-    @State private var busy = false
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var devName = ""
 
     var body: some View {
         VStack(spacing: 28) {
             Spacer()
             Text("One Day, One Photo")
-                .font(.title.weight(.medium))
+                .font(.keepsake(34))
             Text("A small circle. One photo a day.\nMoments fade unless someone keeps them.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            TextField("Your name", text: $name)
+
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName]
+            } onCompletion: { result in
+                handle(result)
+            }
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(width: 280, height: 48)
+
+            #if DEBUG
+            DevSignIn(devName: $devName)
+            #endif
+
+            Spacer()
+            Text("Sign in with Apple")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding()
+    }
+
+    private func handle(_ result: Result<ASAuthorization, Error>) {
+        guard case let .success(auth) = result,
+              let cred = auth.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = cred.identityToken,
+              let token = String(data: tokenData, encoding: .utf8)
+        else { return }
+        let name = [cred.fullName?.givenName, cred.fullName?.familyName]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        Task { await state.appleSignIn(identityToken: token, name: name.isEmpty ? nil : name) }
+    }
+}
+
+#if DEBUG
+/// Developer-only sign-in, compiled out of release builds.
+private struct DevSignIn: View {
+    @Environment(AppState.self) private var state
+    @Binding var devName: String
+    @State private var busy = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Divider().frame(width: 200)
+            Text("developer sign-in")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            TextField("Your name", text: $devName)
                 .textFieldStyle(.roundedBorder)
                 .textInputAutocapitalization(.words)
                 .frame(maxWidth: 260)
             Button {
                 busy = true
                 Task {
-                    await state.devSignIn(name: name.trimmingCharacters(in: .whitespaces))
+                    await state.devSignIn(name: devName.trimmingCharacters(in: .whitespaces))
                     busy = false
                 }
             } label: {
-                Text("Begin")
-                    .frame(maxWidth: 260)
+                Text("Begin").frame(maxWidth: 260)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || busy)
-            Spacer()
-            Text("pilot build · dev sign-in")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            .buttonStyle(.bordered)
+            .disabled(devName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
         }
-        .padding()
     }
 }
+#endif

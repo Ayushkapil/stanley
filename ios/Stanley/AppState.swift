@@ -27,6 +27,21 @@ final class AppState {
 
     // MARK: auth & circle
 
+    /// Sign in with Apple: exchange Apple's identity token for a Stanley JWT.
+    func appleSignIn(identityToken: String, name: String?) async {
+        do {
+            var body: [String: Any?] = ["identity_token": identityToken]
+            if let name, !name.isEmpty { body["name"] = name }
+            let auth: AuthResponse = try await api.send("POST", "/auth/apple", json: body)
+            api.token = auth.token
+            myId = auth.user.id
+            signedIn = true
+            await loadCircle()
+        } catch {
+            surface(error)
+        }
+    }
+
     func devSignIn(name: String) async {
         do {
             let auth: AuthResponse = try await api.send(

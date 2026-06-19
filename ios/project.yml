@@ -8,11 +8,17 @@ targets:
     type: application
     platform: iOS
     sources: [Stanley]
+    entitlements:
+      path: Stanley/Stanley.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     info:
       path: Stanley/Info.plist
       properties:
         UILaunchScreen: {}
         CFBundleDisplayName: Stanley
+        # Set per build config for TestFlight/release; empty → localhost (debug).
+        STANLEY_API_BASE: ""
         NSCameraUsageDescription: >-
           Stanley captures one photo a day, in the moment. The camera is the
           only way in — there is no roll, no retakes.

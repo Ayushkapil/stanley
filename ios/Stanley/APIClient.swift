@@ -32,14 +32,28 @@ struct Empty: Codable {}
 final class APIClient {
     let baseURL: URL
     var token: String? {
-        didSet { UserDefaults.standard.set(token, forKey: "stanley.token") }
+        didSet {
+            if let token { KeychainToken.save(token) } else { KeychainToken.delete() }
+        }
     }
 
-    // TODO(pilot→release): move the token to the Keychain.
     init() {
-        let env = ProcessInfo.processInfo.environment["STANLEY_API"]
-        self.baseURL = URL(string: env ?? "http://127.0.0.1:8000")!
-        self.token = UserDefaults.standard.string(forKey: "stanley.token")
+        self.baseURL = APIClient.resolveBaseURL()
+        self.token = KeychainToken.load()
+    }
+
+    /// Base URL precedence: STANLEY_API env (debug runs) → Info.plist
+    /// STANLEY_API_BASE (set per build config: release reads from the plist) →
+    /// localhost as a debug-only fallback.
+    private static func resolveBaseURL() -> URL {
+        if let env = ProcessInfo.processInfo.environment["STANLEY_API"], let u = URL(string: env) {
+            return u
+        }
+        if let s = Bundle.main.object(forInfoDictionaryKey: "STANLEY_API_BASE") as? String,
+           !s.isEmpty, let u = URL(string: s) {
+            return u
+        }
+        return URL(string: "http://127.0.0.1:8000")!
     }
 
     private static let decoder: JSONDecoder = {

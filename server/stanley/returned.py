@@ -14,6 +14,7 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from . import physics
@@ -28,6 +29,16 @@ NEAR_FORGOTTEN = timedelta(days=90)
 
 def _rested_ids(session: Session, user_id: str) -> set[str]:
     return set(session.scalars(select(Rest.photo_id).where(Rest.user_id == user_id)).all())
+
+
+def _log_pick(session, user_id, local_date, photo_id, source) -> None:
+    """I5: record the day's pick, ignoring the PK collision two concurrent
+    first-of-day reads would otherwise raise (500)."""
+    session.execute(
+        sqlite_insert(ReturnedLog)
+        .values(user_id=user_id, local_date=local_date, photo_id=photo_id, source=source)
+        .on_conflict_do_nothing(index_elements=["user_id", "local_date"])
+    )
 
 
 def _anchored_candidates(session: Session, user: User) -> list[tuple[Anchor, Photo]]:
@@ -108,9 +119,7 @@ def returned_item(
     # Fresh pick for the day, in priority order.
     rescue = _pick_rescue(session, user, rested)
     if rescue is not None:
-        session.add(
-            ReturnedLog(user_id=user.id, local_date=today, photo_id=rescue.id, source="rescue")
-        )
+        _log_pick(session, user.id, today, rescue.id, "rescue")
         return {"source": "rescue", "photo": photo_payload(session, settings, now, rescue, user)}
 
     picked = _pick_anniversary(session, user, today)
@@ -121,7 +130,7 @@ def returned_item(
     if picked is not None:
         anchor, photo = picked
         anchor.last_viewed_at = now
-        session.add(ReturnedLog(user_id=user.id, local_date=today, photo_id=photo.id, source=source))
+        _log_pick(session, user.id, today, photo.id, source)
         return {"source": source, "photo": memory_payload(session, settings, now, photo, anchor, user)}
 
     return None

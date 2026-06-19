@@ -55,7 +55,10 @@ class Photo(Base):
     __tablename__ = "photos"
     # The slot is per owner per local calendar day, including soft-deleted rows
     # (no refunds, §8.4). NULL owner_id rows (anonymized tombstones) don't collide.
-    __table_args__ = (UniqueConstraint("owner_id", "local_date", name="uq_owner_localdate"),)
+    __table_args__ = (
+        UniqueConstraint("owner_id", "local_date", name="uq_owner_localdate"),
+        Index("ix_photos_circle_state", "circle_id", "state"),  # feed query (M3)
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     owner_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
@@ -86,6 +89,8 @@ class Anchor(Base):
 
     __tablename__ = "anchors"
 
+    __table_args__ = (Index("ix_anchors_photo", "photo_id"),)
+
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
@@ -103,6 +108,7 @@ class Like(Base):
     """
 
     __tablename__ = "likes"
+    __table_args__ = (Index("ix_likes_photo", "photo_id"),)
 
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
@@ -128,6 +134,7 @@ class Comment(Base):
     """Story additions (§8.3): flat, chronological, part of the artifact."""
 
     __tablename__ = "comments"
+    __table_args__ = (Index("ix_comments_photo", "photo_id"),)
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"))

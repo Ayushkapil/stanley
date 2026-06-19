@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+CAPTION_MAX = 2000  # I4: cap caption like comments (unbounded TEXT otherwise)
 
 from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, scrub
@@ -68,11 +72,16 @@ def capture(
     if location is not None and len(location) > 120:
         raise HTTPException(400, {"code": "location_too_long"})
 
+    # I4: caption is bounded like every other text field.
+    if caption is not None and len(caption) > CAPTION_MAX:
+        raise HTTPException(422, {"code": "caption_too_long"})
+
     now = clock.now()
     taken_at = physics.reconcile_taken_at(now, _parse_claim(taken_at_claim))
 
     # The slot check includes soft-deleted and purged rows: capture is a
-    # commitment, and deletion does not refund the day (§8.4).
+    # commitment, and deletion does not refund the day (§8.4). This is the fast
+    # path; the UNIQUE(owner_id, local_date) constraint is the race backstop.
     existing_dates = set(
         db.scalars(select(Photo.local_date).where(Photo.owner_id == user.id)).all()
     )
@@ -83,6 +92,8 @@ def capture(
     if violation is not None:
         raise HTTPException(409, {"code": violation})
 
+    # Decode/validate the image BEFORE claiming the slot, so a bad image never
+    # burns a day.
     data = file.file.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(413, {"code": "too_large"})
@@ -91,16 +102,15 @@ def capture(
     except BadImage:
         raise HTTPException(400, {"code": "bad_image"})
 
+    # I2: claim the slot (flush the row) FIRST. If a concurrent request already
+    # took today, the UNIQUE constraint fires here — return 409 with ZERO blobs
+    # written, no orphans.
     photo_id = new_id()
     keys = {
         "blob_key": f"{photo_id}/orig.jpg",
         "deriv_key": f"{photo_id}/deriv.jpg",
         "thumb_key": f"{photo_id}/thumb.jpg",
     }
-    storage.put(keys["blob_key"], processed.original)
-    storage.put(keys["deriv_key"], processed.derivative)
-    storage.put(keys["thumb_key"], processed.thumbnail)
-
     photo = Photo(
         id=photo_id,
         owner_id=user.id,
@@ -116,8 +126,30 @@ def capture(
         **keys,
     )
     db.add(photo)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, {"code": "slot_used"})
+
+    # Slot is ours; now upload. If a blob write fails, clean up any partial blobs
+    # and let the row roll back (get_db) so the user can retry the day.
+    written: list[str] = []
+    try:
+        for key, blob in (
+            (keys["blob_key"], processed.original),
+            (keys["deriv_key"], processed.derivative),
+            (keys["thumb_key"], processed.thumbnail),
+        ):
+            storage.put(key, blob)
+            written.append(key)
+    except Exception:
+        for key in written:
+            with contextlib.suppress(Exception):
+                storage.delete(key)
+        raise HTTPException(503, {"code": "upload_failed"})
+
     user.tz_last_seen = tz
-    db.flush()
     return photo_payload(db, settings, now, photo, user)
 
 

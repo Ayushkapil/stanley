@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 try:  # HEIC -> JPEG (§9); optional at dev time, required for real iPhone uploads
     from pillow_heif import register_heif_opener
@@ -40,6 +40,10 @@ def process_upload(data: bytes) -> ProcessedImage:
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise BadImage(f"could not decode image: {exc}") from exc
 
+    # M1: bake the EXIF orientation into the pixels BEFORE stripping EXIF, or a
+    # photo shot sideways would render rotated once the orientation tag is gone.
+    img = ImageOps.exif_transpose(img)
+
     src_exif = img.getexif()
     clean_exif = Image.Exif()
     for tag in EXIF_KEEP:
@@ -73,6 +77,7 @@ def process_avatar(data: bytes) -> bytes:
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise BadImage(f"could not decode avatar: {exc}") from exc
 
+    img = ImageOps.exif_transpose(img)  # M1: honor orientation before stripping
     rgb = img.convert("RGB")
     edge = min(rgb.width, rgb.height)
     left = (rgb.width - edge) // 2
