@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import date, datetime
 
@@ -12,6 +13,16 @@ from .physics import CIRCLE_CAP, LIVE
 
 def new_id() -> str:
     return uuid.uuid4().hex
+
+
+# No I/O/0/1 to avoid visual confusion when read aloud or hand-typed.
+_INVITE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_invite_code() -> str:
+    """Short human-friendly invite code in XXXX-XXXX format."""
+    chars = [secrets.choice(_INVITE_CHARS) for _ in range(8)]
+    return f"{''.join(chars[:4])}-{''.join(chars[4:])}"
 
 
 class User(Base):
@@ -38,7 +49,7 @@ class Circle(Base):
     name: Mapped[str] = mapped_column(String(80))
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     cap: Mapped[int] = mapped_column(Integer, default=CIRCLE_CAP)
-    invite_token: Mapped[str] = mapped_column(String(32), unique=True, default=new_id)
+    invite_token: Mapped[str] = mapped_column(String(9), unique=True, default=new_invite_code)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 

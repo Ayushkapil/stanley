@@ -17,7 +17,7 @@ from ..deps import (
     member_count,
     require_membership,
 )
-from ..models import Circle, CommunityNote, Membership, User, new_id
+from ..models import Circle, CommunityNote, Membership, User, new_id, new_invite_code
 from ..serialize import avatar_url, blocked_ids, community_note_payload
 
 router = APIRouter(tags=["circles"])
@@ -29,6 +29,10 @@ class CircleCreate(BaseModel):
 
 class JoinBody(BaseModel):
     invite_token: str
+
+
+class JoinCodeBody(BaseModel):
+    code: str  # short XXXX-XXXX code
 
 
 class NoteBody(BaseModel):
@@ -82,6 +86,32 @@ def create_circle(
     return {"id": circle.id, "name": circle.name, "invite_token": circle.invite_token}
 
 
+@router.post("/circles/join", status_code=201)
+def join_by_code(
+    body: JoinCodeBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+):
+    """Join a circle using the short human-friendly code (XXXX-XXXX).
+    Case-insensitive; hyphens are normalised so NECR7KX4 == NECR-7KX4."""
+    raw = body.code.strip().upper().replace(" ", "")
+    # Accept code with or without the hyphen
+    if len(raw) == 8 and "-" not in raw:
+        raw = f"{raw[:4]}-{raw[4:]}"
+    circle = db.scalars(select(Circle).where(Circle.invite_token == raw)).first()
+    if circle is None:
+        raise HTTPException(404, "not found")
+    _ensure_not_in_a_circle(db, user)
+    if member_count(db, circle.id) >= circle.cap:
+        raise HTTPException(409, {"code": "circle_full"})
+    now = clock.now()
+    db.add(Membership(circle_id=circle.id, user_id=user.id, joined_at=now))
+    db.flush()
+    return {"id": circle.id, "name": circle.name, "members": _members_payload(db, circle, settings, now)}
+
+
 @router.post("/circles/{circle_id}/join", status_code=201)
 def join_circle(
     circle_id: str,
@@ -132,7 +162,7 @@ def rotate_invite(
     _, circle = require_membership(db, user)
     if circle.id != circle_id or circle.created_by != user.id:
         raise HTTPException(403, {"code": "creator_only"})
-    circle.invite_token = new_id()
+    circle.invite_token = new_invite_code()
     return {"invite_token": circle.invite_token}
 
 

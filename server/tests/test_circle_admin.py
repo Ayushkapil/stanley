@@ -30,8 +30,24 @@ def test_rotate_invite_invalidates_old_code(client, circle):
     assert new != old
 
     latecomer = make_user(client, "late")
-    assert latecomer.join(circle.id, old).status_code == 404  # old code is dead
-    assert latecomer.join(circle.id, new).status_code == 201  # new code works
+    assert latecomer.join(old).status_code == 404  # old code is dead
+    assert latecomer.join(new).status_code == 201  # new code works
+
+
+def test_invite_code_format_and_case_insensitivity(client, circle):
+    """Short code is XXXX-XXXX; join accepts lower-case and no-hyphen variants."""
+    code = circle.invite_token
+    assert len(code) == 9 and code[4] == "-"  # XXXX-XXXX format
+    latecomer = make_user(client, "lc")
+    # Case-insensitive
+    assert latecomer.join(code.lower()).status_code == 201
+
+
+def test_invite_code_no_hyphen_accepted(client, circle):
+    """Users can omit the hyphen when typing a code manually."""
+    code_no_hyphen = circle.invite_token.replace("-", "")
+    latecomer = make_user(client, "lc2")
+    assert latecomer.join(code_no_hyphen).status_code == 201
 
 
 def test_rotate_invite_is_creator_only(circle):

@@ -109,6 +109,24 @@ def test_owner_delete_purges_location_with_caption(circle, db):
     assert row.location is None and row.caption is None
 
 
+def test_you_tab_profile_data(circle):
+    """All three endpoints the You tab fetches in parallel return 200."""
+    r = circle.ana.client.get("/me", headers=circle.ana.h)
+    assert r.status_code == 200
+    p = r.json()
+    assert p["id"] == circle.ana.id
+    assert "display_name" in p
+    assert "avatar_url" in p  # field exists (value may be None for no avatar)
+
+    r = circle.ana.client.get("/me/anchored", headers=circle.ana.h)
+    assert r.status_code == 200
+    assert "threads" in r.json()
+
+    r = circle.ana.milestones()
+    assert r.status_code == 200
+    assert "milestones" in r.json()
+
+
 def test_ensure_schema_adds_late_columns(app):
     """Simulate a pilot database created before this round: drop the new
     columns, run the migration, and confirm they come back usable."""

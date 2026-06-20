@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(AppState.self) private var state
@@ -108,15 +109,35 @@ struct SettingsView: View {
                     }
                 }
                 if let code = state.inviteCode {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Invite code")
-                        Text(code)
-                            .font(.caption.monospaced())
-                            .textSelection(.enabled)
-                            .foregroundStyle(.secondary)
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Invite code")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Text(code)
+                                .font(.system(.title3, design: .monospaced).weight(.semibold))
+                                .textSelection(.enabled)
+                        }
+                        Spacer()
+                        Button {
+                            UIPasteboard.general.string = code
+                            state.flash = "Copied"
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .imageScale(.medium)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.leading, 8)
+                        ShareLink(item: "Join my circle on Stanley: \(code)") {
+                            Image(systemName: "square.and.arrow.up")
+                                .imageScale(.medium)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.leading, 4)
                     }
                     if isCreator {
                         Button("Rotate code") { confirmRotate = true }
+                            .foregroundStyle(.primary)
                     }
                 }
                 Button("Leave circle", role: .destructive) { confirmLeave = true }

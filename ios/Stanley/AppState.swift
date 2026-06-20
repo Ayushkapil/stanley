@@ -91,18 +91,15 @@ final class AppState {
         }
     }
 
-    /// Invite codes are `circleId.inviteToken` — one string to paste or QR.
     func joinCircle(code: String) async {
-        let parts = code.split(separator: ".", maxSplits: 1).map(String.init)
-        guard parts.count == 2 else {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
             errorMessage = "That invite code doesn't look right."
             return
         }
         do {
-            _ = try await api.send(
-                "POST", "/circles/\(parts[0])/join", json: ["invite_token": parts[1]]
-            ) as CircleInfo
-            await loadCircle()  // pull the full shape: roster + creator flag
+            _ = try await api.send("POST", "/circles/join", json: ["code": trimmed]) as CircleInfo
+            await loadCircle()
         } catch {
             surface(error)
         }
@@ -110,7 +107,7 @@ final class AppState {
 
     var inviteCode: String? {
         guard let circle, let token = circle.inviteToken else { return nil }
-        return "\(circle.id).\(token)"
+        return token
     }
 
     // MARK: surfaces

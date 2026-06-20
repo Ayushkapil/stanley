@@ -132,9 +132,9 @@ class Api:
     def leave(self, circle_id):
         return self.client.post(f"/circles/{circle_id}/leave", headers=self.h)
 
-    def join(self, circle_id, token):
+    def join(self, code: str):
         return self.client.post(
-            f"/circles/{circle_id}/join", json={"invite_token": token}, headers=self.h
+            "/circles/join", json={"code": code}, headers=self.h
         )
 
     def unanchor(self, pid):
@@ -210,9 +210,7 @@ def circle(client):
     assert r.status_code == 201, r.text
     info = r.json()
     for u in (ben, cam):
-        rj = u.client.post(
-            f"/circles/{info['id']}/join", json={"invite_token": info["invite_token"]}, headers=u.h
-        )
+        rj = u.join(info["invite_token"])
         assert rj.status_code == 201, rj.text
     return SimpleNamespace(ana=ana, ben=ben, cam=cam, id=info["id"], invite_token=info["invite_token"])
 

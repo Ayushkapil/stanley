@@ -12,9 +12,9 @@ struct CircleGateView: View {
         NavigationStack {
             Form {
                 Section("Join your circle") {
-                    TextField("Invite code", text: $inviteCode)
+                    TextField("e.g. NECR-7KX4", text: $inviteCode)
                         .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                        .textInputAutocapitalization(.characters)
                     Button("Join") {
                         Task { await state.joinCircle(code: inviteCode.trimmingCharacters(in: .whitespaces)) }
                     }

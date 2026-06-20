@@ -139,4 +139,25 @@ def ensure_schema(engine) -> list[str]:
         for table in _LEGACY_TABLES:
             if table in tables:
                 conn.execute(text(f"DROP TABLE {table}"))
+
+        # Migrate old 32-char hex invite tokens to the short XXXX-XXXX format.
+        # Existing circles get a new code; the old long string is unusable anyway
+        # since the new join endpoint validates only the short format.
+        if "circles" in tables:
+            import re
+            import secrets as _sec
+            _CH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+            def _gen():
+                c = [_sec.choice(_CH) for _ in range(8)]
+                return f"{''.join(c[:4])}-{''.join(c[4:])}"
+
+            rows = conn.execute(text("SELECT id, invite_token FROM circles")).fetchall()
+            for cid, token in rows:
+                if token and re.match(r"^[0-9a-f]{32}$", str(token)):
+                    conn.execute(
+                        text("UPDATE circles SET invite_token = :t WHERE id = :id"),
+                        {"t": _gen(), "id": cid},
+                    )
+
     return added

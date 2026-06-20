@@ -29,9 +29,6 @@ struct WelcomeView: View {
             #endif
 
             Spacer()
-            Text("Sign in with Apple")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
         }
         .padding()
     }
