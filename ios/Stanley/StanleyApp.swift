@@ -16,6 +16,7 @@ struct RootView: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
+    @AppStorage("stanley.hasSeenOnboarding") private var hasSeenOnboarding = false
 
     private var colorScheme: ColorScheme? {
         switch appearance {
@@ -29,8 +30,16 @@ struct RootView: View {
         @Bindable var state = state
         LockGate {
             Group {
-                if !state.signedIn {
+                if !state.signedIn && !hasSeenOnboarding {
+                    // First launch, never signed in: introduce Stanley quietly,
+                    // then fall through to Welcome. Shown once, ever.
+                    OnboardingView {
+                        withAnimation(.easeInOut(duration: 0.35)) { hasSeenOnboarding = true }
+                    }
+                    .transition(.opacity)
+                } else if !state.signedIn {
                     WelcomeView()
+                        .transition(.opacity)
                 } else if !state.checkedCircle {
                     ProgressView()
                         .task { await state.loadCircle() }
