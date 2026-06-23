@@ -31,9 +31,21 @@ def dev_auth(body: DevAuthBody, db: Session = Depends(get_db), settings=Depends(
     if not settings.dev_auth:
         raise HTTPException(404, "not found")
     now = clock.now()
-    user = User(display_name=body.display_name, created_at=now)
-    db.add(user)
-    db.flush()
+    # Idempotent by name (dev only): signing in with the same display name
+    # returns the same dev account. This lets a seeded demo user — and repeat
+    # sign-ins — resolve to one stable identity, the way Apple's `sub` does in
+    # production. Only dev users (apple_sub IS NULL) are matched.
+    user = db.scalars(
+        select(User).where(
+            User.display_name == body.display_name,
+            User.apple_sub.is_(None),
+            User.deleted_at.is_(None),
+        )
+    ).first()
+    if user is None:
+        user = User(display_name=body.display_name, created_at=now)
+        db.add(user)
+        db.flush()
     token = auth.issue_token(settings.secret_key, user.id, now)
     return {"token": token, "user": {"id": user.id, "display_name": user.display_name}}
 

@@ -47,6 +47,21 @@ def test_dev_auth_returns_404_when_disabled(tmp_path):
     assert r.status_code == 404
 
 
+def test_dev_auth_same_name_returns_same_user(client):
+    """Dev sign-in is idempotent by name: the same display name resolves to one
+    account, so a seeded demo user and repeat sign-ins stay stable."""
+    first = client.post("/auth/dev", json={"display_name": "Ayush"})
+    second = client.post("/auth/dev", json={"display_name": "Ayush"})
+    assert first.status_code == 201 and second.status_code == 201
+    assert first.json()["user"]["id"] == second.json()["user"]["id"]
+
+
+def test_dev_auth_distinct_names_are_distinct_users(client):
+    a = client.post("/auth/dev", json={"display_name": "Ayush"})
+    b = client.post("/auth/dev", json={"display_name": "Sahana"})
+    assert a.json()["user"]["id"] != b.json()["user"]["id"]
+
+
 # --- Part 2: Sign in with Apple ----------------------------------------------
 
 
