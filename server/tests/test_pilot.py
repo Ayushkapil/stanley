@@ -25,8 +25,11 @@ def test_mosaic_appears_on_sunday_with_the_weeks_photos(circle, clock):
     mosaic = circle.ana.feed().json()["mosaic"]
     assert mosaic is not None
     assert {t["owner"]["display_name"] for t in mosaic["tiles"]} == {"ben", "cam"}
-    # view-only: a tile is a thumb + a face, nothing interactive, no counts
-    assert all(set(t.keys()) == {"thumb", "owner"} for t in mosaic["tiles"])
+    # view-only: a tile is the photo + its caption + a face — presentation
+    # only, nothing interactive, no counts or gesture state.
+    assert all(
+        set(t.keys()) == {"thumb", "image", "caption", "owner"} for t in mosaic["tiles"]
+    )
 
 
 def test_mosaic_also_on_monday_then_gone_tuesday(circle, clock):

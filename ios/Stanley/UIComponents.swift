@@ -11,6 +11,18 @@ extension Font {
         }
         return .system(size: size, design: .serif)
     }
+
+    /// A decorative editorial display face for the weekly-mosaic captions —
+    /// Instagram-deco in spirit. Prefers Didot, then Bodoni 72, then Georgia
+    /// (all built into iOS — nothing bundled), finally the system serif.
+    static func mosaicDeco(_ size: CGFloat) -> Font {
+        for name in ["Didot", "BodoniSvtyTwoITCTT-Book", "Georgia"] {
+            if UIFont(name: name, size: size) != nil {
+                return .custom(name, size: size)
+            }
+        }
+        return .system(size: size, design: .serif)
+    }
 }
 
 /// A soft-cornered square face (Part 6) — avatars echo the memory tiles, never

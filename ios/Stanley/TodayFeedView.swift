@@ -403,45 +403,89 @@ struct NoteEditor: View {
 struct MosaicCard: View {
     @Environment(AppState.self) private var state
     let mosaic: Mosaic
+    @State private var selection = 0
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 3)
+    // Each photo gets real presence — roughly half the screen, a page in a
+    // small photo book rather than a tile in a wall.
+    private let carouselHeight: CGFloat = 460
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header stays above the carousel.
             HStack(spacing: 8) {
                 Image(systemName: "square.grid.2x2")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Your week").font(.subheadline.weight(.medium))
-                    Text("The circle's photos, together once.")
+                    Text("Your week, all at once.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
-            LazyVGrid(columns: columns, spacing: 4) {
-                ForEach(mosaic.tiles, id: \.thumb) { tile in
-                    Color.clear
-                        .aspectRatio(1, contentMode: .fit)
-                        .overlay {
-                            if let url = state.api.absoluteURL(tile.thumb) {
-                                AsyncImage(url: url) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    Rectangle().fill(.quaternary)
-                                }
-                            }
-                        }
-                        .overlay(alignment: .bottomLeading) {
-                            AvatarView(url: tile.owner.avatarUrl, name: tile.owner.displayName, size: 18, circular: true)
-                                .padding(3)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            // One photo at a time, swipeable — flipping through the week.
+            TabView(selection: $selection) {
+                ForEach(Array(mosaic.tiles.enumerated()), id: \.offset) { index, tile in
+                    tilePhoto(tile).tag(index)
                 }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: carouselHeight)
+
+            // The photographer and caption for the photo on screen.
+            if mosaic.tiles.indices.contains(selection) {
+                let tile = mosaic.tiles[selection]
+                HStack(spacing: 8) {
+                    AvatarView(url: tile.owner.avatarUrl, name: tile.owner.displayName, size: 26, circular: true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        // Decorative editorial face (Didot) — a photo-book byline,
+                        // not the app's standard type. Header/subtitle stay system.
+                        Text(tile.owner.displayName ?? "departed")
+                            .font(.mosaicDeco(20))
+                        if let caption = tile.caption, !caption.isEmpty {
+                            Text(caption)
+                                .font(.mosaicDeco(16))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                    Spacer()
+                }
+                .animation(.easeInOut(duration: 0.2), value: selection)
+            }
+
+            // Page dots — how many there are, and where you are.
+            if mosaic.tiles.count > 1 {
+                HStack(spacing: 6) {
+                    ForEach(mosaic.tiles.indices, id: \.self) { i in
+                        Circle()
+                            .fill(i == selection ? Color.primary.opacity(0.7) : Color.secondary.opacity(0.3))
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .animation(.easeInOut(duration: 0.2), value: selection)
             }
         }
         .padding(14)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func tilePhoto(_ tile: MosaicTile) -> some View {
+        Color.clear
+            .overlay {
+                if let url = state.api.absoluteURL(tile.image ?? tile.thumb) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Rectangle().fill(.quaternary)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 2)
+            .padding(.bottom, 4)
     }
 }
 

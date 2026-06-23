@@ -70,6 +70,8 @@ struct FeedItem: Codable, Identifiable {
 /// The weekly mosaic (Part 2): ephemeral, view-only, no interactions.
 struct MosaicTile: Codable, Hashable {
     let thumb: String
+    let image: String?
+    let caption: String?
     let owner: UserBrief
 }
 

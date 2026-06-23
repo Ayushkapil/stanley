@@ -105,6 +105,10 @@ def weekly_mosaic(session: Session, settings: Settings, now: datetime, circle, v
     tiles = [
         {
             "thumb": read_url(settings, p.thumb_key, now),
+            # A larger derivative for the swipeable carousel, plus the caption —
+            # the mosaic is still view-only, this is just presentation detail.
+            "image": read_url(settings, p.deriv_key, now) if p.deriv_key else None,
+            "caption": p.caption,
             "owner": user_brief(session, p.owner_id, settings, now),
         }
         for p in photos
