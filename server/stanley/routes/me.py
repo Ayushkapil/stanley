@@ -22,7 +22,9 @@ from ..serialize import avatar_url, iso, memory_payload, user_brief
 router = APIRouter(tags=["me"])
 
 
-USERNAME_RE = re.compile(r"^[a-z0-9._-]{3,30}$")
+# Usernames: 3-30 chars of lowercase letters, digits, "." and "_" only, and
+# never starting with a digit. No hyphens; nothing else.
+USERNAME_RE = re.compile(r"^(?![0-9])[a-z0-9._]{3,30}$")
 
 
 class SettingsPatch(BaseModel):
@@ -109,6 +111,24 @@ def patch_profile(
     if body.bio is not None:
         user.bio = body.bio  # newlines preserved verbatim
     return _profile_payload(user)
+
+
+@router.get("/me/username_check")
+def username_check(
+    u: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Real-time availability for the edit-profile sheet. Mirrors the PATCH
+    validation exactly (same regex, same taken-check) so the answer here is
+    the answer there. Your own current username reads as available."""
+    candidate = u.strip().lower()
+    if not USERNAME_RE.match(candidate):
+        return {"valid": False, "available": False}
+    taken = db.scalars(
+        select(User).where(User.username == candidate, User.id != user.id)
+    ).first()
+    return {"valid": True, "available": taken is None}
 
 
 @router.patch("/me/settings")

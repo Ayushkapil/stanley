@@ -207,16 +207,34 @@ struct EditProfileSheet: View {
     @State private var bio = ""
     @State private var saving = false
 
+    private enum UsernameStatus { case idle, checking, invalid, taken, available }
+    @State private var usernameStatus: UsernameStatus = .idle
+
+    private var trimmedUsername: String {
+        username.trimmingCharacters(in: .whitespaces).lowercased()
+    }
+
+    /// Mirror of the server's rule: 3–30 of a-z 0-9 . _ and no leading digit.
+    private func locallyValid(_ u: String) -> Bool {
+        guard (3...30).contains(u.count) else { return false }
+        guard let first = u.first, !(first.isASCII && first.isNumber) else { return false }
+        return u.allSatisfy { c in c.isASCII && (c.isLowercase || c.isNumber || c == "." || c == "_") }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Name") {
                     TextField("Display name", text: $name)
                 }
-                Section("Username") {
+                Section {
                     TextField("username", text: $username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                } header: {
+                    Text("Username")
+                } footer: {
+                    usernameFooter
                 }
                 Section {
                     TextEditor(text: $bio)
@@ -246,7 +264,12 @@ struct EditProfileSheet: View {
                             if saved { dismiss() }
                         }
                     }
-                    .disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(
+                        saving
+                            || name.trimmingCharacters(in: .whitespaces).isEmpty
+                            || usernameStatus == .invalid
+                            || usernameStatus == .taken
+                    )
                 }
             }
             .onAppear {
@@ -254,6 +277,46 @@ struct EditProfileSheet: View {
                 username = state.profile?.username ?? ""
                 bio = state.profile?.bio ?? ""
             }
+            // Debounced real-time availability: retyping cancels the previous
+            // check (task identity is the text itself), then we wait a beat.
+            .task(id: username) {
+                let candidate = trimmedUsername
+                guard !candidate.isEmpty, candidate != state.profile?.username else {
+                    usernameStatus = .idle
+                    return
+                }
+                guard locallyValid(candidate) else {
+                    usernameStatus = .invalid
+                    return
+                }
+                usernameStatus = .checking
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard !Task.isCancelled else { return }
+                guard let result = await state.checkUsername(candidate) else {
+                    usernameStatus = .idle  // unknown ≠ blocked; the server re-checks on save
+                    return
+                }
+                usernameStatus = result.available ? .available : (result.valid ? .taken : .invalid)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var usernameFooter: some View {
+        switch usernameStatus {
+        case .idle:
+            Text("Three to thirty characters. Letters, numbers, . and _ — can't start with a number.")
+        case .checking:
+            Text("Checking…")
+        case .invalid:
+            Text("Three to thirty characters. Letters, numbers, . and _ — can't start with a number.")
+                .foregroundStyle(.orange)
+        case .taken:
+            Text("That username is taken.")
+                .foregroundStyle(.orange)
+        case .available:
+            Text("Available.")
+                .foregroundStyle(.green)
         }
     }
 }

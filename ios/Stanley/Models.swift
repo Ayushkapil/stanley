@@ -210,6 +210,12 @@ struct AvatarResponse: Codable {
     let avatarUrl: String?
 }
 
+/// GET /me/username_check — the edit sheet's real-time availability answer.
+struct UsernameCheck: Codable {
+    let valid: Bool
+    let available: Bool
+}
+
 struct InviteResponse: Codable {
     let inviteToken: String
 }

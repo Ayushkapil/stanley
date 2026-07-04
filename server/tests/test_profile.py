@@ -33,8 +33,31 @@ def test_username_is_unique_and_validated(circle):
     # uppercase is normalized, junk is rejected
     assert _patch_profile(circle.ben, username="BEN").status_code == 200
     assert circle.ben.client.get("/me", headers=circle.ben.h).json()["username"] == "ben"
-    for bad in ("ab", "has space", "way" * 20, "emoji✨"):
+    # No leading digits, no hyphens — only letters/digits with "." and "_".
+    for bad in ("ab", "has space", "way" * 20, "emoji✨", "9lives", "has-dash"):
         assert _patch_profile(circle.cam, username=bad).status_code == 400
+    for good in ("a.b_c", "_quiet", "cam2026"):
+        assert _patch_profile(circle.cam, username=good).status_code == 200
+
+
+def test_username_availability_check(circle):
+    """The edit sheet's real-time check: same rules as PATCH, never a 400 —
+    it answers, it doesn't scold."""
+
+    def check(api, u):
+        r = api.client.get("/me/username_check", params={"u": u}, headers=api.h)
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    assert check(circle.ana, "floorthree") == {"valid": True, "available": True}
+    assert _patch_profile(circle.ana, username="floorthree").status_code == 200
+    # taken by ana → unavailable to ben, still available to ana herself
+    assert check(circle.ben, "floorthree") == {"valid": True, "available": False}
+    assert check(circle.ben, "FloorThree") == {"valid": True, "available": False}  # normalized
+    assert check(circle.ana, "floorthree") == {"valid": True, "available": True}
+    # invalid shapes are reported, not errored
+    for bad in ("9lives", "has-dash", "ab", "has space"):
+        assert check(circle.ben, bad) == {"valid": False, "available": False}
 
 
 def test_member_profile_shows_words_only(circle):

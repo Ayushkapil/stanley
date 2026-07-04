@@ -187,6 +187,14 @@ final class AppState {
         try await api.send("GET", "/members/\(memberId)")
     }
 
+    /// Real-time username availability for the edit sheet. Nil on network
+    /// trouble — the caller treats that as "unknown", never as a block; the
+    /// server re-validates on save regardless.
+    func checkUsername(_ candidate: String) async -> UsernameCheck? {
+        let escaped = candidate.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? candidate
+        return try? await api.send("GET", "/me/username_check?u=\(escaped)")
+    }
+
     // MARK: gestures
 
     func capture(jpeg: Data, caption: String?, location: String?, tagged: [String]) async throws {
