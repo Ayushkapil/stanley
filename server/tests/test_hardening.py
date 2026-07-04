@@ -46,6 +46,27 @@ def test_capture_race_one_wins_no_orphans(circle, app, db):
     assert len(rows) == 1 and rows[0].id == pid
 
 
+def test_capture_race_backstop_constraint_fires(circle, app, db, monkeypatch):
+    """The true race (I2): both requests interleave so the fast-path slot check
+    passes for each — UNIQUE(owner_id, local_date) at flush is the backstop.
+    The loser gets 409 slot_used and leaves zero blobs behind."""
+    from stanley import physics as physics_mod
+
+    assert circle.ana.post_photo(caption="winner").status_code == 201
+    blobs_before = set(_all_blob_keys(app))
+
+    # Simulate the interleaving: the fast-path check sees no conflict.
+    monkeypatch.setattr(physics_mod, "violates_capture_rules", lambda *a, **k: None)
+    r = circle.ana.post_photo(caption="loser")
+    assert r.status_code == 409
+    assert r.json()["detail"]["code"] == "slot_used"
+
+    assert set(_all_blob_keys(app)) == blobs_before  # loser wrote nothing
+    with db() as session:
+        rows = session.scalars(select(Photo).where(Photo.owner_id == circle.ana.id)).all()
+    assert len(rows) == 1
+
+
 def test_caption_over_2000_rejected(circle):
     r = circle.ana.post_photo(caption="x" * 2001)
     assert r.status_code == 422

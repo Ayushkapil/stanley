@@ -56,6 +56,33 @@ def test_next_day_post_is_allowed(circle, clock):
     assert circle.ana.post_photo().status_code == 201
 
 
+def test_one_per_local_day_even_with_gap_satisfied(circle, clock):
+    """The day law and the gap law are independent: crossing local midnight
+    with the gap met is allowed; a second same-local-day capture with the gap
+    met is still slot_used (not too_soon)."""
+    # 19:00 NY Jun 9
+    clock.set(datetime(2026, 6, 9, 23, 0, tzinfo=UTC))
+    assert circle.ana.post_photo().status_code == 201
+    # 08:00 NY Jun 10 — 13h later, new local day → allowed
+    clock.set(datetime(2026, 6, 10, 12, 0, tzinfo=UTC))
+    assert circle.ana.post_photo().status_code == 201
+    # 21:00 NY Jun 10 — 13h later again, but the Jun-10 slot is spent
+    clock.set(datetime(2026, 6, 11, 1, 0, tzinfo=UTC))
+    r = circle.ana.post_photo()
+    assert r.status_code == 409
+    assert r.json()["detail"]["code"] == "slot_used"
+
+
+def test_caption_preserves_emoji_and_rtl(circle):
+    """Captions are memory text: emoji and RTL scripts must round-trip
+    byte-for-byte through capture and the feed."""
+    caption = "ليلة هادئة في المكتبة 🌙✨ סוף סוף שקט"
+    r = circle.ana.post_photo(caption=caption)
+    assert r.status_code == 201
+    assert r.json()["caption"] == caption
+    assert circle.ben.feed_photos()[0]["caption"] == caption
+
+
 def test_min_gap_enforced_across_midnight(circle, clock):
     # 23:00 NY on Jun 9
     clock.set(datetime(2026, 6, 10, 3, 0, tzinfo=UTC))

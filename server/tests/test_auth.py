@@ -62,6 +62,29 @@ def test_dev_auth_distinct_names_are_distinct_users(client):
     assert a.json()["user"]["id"] != b.json()["user"]["id"]
 
 
+def test_expired_stanley_jwt_is_401(app, client):
+    """Stanley's own JWT expires after 30 days: a stale token is 401, while a
+    fresh one for the same user keeps working."""
+    body = client.post("/auth/dev", json={"display_name": "ana"}).json()
+    uid = body["user"]["id"]
+
+    now = datetime.now(timezone.utc)  # PyJWT checks exp against the real clock
+    stale = jwt.encode(
+        {
+            "sub": uid,
+            "iat": int((now - timedelta(days=31)).timestamp()),
+            "exp": int((now - timedelta(days=1)).timestamp()),
+        },
+        app.state.settings.secret_key,
+        algorithm="HS256",
+    )
+    r = client.get("/me", headers={"Authorization": f"Bearer {stale}"})
+    assert r.status_code == 401
+
+    r = client.get("/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert r.status_code == 200
+
+
 # --- Part 2: Sign in with Apple ----------------------------------------------
 
 

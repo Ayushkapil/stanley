@@ -60,6 +60,17 @@ def test_username_availability_check(circle):
         assert check(circle.ben, bad) == {"valid": False, "available": False}
 
 
+def test_bio_preserves_emoji_and_rtl(circle):
+    """Bios are personal text: emoji and RTL scripts round-trip exactly, both
+    on your own profile and as circle members see it."""
+    bio = "שנה ראשונה במעונות ✨\nمرحبا بالجميع 🌙 espresso person"
+    assert _patch_profile(circle.ana, bio=bio).status_code == 200
+    assert circle.ana.client.get("/me", headers=circle.ana.h).json()["bio"] == bio
+    r = circle.ben.client.get(f"/members/{circle.ana.id}", headers=circle.ben.h)
+    assert r.status_code == 200
+    assert r.json()["bio"] == bio
+
+
 def test_member_profile_shows_words_only(circle):
     """The structural guardrail: a member profile payload has no field for
     anchors, kept grids, or counts of any kind."""

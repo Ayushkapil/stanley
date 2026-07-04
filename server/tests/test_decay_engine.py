@@ -95,6 +95,32 @@ def test_anchored_photo_fades_on_schedule_but_blob_survives(circle, clock, sweep
     assert memory["urls"] is not None
 
 
+def test_held_photo_survives_purge_sweep_unheld_neighbor_does_not(circle, clock, sweep, db, app):
+    """§8.2 retention, end to end past the tombstone window: sweeps far beyond
+    expiry+7d purge the unheld photo and leave the held one whole — blob,
+    caption, and the anchorer's memory thread."""
+    kept = circle.ana.post_photo(caption="kept").json()["id"]
+    lost = circle.ben.post_photo(caption="lost").json()["id"]
+    assert circle.cam.anchor(kept).status_code == 201
+
+    clock.set(START + timedelta(hours=144, days=8))  # well past expiry + 7d
+    sweep()
+
+    lost_row = _photo_row(db, lost)
+    assert lost_row.state == "PURGED"
+    assert lost_row.blob_key is None and lost_row.caption is None
+
+    kept_row = _photo_row(db, kept)
+    assert kept_row.state == "EXPIRED"  # expired on schedule, never purged
+    assert kept_row.caption == "kept"
+    assert app.state.storage.exists(kept_row.blob_key)
+
+    memory = circle.cam.memories().json()["threads"][0]["memories"][0]
+    assert memory["tombstone"] is False
+    assert memory["caption"] == "kept"
+    assert memory["urls"] is not None
+
+
 def test_last_anchor_removed_starts_the_purge_clock(circle, clock, sweep, db, app):
     pid = circle.ana.post_photo().json()["id"]
     circle.ben.anchor(pid)
