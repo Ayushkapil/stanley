@@ -16,7 +16,11 @@ struct MemoriesView: View {
                 ForEach(state.threads) { thread in
                     Section {
                         ForEach(thread.memories) { memory in
-                            MemoryRow(memory: memory)
+                            // The image leads — a kept moment is a picture first,
+                            // words second. Tombstones stay quiet and compact.
+                            MemoryCard(memory: memory)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     if !memory.isTombstone {
                                         Button {
@@ -91,6 +95,79 @@ struct RestedView: View {
     private func reload() async {
         memories = await state.loadRested()
         loaded = true
+    }
+}
+
+/// A kept memory as a large, image-first card (Held tab). The photo gets real
+/// presence — full-saturation, most of the card — with the words beneath it.
+struct MemoryCard: View {
+    @Environment(AppState.self) private var state
+    let memory: Memory
+
+    private var heldTrace: String? {
+        guard let taken = memory.takenAt else { return nil }
+        return "held · \(taken.formatted(date: .abbreviated, time: .omitted))"
+    }
+
+    var body: some View {
+        if memory.isTombstone {
+            // An honest absence stays small — a marker, not a monument.
+            HStack(spacing: 12) {
+                Image(systemName: "leaf")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 56, height: 56)
+                    .background(.quinary, in: RoundedRectangle(cornerRadius: 8))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("A memory was here")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    if let date = memory.date {
+                        Text(date)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                if let urls = memory.urls, let url = state.api.absoluteURL(urls.image) {
+                    Color.clear
+                        .frame(height: 300)
+                        .overlay {
+                            AsyncImage(url: url) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle().fill(.quaternary)
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    if let caption = memory.caption, !caption.isEmpty {
+                        Text(caption).font(.callout.weight(.medium))
+                    } else if let takenAt = memory.takenAt {
+                        Text(takenAt, style: .date).font(.callout.weight(.medium))
+                    }
+                    HStack(spacing: 6) {
+                        if let location = memory.location, !location.isEmpty {
+                            Text(location).italic()
+                        }
+                        if let heldTrace {
+                            Text(heldTrace)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    if let note = memory.note, !note.isEmpty {
+                        Text(note)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
     }
 }
 
