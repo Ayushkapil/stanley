@@ -1,8 +1,27 @@
+import Sentry
 import SwiftUI
 
 @main
 struct StanleyApp: App {
     @State private var state = AppState()
+
+    init() {
+        // Crash visibility for TestFlight. DSN-gated: empty DSN (every dev
+        // build) means Sentry never starts. Crash capture only — no sessions,
+        // no tracing, no screenshots, and no user identity is ever attached,
+        // so crash data stays anonymous ("not linked to you" on the label).
+        if let dsn = Bundle.main.object(forInfoDictionaryKey: "STANLEY_SENTRY_DSN") as? String,
+           !dsn.isEmpty {
+            SentrySDK.start { options in
+                options.dsn = dsn
+                options.enableAutoSessionTracking = false  // sessions are usage data
+                options.enableAppHangTracking = false      // crashes only, no near-miss noise
+                options.attachScreenshot = false           // never ship a user's photo
+                options.attachViewHierarchy = false
+                options.tracesSampleRate = 0               // no performance telemetry
+            }
+        }
+    }
 
     var body: some Scene {
         WindowGroup {

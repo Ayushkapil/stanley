@@ -33,7 +33,25 @@ class ProcessedImage:
     thumbnail: bytes
 
 
-def process_upload(data: bytes) -> ProcessedImage:
+@dataclass
+class PreparedUpload:
+    """A decoded, validated upload: the feed-facing derivatives eagerly, the
+    full-size original lazily. The capture endpoint responds after encoding
+    only deriv+thumb — the original's re-encode (the heaviest step, and never
+    served in any feed) runs after the response."""
+
+    derivative: bytes
+    thumbnail: bytes
+    _rgb: Image.Image
+    _exif: Image.Exif
+
+    def encode_original(self) -> bytes:
+        buf = BytesIO()
+        self._rgb.save(buf, format="JPEG", quality=JPEG_QUALITY, exif=self._exif)
+        return buf.getvalue()
+
+
+def prepare_upload(data: bytes) -> PreparedUpload:
     try:
         img = Image.open(BytesIO(data))
         img.load()
@@ -52,18 +70,29 @@ def process_upload(data: bytes) -> ProcessedImage:
 
     rgb = img.convert("RGB")
 
-    def encode(edge: int | None) -> bytes:
+    def encode(edge: int) -> bytes:
         frame = rgb.copy()
-        if edge is not None:
-            frame.thumbnail((edge, edge))
+        frame.thumbnail((edge, edge))
         buf = BytesIO()
         frame.save(buf, format="JPEG", quality=JPEG_QUALITY, exif=clean_exif)
         return buf.getvalue()
 
-    return ProcessedImage(
-        original=encode(None),
+    return PreparedUpload(
         derivative=encode(DERIVATIVE_EDGE),
         thumbnail=encode(THUMB_EDGE),
+        _rgb=rgb,
+        _exif=clean_exif,
+    )
+
+
+def process_upload(data: bytes) -> ProcessedImage:
+    """Eager all-three encode, for offline tools (seed, time-travel). The
+    request path uses prepare_upload and defers the original."""
+    prepared = prepare_upload(data)
+    return ProcessedImage(
+        original=prepared.encode_original(),
+        derivative=prepared.derivative,
+        thumbnail=prepared.thumbnail,
     )
 
 

@@ -19,6 +19,7 @@
 		617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9649D2EC31D301586F01D82 /* APIClient.swift */; };
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
+		94AEB28C15F346341A3D530D /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 084BA58C8E57A560A7FCABDD /* Sentry */; };
 		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
 		A218937F0265E72919AAE872 /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38170E6EF5384B93F19F643 /* UIComponents.swift */; };
 		A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */; };
@@ -52,6 +53,17 @@
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8BE788128040AF9FA247F2C8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				94AEB28C15F346341A3D530D /* Sentry in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		13FEB067676F546C9B7C3155 = {
@@ -106,6 +118,7 @@
 			buildConfigurationList = 0B1C89A8856995CA9033DC48 /* Build configuration list for PBXNativeTarget "Stanley" */;
 			buildPhases = (
 				DD887FBBF6E673C227CA6C47 /* Sources */,
+				8BE788128040AF9FA247F2C8 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -113,6 +126,7 @@
 			);
 			name = Stanley;
 			packageProductDependencies = (
+				084BA58C8E57A560A7FCABDD /* Sentry */,
 			);
 			productName = Stanley;
 			productReference = E023A6585893ACCFB419EF4D /* Stanley.app */;
@@ -138,6 +152,9 @@
 			);
 			mainGroup = 13FEB067676F546C9B7C3155;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4D6A1E0E33C413DD03D30EED /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9E96BAB0DBA65827B520AFED /* Products */;
 			projectDirPath = "";
@@ -357,6 +374,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4D6A1E0E33C413DD03D30EED /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		084BA58C8E57A560A7FCABDD /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D6A1E0E33C413DD03D30EED /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 65D7E33F977A2F1F5CCFD27C /* Project object */;
 }

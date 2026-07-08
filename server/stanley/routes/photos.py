@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -23,11 +24,33 @@ from ..deps import (
     get_storage,
     require_membership,
 )
-from ..images import BadImage, process_upload
+from ..images import BadImage, PreparedUpload, prepare_upload
 from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
 from ..serialize import photo_payload, user_brief
 
+log = logging.getLogger("stanley")
+
 router = APIRouter(tags=["photos"])
+
+
+def _store_original_blob(
+    storage, deriv_key: str, blob_key: str, prepared: PreparedUpload
+) -> None:
+    """Encode + store the full-size original AFTER the response — the heaviest
+    JPEG encode must not sit between the shutter and the user's confirmation.
+    The photo may have been deleted in the meantime; scrub removes every blob,
+    so a missing derivative means don't write (no DB session here, on purpose —
+    this runs outside the request's transaction). A delete landing mid-encode
+    can still strand one unreferenced file, never signed for and harmless at
+    pilot scale."""
+    if not storage.exists(deriv_key):
+        return
+    try:
+        storage.put(blob_key, prepared.encode_original())
+    except Exception:
+        # Deriv + thumb already exist and serve every surface (feed, Held,
+        # export). A missing original degrades nothing user-visible.
+        log.exception("background original store failed for %s", blob_key)
 
 
 class AnchorBody(BaseModel):
@@ -50,6 +73,7 @@ def _parse_claim(raw: str | None) -> datetime | None:
 
 @router.post("/photos", status_code=201)
 def capture(
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     tz: str = Form(...),
     caption: str | None = Form(default=None),
@@ -94,12 +118,13 @@ def capture(
         raise HTTPException(409, {"code": violation})
 
     # Decode/validate the image BEFORE claiming the slot, so a bad image never
-    # burns a day.
+    # burns a day. Only the feed-facing deriv+thumb are encoded here; the
+    # full-size original is deferred past the response (see _store_original_blob).
     data = file.file.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(413, {"code": "too_large"})
     try:
-        processed = process_upload(data)
+        prepared = prepare_upload(data)
     except BadImage:
         raise HTTPException(400, {"code": "bad_image"})
 
@@ -133,14 +158,14 @@ def capture(
         db.rollback()
         raise HTTPException(409, {"code": "slot_used"})
 
-    # Slot is ours; now upload. If a blob write fails, clean up any partial blobs
-    # and let the row roll back (get_db) so the user can retry the day.
+    # Slot is ours; now upload what the feed needs immediately. If a blob write
+    # fails, clean up any partial blobs and let the row roll back (get_db) so
+    # the user can retry the day. The original is stored after the response.
     written: list[str] = []
     try:
         for key, blob in (
-            (keys["blob_key"], processed.original),
-            (keys["deriv_key"], processed.derivative),
-            (keys["thumb_key"], processed.thumbnail),
+            (keys["deriv_key"], prepared.derivative),
+            (keys["thumb_key"], prepared.thumbnail),
         ):
             storage.put(key, blob)
             written.append(key)
@@ -149,6 +174,10 @@ def capture(
             with contextlib.suppress(Exception):
                 storage.delete(key)
         raise HTTPException(503, {"code": "upload_failed"})
+
+    background.add_task(
+        _store_original_blob, storage, keys["deriv_key"], keys["blob_key"], prepared
+    )
 
     # 'Who was there' (Part 3): tag only real members of this circle, deduped.
     # A bad/non-member id is ignored, not an error.

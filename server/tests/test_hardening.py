@@ -10,6 +10,8 @@ from sqlalchemy.exc import IntegrityError
 
 from stanley.models import Anchor, Photo
 
+from .conftest import jpeg_bytes
+
 
 def test_foreign_keys_are_enforced(app):
     """I1: inserting an anchor for a nonexistent photo must be rejected."""
@@ -83,6 +85,41 @@ def test_bad_image_does_not_consume_slot(circle):
 def _all_blob_keys(app):
     root = app.state.storage.root
     return [str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()]
+
+
+def test_original_blob_stored_after_response(circle, app, db):
+    """The full-size original is encoded off the request path. At response
+    time the feed-facing deriv+thumb are already servable; the original lands
+    via the background task (TestClient runs it synchronously)."""
+    r = circle.ana.post_photo(caption="fast confirm")
+    assert r.status_code == 201
+    payload = r.json()
+    assert circle.ana.client.get(payload["urls"]["thumb"]).status_code == 200
+    assert circle.ana.client.get(payload["urls"]["image"]).status_code == 200
+    with db() as session:
+        row = session.get(Photo, payload["id"])
+        assert app.state.storage.exists(row.blob_key)
+        assert app.state.storage.exists(row.deriv_key)
+        assert app.state.storage.exists(row.thumb_key)
+
+
+def test_background_original_skips_deleted_photo(circle, app, db):
+    """Owner deletes in the response→task window: the task re-checks the row
+    and writes nothing — a purged photo never regrows a blob."""
+    from stanley.images import prepare_upload
+    from stanley.routes.photos import _store_original_blob
+
+    pid = circle.ana.post_photo().json()["id"]
+    with db() as session:
+        row = session.get(Photo, pid)
+        blob_key, deriv_key = row.blob_key, row.deriv_key
+    assert circle.ana.delete_photo(pid).status_code == 204
+    assert not app.state.storage.exists(blob_key)
+
+    _store_original_blob(
+        app.state.storage, deriv_key, blob_key, prepare_upload(jpeg_bytes())
+    )
+    assert not app.state.storage.exists(blob_key)
 
 
 def test_backup_creates_snapshot_and_skips_memory(tmp_path):
