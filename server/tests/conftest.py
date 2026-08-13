@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from stanley import decay
+from stanley.auth import issue_token
 from stanley.clock import FakeClock
 from stanley.config import Settings
 from stanley.main import create_app
@@ -47,7 +48,18 @@ class Api:
 
     @property
     def h(self) -> dict:
-        return {"Authorization": f"Bearer {self.token}"}
+        """A bearer header valid at the current *simulated* time.
+
+        Tokens live 30 days, and these tests routinely travel months forward
+        to reach anniversaries and near-forgotten memories. A real client
+        re-authenticates once its token ages out, so the helper does too —
+        otherwise every time-travelling test would be silently asserting
+        against 401s. Tests that are *about* expiry build their own headers
+        rather than going through here.
+        """
+        app = self.client.app
+        token = issue_token(app.state.settings.secret_key, self.id, app.state.clock.now())
+        return {"Authorization": f"Bearer {token}"}
 
     def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None, tagged: list[str] | None = None):
         data: dict = {"tz": tz}

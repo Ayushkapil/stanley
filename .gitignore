@@ -1,10 +1,42 @@
+# --- Python ------------------------------------------------------------
 .venv/
 __pycache__/
-DerivedData/
-xcuserdata/
 *.pyc
+*.egg-info/
 .pytest_cache/
 .hypothesis/
+
+# --- Runtime state -----------------------------------------------------
+# server/var/ holds the live SQLite DB, the photo blobs, and the daily
+# backups — real people's photos. None of it belongs in git, ever.
 var/
-*.egg-info/
+*.db
+*.db-wal
+*.db-shm
+
+# --- Secrets and signing -----------------------------------------------
+# Stanley reads every secret from the environment (see server/config.py),
+# so none of these should exist in the tree. Ignored defensively anyway.
+.env
+.env.*
+*.pem
+*.p8
+*.p12
+*.mobileprovision
+
+# --- Xcode -------------------------------------------------------------
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+# Deliberately NOT ignored, despite living under project.xcworkspace/:
+#   ios/Stanley.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+# It pins the exact SPM dependency versions (sentry-cocoa), which is what
+# makes a clean clone build the same binary. Only per-user Xcode state
+# (xcuserdata) is excluded.
+
+# --- macOS -------------------------------------------------------------
 .DS_Store
+
+# --- Local tool state --------------------------------------------------
+.claude/settings.local.json

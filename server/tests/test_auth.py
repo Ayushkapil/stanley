@@ -62,18 +62,18 @@ def test_dev_auth_distinct_names_are_distinct_users(client):
     assert a.json()["user"]["id"] != b.json()["user"]["id"]
 
 
-def test_expired_stanley_jwt_is_401(app, client):
-    """Stanley's own JWT expires after 30 days: a stale token is 401, while a
-    fresh one for the same user keeps working."""
+def test_expired_stanley_jwt_is_401(app, client, clock):
+    """Stanley's own JWT expires after 30 days, measured on the SERVER's clock
+    (not ambient wall time): a stale token is 401, a fresh one works, and that
+    same fresh token goes stale once the clock passes its expiry."""
     body = client.post("/auth/dev", json={"display_name": "ana"}).json()
     uid = body["user"]["id"]
 
-    now = datetime.now(timezone.utc)  # PyJWT checks exp against the real clock
     stale = jwt.encode(
         {
             "sub": uid,
-            "iat": int((now - timedelta(days=31)).timestamp()),
-            "exp": int((now - timedelta(days=1)).timestamp()),
+            "iat": int((START - timedelta(days=31)).timestamp()),
+            "exp": int((START - timedelta(days=1)).timestamp()),
         },
         app.state.settings.secret_key,
         algorithm="HS256",
@@ -81,8 +81,26 @@ def test_expired_stanley_jwt_is_401(app, client):
     r = client.get("/me", headers={"Authorization": f"Bearer {stale}"})
     assert r.status_code == 401
 
-    r = client.get("/me", headers={"Authorization": f"Bearer {body['token']}"})
-    assert r.status_code == 200
+    fresh = {"Authorization": f"Bearer {body['token']}"}
+    assert client.get("/me", headers=fresh).status_code == 200
+
+    # Time is the only thing that changes — the token itself is still valid
+    # and correctly signed, but its 30-day life is over.
+    clock.set(START + timedelta(days=31))
+    assert client.get("/me", headers=fresh).status_code == 401
+
+
+def test_token_without_exp_is_rejected(app, client):
+    """A signed token carrying no expiry would never age out. Refuse it rather
+    than treat 'no exp' as 'never expires'."""
+    uid = client.post("/auth/dev", json={"display_name": "ana"}).json()["user"]["id"]
+    forever = jwt.encode(
+        {"sub": uid, "iat": int(START.timestamp())},  # no exp claim at all
+        app.state.settings.secret_key,
+        algorithm="HS256",
+    )
+    r = client.get("/me", headers={"Authorization": f"Bearer {forever}"})
+    assert r.status_code == 401
 
 
 # --- Part 2: Sign in with Apple ----------------------------------------------

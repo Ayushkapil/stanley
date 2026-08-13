@@ -153,7 +153,7 @@ live APNs, concurrency under real load.
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,
   `feed.py`, `me.py`, `memories.py`, `safety.py`, `blobs.py`
 - Tests: `server/tests/`; deploy notes: `server/DEPLOY.md`; seed/dev tools:
-  `server/scripts/seed_demo.py`, `server/dev_timetravel.py`
+  `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`
 
 **iOS** (`ios/Stanley/`)
 - App entry / root / tabs / flash / atmosphere tint: `StanleyApp.swift`

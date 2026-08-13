@@ -48,11 +48,12 @@ def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
     db: Session = Depends(get_db),
     settings=Depends(get_settings),
+    clock=Depends(get_clock),
 ) -> User:
     if creds is None:
         raise HTTPException(401, "missing bearer token")
     try:
-        user_id = auth.decode_token(settings.secret_key, creds.credentials)
+        user_id = auth.decode_token(settings.secret_key, creds.credentials, clock.now())
     except auth.AuthError:
         raise HTTPException(401, "invalid token")
     user = db.get(User, user_id)

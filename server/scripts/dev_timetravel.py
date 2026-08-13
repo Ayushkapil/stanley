@@ -2,7 +2,7 @@
 """Dev-only: spread the existing photos across the whole decay timeline so all
 stages are visible in the Today feed at once, then sweep so states update.
 
-    .venv/bin/python dev_timetravel.py
+    .venv/bin/python scripts/dev_timetravel.py
 
 Targets the SAME database the API uses — server/var/stanley.db, resolved
 relative to this file, never the working directory — and refuses to run if it
@@ -48,7 +48,7 @@ SPREAD = [
     (145.0, "just expired"),
 ]
 
-SERVER_DIR = Path(__file__).resolve().parent
+SERVER_DIR = Path(__file__).resolve().parent.parent  # scripts/ -> server/
 
 
 def _database_url() -> str:

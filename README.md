@@ -1,101 +1,133 @@
 # Stanley — One Day, One Photo
 
-A small-circle photo app governed by two structural laws: each person may post
-**exactly one photo per day**, and every photo **decays out of existence within
-six days unless someone deliberately anchors it**. The only gestures are
-anchoring (private keeping, no counts ever) and story-comments (co-remembering,
-not judging). The product's identity lives in what it refuses: counts, ranking,
-algorithmic ordering, open audiences, re-engagement notifications.
+Stanley is a photo app for one small circle of people, built on two structural
+laws: **you may post exactly one photo per day**, and **every photo decays out
+of existence within six days unless someone deliberately keeps it**. Holding a
+photo is private and never counted; it saves the image for the person who held
+it without changing how the photo fades for anyone else. There are no likes to
+tally, no followers, no ranking, and no algorithm — Today is reverse-chronological
+and nothing else. People appear as faces, never as numbers. Much of Stanley's
+identity is in what it refuses: counts anywhere in the product, engagement
+signals, open audiences, and notifications designed to pull you back. What's
+left is a small, quiet record of a few people's days, most of which is meant to
+disappear.
 
-This repo implements the [system specification](#spec) — currently the backend
-(M0–M4 server-side scope). The iOS client (SwiftUI) is the next milestone.
+> **Pilot build.** Stanley is pre-release, aimed at a single real circle (a dorm
+> floor, up to 30 people). It has not been through TestFlight or an App Store
+> review yet, and some pieces documented below are deliberately unfinished.
+
+## Tech stack
+
+| Layer | What it is |
+| --- | --- |
+| Client | Swift / SwiftUI, iOS 17+, generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) |
+| Server | FastAPI monolith (Python 3.11), single process, in-process 15-minute decay sweeper |
+| Database | SQLite (WAL, foreign keys on) — the right size for one circle, deliberately not migrated away from |
+| Auth | Sign in with Apple (RS256 against Apple's JWKS) → Stanley's own HS256 JWT, stored in the Keychain |
+| Blobs | Local disk behind short-TTL HMAC-signed URLs; an S3-compatible (R2) backend is config-switchable |
+| Crash reporting | Sentry, off unless a DSN is configured — see [PRIVACY_LABEL.md](PRIVACY_LABEL.md) |
 
 ## Layout
 
 ```
-ios/                SwiftUI client (iOS 17+), XcodeGen project
-  Stanley/          Today feed w/ ambient fade, capture-as-commitment,
-                    anchors (no counts), story-comments, Kept archive,
-                    Returned card + rest-a-memory, Quiet settings
-server/             FastAPI monolith (Python 3.11+)
+ios/                   SwiftUI client (iOS 17+)
+  project.yml          XcodeGen spec — run `xcodegen generate` after adding files
+  Stanley/             Today feed, capture, Held archive, profiles, settings
+server/
   stanley/
-    physics.py      THE LOCKED PHYSICS — decay timeline, one-per-day + 12h rule
-    decay.py        server-authoritative state machine, purge queue, audit log
-    notifications.py§10 policy as code (digest, last-light notice, nothing else)
-    returned.py     resurfacing: anniversary > near-forgotten > rescue
-    images.py       EXIF allowlist ({DateTime} only — GPS removal is hard req)
-    storage.py      blob store + 15-min signed URLs (no public URLs ever)
-    routes/         the §12 API surface
-  tests/            56 tests: the M0 gate (property tests across DST/travel/
-                    clock-skew), full decay lifecycle, invariants A1/A2,
-                    deletion semantics, notification policy
+    physics.py         THE LOCKED PHYSICS — decay timeline, one-per-day + 12h gap
+    decay.py           state machine, purge queue, append-only audit log
+    images.py          EXIF allowlist ({DateTime} only — GPS removal is a hard rule)
+    storage.py         blob store + 15-minute signed URLs (no public URLs, ever)
+    routes/            the HTTP surface
+  scripts/             dev-only tools (demo seeding, decay time-travel)
+  tests/               the contract — see below
 ```
 
-## Run
+## Run it locally
+
+**Server:**
 
 ```bash
 cd server
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest                      # the contract
-.venv/bin/python -m uvicorn --factory stanley.main:create_app --reload
-.venv/bin/python -m stanley.worker --once       # manual decay sweep
+.venv/bin/python -m pytest
+STANLEY_DEV_AUTH=1 STANLEY_SECRET_KEY=dev .venv/bin/python -m uvicorn --factory stanley.main:create_app
 ```
 
-Dev auth is on by default (`POST /auth/dev {"display_name": "ana"}` → JWT).
-Config via env: `STANLEY_DATABASE_URL` (SQLite default, Postgres for prod),
-`STANLEY_BLOB_DIR`, `STANLEY_SECRET_KEY`, `STANLEY_DEV_AUTH`, `STANLEY_RUN_SWEEPER`.
+Run **one** uvicorn process. Each one starts its own decay sweeper, so workers
+would multiply the sweep.
 
-## Run the iOS app
+Optionally seed a living circle to look at — nine people, photos spread across
+every decay state, and an invite code printed at the end:
 
 ```bash
-# 1. backend up (above), then seed a living circle:
-.venv/bin/python scripts/seed_demo.py     # prints an invite code
-
-# 2. open ios/Stanley.xcodeproj in Xcode, pick an iPhone simulator, Run
-#    (project regenerable anytime with `xcodegen generate` in ios/)
+cd server && .venv/bin/python scripts/seed_demo_full.py
 ```
 
-In the app: enter a name → **Begin** → paste the invite code → **Join**. The
-feed is alive from the first session. The simulator has no camera, so capture
-uses a generated stand-in frame there; on a real device it opens the camera
-(set a signing team in Xcode, and point `STANLEY_API` in the scheme's
-environment at your Mac's LAN IP instead of 127.0.0.1).
+**iOS app:**
 
-## The invariants (non-negotiable, tested)
+```bash
+cd ios && xcodegen generate && open Stanley.xcodeproj
+```
 
-| Invariant | Where enforced | Where tested |
-|---|---|---|
-| One photo / person / local calendar day, ≥12h gap | `physics.violates_capture_rules` | `test_physics.py` (incl. Hypothesis property tests across DST shifts, timezone hopping, half-hour zones) |
-| Deleting today's photo does not refund the slot | slot check includes soft-deleted rows | `test_capture.py`, `test_deletion.py` |
-| **A1**: anchors never alter public decay or feed order | decay engine never reads anchors pre-expiry; feed query has no access to them | `test_decay_engine.py` |
-| **A2**: anchor identities owner-only; no counts anywhere | photo payload structurally lacks the field; owner-only endpoint | `test_gestures.py` |
-| Blob survives purge iff ≥1 anchor at expiry; last unanchor starts the 7-day clock | `decay.sweep` / unanchor route | `test_decay_engine.py` |
-| Owner deletion purges everywhere; anchorers keep tombstone + own comment text only | `decay.scrub(owner_requested=True)` | `test_deletion.py` |
-| §10: ≤1 push/day, single last-light notice (off by default), no notification for gestures, no digits of urgency | `notifications.py` is the only send path | `test_notifications.py` |
-| EXIF stripped to `{DateTime}`; GPS removal | `images.py` allowlist | `test_capture.py` |
-| All decay transitions audited append-only | `DecayAudit` rows in every transition | `test_decay_engine.py` (late-sweep walk, idempotency) |
+Pick an iPhone simulator and Run. In debug builds the app talks to
+`localhost`, so the server above is all you need. Sign in with any name to
+create an account (dev auth), or use a seeded name to land in the demo circle,
+then join with the invite code. The simulator has no camera, so capture uses a
+generated stand-in frame; on a real device it opens the camera.
 
-## Decay timeline (the §16 resolved knob)
+Everything is configured through the environment — `STANLEY_DATABASE_URL`,
+`STANLEY_BLOB_DIR`, `STANLEY_SECRET_KEY`, `STANLEY_DEV_AUTH`, `APPLE_BUNDLE_ID`,
+and the client's `STANLEY_API_BASE`. Nothing is hardcoded, and the server
+refuses to boot without a signing secret once dev auth is off.
 
-`LIVE` 0–48h → `FADING` 48–120h → `LAST_LIGHT` 120–144h → `EXPIRED` (leaves
-Today; blob retained iff anchored) → `PURGED` +7 days (blob deleted, row
-anonymized to a hash). Server-authoritative; clients only interpolate the fade
-from `decay_progress` + `state_deadline`.
+## The invariants (non-negotiable, and tested)
 
-## Not yet built (deliberately)
+| Invariant | Enforced where |
+| --- | --- |
+| One photo per person per local calendar day, ≥12h gap | `physics.violates_capture_rules` + `UNIQUE(owner_id, local_date)` as the race backstop |
+| Deleting today's photo does not refund the slot | slot check counts soft-deleted and purged rows |
+| **A1**: holding never alters public decay or feed order | the decay engine and feed query never read anchors |
+| **A2**: hold/like identities are owner-only; no counts anywhere | the photo payload structurally lacks the field |
+| A blob survives purge iff someone held it at expiry | `decay.sweep` |
+| Owner deletion purges everywhere; holders keep only an honest tombstone | `decay.scrub(owner_requested=True)` |
+| EXIF stripped to `{DateTime}` — GPS removal | `images.py` allowlist |
+| At most one push per day, and never one carrying a count or a deadline | `notifications.py` is the only send path |
 
-- **Sign in with Apple verification** — `/auth/apple` is a 501 stub; dev auth
-  gates the pilot
-- **APNs transport** — the `Notifier` transport hook is where it plugs in
-- **S3/R2 adapter** — `BlobStore` is local-disk with the same interface
-- **CSAM hash-matching + data export** — required before any release beyond
-  the pilot circle (§15)
-- **On-device Returned selection** — the Phase 2 hardening target; the MVP
-  heuristic is a random eligible pick by design
+**Decay timeline:** `LIVE` 0–48h → `FADING` 48–120h → `LAST_LIGHT` 120–144h →
+`EXPIRED` (leaves Today; the image survives only if someone held it) →
+`PURGED` after a 7-day tombstone. The server is authoritative; clients only
+interpolate the visual fade from `decay_progress`.
 
-## Spec
+**Tests:** 147, covering the hard parts — physics as Hypothesis property tests
+across DST and timezone hops, the full decay lifecycle at exact boundaries,
+A1/A2, deletion cascades, block bidirectionality, auth hardening, capture-race
+and orphan-blob safety, and one cold-start test that walks a new user's entire
+first week end to end.
 
-Built from the Project Stanley critical analysis & system specification v0.1
-(June 2026): one circle per person (cap 12, mutual by construction), Today +
-Returned surfaces, anchor + story-comment gestures, §7 permanent non-goals,
-§10 notification policy as hard requirements.
+```bash
+cd server && .venv/bin/python -m pytest
+```
+
+## Further reading
+
+- [server/DEPLOY.md](server/DEPLOY.md) — deploying the single-process server behind Caddy
+- [PRIVACY_LABEL.md](PRIVACY_LABEL.md) — exactly what Stanley collects, as an App Store privacy-label checklist
+- [CLAUDE.md](CLAUDE.md) — the locked design rules and architecture notes
+
+## Not built yet (deliberately)
+
+- **APNs transport** — the last-light notice and digest are recorded, not yet pushed
+- **Live Sign in with Apple** — verified against a mocked signing key, not yet run on a real device
+- **R2 blob backend** — wired and config-switchable, not switched on
+- **CSAM hash-matching + NCMEC reporting** — required before any release beyond a closed pilot
+- **Off-box backups** — daily local snapshots exist; copying them off the machine is still manual
+
+Android, video, DMs, and multiple circles per person are permanent non-goals
+for the pilot, not a backlog.
+
+## License
+
+All rights reserved — see [LICENSE](LICENSE). The source is public to read, not
+to reuse.
