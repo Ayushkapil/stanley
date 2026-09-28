@@ -112,15 +112,15 @@ def main() -> None:
     circle_birth = now - 100 * DAY  # a ~3-month-old circle (a milestone for Ayush)
 
     people = {
-        "Ayush":     ("ayush",     "CS major, mostly at the climbing gym or up too late debugging something. Will absolutely talk your ear off about pour-over coffee."),
-        "Ben":       ("ben",       "Econ, intramural soccer, professional ramen enthusiast. Ask me about my fantasy league. Actually, please don't."),
-        "Aryan":     ("aryan",     "Math + CS, nocturnal by choice. Powered by cold brew and spite. Undefeated at 1am chess, ask anyone."),
-        "Sudhiksha": ("sudhiksha", "Neuro major, weekend barista at the union. I will judge your coffee order and then make it perfectly anyway."),
-        "Katy":      ("katy",      "Public health, RA on the 3rd floor, plant mom to eleven succulents. I'm the one who organizes the cookouts."),
-        "Minnerva":  ("minnerva",  "Linguistics + CS, robotics club, crossword fiend. Currently 4-0 against Aryan at chess, whatever he tells you. It's Minnie unless I'm in trouble."),
-        "Tanmay":    ("tanmay",    "Physics. Astrophotography on clear nights — the parking garage roof is basically my observatory."),
-        "Lilli":     ("lilli",     "Nursing student who stress-bakes, which means the floor eats well during finals. Plant hospital in room 314."),
-        "Hameer":    ("hameer",    "Finance major, intramural cricket captain, 6am gym guy. I have a spreadsheet for everything, including this bio."),
+        "Ayush":      ("ayush",      "CS major, mostly at the climbing gym or up too late debugging something. Will absolutely talk your ear off about pour-over coffee."),
+        "Ben":        ("ben",        "Econ, intramural soccer, professional ramen enthusiast. Ask me about my fantasy league. Actually, please don't."),
+        "Aryan":      ("aryan",      "Math + CS, nocturnal by choice. Powered by cold brew and spite. Undefeated at 1am chess, ask anyone."),
+        "Bihag":      ("bihag",      "Neuro major, weekend barista at the union. I will judge your coffee order and then make it perfectly anyway."),
+        "Katy":       ("katy",       "Public health, RA on the 3rd floor, plant mom to eleven succulents. I'm the one who organizes the cookouts."),
+        "Minnerva":   ("minnerva",   "Linguistics + CS, robotics club, crossword fiend. Currently 4-0 against Aryan at chess, whatever he tells you. It's Minnie unless I'm in trouble."),
+        "Madhuvanti": ("madhuvanti", "Physics. Astrophotography on clear nights — the parking garage roof is basically my observatory."),
+        "Rakesh":     ("rakesh",     "Nursing student who stress-bakes, which means the floor eats well during finals. Plant hospital in room 314."),
+        "Hameer":     ("hameer",     "Finance major, intramural cricket captain, 6am gym guy. I have a spreadsheet for everything, including this bio."),
     }
 
     with Session() as s:
@@ -203,15 +203,15 @@ def main() -> None:
             s.add(Comment(photo_id=p.id, author_id=users[author].id, body=body, created_at=now - HOUR / 2))
 
         # LIVE (< 48h) -------------------------------------------------------
-        sunset = photo("Sudhiksha", "library sunset", "Wells Library", 6, ((247, 148, 64), (90, 52, 120)))
-        like(sunset, "Ben", "Aryan", "Katy")  # owner (Sudhiksha) sees faces, no count
+        sunset = photo("Bihag", "library sunset", "Wells Library", 6, ((247, 148, 64), (90, 52, 120)))
+        like(sunset, "Ben", "Aryan", "Katy")  # owner (Bihag) sees faces, no count
 
         ramen = photo("Ben", "finally tried the new ramen place", "Ramen House", 10, ((196, 64, 50), (60, 28, 24)))
         comment(ramen, "Minnerva", "you said you'd never try it 😂")
 
         # Shared moment at "Collins" today: Ayush + Katy + Minnerva.
         practice = photo("Ayush", "morning practice", "Collins", 5, ((38, 120, 142), (24, 44, 92)))
-        like(practice, "Sudhiksha", "Ben", "Katy")  # so the signed-in demo user sees the faces
+        like(practice, "Bihag", "Ben", "Katy")      # so the signed-in demo user sees the faces
         hold(practice, "Ben")                        # someone kept one of Ayush's moments
         photo("Katy", "last one before summer", "Collins", 8, ((86, 168, 78), (212, 196, 64)))
         photo("Minnerva", "found this in the stacks", "Collins", 12, ((52, 70, 150), (28, 30, 78)))
@@ -219,15 +219,15 @@ def main() -> None:
 
         # FADING (48–120h) ---------------------------------------------------
         coding = photo("Aryan", "3am coding session", "Luddy Hall", 60, ((30, 26, 64), (96, 44, 120)))
-        hold(coding, "Ayush", "Sudhiksha")  # held → shows in Ayush's Held at full saturation
+        hold(coding, "Ayush", "Bihag")  # held → shows in Ayush's Held at full saturation
 
-        garage = photo("Tanmay", "sunset from the parking garage", None, 74, ((236, 110, 140), (244, 170, 90)))
-        comment(garage, "Lilli", "we need to go back there")
+        garage = photo("Madhuvanti", "sunset from the parking garage", None, 74, ((236, 110, 140), (244, 170, 90)))
+        comment(garage, "Rakesh", "we need to go back there")
 
-        photo("Lilli", "farmers market haul", "Bloomington Community", 88, ((120, 176, 72), (196, 208, 96)))
+        photo("Rakesh", "farmers market haul", "Bloomington Community", 88, ((120, 176, 72), (196, 208, 96)))
 
         # LAST_LIGHT (120–144h) ----------------------------------------------
-        photo("Sudhiksha", "first week done", None, 128, ((54, 96, 150), (40, 130, 130)))
+        photo("Bihag", "first week done", None, 128, ((54, 96, 150), (40, 130, 130)))
         photo("Ben", "bike ride to the lake", "Griffy Lake", 136, ((58, 168, 170), (74, 150, 92)))
 
         # EXPIRED but held by Ayush → in his Held, never in Today --------------
@@ -237,10 +237,10 @@ def main() -> None:
         hold(succulents, "Ayush", days_ago=7.5)
 
         # EXPIRED + unanchored + old enough to purge → becomes a tombstone -----
-        photo("Tanmay", "spring break flight", None, 15 * 24, ((150, 196, 232), (235, 240, 245)))
+        photo("Madhuvanti", "spring break flight", None, 15 * 24, ((150, 196, 232), (235, 240, 245)))
 
         # Near-forgotten Returned: a memory Ayush held 100 days ago, unseen since.
-        snowday = photo("Sudhiksha", "snow day on the quad", "Collins", 100 * 24, ((214, 226, 240), (150, 178, 214)))
+        snowday = photo("Bihag", "snow day on the quad", "Collins", 100 * 24, ((214, 226, 240), (150, 178, 214)))
         hold(snowday, "Ayush", days_ago=100)
 
         # Community note (clears at the end of Katy's local day) --------------
