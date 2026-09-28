@@ -4,6 +4,10 @@ Stanley is a single Python process plus a reverse proxy for HTTPS. SQLite is the
 database (correct at this scale); blobs live on the same disk or in R2. No
 Docker required.
 
+Two ways to run it: **a Linux box you manage** (below), or **[Railway](#railway-managed-alternative)**,
+which builds from the repo and handles HTTPS for you. Either way it is one
+process — never two, because the decay sweeper runs in-process.
+
 ## What you need
 
 - A small Linux box (1 vCPU / 1 GB is plenty for a 30-person circle) with a
@@ -33,9 +37,10 @@ Storage and tuning:
 
 | Var | Default | Notes |
 |-----|---------|-------|
-| `STANLEY_DATABASE_URL` | `sqlite:///var/stanley.db` | Keep on the persistent disk. |
-| `STANLEY_BLOB_DIR` | `var/blobs` | Local blob store. |
-| `STANLEY_BACKUPS_DIR` | `var/backups` | Daily SQLite snapshots (last 7 kept). |
+| `STANLEY_DATA_DIR` | `var` | **The one storage knob.** All three paths below default inside it, so on a hosted box you set only this — e.g. `/data/var` on a mounted volume. Created at startup if missing. |
+| `STANLEY_DATABASE_URL` | `sqlite:///$STANLEY_DATA_DIR/stanley.db` | Override only to move the DB off the data dir. |
+| `STANLEY_BLOB_DIR` | `$STANLEY_DATA_DIR/blobs` | Local blob store. |
+| `STANLEY_BACKUPS_DIR` | `$STANLEY_DATA_DIR/backups` | Daily SQLite snapshots (last 7 kept). |
 | `STANLEY_RUN_SWEEPER` | `1` | In-process decay/purge/digest/backup loop. Keep on with a **single** process. |
 | `BLOB_BACKEND` | `local` | Set `r2` to use Cloudflare R2 (below). |
 
@@ -88,6 +93,32 @@ stanley.example.com {
 Then `caddy run` (or run it under systemd too). The iOS client's
 `STANLEY_API_BASE` should point at `https://stanley.example.com`.
 
+## Railway (managed alternative)
+
+Railway builds straight from the GitHub repo and terminates HTTPS for you — no
+box, no systemd, no Caddy. The root `Procfile` and `requirements.txt` are all it
+needs; it auto-detects Python from them, so there is deliberately no Dockerfile.
+
+1. **New Project → Deploy from GitHub repo →** pick this repo.
+2. **Add a persistent volume mounted at `/data`.** Without one, the SQLite file
+   and every photo sit on the container's ephemeral disk and are destroyed on
+   the next deploy. This is the step that actually matters.
+3. **Set the environment variables:**
+
+   | Var | Value |
+   |-----|-------|
+   | `STANLEY_SECRET_KEY` | a long random string — `openssl rand -hex 32` |
+   | `APPLE_BUNDLE_ID` | `app.stanley.ios` |
+   | `STANLEY_DEV_AUTH` | `0` |
+   | `STANLEY_DATA_DIR` | `/data/var` — inside the mounted volume |
+
+4. **Deploy.** Railway assigns an HTTPS domain and injects `$PORT`, which the
+   `Procfile` honours. Point the iOS release build's `STANLEY_API_BASE` at that
+   domain, and use `GET /health` as the healthcheck path.
+
+Keep the service at **one replica**. A second one would run a second decay
+sweeper against the same database.
+
 ## Backups
 
 The app writes a daily SQLite snapshot to `STANLEY_BACKUPS_DIR` (last 7 kept).
@@ -98,6 +129,8 @@ so snapshots are consistent while the app runs.
 ## Checklist before inviting the pilot
 
 - [ ] `STANLEY_SECRET_KEY` set (boot fails otherwise) and `STANLEY_DEV_AUTH` unset.
+- [ ] Persistent storage is really persistent — `STANLEY_DATA_DIR` on the mounted
+      volume (Railway) or the persistent disk (VPS), not a container's local disk.
 - [ ] `APPLE_BUNDLE_ID` set; Sign in with Apple capability enabled on the app id.
 - [ ] HTTPS reachable; `STANLEY_API_BASE` in the iOS release build points at it.
 - [ ] Off-box backup copy scheduled.

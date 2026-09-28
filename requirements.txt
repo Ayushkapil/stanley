@@ -1,0 +1,3 @@
+# Railway/nixpacks detects a Python app from a dependency manifest at the repo
+# root. The real dependency list lives in server/pyproject.toml — install that.
+./server

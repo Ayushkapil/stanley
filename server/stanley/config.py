@@ -12,6 +12,14 @@ def _env_opt(name: str) -> str | None:
     return os.environ.get(name)
 
 
+def _data_dir() -> str:
+    """Where every piece of persistent state lives: the SQLite file, the blobs,
+    the daily backups. One knob, because a hosted deployment gets one mounted
+    volume (on Railway, /data/var). Each path below can still be overridden
+    individually when they need to live apart."""
+    return os.environ.get("STANLEY_DATA_DIR", "var").rstrip("/") or "var"
+
+
 # Used only when dev auth is on and no real secret is configured. Never signs
 # anything in a dev_auth=False (pilot/prod) deployment — startup refuses to boot
 # without STANLEY_SECRET_KEY there.
@@ -20,9 +28,12 @@ DEV_FALLBACK_SECRET = "dev-only-insecure-secret"
 
 @dataclass
 class Settings:
-    database_url: str = field(default_factory=lambda: _env("STANLEY_DATABASE_URL", "sqlite:///var/stanley.db"))
-    blob_dir: str = field(default_factory=lambda: _env("STANLEY_BLOB_DIR", "var/blobs"))
-    backups_dir: str = field(default_factory=lambda: _env("STANLEY_BACKUPS_DIR", "var/backups"))
+    data_dir: str = field(default_factory=_data_dir)
+    database_url: str = field(
+        default_factory=lambda: _env("STANLEY_DATABASE_URL", f"sqlite:///{_data_dir()}/stanley.db")
+    )
+    blob_dir: str = field(default_factory=lambda: _env("STANLEY_BLOB_DIR", f"{_data_dir()}/blobs"))
+    backups_dir: str = field(default_factory=lambda: _env("STANLEY_BACKUPS_DIR", f"{_data_dir()}/backups"))
     # No insecure default: None unless explicitly set. create_app() resolves this
     # (dev fallback when dev_auth, hard error otherwise).
     secret_key: str | None = field(default_factory=lambda: _env_opt("STANLEY_SECRET_KEY"))

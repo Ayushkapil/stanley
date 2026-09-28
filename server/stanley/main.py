@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 
@@ -50,6 +51,21 @@ async def _sweep_loop(app: FastAPI) -> None:
         await asyncio.sleep(app.state.settings.sweep_interval_seconds)
 
 
+def _ensure_sqlite_dir(database_url: str) -> None:
+    """Create the directory holding the SQLite file if it isn't there yet. A
+    fresh host — or a volume mounted empty on first deploy — has no `var/`, and
+    SQLite will not create missing parents. In-memory URLs have no path."""
+    prefix = "sqlite:///"
+    if not database_url.startswith(prefix):
+        return
+    path = database_url[len(prefix):]
+    if not path or path == ":memory:":
+        return
+    parent = Path(path).parent
+    if str(parent) not in ("", "."):
+        parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_app(
     settings: Settings | None = None,
     clock: Clock | None = None,
@@ -61,6 +77,7 @@ def create_app(
     # C1: refuse to boot without a signing secret (dev auth may use a fallback).
     settings.secret_key = resolve_secret(settings)
 
+    _ensure_sqlite_dir(settings.database_url)
     engine = make_engine(settings.database_url)
     Base.metadata.create_all(engine)
     ensure_schema(engine)
@@ -98,5 +115,12 @@ def create_app(
 
     for router in (auth_routes, circles, photos, feed, me, memories, safety, blobs):
         app.include_router(router.router)
+
+    @app.get("/health", tags=["ops"])
+    def health() -> dict[str, str]:
+        """Unauthenticated readiness probe for the host platform. Deliberately
+        touches no database: it answers "this process is up and serving", which
+        is the question a load balancer restarts on."""
+        return {"status": "ok"}
 
     return app

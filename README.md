@@ -100,7 +100,7 @@ refuses to boot without a signing secret once dev auth is off.
 `PURGED` after a 7-day tombstone. The server is authoritative; clients only
 interpolate the visual fade from `decay_progress`.
 
-**Tests:** 147, covering the hard parts — physics as Hypothesis property tests
+**Tests:** 149, covering the hard parts — physics as Hypothesis property tests
 across DST and timezone hops, the full decay lifecycle at exact boundaries,
 A1/A2, deletion cascades, block bidirectionality, auth hardening, capture-race
 and orphan-blob safety, and one cold-start test that walks a new user's entire

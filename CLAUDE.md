@@ -50,7 +50,9 @@ The authoritative source for the physics constants is
 
 - **Backend:** FastAPI monolith (Python 3.11), sync endpoints. Single process; an
   in-process asyncio loop runs the decay/purge/digest **sweep every 15 minutes**
-  and a daily SQLite backup. (`server/stanley/worker.py` is the same logic as a
+  and a daily SQLite backup. `GET /health` is the unauthenticated readiness
+  probe hosts poll; all persistent state lives under `STANLEY_DATA_DIR`
+  (default `var/`), created at startup. (`server/stanley/worker.py` is the same logic as a
   standalone process if ever needed. Do **not** run multiple uvicorn workers — each
   would run its own sweeper.)
 - **Database:** SQLite with a per-connection PRAGMA listener: **WAL**,
@@ -67,7 +69,9 @@ The authoritative source for the physics constants is
   `/auth/dev` exists and returns 404 unless `STANLEY_DEV_AUTH=1`. The server
   refuses to boot without `STANLEY_SECRET_KEY` when dev auth is off.
 - **Client:** SwiftUI, iOS 17+, XcodeGen project. JWT in the Keychain. API base URL
-  from `STANLEY_API_BASE` (Info.plist) / env, localhost in debug.
+  from `STANLEY_API_BASE` (Info.plist) / env, localhost in debug. Sentry captures
+  crashes only, and only when `STANLEY_SENTRY_DSN` is set (never in dev builds);
+  no user is attached, so crash data stays anonymous — see `PRIVACY_LABEL.md`.
 
 ## Implemented and working
 
@@ -110,11 +114,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Open items (not yet built / not yet done)
 
-- **Deploy for real.** [`server/DEPLOY.md`](server/DEPLOY.md) documents the
-  single-process + Caddy (auto-HTTPS) setup; it has not actually been stood up on a
-  host. Set `STANLEY_SECRET_KEY`, `APPLE_BUNDLE_ID`, point `STANLEY_API_BASE` at it.
-- **TestFlight build.** Needs a signing team, the Sign-in-with-Apple capability
-  enabled on the App ID, and `STANLEY_API_BASE` set for the release config.
+- **Deploy for real.** [`server/DEPLOY.md`](server/DEPLOY.md) documents both paths —
+  a VPS behind Caddy, or Railway via the root `Procfile` + `requirements.txt` — but
+  neither has actually been stood up on a host. Set `STANLEY_SECRET_KEY`,
+  `APPLE_BUNDLE_ID`, `STANLEY_DATA_DIR` (a persistent volume), and point
+  `STANLEY_API_BASE` at it.
+- **TestFlight build.** Needs a **paid** Apple Developer Program membership: a
+  free personal team cannot provision Sign in with Apple (Xcode refuses outright)
+  and its profiles expire weekly. Also needs the capability enabled on the App ID
+  and `STANLEY_API_BASE` set for the release config.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
@@ -131,7 +139,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**132 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**149 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
