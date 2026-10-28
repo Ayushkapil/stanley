@@ -36,7 +36,7 @@ struct AboutStanleyView: View {
                     "What Stanley is",
                     [
                         "One photo a day. Everything fades within six days — unless someone keeps it.",
-                        "No likes you can count, no followers, no algorithm deciding what you see. Just a small circle of people, at most thirty, sharing one moment a day and choosing which ones to hold onto.",
+                        "No likes you can count, no followers, no algorithm deciding what you see. Just a small circle of people sharing one moment a day and choosing which ones to hold onto.",
                     ]
                 )
                 section(
@@ -52,7 +52,7 @@ struct AboutStanleyView: View {
                     [
                         "What you post here belongs to you. What your friends keep lives in their memory of you — and if you ever delete it, it's gone everywhere.",
                         "Stanley doesn't sell your data, doesn't show you ads, and doesn't use your photos to train anything.",
-                        "The circle is capped at thirty because intimacy has a size, and this is it.",
+                        "Stanley works best with people you actually know. There is a ceiling, but you are unlikely to meet it — nothing here will ever ask you to invite more people.",
                     ]
                 )
 
@@ -188,7 +188,7 @@ struct PrivacyView: View {
                 LegalParagraph(heading: "What we don't do", text: "We don't sell your data. We don't show ads. We don't use your photos to train anything, and we never will.")
                 LegalParagraph(heading: "Your photos", text: "Location is stripped from every photo before it's stored — the GPS is gone, not hidden. Images are served over short-lived signed links, never public URLs.")
                 LegalParagraph(heading: "Fading and deletion", text: "Photos fade on their own within six days unless someone holds them. Deleting your photo removes the image everywhere within a day; deleting your account purges everything you posted.")
-                LegalParagraph(heading: "Who sees what", text: "Only your circle — at most thirty people — ever sees your photos. There is no public surface, and nothing is indexed or shared outside it.")
+                LegalParagraph(heading: "Who sees what", text: "Only your circle ever sees your photos. There is no public surface, and nothing is indexed or shared outside it.")
                 LegalParagraph(heading: "Questions", text: "Reach the team through your circle's organizer until a contact address is published with the final policy.")
             }
             .padding()

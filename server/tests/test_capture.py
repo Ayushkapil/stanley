@@ -42,10 +42,38 @@ def test_second_post_same_day_is_409(circle):
     assert r.json()["detail"]["code"] == "slot_used"
 
 
-def test_deleting_today_does_not_refund_the_slot(circle):
+def test_delete_today_refunds_the_slot_exactly_once(circle):
+    """The 8.4 redo: the first minutes are allowed to be a mistake, once. A
+    second delete spends the day for good - this is a redo, not retakes."""
+    first = circle.ana.post_photo(caption="blurry").json()["id"]
+    assert circle.ana.delete_photo(first).status_code == 204
+
+    r = circle.ana.post_photo(caption="the keeper")
+    assert r.status_code == 201, r.text
+    second = r.json()["id"]
+
+    assert circle.ana.delete_photo(second).status_code == 204
+    r = circle.ana.post_photo(caption="a third bite")
+    assert r.status_code == 409
+    assert r.json()["detail"]["code"] == "slot_used"
+
+
+def test_redo_is_not_blocked_by_the_twelve_hour_gap(circle):
+    """A repost lands seconds after the delete; the gap law must not treat the
+    released photo as the previous capture."""
     pid = circle.ana.post_photo().json()["id"]
-    assert circle.ana.delete_photo(pid).status_code == 204
-    r = circle.ana.post_photo()
+    circle.ana.delete_photo(pid)
+    r = circle.ana.post_photo(caption="right away")
+    assert r.status_code == 201, r.text
+
+
+def test_deleting_an_older_photo_never_refunds(circle, clock):
+    """Decay has already started on it - a different contract entirely."""
+    yesterday = circle.ana.post_photo(caption="yesterday").json()["id"]
+    clock.advance(timedelta(hours=30))  # a new local day
+    assert circle.ana.post_photo(caption="today").status_code == 201
+    assert circle.ana.delete_photo(yesterday).status_code == 204
+    r = circle.ana.post_photo(caption="not a refund")
     assert r.status_code == 409
     assert r.json()["detail"]["code"] == "slot_used"
 
@@ -149,9 +177,9 @@ def test_exif_is_stripped_to_timestamp_only(circle, app, db):
     assert tags <= {306}
 
 
-def test_circle_cap_is_thirty(client, circle):
-    # circle fixture already has 3 members; fill to 30, then the 31st is refused.
-    for i in range(27):
+def test_circle_cap_is_a_hundred_with_a_human_message(client, circle):
+    # circle fixture already has 3 members; fill to 100, then the 101st is refused.
+    for i in range(97):
         extra = make_user(client, f"member{i}")
         r = extra.client.post(
             f"/circles/{circle.id}/join",
@@ -159,11 +187,13 @@ def test_circle_cap_is_thirty(client, circle):
             headers=extra.h,
         )
         assert r.status_code == 201, f"member {i}: {r.text}"
-    thirty_first = make_user(client, "thirty_first")
-    r = thirty_first.client.post(
+    one_too_many = make_user(client, "one_too_many")
+    r = one_too_many.client.post(
         f"/circles/{circle.id}/join",
         json={"invite_token": circle.invite_token},
-        headers=thirty_first.h,
+        headers=one_too_many.h,
     )
     assert r.status_code == 409
     assert r.json()["detail"]["code"] == "circle_full"
+    # A sentence, not a number - the cap is a guardrail, never a scoreboard.
+    assert "people you actually know" in r.json()["detail"]["message"]

@@ -20,6 +20,9 @@ from ..deps import (
 from ..models import Circle, CommunityNote, Membership, User, new_id, new_invite_code
 from ..serialize import avatar_url, blocked_ids, community_note_payload
 
+# Said once, in words rather than a number: the cap is a guardrail, not a goal.
+CIRCLE_FULL_MESSAGE = "Stanley works best with people you actually know."
+
 router = APIRouter(tags=["circles"])
 
 
@@ -105,7 +108,7 @@ def join_by_code(
         raise HTTPException(404, "not found")
     _ensure_not_in_a_circle(db, user)
     if member_count(db, circle.id) >= circle.cap:
-        raise HTTPException(409, {"code": "circle_full"})
+        raise HTTPException(409, {"code": "circle_full", "message": CIRCLE_FULL_MESSAGE})
     now = clock.now()
     db.add(Membership(circle_id=circle.id, user_id=user.id, joined_at=now))
     db.flush()
@@ -127,8 +130,8 @@ def join_circle(
         raise HTTPException(404, "not found")
     _ensure_not_in_a_circle(db, user)
     if member_count(db, circle.id) >= circle.cap:
-        # §16: hard cap 12 — capped intimacy is the gentleness guarantee.
-        raise HTTPException(409, {"code": "circle_full"})
+        # §16: a soft ceiling, not a wall — see physics.CIRCLE_CAP.
+        raise HTTPException(409, {"code": "circle_full", "message": CIRCLE_FULL_MESSAGE})
     now = clock.now()
     db.add(Membership(circle_id=circle.id, user_id=user.id, joined_at=now))
     db.flush()

@@ -9,7 +9,7 @@ gestures are *holding* (a private act of keeping, never counted) and
 *story-comments* (co-remembering). The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
-floor) of up to 30 people. Codename: Stanley.
+floor); the circle ceiling is a soft 100. Codename: Stanley.
 
 ## Locked design rules (do not violate without an explicit product decision)
 
@@ -18,8 +18,11 @@ guarded by tests; treat a change to any of them as a spec change.
 
 - **One photo per person per local calendar day**, plus a 12-hour minimum gap.
   Enforced server-side by `UNIQUE(owner_id, local_date)` + an app check; a race
-  returns 409, never a double post. Deleting today's photo does **not** refund the
-  slot. Capture is in-app only (no camera roll); no retakes.
+  returns 409, never a double post. Capture is in-app only (no camera roll).
+  **One redo per local day:** deleting *today's* photo refunds the slot exactly
+  once (the row is released to an anonymous tombstone, so holders keep theirs);
+  a second delete spends the day for good, and deleting an older photo never
+  refunds — decay has already started on it.
 - **Decay-unless-anchored.** A photo runs `LIVE → FADING → LAST_LIGHT → EXPIRED →
   PURGED` on a fixed clock (48h / 120h / 144h public life, then a 7-day tombstone).
   Holding it makes the blob survive purge; it never changes the photo's public
@@ -41,7 +44,8 @@ guarded by tests; treat a change to any of them as a spec change.
 - **The subject wins on deletion.** Owner delete purges the image everywhere;
   anchorers keep an honest tombstone ("a memory was here") plus their own comment
   text only.
-- **One circle per person**, mutual by construction, hard cap **30**.
+- **One circle per person**, mutual by construction, **soft cap 100** — a
+  guardrail against an audience, never a target. Nothing nudges toward it.
 
 The authoritative source for the physics constants is
 [`server/stanley/physics.py`](server/stanley/physics.py) — pure functions, no I/O.
@@ -139,7 +143,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**149 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**152 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared

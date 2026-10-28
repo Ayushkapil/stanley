@@ -41,12 +41,34 @@ def test_owner_delete_leaves_honest_tombstones(circle, db, app):
     assert bodies == ["lovely"]
 
 
-def test_owner_delete_does_not_refund_slot(circle):
+def test_owner_delete_refunds_once_then_never(circle):
+    """The redo replaces the old absolute: one refund per local day."""
     pid = circle.ana.post_photo().json()["id"]
     circle.ana.delete_photo(pid)
+    again = circle.ana.post_photo()
+    assert again.status_code == 201
+    circle.ana.delete_photo(again.json()["id"])
     r = circle.ana.post_photo()
     assert r.status_code == 409
     assert r.json()["detail"]["code"] == "slot_used"
+
+
+def test_holder_keeps_a_tombstone_through_a_redo(circle):
+    """Allowing the redo regardless of holds is a deliberate product call: the
+    holder does not keep the picture, but the fact of it survives honestly."""
+    pid = circle.ana.post_photo(caption="first try").json()["id"]
+    circle.ben.anchor(pid, note="this one")
+    assert circle.ana.delete_photo(pid).status_code == 204
+    assert circle.ana.post_photo(caption="second try").status_code == 201
+
+    memories = [
+        m for t in circle.ben.memories().json()["threads"] for m in t["memories"]
+    ]
+    assert len(memories) == 1
+    assert memories[0]["tombstone"] is True
+    # A tombstone omits the caption key outright rather than nulling it, so no
+    # trace of the deleted photo's words can leak through the payload.
+    assert "caption" not in memories[0]
 
 
 def test_account_deletion_cascades(circle, db):

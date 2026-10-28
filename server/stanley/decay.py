@@ -75,6 +75,13 @@ def sweep(session: Session, clock: Clock, notifier: Notifier) -> int:
     return advanced
 
 
+def owner_hash_for(user_id: str) -> str:
+    """The anonymous stand-in an owner leaves on a row they no longer hold: the
+    scheduled purge (13) writes it, and so does the same-day redo, which
+    releases the row from the owner's slot in exactly the same shape."""
+    return hashlib.sha256(user_id.encode()).hexdigest()
+
+
 def scrub(
     session: Session,
     storage: BlobStore,
@@ -121,7 +128,7 @@ def scrub(
         ).all():
             session.delete(comment)
         if photo.owner_id is not None:
-            photo.owner_hash = hashlib.sha256(photo.owner_id.encode()).hexdigest()
+            photo.owner_hash = owner_hash_for(photo.owner_id)
             photo.owner_id = None
 
     session.add(

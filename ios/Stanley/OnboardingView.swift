@@ -29,7 +29,7 @@ struct OnboardingView: View {
         ),
         Page(
             headline: "A small circle.",
-            body: "Thirty people, no followers, no counts. You see faces, not numbers. This is a quiet place."
+            body: "No followers, no counts. You see faces, not numbers. This is a quiet place."
         ),
     ]
 

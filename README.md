@@ -13,7 +13,7 @@ left is a small, quiet record of a few people's days, most of which is meant to
 disappear.
 
 > **Pilot build.** Stanley is pre-release, aimed at a single real circle (a dorm
-> floor, up to 30 people). It has not been through TestFlight or an App Store
+> floor; the circle ceiling is a soft 100). It has not been through TestFlight or an App Store
 > review yet, and some pieces documented below are deliberately unfinished.
 
 ## Tech stack
@@ -100,7 +100,7 @@ refuses to boot without a signing secret once dev auth is off.
 `PURGED` after a 7-day tombstone. The server is authoritative; clients only
 interpolate the visual fade from `decay_progress`.
 
-**Tests:** 149, covering the hard parts — physics as Hypothesis property tests
+**Tests:** 152, covering the hard parts — physics as Hypothesis property tests
 across DST and timezone hops, the full decay lifecycle at exact boundaries,
 A1/A2, deletion cascades, block bidirectionality, auth hardening, capture-race
 and orphan-blob safety, and one cold-start test that walks a new user's entire

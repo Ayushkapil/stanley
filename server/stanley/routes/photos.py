@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 CAPTION_MAX = 2000  # I4: cap caption like comments (unbounded TEXT otherwise)
 
 from .. import physics
-from ..decay import TOMBSTONE, enqueue_purge, scrub
+from ..decay import TOMBSTONE, enqueue_purge, owner_hash_for, scrub
 from ..deps import (
     get_circle_photo,
     get_clock,
@@ -113,7 +113,19 @@ def capture(
     last_taken = db.scalar(
         select(func.max(Photo.taken_at)).where(Photo.owner_id == user.id)
     )
-    violation = physics.violates_capture_rules(existing_dates, last_taken, taken_at, tz)
+    # 8.4 redo: a released row keeps its local_date under an owner hash, so the
+    # day still knows a redo was spent even though the slot itself is free.
+    redos_used = db.scalar(
+        select(func.count())
+        .select_from(Photo)
+        .where(
+            Photo.owner_hash == owner_hash_for(user.id),
+            Photo.local_date == physics.local_capture_date(taken_at, tz),
+        )
+    ) or 0
+    violation = physics.violates_capture_rules(
+        existing_dates, last_taken, taken_at, tz, redos_used
+    )
     if violation is not None:
         raise HTTPException(409, {"code": violation})
 
@@ -211,8 +223,26 @@ def delete_photo(
     if photo is None or photo.owner_id != user.id:
         raise HTTPException(404, "not found")
     if photo.state != physics.PURGED:
-        # §8.2 deletion override: privacy wins, everywhere, immediately.
-        scrub(db, storage, photo, clock.now(), owner_requested=True)
+        now = clock.now()
+        # 8.4 redo: deleting *today's* photo refunds the slot once. Decided
+        # before scrubbing, while the row still belongs to the owner.
+        owner_hash = owner_hash_for(user.id)
+        redone_today = db.scalar(
+            select(func.count())
+            .select_from(Photo)
+            .where(Photo.owner_hash == owner_hash, Photo.local_date == photo.local_date)
+        ) or 0
+        is_today = photo.local_date == physics.local_capture_date(now, photo.taken_tz)
+
+        # 8.2 deletion override: privacy wins, everywhere, immediately.
+        scrub(db, storage, photo, now, owner_requested=True)
+
+        if is_today and redone_today < physics.REDOS_PER_DAY:
+            # Release the row from the owner's (owner_id, local_date) slot so one
+            # repost fits. Anchorers keep the tombstone scrub just wrote - it is
+            # the same anonymous shape a scheduled purge leaves behind.
+            photo.owner_hash = owner_hash
+            photo.owner_id = None
 
 
 def _require_public(photo: Photo) -> None:

@@ -29,7 +29,7 @@ struct CircleGateView: View {
                 } header: {
                     Text("Or start one")
                 } footer: {
-                    Text("A circle holds at most thirty people. One circle per person.")
+                    Text("Stanley works best with people you actually know. One circle per person.")
                 }
             }
             .navigationTitle("Your circle")

@@ -21,10 +21,20 @@ MIN_GAP = timedelta(hours=12)                  # between consecutive captures
 DEVICE_CLAIM_TOLERANCE = timedelta(minutes=10)  # taken_at reconciliation
 
 # --- Circle shape (§16) -------------------------------------------------------
-# Raised from 12 to 30: Stanley is a small-community app now, not a clique.
-# Still one circle per person; still bounded so the feed stays a glance and
-# faces stay legible (above ~30 a wall of faces collapses back into a number).
-CIRCLE_CAP = 30
+# 12 -> 30 -> 100. The cap is a guardrail against a circle becoming an audience,
+# not a target to grow into: a floor, a team, a family. It is now a SOFT limit —
+# nothing in the product nudges toward it, and the honest guidance ("people you
+# actually know") does the work the number used to. Past ~30 a face cluster
+# stops being legible as faces, so surfaces that show people must summarise by
+# showing some of them, never by showing a number (A2 still holds everywhere).
+CIRCLE_CAP = 100
+
+# --- Redo (§8.4 amendment) ----------------------------------------------------
+# Capture is still a commitment, but the first minutes are allowed to be a
+# mistake: deleting the day's photo refunds the slot exactly once. A second
+# delete spends the day for good. Older photos never refund — decay has already
+# started on them, and that is a different contract.
+REDOS_PER_DAY = 1
 
 # --- States -------------------------------------------------------------------
 LIVE = "LIVE"
@@ -86,15 +96,22 @@ def violates_capture_rules(
     last_taken_at: datetime | None,
     new_taken_at: datetime,
     tz_name: str,
+    redos_used_today: int = 0,
 ) -> str | None:
     """The one-per-day law (§8.4): one photo per local calendar day at capture,
     plus a 12-hour minimum gap that blunts timezone-hopping without punishing
     real travel. Returns an error code or None if the capture is allowed.
 
-    `existing_local_dates` must include soft-deleted photos: deleting today's
-    photo does not refund the slot.
+    `existing_local_dates` is every local date the owner still holds a photo
+    for, soft-deleted ones included: deleting does not refund the slot. The one
+    exception is the same-day redo — the route releases that row from the
+    owner before calling here, and passes the day's spent redos as
+    `redos_used_today` so a second delete cannot buy a second repost.
     """
-    if local_capture_date(new_taken_at, tz_name) in existing_local_dates:
+    day = local_capture_date(new_taken_at, tz_name)
+    if day in existing_local_dates:
+        return "slot_used"
+    if redos_used_today > REDOS_PER_DAY:
         return "slot_used"
     if last_taken_at is not None and new_taken_at - last_taken_at < MIN_GAP:
         return "too_soon"
