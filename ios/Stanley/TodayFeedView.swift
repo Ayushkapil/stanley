@@ -168,12 +168,17 @@ struct PhotoCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
-            PhotoImageView(photo: photo)
+            PhotoImageView(photo: photo, cornerRadius: 12)
             actionRow
             comments
             commentField
         }
-        .padding(.bottom, 8)
+        // Same container as MomentCard: a photo in Today is one object, whether
+        // it arrived alone or as part of a shared moment. Header (face, name,
+        // time) and footer (caption, place, Held) live inside the card, never
+        // loose on the feed background.
+        .padding(12)
+        .background(.quinary, in: RoundedRectangle(cornerRadius: 18))
         .sheet(item: $viewedMember) { member in
             MemberProfileView(memberId: member.id)
                 .presentationDetents([.medium, .large])
