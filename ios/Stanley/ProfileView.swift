@@ -18,11 +18,25 @@ struct ProfileView: View {
         Array(repeating: GridItem(.flexible(), spacing: 3), count: density.keptColumns)
     }
 
+    @ViewBuilder
+    private var bioView: some View {
+        if let bio = state.profile?.bio, !bio.isEmpty {
+            Text(bio)
+                .font(.callout)
+                .padding(.top, 2)
+        } else {
+            Button("Write a little about yourself") { showEdit = true }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .center, spacing: 16) {
+                    HStack(alignment: density.profileIsHorizontal ? .top : .center, spacing: 16) {
                         AvatarEditor()
                         VStack(alignment: .leading, spacing: 2) {
                             Text(state.profile?.displayName ?? " ")
@@ -32,24 +46,23 @@ struct ProfileView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
+                            // Inner display: the words flow beside the face
+                            // instead of stacking under it.
+                            if density.profileIsHorizontal {
+                                bioView.padding(.top, 8)
+                            }
                         }
+                        Spacer(minLength: 0)
                     }
-                    if let bio = state.profile?.bio, !bio.isEmpty {
-                        Text(bio)
-                            .font(.callout)
-                            .padding(.top, 2)
-                    } else {
-                        Button("Write a little about yourself") { showEdit = true }
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .buttonStyle(.plain)
+                    if !density.profileIsHorizontal {
+                        bioView
                     }
                     if let members = state.circle?.members, !members.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Your circle")
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.secondary)
-                            AvatarCluster(members: members)
+                            AvatarCluster(members: members, maxFaces: density.circleFacesShown)
                         }
                         .padding(.top, 6)
                     }

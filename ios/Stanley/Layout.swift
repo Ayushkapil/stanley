@@ -1,18 +1,21 @@
 import SwiftUI
+import UIKit
 
-/// Stanley on two displays.
+/// Stanley across the iPhone Duo's two displays.
 ///
-/// The iPhone Duo's outer screen is a glance; its inner screen is something you
-/// sit with. The horizontal size class is the signal — compact on the outer
-/// display (and on every ordinary iPhone), regular on the inner one (and on
-/// iPad) — so one rule covers hardware this project cannot test against.
+/// The primary signal is the horizontal size class: **compact** is the outer
+/// display — and every ordinary iPhone, which is why those keep today's
+/// behaviour exactly — while **regular** is the inner display (and iPad). A
+/// second, narrower check (`isLargeCanvas`) gates only enhancements that need
+/// genuine real estate.
 ///
-/// Only density changes. Every feature exists on both surfaces: nothing is
-/// hidden on the outer display and nothing is exclusive to the inner one.
+/// What changes between them is density and spatial arrangement, never
+/// capability: every feature exists on both surfaces, and nothing is gated.
 enum Density {
-    /// Compact: the outer display. Tight, scannable, no wasted space.
+    /// The outer display, and any standard iPhone. The daily glance: complete
+    /// in itself, tight, nothing wasted.
     case glance
-    /// Regular: the inner display. Room to breathe; a memory surface.
+    /// The inner display. The memory surface — the photo is the hero.
     case room
 
     init(_ sizeClass: UserInterfaceSizeClass?) {
@@ -21,31 +24,82 @@ enum Density {
 
     var isRoom: Bool { self == .room }
 
-    // Today
-    var feedSpacing: CGFloat { isRoom ? 34 : 20 }
-    var feedPhotoHeight: CGFloat { isRoom ? 460 : 300 }
-    var cardPadding: CGFloat { isRoom ? 18 : 12 }
+    // --- Today ---------------------------------------------------------------
+    var feedSpacing: CGFloat { isRoom ? 34 : 16 }
+    var feedPhotoHeight: CGFloat { isRoom ? 520 : 280 }
+    var cardPadding: CGFloat { isRoom ? 20 : 12 }
     var cardCorner: CGFloat { isRoom ? 22 : 18 }
+    /// The first story gets room to be read before it truncates.
+    var storyLineLimit: Int { isRoom ? 3 : 1 }
 
-    // Shared moments: side by side, with width to spare on the inner display.
-    var momentTile: CGFloat { isRoom ? 360 : 240 }
+    // --- Shared moments ------------------------------------------------------
+    /// Inner: a pair at meaningful size, with a sliver of the third so it is
+    /// obvious there is more. Outer: the scroll strip, slightly narrower.
+    func momentTileWidth(container: CGFloat) -> CGFloat {
+        isRoom ? (container - 30) / 2.25 : min(container * 0.62, 220)
+    }
 
-    // Weekly mosaic: more photo presence per card.
-    var mosaicHeight: CGFloat { isRoom ? 620 : 460 }
+    // --- Weekly mosaic -------------------------------------------------------
+    var mosaicHeight: CGFloat { isRoom ? 640 : 440 }
 
-    // Held: a memory wall rather than a column.
-    var heldPhotoHeight: CGFloat { isRoom ? 440 : 300 }
+    // --- Returned ------------------------------------------------------------
+    /// Handed to you, not squeezed into a notification.
+    var returnedPhotoHeight: CGFloat { isRoom ? 320 : 180 }
 
-    // You: more tiles per row where there is width for them.
-    var keptColumns: Int { isRoom ? 5 : 3 }
-    var threadColumns: Int { isRoom ? 6 : 4 }
+    // --- Held ----------------------------------------------------------------
+    /// A magazine on the inner display: two columns of large cards.
+    var heldColumns: Int { isRoom ? 2 : 1 }
+    var heldPhotoHeight: CGFloat { isRoom ? 340 : 280 }
+
+    // --- You -----------------------------------------------------------------
+    /// Three columns on both; on the inner display the extra width makes the
+    /// tiles themselves larger, which is the point.
+    var keptColumns: Int { 3 }
+    var threadColumns: Int { isRoom ? 5 : 4 }
+    /// Room for more faces before the cluster overflows.
+    var circleFacesShown: Int { isRoom ? 10 : 5 }
+    /// Name and words sit beside the avatar once there is width for it.
+    var profileIsHorizontal: Bool { isRoom }
+
+    // --- Settings ------------------------------------------------------------
+    /// 7.6" is wide enough that a full-bleed form stops being readable.
+    var readableWidth: CGFloat? { isRoom ? 600 : nil }
+
+    // --- The fold ------------------------------------------------------------
+    /// A conservative margin for interactive elements near the crease. iOS 26.5
+    /// exposes no fold geometry, so this is a buffer, not a measurement — when
+    /// the SDK reports the crease, this should read it instead.
+    var creaseBuffer: CGFloat { isRoom ? 20 : 0 }
+}
+
+/// True on a canvas big enough to be the Duo's inner display (or an iPad).
+/// Used only for enhancements that want real estate — never to gate a feature,
+/// and never as the primary signal. The size class decides layout.
+@MainActor
+func isLargeCanvas() -> Bool {
+    let bounds = UIScreen.main.bounds
+    return min(bounds.width, bounds.height) >= 600
 }
 
 extension View {
-    /// Keeps content clear of a fold or any other hardware intrusion. The
-    /// system reports the crease through safe-area insets, so the fix is to
-    /// respect them rather than to guess at a hinge position.
-    func foldSafe() -> some View {
-        self.safeAreaPadding(.horizontal)
+    /// Hold content to a readable column on wide canvases; full width elsewhere.
+    @ViewBuilder
+    func readableWidth(_ density: Density) -> some View {
+        if let width = density.readableWidth {
+            frame(maxWidth: width).frame(maxWidth: .infinity)
+        } else {
+            self
+        }
+    }
+
+    /// Keeps interactive content off the crease. Photos may span the fold —
+    /// a picture crossing it is fine — but tap targets should not straddle it.
+    func creaseSafe(_ density: Density) -> some View {
+        padding(.horizontal, density.creaseBuffer)
+    }
+
+    /// Fold and unfold mid-session: reflow, never reload.
+    func foldAnimated(_ sizeClass: UserInterfaceSizeClass?) -> some View {
+        animation(.default, value: sizeClass)
     }
 }

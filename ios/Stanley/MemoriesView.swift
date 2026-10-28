@@ -9,39 +9,10 @@ struct MemoriesView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if state.threads.isEmpty {
-                    Text("Nothing held yet. Press and hold a moment to keep it here — this is the one place nothing fades.")
-                        .foregroundStyle(.secondary)
-                        .listRowBackground(Color.clear)
-                }
-                ForEach(state.threads) { thread in
-                    Section {
-                        ForEach(thread.memories) { memory in
-                            // The image leads — a kept moment is a picture first,
-                            // words second. Tombstones stay quiet and compact.
-                            MemoryCard(memory: memory)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    if !memory.isTombstone {
-                                        Button {
-                                            Task { await state.rest(photoId: memory.id) }
-                                        } label: {
-                                            Label("Rest this memory", systemImage: "moon.zzz")
-                                        }
-                                        .tint(.indigo)
-                                    }
-                                }
-                        }
-                    } header: {
-                        HStack(spacing: 8) {
-                            AvatarView(url: thread.friend.avatarUrl, name: thread.friend.displayName, size: 22)
-                            Text(thread.friend.displayName)
-                        }
-                    }
-                }
+            Group {
+                if density.isRoom { magazine } else { column }
             }
+            .foldAnimated(hSizeClass)
             .atmosphereWash()
             .navigationTitle("Held")
             .toolbar {
@@ -55,6 +26,91 @@ struct MemoriesView: View {
             }
             .refreshable { await state.refreshMemories() }
             .task { await state.refreshMemories() }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyNote: some View {
+        Text("Nothing held yet. Press and hold a moment to keep it here — this is the one place nothing fades.")
+            .foregroundStyle(.secondary)
+    }
+
+    /// The outer display (and every ordinary iPhone): one column, swipe to rest.
+    private var column: some View {
+        List {
+            if state.threads.isEmpty {
+                emptyNote.listRowBackground(Color.clear)
+            }
+            ForEach(state.threads) { thread in
+                Section {
+                    ForEach(thread.memories) { memory in
+                        // The image leads — a kept moment is a picture first,
+                        // words second. Tombstones stay quiet and compact.
+                        MemoryCard(memory: memory)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if !memory.isTombstone {
+                                    Button {
+                                        Task { await state.rest(photoId: memory.id) }
+                                    } label: {
+                                        Label("Rest this memory", systemImage: "moon.zzz")
+                                    }
+                                    .tint(.indigo)
+                                }
+                            }
+                    }
+                } header: {
+                    HStack(spacing: 8) {
+                        AvatarView(url: thread.friend.avatarUrl, name: thread.friend.displayName, size: 22)
+                        Text(thread.friend.displayName)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The inner display: a memory wall. Two columns of large cards with room
+    /// between them. Resting moves from a swipe to a long press, because a grid
+    /// cell has no edge to swipe — the action itself is unchanged.
+    private var magazine: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 30) {
+                if state.threads.isEmpty {
+                    emptyNote.padding(.top, 40)
+                }
+                ForEach(state.threads) { thread in
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 8) {
+                            AvatarView(url: thread.friend.avatarUrl, name: thread.friend.displayName, size: 26)
+                            Text(thread.friend.displayName)
+                                .font(.subheadline.weight(.medium))
+                        }
+                        LazyVGrid(
+                            columns: Array(
+                                repeating: GridItem(.flexible(), spacing: 20),
+                                count: density.heldColumns
+                            ),
+                            alignment: .leading,
+                            spacing: 20
+                        ) {
+                            ForEach(thread.memories) { memory in
+                                MemoryCard(memory: memory)
+                                    .contextMenu {
+                                        if !memory.isTombstone {
+                                            Button {
+                                                Task { await state.rest(photoId: memory.id) }
+                                            } label: {
+                                                Label("Rest this memory", systemImage: "moon.zzz")
+                                            }
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(22)
         }
     }
 }

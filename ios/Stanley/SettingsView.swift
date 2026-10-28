@@ -9,6 +9,9 @@ struct SettingsView: View {
     @State private var lastLight = false
     @State private var loaded = false
 
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
+
     @State private var confirmRotate = false
     @State private var confirmLeave = false
     @State private var confirmDelete = false
@@ -29,6 +32,8 @@ struct SettingsView: View {
                 dataSection
                 accountSection
             }
+            .readableWidth(density)
+            .foldAnimated(hSizeClass)
             .atmosphereWash()
             .navigationTitle("Settings")
             .task {

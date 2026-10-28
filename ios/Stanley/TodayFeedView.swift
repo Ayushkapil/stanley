@@ -44,6 +44,7 @@ struct TodayFeedView: View {
                     }
                 }
                 .padding()
+                .foldAnimated(hSizeClass)
             }
             .atmosphereWash()
             .navigationTitle("Today")
@@ -286,7 +287,7 @@ struct PhotoCard: View {
                 (Text(first.author.displayName).fontWeight(.medium)
                     + Text("  ") + Text(first.body))
                     .font(.callout)
-                    .lineLimit(1)
+                    .lineLimit(density.storyLineLimit)
                 if photo.comments.count > 1 {
                     // "More", never "2 more" — the no-counts rule holds here too.
                     Button("More stories") { showStories = true }
@@ -324,6 +325,8 @@ struct MomentCard: View {
     private var density: Density { Density(hSizeClass) }
     let item: FeedItem
 
+    private var momentHeight: CGFloat { density.isRoom ? 300 : 210 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
@@ -345,20 +348,25 @@ struct MomentCard: View {
                     )
                 }
             }
+            // Inner display: two photos side by side at a size worth looking
+            // at, with a sliver of the third so it's clear there is more.
+            // Outer display: the same strip, narrowed to fit.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(item.photos ?? []) { photo in
                         VStack(alignment: .leading, spacing: 4) {
-                            PhotoImageView(photo: photo, height: density.momentTile, cornerRadius: 12)
-                                .frame(width: density.momentTile)
+                            PhotoImageView(photo: photo, height: momentHeight, cornerRadius: 12)
                             Text(photo.owner.displayName)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(width: density.momentTile)
+                        .containerRelativeFrame(.horizontal) { length, _ in
+                            density.momentTileWidth(container: length)
+                        }
                     }
                 }
             }
+            .scrollTargetBehavior(.viewAligned)
         }
         .padding(density.cardPadding)
         .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
@@ -537,6 +545,8 @@ struct MosaicCard: View {
 
 struct ReturnedCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let item: ReturnedItem
 
     private var isRescue: Bool { item.source == "rescue" }
@@ -595,7 +605,7 @@ struct ReturnedCard: View {
                     Rectangle().fill(.quaternary)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 180)
+                .frame(height: density.returnedPhotoHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             if let caption = item.photo.caption, !caption.isEmpty {

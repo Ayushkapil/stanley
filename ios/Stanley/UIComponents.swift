@@ -95,10 +95,18 @@ struct FaceCluster: View {
 struct AvatarCluster: View {
     let members: [CircleMember]
     var size: CGFloat = 36
+    /// A ceiling on faces, not a count of them. Overflow is silent — showing
+    /// "+7" would be a tally, which is exactly what A2 forbids.
+    var maxFaces: Int?
+
+    private var shown: [CircleMember] {
+        guard let maxFaces else { return members }
+        return Array(members.prefix(maxFaces))
+    }
 
     var body: some View {
         FaceCluster(
-            faces: members.map { (id: $0.id, url: $0.avatarUrl, name: $0.displayName) },
+            faces: shown.map { (id: $0.id, url: $0.avatarUrl, name: $0.displayName) },
             size: size
         )
     }

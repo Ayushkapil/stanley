@@ -121,9 +121,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   server refusal (another device used the slot) strands it honestly: the owner
   can save it to Photos or discard it, never a silent loss.
 - **Adaptive density** (client) — `Density(horizontalSizeClass)` in
-  `Layout.swift`: compact is the iPhone Duo's outer display (and every ordinary
-  iPhone), regular is the inner display (and iPad). Only density changes; no
-  feature is exclusive to either surface. Not yet seen on real Duo hardware.
+  `Layout.swift` is the single source for every size that differs between the
+  iPhone Duo's two displays: compact is the outer display (and every ordinary
+  iPhone, which keeps today's behaviour exactly), regular is the inner one.
+  Inner gets larger cards, a side-by-side shared moment, a two-column Held
+  magazine, a horizontal profile header, a 600pt readable Settings column and a
+  bigger Returned photo. Only density and arrangement change — no feature is
+  gated to either surface. `isLargeCanvas()` exists for enhancements that need
+  real estate, never for gating.
 - **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
   Rain; ambient tint + faint wash only; never affects function.
 - **Safety/privacy** — bidirectional block, report (24h takedown), account deletion
@@ -154,9 +159,22 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a capture queued at 23:50 and sent at 00:10 lands on the *new* day and spends
   that slot. The local claim was for the old one. Rare, and acceptable for the
   pilot, but it is a real seam.
-- **iPhone Duo on real hardware.** Xcode 26.6 ships no Duo device type; the
-  adaptive layout is built and built-tested against the size-class proxy only,
-  and no fold/crease behaviour has been observed.
+- **iPhone Duo on real hardware.** Xcode 26.6 ships only an iOS 26.5 runtime —
+  no Duo device type, no iOS 27 — so nothing has been seen on the real device.
+  Two specific unknowns: (a) whether the inner display actually reports a
+  **regular** horizontal size class to an iPhone-family app; the whole layout
+  hinges on that, and if it reports compact the inner display silently keeps the
+  outer layout. (b) The crease: no SDK fold geometry exists, so `creaseBuffer`
+  is a conservative 20pt margin rather than a measurement, and a full-width
+  centred control (the onboarding button, the comment field) still straddles a
+  vertical crease by construction.
+- **Regular-size-class surfaces are unverified past sign-in.** The app is
+  iPhone-family (`TARGETED_DEVICE_FAMILY: "1"`), so an iPad runs it letterboxed
+  in compatibility mode and reports *compact* — an iPad is only a valid proxy
+  with the family temporarily widened to `"1,2"`. Done once that way: the app
+  runs full-screen on iPad mini in regular, without crash or clipping, but only
+  onboarding was reachable (signing in needs a human), so the feed, Held, You
+  and Settings layouts have been compiled and never seen.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals
