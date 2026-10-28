@@ -106,8 +106,15 @@ struct PhotoImageView: View {
                 .overlay(alignment: .topLeading) {
                     if photo.anchoredByMe { marker("bookmark.fill", .accentColor) }
                 }
-                .overlay(alignment: .topTrailing) {
-                    if photo.likedByMe { marker("heart.fill", .pink) }
+                .overlay(alignment: .bottomTrailing) {
+                    // Personal state, never a public signal: this says "you
+                    // liked this", only to you, and never how many did. Not a
+                    // button either — the like is still the double-tap.
+                    marker(photo.likedByMe ? "heart.fill" : "heart",
+                           photo.likedByMe ? .pink : .white)
+                        .opacity(photo.likedByMe ? 1 : 0.5)
+                        .allowsHitTesting(false)
+                        .accessibilityLabel(photo.likedByMe ? "You liked this" : "You haven't liked this")
                 }
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
                 .scaleEffect(settleScale)
@@ -162,6 +169,7 @@ struct PhotoCard: View {
     @State private var newComment = ""
     @State private var viewedMember: ViewedMember?
     @State private var showFaces = false
+    @State private var showStories = false
 
     private var isMine: Bool { state.myId != nil && state.myId == photo.owner.id }
 
@@ -186,6 +194,9 @@ struct PhotoCard: View {
         .sheet(isPresented: $showFaces) {
             FacesSheet(photoId: photo.id)
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showStories) {
+            PhotoStoriesView(photo: photo)
         }
     }
 
@@ -250,12 +261,20 @@ struct PhotoCard: View {
 
     @ViewBuilder
     private var comments: some View {
-        if !photo.comments.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(photo.comments) { comment in
-                    (Text(comment.author.displayName).fontWeight(.medium)
-                        + Text("  ") + Text(comment.body))
-                        .font(.callout)
+        if let first = photo.comments.first {
+            VStack(alignment: .leading, spacing: 4) {
+                // Co-remembering, visible without digging: one line, the way
+                // you'd overhear it.
+                (Text(first.author.displayName).fontWeight(.medium)
+                    + Text("  ") + Text(first.body))
+                    .font(.callout)
+                    .lineLimit(1)
+                if photo.comments.count > 1 {
+                    // "More", never "2 more" — the no-counts rule holds here too.
+                    Button("More stories") { showStories = true }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .buttonStyle(.plain)
                 }
             }
             .padding(.top, 2)
@@ -589,5 +608,55 @@ struct ReturnedCard: View {
             RoundedRectangle(cornerRadius: 18)
                 .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 1)
         )
+    }
+}
+
+/// The whole thread, for when the card's one line isn't enough. Opened from
+/// "More stories" — the photo, its caption, and every story on it, in the order
+/// they were told. Adding one works here too.
+struct PhotoStoriesView: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    let photo: Photo
+    @State private var newComment = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    PhotoImageView(photo: photo, cornerRadius: 12)
+                    if let caption = photo.caption, !caption.isEmpty {
+                        Text(caption).font(.body)
+                    }
+                    ForEach(photo.comments) { comment in
+                        (Text(comment.author.displayName).fontWeight(.medium)
+                            + Text("  ") + Text(comment.body))
+                            .font(.callout)
+                    }
+                    HStack {
+                        TextField("Add to the story…", text: $newComment)
+                            .textFieldStyle(.plain)
+                            .font(.callout)
+                        if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
+                            Button("Add") {
+                                let body = newComment.trimmingCharacters(in: .whitespaces)
+                                newComment = ""
+                                Task { await state.comment(on: photo, body: body) }
+                            }
+                            .font(.callout)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+                .padding()
+            }
+            .navigationTitle(photo.owner.displayName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }

@@ -12,7 +12,6 @@ struct SettingsView: View {
     @State private var confirmRotate = false
     @State private var confirmLeave = false
     @State private var confirmDelete = false
-    @State private var memberToRemove: CircleMember?
 
     @State private var exporting = false
     @State private var exportURL: URL?
@@ -58,19 +57,6 @@ struct SettingsView: View {
             } message: {
                 Text("Your photos are removed everywhere within a day. People who held them keep only a note that a memory was there. This can't be undone.")
             }
-            .confirmationDialog(
-                "Remove \(memberToRemove?.displayName ?? "this member")?",
-                isPresented: Binding(
-                    get: { memberToRemove != nil },
-                    set: { if !$0 { memberToRemove = nil } }
-                ),
-                presenting: memberToRemove
-            ) { member in
-                Button("Remove", role: .destructive) {
-                    Task { await state.removeMember(member.id) }
-                }
-                Button("Cancel", role: .cancel) {}
-            }
             .sheet(isPresented: $showShare) {
                 if let exportURL {
                     ShareSheet(items: [exportURL])
@@ -84,28 +70,19 @@ struct SettingsView: View {
         if let circle = state.circle {
             Section {
                 LabeledContent("Name", value: circle.name)
-                ForEach(circle.members ?? []) { member in
-                    NavigationLink {
-                        MemberProfileView(memberId: member.id)
-                    } label: {
-                        HStack(spacing: 10) {
-                            AvatarView(url: member.avatarUrl, name: member.displayName, size: 30)
-                            Text(member.displayName ?? "departed")
-                            if member.isCreator == true {
-                                Text("organizer")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .swipeActions {
-                        if isCreator && member.id != state.myId {
-                            Button(role: .destructive) {
-                                memberToRemove = member
-                            } label: {
-                                Label("Remove", systemImage: "person.badge.minus")
-                            }
-                        }
+                NavigationLink {
+                    MembersView()
+                } label: {
+                    HStack(spacing: 10) {
+                        Text("Members")
+                        Spacer()
+                        // Faces as the summary, never a number (A2).
+                        FaceCluster(
+                            faces: (circle.members ?? []).prefix(4).map {
+                                (id: $0.id, url: $0.avatarUrl, name: $0.displayName)
+                            },
+                            size: 22
+                        )
                     }
                 }
                 if let code = state.inviteCode {
@@ -241,6 +218,61 @@ struct SettingsView: View {
         Section {
             Button("Sign out", role: .destructive) { state.signOut() }
             Button("Delete account", role: .destructive) { confirmDelete = true }
+        }
+    }
+}
+
+/// The circle as people: faces, names, and who started it. Deliberately has no
+/// activity, no "last active", and no count — A2 extends to the roster, so a
+/// full circle looks like more faces, never like a number.
+struct MembersView: View {
+    @Environment(AppState.self) private var state
+    @State private var memberToRemove: CircleMember?
+
+    private var isCreator: Bool { state.circle?.isCreator ?? false }
+
+    var body: some View {
+        List {
+            ForEach(state.circle?.members ?? []) { member in
+                NavigationLink {
+                    MemberProfileView(memberId: member.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        AvatarView(url: member.avatarUrl, name: member.displayName, size: 40)
+                        Text(member.displayName ?? "departed")
+                        if member.isCreator == true {
+                            Text("organizer")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 3)
+                }
+                .swipeActions {
+                    if isCreator && member.id != state.myId {
+                        Button(role: .destructive) {
+                            memberToRemove = member
+                        } label: {
+                            Label("Remove", systemImage: "person.badge.minus")
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Members")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Remove \(memberToRemove?.displayName ?? "this member")?",
+            isPresented: Binding(
+                get: { memberToRemove != nil },
+                set: { if !$0 { memberToRemove = nil } }
+            ),
+            presenting: memberToRemove
+        ) { member in
+            Button("Remove", role: .destructive) {
+                Task { await state.removeMember(member.id) }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }
