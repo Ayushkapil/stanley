@@ -5,6 +5,8 @@ import SwiftUI
 /// Deliberately absent: follower counts, post counts, numbers of any kind.
 struct ProfileView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     @State private var showEdit = false
     @State private var milestones: [Milestone] = []
 
@@ -12,7 +14,9 @@ struct ProfileView: View {
         state.threads.flatMap(\.memories)
     }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 3), count: 3)
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 3), count: density.keptColumns)
+    }
 
     var body: some View {
         NavigationStack {
@@ -102,10 +106,14 @@ struct ProfileView: View {
 /// dismissable. No progress bars, no scores, no unlock language.
 struct MilestoneCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let milestone: Milestone
     let onDismiss: () -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 3), count: 4)
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 3), count: density.threadColumns)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

@@ -4,6 +4,8 @@ import SwiftUI
 /// "a memory was here" — never silently absent (§8.2).
 struct MemoriesView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
 
     var body: some View {
         NavigationStack {
@@ -102,6 +104,8 @@ struct RestedView: View {
 /// presence — full-saturation, most of the card — with the words beneath it.
 struct MemoryCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let memory: Memory
 
     private var heldTrace: String? {
@@ -133,7 +137,7 @@ struct MemoryCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let urls = memory.urls, let url = state.api.absoluteURL(urls.image) {
                     Color.clear
-                        .frame(height: 300)
+                        .frame(height: density.heldPhotoHeight)
                         .overlay {
                             AsyncImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)

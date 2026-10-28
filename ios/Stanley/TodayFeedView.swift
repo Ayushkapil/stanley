@@ -4,11 +4,13 @@ struct TodayFeedView: View {
     @Environment(AppState.self) private var state
     @State private var showCapture = false
     @State private var editingNote = false
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 24) {
+                LazyVStack(spacing: density.feedSpacing) {
                     // The weekly mosaic sits at the very top (Part 2), Sun/Mon only.
                     if let mosaic = state.mosaic {
                         MosaicCard(mosaic: mosaic)
@@ -165,6 +167,8 @@ struct PhotoImageView: View {
 
 struct PhotoCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let photo: Photo
     @State private var newComment = ""
     @State private var viewedMember: ViewedMember?
@@ -176,7 +180,7 @@ struct PhotoCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
-            PhotoImageView(photo: photo, cornerRadius: 12)
+            PhotoImageView(photo: photo, height: density.feedPhotoHeight, cornerRadius: 12)
             actionRow
             comments
             commentField
@@ -185,8 +189,8 @@ struct PhotoCard: View {
         // it arrived alone or as part of a shared moment. Header (face, name,
         // time) and footer (caption, place, Held) live inside the card, never
         // loose on the feed background.
-        .padding(12)
-        .background(.quinary, in: RoundedRectangle(cornerRadius: 18))
+        .padding(density.cardPadding)
+        .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
         .sheet(item: $viewedMember) { member in
             MemberProfileView(memberId: member.id)
                 .presentationDetents([.medium, .large])
@@ -302,6 +306,8 @@ struct PhotoCard: View {
 /// the faces who posted from it (never a count); the photos scroll horizontally,
 /// each keeping its own like, Held, and decay.
 struct MomentCard: View {
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let item: FeedItem
 
     var body: some View {
@@ -329,19 +335,19 @@ struct MomentCard: View {
                 HStack(spacing: 10) {
                     ForEach(item.photos ?? []) { photo in
                         VStack(alignment: .leading, spacing: 4) {
-                            PhotoImageView(photo: photo, height: 240, cornerRadius: 12)
-                                .frame(width: 240)
+                            PhotoImageView(photo: photo, height: density.momentTile, cornerRadius: 12)
+                                .frame(width: density.momentTile)
                             Text(photo.owner.displayName)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(width: 240)
+                        .frame(width: density.momentTile)
                     }
                 }
             }
         }
-        .padding(12)
-        .background(.quinary, in: RoundedRectangle(cornerRadius: 18))
+        .padding(density.cardPadding)
+        .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
     }
 }
 
@@ -426,12 +432,14 @@ struct NoteEditor: View {
 /// owner's face. Appears Sun/Mon, gone Tuesday.
 struct MosaicCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let mosaic: Mosaic
     @State private var selection = 0
 
     // Each photo gets real presence — roughly half the screen, a page in a
     // small photo book rather than a tile in a wall.
-    private let carouselHeight: CGFloat = 460
+    private var carouselHeight: CGFloat { density.mosaicHeight }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
