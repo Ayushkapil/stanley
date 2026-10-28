@@ -25,8 +25,17 @@ enum Density {
     var isRoom: Bool { self == .room }
 
     // --- Today ---------------------------------------------------------------
-    var feedSpacing: CGFloat { isRoom ? 34 : 16 }
-    var feedPhotoHeight: CGFloat { isRoom ? 520 : 280 }
+    /// The photo is the moment, so it takes roughly two thirds of the screen in
+    /// every card. The remaining third is the story — face, name, time, caption,
+    /// place, first comment, gestures — deliberately secondary to the image.
+    /// Expressed as a share of the screen rather than in points, so the ratio
+    /// holds on both displays and only the scale changes.
+    static let photoShare: CGFloat = 0.67
+    static let cardGapShare: CGFloat = 0.05
+
+    private var screenHeight: CGFloat { UIScreen.main.bounds.height }
+    var feedSpacing: CGFloat { (screenHeight * Density.cardGapShare).rounded() }
+    var feedPhotoHeight: CGFloat { (screenHeight * Density.photoShare).rounded() }
     var cardPadding: CGFloat { isRoom ? 20 : 12 }
     var cardCorner: CGFloat { isRoom ? 22 : 18 }
     /// The first story gets room to be read before it truncates.

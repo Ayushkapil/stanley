@@ -201,6 +201,28 @@ struct MemoryCard: View {
                                 Rectangle().fill(.quaternary)
                             }
                         }
+                        // Held is the one place nothing fades, so it should feel
+                        // physically different from the feed: a faint sheen and
+                        // hairline edge, the way a print catches the light.
+                        .overlay {
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.10),
+                                    .clear,
+                                    .clear,
+                                    .black.opacity(0.06),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            .blendMode(.softLight)
+                            .allowsHitTesting(false)
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
+                                .allowsHitTesting(false)
+                        }
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 VStack(alignment: .leading, spacing: 2) {

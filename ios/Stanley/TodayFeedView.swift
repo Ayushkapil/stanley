@@ -206,6 +206,16 @@ struct PhotoCard: View {
         // loose on the feed background.
         .padding(density.cardPadding)
         .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
+        // Its final day: a warm edge, like candlelight. No text, no countdown,
+        // no urgency — the decay metaphor said visually and quietly.
+        .overlay {
+            if photo.state == "LAST_LIGHT" {
+                RoundedRectangle(cornerRadius: density.cardCorner)
+                    .strokeBorder(Color.orange.opacity(0.35), lineWidth: 1.5)
+                    .shadow(color: .orange.opacity(0.30), radius: 12)
+                    .allowsHitTesting(false)
+            }
+        }
         .sheet(item: $viewedMember) { member in
             MemberProfileView(memberId: member.id)
                 .presentationDetents([.medium, .large])
@@ -376,6 +386,8 @@ struct MomentCard: View {
 /// The community note (Part 4), pinned at the top of Today. A shared line, not
 /// a chat — tapping it just lets you set or replace it.
 struct NoteBar: View {
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let note: CommunityNote?
     let onTap: () -> Void
 
@@ -399,9 +411,9 @@ struct NoteBar: View {
                 }
                 Spacer()
             }
-            .padding(12)
+            .padding(density.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quinary, in: RoundedRectangle(cornerRadius: 14))
+            .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
         }
         .buttonStyle(.plain)
     }
@@ -458,6 +470,7 @@ struct MosaicCard: View {
     private var density: Density { Density(hSizeClass) }
     let mosaic: Mosaic
     @State private var selection = 0
+    @State private var headerShown = false
 
     // Each photo gets real presence — roughly half the screen, a page in a
     // small photo book rather than a tile in a wall.
@@ -476,6 +489,12 @@ struct MosaicCard: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 Spacer()
+            }
+            // It arrives rather than appears: a slow fade on first sight.
+            .opacity(headerShown ? 1 : 0)
+            .task {
+                guard !headerShown else { return }
+                withAnimation(.easeIn(duration: 0.8)) { headerShown = true }
             }
 
             // One photo at a time, swipeable — flipping through the week.
@@ -522,8 +541,8 @@ struct MosaicCard: View {
                 .animation(.easeInOut(duration: 0.2), value: selection)
             }
         }
-        .padding(14)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .padding(density.cardPadding)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: density.cardCorner))
     }
 
     private func tilePhoto(_ tile: MosaicTile) -> some View {
@@ -633,11 +652,11 @@ struct ReturnedCard: View {
             .foregroundStyle(.secondary)
             .padding(.top, 2)
         }
-        .padding(14)
+        .padding(density.cardPadding)
         // Softer, distinct from circle cards: a thin material with an accent edge.
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: density.cardCorner))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: density.cardCorner)
                 .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 1)
         )
     }
