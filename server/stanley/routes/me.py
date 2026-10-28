@@ -17,7 +17,7 @@ from ..deps import get_clock, get_current_user, get_db, get_settings, get_storag
 from ..images import BadImage, process_avatar
 from ..milestones import milestone_payload, surface_due
 from ..models import Anchor, Block, Comment, Like, Membership, Milestone, Photo, PhotoTag, Rest, User
-from ..serialize import avatar_url, iso, memory_payload, user_brief
+from ..serialize import avatar_url, blocked_ids, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
 
@@ -158,8 +158,14 @@ def my_memories(
         .where(Anchor.user_id == user.id)
         .order_by(Photo.taken_at)
     ).all()
+    # A block hides content in both directions, and the archive is no
+    # exception: while it stands, that person's photos are not shown back to
+    # you. Nothing is deleted — unblocking restores the thread intact.
+    hidden = blocked_ids(db, user.id)
     threads: dict[str | None, dict] = {}
     for anchor, photo in rows:
+        if photo.owner_id is not None and photo.owner_id in hidden:
+            continue
         anchor.last_viewed_at = now
         key = photo.owner_id or f"tombstone:{photo.owner_hash}"
         if key not in threads:

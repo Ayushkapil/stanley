@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import physics
 from ..deps import get_clock, get_current_user, get_db, get_settings
 from ..models import Anchor, Photo, Rest, User
-from ..serialize import memory_payload, photo_payload
+from ..serialize import blocked_ids, memory_payload, photo_payload
 
 router = APIRouter(tags=["memories"])
 
@@ -68,8 +68,11 @@ def rested(
         .where(Rest.user_id == user.id, Photo.state != physics.PURGED)
         .order_by(Rest.rested_at.desc())
     ).all()
+    hidden = blocked_ids(db, user.id)
     out = []
     for _, photo in rows:
+        if photo.owner_id is not None and photo.owner_id in hidden:
+            continue
         anchor = db.get(Anchor, (photo.id, user.id))
         if anchor is not None:
             out.append(memory_payload(db, settings, now, photo, anchor, user))

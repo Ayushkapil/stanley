@@ -131,7 +131,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   real estate, never for gating.
 - **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
   Rain; ambient tint + faint wash only; never affects function.
-- **Safety/privacy** — bidirectional block, report (24h takedown), account deletion
+- **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
+  access, member profiles, **and the Held/Rested archive** — a blocked person's
+  photos are hidden, never deleted; unblocking restores the thread intact),
+  report (24h takedown), account deletion
   with cascading blob purge, signed URLs, Face ID app lock (off by default),
   memories export (zip).
 
@@ -182,7 +185,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**152 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**175 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
