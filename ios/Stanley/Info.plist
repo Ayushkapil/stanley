@@ -29,6 +29,8 @@
 	<string>Stanley captures one photo a day, in the moment. The camera is the only way in — there is no roll, no retakes.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Stanley can lock itself behind Face ID so only you can open it.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Only ever to save a photo that could not be posted, so it isn't lost. Stanley never reads your library — capture is in-app, in the moment.</string>
 	<key>STANLEY_API_BASE</key>
 	<string></string>
 	<key>STANLEY_SENTRY_DSN</key>

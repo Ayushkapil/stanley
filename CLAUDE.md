@@ -89,8 +89,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   append-only audit log, 7-day tombstone, purge with blob deletion.
 - **Held (anchoring)** — press-and-hold to keep (bookmark), owner-only "held by"
   faces, full-saturation archive, tombstones, "Held" tab + per-friend threads.
-- **Likes** — double-tap heart, owner-only faces, decays with the photo.
-- **Story-comments** — flat, chronological, part of the artifact.
+- **Likes** — double-tap heart, owner-only faces, decays with the photo. The
+  heart bottom-right of each photo is *your own* state only (filled if you
+  liked it), never a signal to anyone else and never a number.
+- **Story-comments** — flat, chronological, part of the artifact. Today shows
+  the first one on the card; the rest sit behind "More stories" (never "2
+  more" — a tally is still a count) which opens the photo with the thread.
 - **Returned + rest-a-memory** — one quiet card atop Today; priority **rescue >
   anniversary > near-forgotten**; Keep / Rest (never again) / Dismiss (not now);
   a Rested view with "let it return"; tombstoned photos never resurface.
@@ -110,6 +114,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   block-aware, self opt-out, purged/decayed with the photo. Not a mention.
 - **Memory milestones** — private, ≤1/week, dismissable cards in the You tab
   (circle age, held counts, oldest kept, "[name] kept N of yours", first day).
+- **Offline capture queue** (client) — no signal means the moment is kept
+  locally and sent when the network returns, with a quiet "waiting to upload"
+  card where it will land. The day law is claimed **locally** at the shutter,
+  so a queued capture closes the camera exactly as a posted one does. A
+  server refusal (another device used the slot) strands it honestly: the owner
+  can save it to Photos or discard it, never a silent loss.
+- **Adaptive density** (client) — `Density(horizontalSizeClass)` in
+  `Layout.swift`: compact is the iPhone Duo's outer display (and every ordinary
+  iPhone), regular is the inner display (and iPad). Only density changes; no
+  feature is exclusive to either surface. Not yet seen on real Duo hardware.
 - **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
   Rain; ambient tint + faint wash only; never affects function.
 - **Safety/privacy** — bidirectional block, report (24h takedown), account deletion
@@ -136,6 +150,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   off the box (cron + rclone/scp) is still manual.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
   pilot.
+- **Offline queue across midnight.** The server refuses retroactive uploads, so
+  a capture queued at 23:50 and sent at 00:10 lands on the *new* day and spends
+  that slot. The local claim was for the old one. Rare, and acceptable for the
+  pilot, but it is a real seam.
+- **iPhone Duo on real hardware.** Xcode 26.6 ships no Duo device type; the
+  adaptive layout is built and built-tested against the size-class proxy only,
+  and no fold/crease behaviour has been observed.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals

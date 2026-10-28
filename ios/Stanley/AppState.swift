@@ -4,6 +4,8 @@ import Observation
 @Observable
 final class AppState {
     let api = APIClient()
+    /// Captures taken before the network was there. Claims the day locally.
+    let queue = OfflineQueue()
 
     var signedIn: Bool
     var circle: CircleInfo?
@@ -198,8 +200,44 @@ final class AppState {
     // MARK: gestures
 
     func capture(jpeg: Data, caption: String?, location: String?, tagged: [String]) async throws {
-        _ = try await api.uploadPhoto(jpeg: jpeg, caption: caption, location: location, tagged: tagged)
-        await refreshToday()
+        // The day is already spoken for by something waiting to go up. The
+        // law holds offline too, so this is refused here, not at the server.
+        if queue.isHoldingTheDay {
+            throw APIError.message("Your photo for today is still waiting to upload.")
+        }
+        do {
+            _ = try await api.uploadPhoto(
+                jpeg: jpeg, caption: caption, location: location, tagged: tagged
+            )
+            await refreshToday()
+        } catch {
+            guard isOffline(error) else { throw error }
+            // No signal: keep the moment, claim the day, send it later.
+            queue.enqueue(jpeg: jpeg, caption: caption, location: location, tagged: tagged)
+            flash = "Saved. It'll go up when you're back online."
+        }
+    }
+
+    /// Try the waiting capture again. Safe to call often — it no-ops unless
+    /// something is actually pending and still sendable.
+    func flushPendingCapture() async {
+        guard let item = queue.pending, item.rejection == nil, let jpeg = queue.jpeg() else { return }
+        do {
+            _ = try await api.uploadPhoto(
+                jpeg: jpeg, caption: item.caption, location: item.location, tagged: item.tagged
+            )
+            queue.clear()
+            flash = "Your photo went up."
+            await refreshToday()
+        } catch let error as APIError {
+            // The server refused the slot - another device got there first.
+            // Strand it honestly rather than retrying forever.
+            if case .server(let code, _) = error, code == "slot_used" || code == "too_soon" {
+                queue.markRejected("Today's photo was already posted from another device.")
+            }
+        } catch {
+            // Still offline. Keep waiting; nothing to tell the user.
+        }
     }
 
     // MARK: milestones (Part 4)

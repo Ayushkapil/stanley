@@ -16,6 +16,7 @@
 		4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */; };
 		4F53B77262DFC4F2B0FB4972 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = E323BCEF8A28432A187DE505 /* Atmosphere.swift */; };
 		4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DB333BECC60813C685C4A7 /* ProfileView.swift */; };
+		59CE1167E20B3C2CA615946E /* OfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */; };
 		608876305B018E5CDACEA8ED /* Prompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */; };
 		617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9649D2EC31D301586F01D82 /* APIClient.swift */; };
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
@@ -50,6 +51,7 @@
 		B371E63EBC11AC20695ED507 /* StanleyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanleyApp.swift; sourceTree = "<group>"; };
 		C38170E6EF5384B93F19F643 /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
 		C9649D2EC31D301586F01D82 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueue.swift; sourceTree = "<group>"; };
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
@@ -92,6 +94,7 @@
 				1803DD8144604B228075043B /* Layout.swift */,
 				8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */,
 				0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */,
+				D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */,
 				A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */,
 				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
 				2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */,
@@ -185,6 +188,7 @@
 				36FA6366C2603F007A32B030 /* Layout.swift in Sources */,
 				26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */,
 				EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */,
+				59CE1167E20B3C2CA615946E /* OfflineQueue.swift in Sources */,
 				A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */,
 				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,
 				608876305B018E5CDACEA8ED /* Prompts.swift in Sources */,

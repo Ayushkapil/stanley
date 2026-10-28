@@ -1,4 +1,6 @@
+import Photos
 import SwiftUI
+import UIKit
 
 struct TodayFeedView: View {
     @Environment(AppState.self) private var state
@@ -20,6 +22,9 @@ struct TodayFeedView: View {
                         ReturnedCard(item: item)
                     }
                     NoteBar(note: state.communityNote) { editingNote = true }
+                    if let pending = state.queue.pending {
+                        PendingCaptureCard(pending: pending)
+                    }
                     if state.feedItems.isEmpty {
                         VStack(spacing: 8) {
                             Text("Nothing here right now.")
@@ -44,13 +49,22 @@ struct TodayFeedView: View {
             .navigationTitle("Today")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
+                    // The day is claimed the moment the shutter closes, signal
+                    // or not — so a queued capture closes the camera too.
                     Button { showCapture = true } label: { Image(systemName: "camera") }
+                        .disabled(state.queue.isHoldingTheDay)
                 }
             }
             .sheet(isPresented: $showCapture) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
-            .refreshable { await state.refreshToday() }
-            .task { await state.refreshToday() }
+            .refreshable {
+                await state.refreshToday()
+                await state.flushPendingCapture()
+            }
+            .task {
+                await state.refreshToday()
+                await state.flushPendingCapture()
+            }
         }
     }
 }
@@ -665,6 +679,82 @@ struct PhotoStoriesView: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+}
+
+/// The photo that is waiting for a signal. Deliberately quiet: this is not an
+/// error, just a moment that hasn't travelled yet. It sits where it will sit
+/// once it lands, so nothing jumps when it does.
+struct PendingCaptureCard: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
+    let pending: PendingCapture
+
+    private var image: UIImage? {
+        guard let data = try? Data(contentsOf: pending.jpegURL) else { return nil }
+        return UIImage(data: data)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: density.feedPhotoHeight)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    // Held back a little until it's real for everyone else.
+                    .opacity(pending.rejection == nil ? 0.72 : 0.5)
+            }
+            if let caption = pending.caption, !caption.isEmpty {
+                Text(caption).font(.body)
+            }
+            if let rejection = pending.rejection {
+                Text(rejection)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button("Save to Photos") { Task { await save() } }
+                    Spacer()
+                    Button("Discard", role: .destructive) { state.queue.clear() }
+                }
+                .font(.callout)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            } else {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    Text("Waiting to upload")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(density.cardPadding)
+        .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
+    }
+
+    /// The last honest option for a photo that can never be posted: let its
+    /// owner keep it. Stanley never writes to Photos otherwise.
+    private func save() async {
+        guard let image else { return }
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            state.errorMessage = "Stanley needs permission to add to your Photos library."
+            return
+        }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
+            state.flash = "Saved to Photos."
+            state.queue.clear()
+        } catch {
+            state.errorMessage = "Couldn't save that to Photos."
         }
     }
 }
