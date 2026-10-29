@@ -174,7 +174,14 @@ struct CircleInfo: Codable {
 struct AuthResponse: Codable {
     struct AuthedUser: Codable {
         let id: String
-        let displayName: String
+        // Nullable, unlike every other name on the wire. The auth routes build
+        // this dict inline from User.display_name instead of going through
+        // serialize.py's user_brief, which is the one place that substitutes
+        // DEPARTED for a missing name — so a first Apple sign-in by someone who
+        // declined to share their name arrives here as null. Decoding that into
+        // a non-optional String threw valueNotFound, which the app surfaced as
+        // "The data couldn't be read because it is missing."
+        let displayName: String?
     }
 
     let token: String
