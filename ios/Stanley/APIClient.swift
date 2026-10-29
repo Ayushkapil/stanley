@@ -16,7 +16,7 @@ enum APIError: LocalizedError {
             case "no_circle": return "Join a circle first."
             case "faded": return "This moment has already faded."
             case "username_taken": return "That username is taken."
-            case "bad_username": return "Usernames are 3–30 characters: lowercase letters, numbers, dots, dashes."
+            case "bad_username": return "Usernames are 3–30 characters: lowercase letters, numbers, dots and underscores, and can't start with a number."
             case "bad_display_name": return "A name can't be empty."
             case "location_too_long": return "Keep the place name short."
             default: return "Something went wrong (\(code))."

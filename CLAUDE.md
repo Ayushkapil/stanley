@@ -101,7 +101,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Circles** — circle-first onboarding (invite code), roster as avatar cluster,
   rotate invite, remove member (creator), leave (with creator succession).
 - **Profiles** — display name, username, multi-line bio, avatar (soft-square,
-  crop), member profiles (A2-safe: name + words + face only).
+  crop), member profiles (A2-safe: name + words + face only). A **name gate**
+  (`NameGateView`) sits between sign-in and the circle gate whenever Apple gave
+  us no name — it did not, for anyone who declined to share it — because the
+  alternative was a new member labelled with the placeholder for a deleted
+  account. Name required, username optional, shown once. A nameless member
+  serializes as `UNNAMED` ("New member"); `DEPARTED` ("departed") now means
+  only a genuinely deleted account.
 - **Community note** — one shared line atop Today, last-writer-wins, clears at end
   of the setter's local day. Not a chat.
 - **Shared moments** — photos with the same location label on the same local day by
@@ -201,12 +207,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**175 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**178 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
-capture-race/orphan-blob safety, backups. Untested by nature: real-device SIWA,
+capture-race/orphan-blob safety, backups, nameless-vs-departed naming. Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
 
 ## Key file locations
@@ -228,7 +234,8 @@ live APNs, concurrency under real load.
 **iOS** (`ios/Stanley/`)
 - App entry / root / tabs / flash / atmosphere tint: `StanleyApp.swift`
 - State + API calls: `AppState.swift`; HTTP client: `APIClient.swift`; models: `Models.swift`
-- Screens: `WelcomeView.swift` (sign-in), `TodayFeedView.swift` (feed, photo card,
+- Screens: `WelcomeView.swift` (sign-in), `NameGateView.swift` (name/username,
+  shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
   who-was-there), `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`

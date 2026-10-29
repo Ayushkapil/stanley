@@ -126,6 +126,14 @@ struct AboutStanleyView: View {
 struct AboutAccountView: View {
     @Environment(AppState.self) private var state
 
+    private var name: String? {
+        state.profile?.displayName?.trimmingCharacters(in: .whitespaces).nilIfEmpty
+    }
+
+    private var username: String? {
+        state.profile?.username?.trimmingCharacters(in: .whitespaces).nilIfEmpty
+    }
+
     private var memberSince: String? {
         guard let created = state.profile?.createdAt else { return nil }
         return "Member since " + created.formatted(.dateTime.month(.wide).year())
@@ -134,10 +142,10 @@ struct AboutAccountView: View {
     var body: some View {
         List {
             Section {
-                LabeledContent("Name", value: state.profile?.displayName ?? "—")
-                if let username = state.profile?.username, !username.isEmpty {
-                    LabeledContent("Username", value: "@\(username)")
-                }
+                // A dash reads like a bug. Say what is actually true: we
+                // haven't been told yet.
+                LabeledContent("Name", value: name ?? "Not set yet")
+                LabeledContent("Username", value: username.map { "@\($0)" } ?? "Not set yet")
             } footer: {
                 if let memberSince {
                     Text(memberSince)
@@ -145,6 +153,7 @@ struct AboutAccountView: View {
             }
         }
         .atmosphereWash()
+        .task { await state.loadProfile() }
         .navigationTitle("Your account")
         .navigationBarTitleDisplayMode(.inline)
     }

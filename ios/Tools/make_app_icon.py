@@ -26,7 +26,9 @@ BOTTOM = (191, 92, 44)
 
 SS = 4096           # supersampled canvas; the master is 1024
 MASTER = 1024
-SIZES = [1024, 180, 120, 87, 80, 60, 58, 40, 29, 20]
+# Exactly the sizes Contents.json references — no orphans for the asset
+# compiler to warn about.
+SIZES = [1024, 180, 120, 87, 80, 60, 58, 40]
 
 
 def gradient(size: int) -> Image.Image:

@@ -193,3 +193,82 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
+
+extension String {
+    /// Whitespace-only is the same as absent, for anything we show a person.
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+/// A text field that stays visible on any background, in either mode.
+///
+/// `.roundedBorder` draws a hairline bezel that all but disappears against a
+/// dark background on real hardware — on device the capture fields read as
+/// black rectangles with no edge, no padding and a placeholder you have to
+/// hunt for. This draws its own fill and border from the semantic palette, so
+/// the field has a shape of its own wherever it lands.
+///
+/// Only for fields on custom surfaces. Fields inside a `Form` or `List` get a
+/// proper row background from the system already; boxing those would double
+/// the chrome and stop them looking like iOS.
+private struct StanleyFieldBox: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(.quinary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color(.separator), lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func stanleyField() -> some View { modifier(StanleyFieldBox()) }
+}
+
+extension Text {
+    /// A placeholder you can actually read. The system's `placeholderText` is
+    /// dim enough on an OLED panel to look like an empty box.
+    static func fieldPrompt(_ string: String) -> Text {
+        Text(string).foregroundColor(.secondary)
+    }
+}
+
+/// The username rule, stated once on this side of the wire.
+///
+/// Mirrors `USERNAME_RE` in `routes/me.py` — `^(?![0-9])[a-z0-9._]{3,30}$` —
+/// so the answer the field gives while you type is the answer the server will
+/// give when you save. Shared by the name gate and the edit sheet; two copies
+/// of a validation rule is one too many.
+enum Username {
+    enum Status { case idle, checking, invalid, taken, available }
+
+    static func isLocallyValid(_ u: String) -> Bool {
+        guard (3...30).contains(u.count) else { return false }
+        guard let first = u.first, !(first.isASCII && first.isNumber) else { return false }
+        return u.allSatisfy { c in c.isASCII && (c.isLowercase || c.isNumber || c == "." || c == "_") }
+    }
+
+    static let rule = "Three to thirty characters. Letters, numbers, . and _ — can't start with a number."
+
+    @ViewBuilder
+    static func footer(for status: Status) -> some View {
+        switch status {
+        case .idle:
+            Text(rule)
+        case .checking:
+            Text("Checking…")
+        case .invalid:
+            Text(rule).foregroundStyle(.orange)
+        case .taken:
+            Text("That username is taken.").foregroundStyle(.orange)
+        case .available:
+            Text("Available.").foregroundStyle(.green)
+        }
+    }
+}

@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Observation
 
@@ -24,8 +25,40 @@ final class AppState {
         signedIn = api.token != nil
     }
 
+    /// Show an error — unless the "error" is the person changing their mind.
+    ///
+    /// A cancellation is not a failure. `URLError.cancelled` in particular
+    /// localizes to the bare word "cancelled", which is how a raw lowercase
+    /// alert was reaching the screen whenever a sheet was dismissed mid-request
+    /// or a `.task` was torn down on disappear. Nothing to tell anyone.
     func surface(_ error: Error) {
+        guard !AppState.isCancellation(error) else { return }
         errorMessage = error.localizedDescription
+    }
+
+    /// True for every flavour of "the user backed out" we can be handed.
+    static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        if let authError = error as? ASAuthorizationError, authError.code == .canceled { return true }
+        let ns = error as NSError
+        switch (ns.domain, ns.code) {
+        // Sheets, pickers and share sheets dismissed by the person.
+        case (NSCocoaErrorDomain, NSUserCancelledError): return true
+        // PHPhotosError.userCancelled, and the Photos picker's own cancel.
+        case ("PHPhotosErrorDomain", 3072): return true
+        case (ASAuthorizationError.errorDomain, ASAuthorizationError.canceled.rawValue): return true
+        case (NSURLErrorDomain, NSURLErrorCancelled): return true
+        default: return false
+        }
+    }
+
+    /// Apple hands over a name only on the very first authorization, and only
+    /// if the person agrees to share it. Decline, and we genuinely do not know
+    /// what to call them — so ask, once, before the circle gate.
+    var needsName: Bool {
+        guard let profile else { return false }
+        return (profile.displayName ?? "").trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     // MARK: auth & circle

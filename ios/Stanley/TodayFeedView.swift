@@ -343,9 +343,9 @@ struct PhotoCard: View {
 
     private var commentField: some View {
         HStack {
-            TextField("Add to the story…", text: $newComment)
-                .textFieldStyle(.plain)
+            TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
                 .font(.callout)
+                .stanleyField()
             if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
                 Button("Add") {
                     let body = newComment.trimmingCharacters(in: .whitespaces)
@@ -546,7 +546,7 @@ struct MosaicCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         // Decorative editorial face (Didot) — a photo-book byline,
                         // not the app's standard type. Header/subtitle stay system.
-                        Text(tile.owner.displayName ?? "departed")
+                        Text(tile.owner.displayName)
                             .font(.mosaicDeco(20))
                         if let caption = tile.caption, !caption.isEmpty {
                             Text(caption)
@@ -722,9 +722,9 @@ struct PhotoStoriesView: View {
                             .font(.callout)
                     }
                     HStack {
-                        TextField("Add to the story…", text: $newComment)
-                            .textFieldStyle(.plain)
+                        TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
                             .font(.callout)
+                            .stanleyField()
                         if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
                             Button("Add") {
                                 let body = newComment.trimmingCharacters(in: .whitespaces)

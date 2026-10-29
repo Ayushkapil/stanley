@@ -15,6 +15,11 @@ from .models import Anchor, Block, Comment, CommunityNote, Like, Photo, PhotoTag
 from .storage import read_url
 
 DEPARTED = "departed"
+# Someone who signed in but has not told us their name yet. Apple hands over a
+# name only on the first authorization, and only if the person agrees to share
+# it, so this is an ordinary state for a brand-new member — not a departure.
+# Conflating the two told every new member's circle that they had already left.
+UNNAMED = "New member"
 
 
 def iso(dt: datetime | None) -> str | None:
@@ -49,11 +54,13 @@ def user_brief(
     """A person, reduced to a face and a name — never a number. Pass settings+now
     to include a signed avatar URL."""
     user = session.get(User, user_id) if user_id else None
-    if user is None or user.deleted_at is not None or not user.display_name:
+    # Gone is gone: no id to resolve, or the account is deleted.
+    if user is None or user.deleted_at is not None:
         return {"id": user_id, "display_name": DEPARTED, "avatar_url": None}
+    # Here, just nameless. Still a face, still in the circle.
     return {
         "id": user.id,
-        "display_name": user.display_name,
+        "display_name": user.display_name or UNNAMED,
         "avatar_url": avatar_url(settings, user.avatar_key, now),
     }
 

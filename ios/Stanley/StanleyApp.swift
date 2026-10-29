@@ -61,7 +61,18 @@ struct RootView: View {
                         .transition(.opacity)
                 } else if !state.checkedCircle {
                     ProgressView()
-                        .task { await state.loadCircle() }
+                        .task {
+                            // The profile first: whether we know this person's
+                            // name decides which gate comes next.
+                            await state.loadProfile()
+                            await state.loadCircle()
+                        }
+                } else if state.needsName {
+                    // Signed in, but Apple never told us what to call them.
+                    // Ask before they meet the circle. If loadProfile failed,
+                    // needsName is false and this is skipped — a network blip
+                    // should not strand anyone behind a name screen.
+                    NameGateView()
                 } else if state.circle == nil {
                     CircleGateView()
                 } else {

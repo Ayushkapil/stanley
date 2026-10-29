@@ -32,11 +32,11 @@ struct CaptureView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                TextField("A few words, if you like", text: $caption)
-                    .textFieldStyle(.roundedBorder)
+                TextField("", text: $caption, prompt: .fieldPrompt("A few words, if you like"))
+                    .stanleyField()
                 // a typed place name, as you'd say it — never GPS, never a map
-                TextField("Where was this? (a place, optional)", text: $location)
-                    .textFieldStyle(.roundedBorder)
+                TextField("", text: $location, prompt: .fieldPrompt("Where was this? (a place, optional)"))
+                    .stanleyField()
                 if !members.isEmpty {
                     WhoWasThere(members: members, selected: $tagged)
                 }

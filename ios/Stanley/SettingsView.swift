@@ -244,7 +244,7 @@ struct MembersView: View {
                 } label: {
                     HStack(spacing: 12) {
                         AvatarView(url: member.avatarUrl, name: member.displayName, size: 40)
-                        Text(member.displayName ?? "departed")
+                        Text(member.displayName ?? "New member")
                         if member.isCreator == true {
                             Text("organizer")
                                 .font(.caption2)

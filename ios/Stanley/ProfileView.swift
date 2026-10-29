@@ -229,18 +229,10 @@ struct EditProfileSheet: View {
     @State private var bio = ""
     @State private var saving = false
 
-    private enum UsernameStatus { case idle, checking, invalid, taken, available }
-    @State private var usernameStatus: UsernameStatus = .idle
+    @State private var usernameStatus: Username.Status = .idle
 
     private var trimmedUsername: String {
         username.trimmingCharacters(in: .whitespaces).lowercased()
-    }
-
-    /// Mirror of the server's rule: 3–30 of a-z 0-9 . _ and no leading digit.
-    private func locallyValid(_ u: String) -> Bool {
-        guard (3...30).contains(u.count) else { return false }
-        guard let first = u.first, !(first.isASCII && first.isNumber) else { return false }
-        return u.allSatisfy { c in c.isASCII && (c.isLowercase || c.isNumber || c == "." || c == "_") }
     }
 
     var body: some View {
@@ -256,7 +248,7 @@ struct EditProfileSheet: View {
                 } header: {
                     Text("Username")
                 } footer: {
-                    usernameFooter
+                    Username.footer(for: usernameStatus)
                 }
                 Section {
                     TextEditor(text: $bio)
@@ -307,7 +299,7 @@ struct EditProfileSheet: View {
                     usernameStatus = .idle
                     return
                 }
-                guard locallyValid(candidate) else {
+                guard Username.isLocallyValid(candidate) else {
                     usernameStatus = .invalid
                     return
                 }
@@ -320,25 +312,6 @@ struct EditProfileSheet: View {
                 }
                 usernameStatus = result.available ? .available : (result.valid ? .taken : .invalid)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var usernameFooter: some View {
-        switch usernameStatus {
-        case .idle:
-            Text("Three to thirty characters. Letters, numbers, . and _ — can't start with a number.")
-        case .checking:
-            Text("Checking…")
-        case .invalid:
-            Text("Three to thirty characters. Letters, numbers, . and _ — can't start with a number.")
-                .foregroundStyle(.orange)
-        case .taken:
-            Text("That username is taken.")
-                .foregroundStyle(.orange)
-        case .available:
-            Text("Available.")
-                .foregroundStyle(.green)
         }
     }
 }
@@ -357,7 +330,7 @@ struct MemberProfileView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         AvatarView(url: member.avatarUrl, name: member.displayName, size: 72)
                             .padding(.bottom, 4)
-                        Text(member.displayName ?? "departed")
+                        Text(member.displayName ?? "New member")
                             .font(.keepsake(28))
                         if let username = member.username {
                             Text("@\(username)")

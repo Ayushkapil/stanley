@@ -28,6 +28,7 @@
 		A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */; };
 		ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B910D5D0535C57C080D6460 /* Keychain.swift */; };
 		D5D40121434D7046D84E7057 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28BF0640C2B868C0AD896FBF /* AboutView.swift */; };
+		EA6BF973AFD0E4B649393A8A /* NameGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAA37A65E99288FB8D1E2719 /* NameGateView.swift */; };
 		EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */; };
 		F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1401F690E1241EB4B8D190DC /* AppState.swift */; };
 /* End PBXBuildFile section */
@@ -58,6 +59,7 @@
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
+		EAA37A65E99288FB8D1E2719 /* NameGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameGateView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +99,7 @@
 				1803DD8144604B228075043B /* Layout.swift */,
 				8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */,
 				0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */,
+				EAA37A65E99288FB8D1E2719 /* NameGateView.swift */,
 				D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */,
 				A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */,
 				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
@@ -206,6 +209,7 @@
 				36FA6366C2603F007A32B030 /* Layout.swift in Sources */,
 				26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */,
 				EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */,
+				EA6BF973AFD0E4B649393A8A /* NameGateView.swift in Sources */,
 				59CE1167E20B3C2CA615946E /* OfflineQueue.swift in Sources */,
 				A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */,
 				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,
