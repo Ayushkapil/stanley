@@ -21,7 +21,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>3</string>
+	<string>4</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -34,7 +34,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Only ever to save a photo that could not be posted, so it isn't lost. Stanley never reads your library — capture is in-app, in the moment.</string>
 	<key>STANLEY_API_BASE</key>
-	<string></string>
+	<string>$(STANLEY_API_BASE)</string>
 	<key>STANLEY_SENTRY_DSN</key>
 	<string></string>
 	<key>UILaunchScreen</key>

@@ -140,15 +140,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Open items (not yet built / not yet done)
 
-- **Deploy for real.** [`server/DEPLOY.md`](server/DEPLOY.md) documents both paths —
-  a VPS behind Caddy, or Railway via the root `Procfile` + `requirements.txt` — but
-  neither has actually been stood up on a host. Set `STANLEY_SECRET_KEY`,
-  `APPLE_BUNDLE_ID`, `STANLEY_DATA_DIR` (a persistent volume), and point
-  `STANLEY_API_BASE` at it.
+- **Deploy for real.** Stood up on **Fly** (`server/fly.toml`) — a third path
+  beyond the two [`server/DEPLOY.md`](server/DEPLOY.md) documents, and the one
+  actually in use. Live at `https://server-earnest-stream-9793.fly.dev`, `GET
+  /health` returns `ok`, `STANLEY_SECRET_KEY` and `STANLEY_DATA_DIR`
+  (`/data/var`, on the `stanley_data` volume) deployed. **`APPLE_BUNDLE_ID` is
+  staged, not deployed:** until `fly secrets deploy` runs, `POST /auth/apple`
+  answers 503 `apple_auth_unconfigured` to everyone and nobody can sign in.
 - **TestFlight build.** Needs a **paid** Apple Developer Program membership: a
   free personal team cannot provision Sign in with Apple (Xcode refuses outright)
   and its profiles expire weekly. Also needs the capability enabled on the App ID
-  and `STANLEY_API_BASE` set for the release config.
+  — `STANLEY_API_BASE` for the release config is set (build 4 points at the Fly
+  host; Debug still falls back to localhost).
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the

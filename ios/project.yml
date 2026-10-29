@@ -30,9 +30,12 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "3"
-        # Set per build config for TestFlight/release; empty → localhost (debug).
-        STANLEY_API_BASE: ""
+        CFBundleVersion: "4"
+        # Substituted from the build setting of the same name below when Xcode
+        # processes this plist, so a single file carries a different address per
+        # configuration: Debug leaves it empty and APIClient falls back to
+        # localhost; Release gets the deployed host baked in.
+        STANLEY_API_BASE: "$(STANLEY_API_BASE)"
         # Sentry crash reporting. Empty (all dev builds) → the SDK never starts.
         # Set for TestFlight builds to get crash visibility on other devices.
         STANLEY_SENTRY_DSN: ""
@@ -55,3 +58,12 @@ targets:
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # Empty in Debug on purpose: a dev build should talk to the uvicorn on
+        # this machine, which APIClient reaches by falling back to
+        # 127.0.0.1:8000 when it finds no address here.
+        STANLEY_API_BASE: ""
+      configs:
+        Release:
+          # The deployed pilot server (Fly). A TestFlight build has no localhost
+          # to fall back to, so this is the only address it will ever have.
+          STANLEY_API_BASE: "https://server-earnest-stream-9793.fly.dev"
