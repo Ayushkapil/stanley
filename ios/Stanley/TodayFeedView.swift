@@ -251,7 +251,7 @@ struct PhotoCard: View {
         // time) and footer (caption, place, Held) live inside the card, never
         // loose on the feed background.
         .padding(density.cardPadding)
-        .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
+        .cardSurface(corner: density.cardCorner)
         // Its final day: a warm edge, like candlelight. No text, no countdown,
         // no urgency — the decay metaphor said visually and quietly.
         .overlay {
@@ -360,7 +360,7 @@ struct PhotoCard: View {
         HStack {
             TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
                 .font(.callout)
-                .stanleyField()
+                .storyField()
             if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
                 Button("Add") {
                     let body = newComment.trimmingCharacters(in: .whitespaces)
@@ -426,7 +426,7 @@ struct MomentCard: View {
             .scrollTargetBehavior(.viewAligned)
         }
         .padding(density.cardPadding)
-        .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
+        .cardSurface(corner: density.cardCorner)
     }
 }
 
@@ -460,7 +460,7 @@ struct NoteBar: View {
             }
             .padding(density.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
+            .cardSurface(corner: density.cardCorner)
         }
         .buttonStyle(.plain)
     }
@@ -686,6 +686,7 @@ struct ReturnedCard: View {
                 } label: {
                     Label("Keep this", systemImage: "bookmark")
                         .frame(maxWidth: .infinity)
+                        .accentInk()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -739,7 +740,7 @@ struct PhotoStoriesView: View {
                     HStack {
                         TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
                             .font(.callout)
-                            .stanleyField()
+                            .storyField()
                         if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
                             Button("Add") {
                                 let body = newComment.trimmingCharacters(in: .whitespaces)
@@ -754,6 +755,7 @@ struct PhotoStoriesView: View {
                 }
                 .padding()
             }
+            .atmosphereWash()
             .navigationTitle(photo.owner.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -819,7 +821,7 @@ struct PendingCaptureCard: View {
             }
         }
         .padding(density.cardPadding)
-        .background(.quinary, in: RoundedRectangle(cornerRadius: density.cardCorner))
+        .cardSurface(corner: density.cardCorner)
     }
 
     /// The last honest option for a photo that can never be posted: let its

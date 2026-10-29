@@ -73,7 +73,7 @@ private struct LockScreen: View {
                 Button {
                     Task { await unlock() }
                 } label: {
-                    Label("Unlock", systemImage: "faceid")
+                    Label("Unlock", systemImage: "faceid").accentInk()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(authenticating)

@@ -139,11 +139,7 @@ struct SettingsView: View {
                 Text("Dark").tag("dark")
             }
             .pickerStyle(.segmented)
-            Picker("Atmosphere", selection: $atmosphere) {
-                ForEach(Atmosphere.allCases) { a in
-                    Text(a.label).tag(a.rawValue)
-                }
-            }
+            AtmosphereChips(selection: $atmosphere)
         } header: {
             Text("Appearance")
         } footer: {

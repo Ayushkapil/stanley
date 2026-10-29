@@ -81,17 +81,12 @@ struct RootView: View {
             }
             // Under every safe-area inset there is — including whatever a
             // hinge or a cover-display dock reserves on a foldable. Each screen
-            // paints its own wash, but only within the region it is given; the
+            // paints the floor too, but only within the region it is given; the
             // strip the system holds back would otherwise show the bare window,
-            // which in dark mode is a black bar. An opaque base plus the same
-            // wash, edge to edge, means nothing can show through.
-            .background {
-                ZStack {
-                    Color(.systemBackground)
-                    Atmosphere.resolve(atmosphere).palette.wash
-                }
-                .ignoresSafeArea()
-            }
+            // which in dark mode is a black bar. The floor is opaque and the
+            // same color at both layers, so the overlap is invisible and
+            // nothing can show through.
+            .background(Atmosphere.resolve(atmosphere).palette.floor.ignoresSafeArea())
         }
         .alert(
             state.errorMessage ?? "",

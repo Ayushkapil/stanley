@@ -44,15 +44,17 @@ struct CaptureView: View {
                     ProgressView()
                 } else {
                     #if targetEnvironment(simulator)
-                    Button("Capture (simulator frame)") {
+                    Button {
                         upload(jpeg: Self.simulatorFrame())
+                    } label: {
+                        Text("Capture (simulator frame)").accentInk()
                     }
                     .buttonStyle(.borderedProminent)
                     #else
                     Button {
                         showCamera = true
                     } label: {
-                        Label("Open camera", systemImage: "camera")
+                        Label("Open camera", systemImage: "camera").accentInk()
                     }
                     .buttonStyle(.borderedProminent)
                     #endif
@@ -60,6 +62,9 @@ struct CaptureView: View {
                 Spacer()
             }
             .padding()
+            // A sheet sits outside the root's floor, so it paints its own:
+            // the camera button should land on the same temperature as Today.
+            .atmosphereWash()
             .navigationTitle("Today's photo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

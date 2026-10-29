@@ -229,6 +229,28 @@ private struct StanleyFieldBox: ViewModifier {
 
 extension View {
     func stanleyField() -> some View { modifier(StanleyFieldBox()) }
+    func storyField() -> some View { modifier(StoryField()) }
+}
+
+/// A field that belongs to the words around it, not to a form.
+///
+/// "Add to the story…" sits under a photo's stories the way a comment line
+/// sits flat beneath a post: placeholder text at the card's own inner margin,
+/// no box, no bezel. The card is the container. The row is taller than its
+/// one line of text so it is easy to land on, without drawing anything to
+/// show for it.
+private struct StoryField: ViewModifier {
+    @FocusState private var focused: Bool
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .focused($focused)
+            .frame(minHeight: 32)
+            // The text is one line tall; the rest of the row only counts as
+            // the field if we say so, and nothing drawn says where it begins.
+            .contentShape(Rectangle())
+            .onTapGesture { focused = true }
+    }
 }
 
 extension Text {

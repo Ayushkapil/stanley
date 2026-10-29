@@ -59,6 +59,7 @@ struct OnboardingView: View {
                 Button(action: onFinish) {
                     Text("Get started")
                         .font(.headline)
+                        .accentInk()
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
                 }
