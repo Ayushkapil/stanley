@@ -144,9 +144,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   beyond the two [`server/DEPLOY.md`](server/DEPLOY.md) documents, and the one
   actually in use. Live at `https://server-earnest-stream-9793.fly.dev`, `GET
   /health` returns `ok`, `STANLEY_SECRET_KEY` and `STANLEY_DATA_DIR`
-  (`/data/var`, on the `stanley_data` volume) deployed. **`APPLE_BUNDLE_ID` is
-  staged, not deployed:** until `fly secrets deploy` runs, `POST /auth/apple`
-  answers 503 `apple_auth_unconfigured` to everyone and nobody can sign in.
+  (`/data/var`, on the `stanley_data` volume) and `APPLE_BUNDLE_ID`
+  (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
+  with Apple is configured: `POST /auth/apple` rejects a bad token with 401
+  rather than answering 503 `apple_auth_unconfigured`.
 - **TestFlight build.** Needs a **paid** Apple Developer Program membership: a
   free personal team cannot provision Sign in with Apple (Xcode refuses outright)
   and its profiles expire weekly. Also needs the capability enabled on the App ID
