@@ -30,7 +30,7 @@ Required for a real (non-dev) deployment:
 | Var | Notes |
 |-----|-------|
 | `STANLEY_SECRET_KEY` | Long random string. **The server refuses to boot without it when dev auth is off.** Rotating it logs everyone out. |
-| `APPLE_BUNDLE_ID` | Your app's bundle id (e.g. `app.stanley.ios`). Required for Sign in with Apple. |
+| `APPLE_BUNDLE_ID` | Your app's bundle id (e.g. `com.ayushkapileshwar.stanley`). Required for Sign in with Apple. |
 | `STANLEY_DEV_AUTH` | Leave unset / `0`. `1` exposes `POST /auth/dev` (dev only). |
 
 Storage and tuning:
@@ -55,7 +55,7 @@ multiple workers would run multiple sweepers against one DB.
 
 ```bash
 export STANLEY_SECRET_KEY="$(openssl rand -hex 32)"
-export APPLE_BUNDLE_ID="app.stanley.ios"
+export APPLE_BUNDLE_ID="com.ayushkapileshwar.stanley"
 .venv/bin/python -m uvicorn --factory stanley.main:create_app --host 127.0.0.1 --port 8000
 ```
 
@@ -69,7 +69,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/stanley/server
-Environment=STANLEY_SECRET_KEY=...   APPLE_BUNDLE_ID=app.stanley.ios
+Environment=STANLEY_SECRET_KEY=...   APPLE_BUNDLE_ID=com.ayushkapileshwar.stanley
 ExecStart=/opt/stanley/server/.venv/bin/python -m uvicorn --factory stanley.main:create_app --host 127.0.0.1 --port 8000
 Restart=always
 
@@ -108,7 +108,7 @@ needs; it auto-detects Python from them, so there is deliberately no Dockerfile.
    | Var | Value |
    |-----|-------|
    | `STANLEY_SECRET_KEY` | a long random string — `openssl rand -hex 32` |
-   | `APPLE_BUNDLE_ID` | `app.stanley.ios` |
+   | `APPLE_BUNDLE_ID` | `com.ayushkapileshwar.stanley` |
    | `STANLEY_DEV_AUTH` | `0` |
    | `STANLEY_DATA_DIR` | `/data/var` — inside the mounted volume |
 

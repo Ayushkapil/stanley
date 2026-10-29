@@ -1,6 +1,6 @@
 name: Stanley
 options:
-  bundleIdPrefix: app.stanley
+  bundleIdPrefix: com.ayushkapileshwar
   deploymentTarget:
     iOS: "17.0"
 packages:
@@ -45,7 +45,10 @@ targets:
           NSAllowsLocalNetworking: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.stanley.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.ayushkapileshwar.stanley
+        # Signing team, kept here so regenerating the project does not drop it
+        # and send Xcode back to "none" on every `xcodegen generate`.
+        DEVELOPMENT_TEAM: 6P882KH9CZ
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait

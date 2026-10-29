@@ -14,7 +14,7 @@ from stanley.main import create_app
 
 from .conftest import START
 
-BUNDLE = "app.stanley.ios"
+BUNDLE = "com.ayushkapileshwar.stanley"
 
 
 # --- C1: boot refuses without a secret ---------------------------------------
