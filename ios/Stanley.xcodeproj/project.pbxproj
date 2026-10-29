@@ -23,6 +23,7 @@
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
 		94AEB28C15F346341A3D530D /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 084BA58C8E57A560A7FCABDD /* Sentry */; };
 		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
+		9B875E138E72B8C9EB4B13A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B9C29C3CAA06BA510C076FD /* Assets.xcassets */; };
 		A218937F0265E72919AAE872 /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38170E6EF5384B93F19F643 /* UIComponents.swift */; };
 		A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */; };
 		ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B910D5D0535C57C080D6460 /* Keychain.swift */; };
@@ -44,6 +45,7 @@
 		7B910D5D0535C57C080D6460 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		830E153D6B3273810AD97B6E /* Stanley.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Stanley.entitlements; sourceTree = "<group>"; };
 		894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayFeedView.swift; sourceTree = "<group>"; };
+		8B9C29C3CAA06BA510C076FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriesView.swift; sourceTree = "<group>"; };
 		98DB333BECC60813C685C4A7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		9BB8427334A459A620854705 /* AvatarPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarPicker.swift; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 				C9649D2EC31D301586F01D82 /* APIClient.swift */,
 				59A4482F0EEC4500194DB4B1 /* AppLock.swift */,
 				1401F690E1241EB4B8D190DC /* AppState.swift */,
+				8B9C29C3CAA06BA510C076FD /* Assets.xcassets */,
 				E323BCEF8A28432A187DE505 /* Atmosphere.swift */,
 				9BB8427334A459A620854705 /* AvatarPicker.swift */,
 				0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */,
@@ -124,6 +127,7 @@
 			buildConfigurationList = 0B1C89A8856995CA9033DC48 /* Build configuration list for PBXNativeTarget "Stanley" */;
 			buildPhases = (
 				DD887FBBF6E673C227CA6C47 /* Sources */,
+				122938433CCECDCFAC346C29 /* Resources */,
 				8BE788128040AF9FA247F2C8 /* Frameworks */,
 			);
 			buildRules = (
@@ -173,6 +177,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		122938433CCECDCFAC346C29 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B875E138E72B8C9EB4B13A5 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD887FBBF6E673C227CA6C47 /* Sources */ = {

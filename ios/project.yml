@@ -24,6 +24,9 @@ targets:
       properties:
         UILaunchScreen: {}
         CFBundleDisplayName: Stanley
+        # Required alongside an asset-catalog icon; the store rejects a build
+        # without it. Must match ASSETCATALOG_COMPILER_APPICON_NAME.
+        CFBundleIconName: AppIcon
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
