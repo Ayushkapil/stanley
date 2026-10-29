@@ -30,7 +30,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "2"
+        CFBundleVersion: "3"
         # Set per build config for TestFlight/release; empty → localhost (debug).
         STANLEY_API_BASE: ""
         # Sentry crash reporting. Empty (all dev builds) → the SDK never starts.
