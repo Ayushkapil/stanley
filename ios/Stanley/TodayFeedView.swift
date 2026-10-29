@@ -100,14 +100,7 @@ struct PhotoImageView: View {
     var body: some View {
         Group {
             if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
-                AsyncImage(url: url) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle().fill(.quaternary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: height)
-                .clipped()
+                bed(url)
                 .saturation(1.0 - 0.85 * fade)
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(
@@ -129,7 +122,7 @@ struct PhotoImageView: View {
                     // button either — the like is still the double-tap.
                     marker(photo.likedByMe ? "heart.fill" : "heart",
                            photo.likedByMe ? .pink : .white)
-                        .opacity(photo.likedByMe ? 1 : 0.5)
+                        .opacity(photo.likedByMe ? 1 : 0.8)
                         .allowsHitTesting(false)
                         .accessibilityLabel(photo.likedByMe ? "You liked this" : "You haven't liked this")
                 }
@@ -156,12 +149,44 @@ struct PhotoImageView: View {
         }
     }
 
+    /// The photo, cropped into exactly the space the card gives it.
+    ///
+    /// The bed is what owns the size. Asking an aspect-*fill* image for a
+    /// width makes it report the width it would need in order to fill, which
+    /// is wider than the card — the card then stretches past both screen
+    /// edges and drags its caption and comments off with it. So a flexible
+    /// bed takes the width on offer and the photo fills it as an overlay,
+    /// clipped to it.
+    private func bed(_ url: URL) -> some View {
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay {
+                AsyncImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(.quaternary)
+                }
+            }
+            .clipped()
+    }
+
+    /// A gesture marker on the photo: small and quiet, but legible over a
+    /// white sky and a black room alike. The material disc carries a soft
+    /// shadow and the glyph its own, so neither dissolves into the picture.
+    /// It earns its contrast rather than its size — this is a state, never a
+    /// button.
     private func marker(_ systemName: String, _ tint: Color) -> some View {
         Image(systemName: systemName)
             .font(.footnote)
             .foregroundStyle(tint)
+            .shadow(color: .black.opacity(0.28), radius: 2)
             .padding(6)
-            .background(.ultraThinMaterial, in: Circle())
+            .background {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.22), radius: 4, y: 1)
+            }
             .padding(8)
     }
 
@@ -618,14 +643,17 @@ struct ReturnedCard: View {
                 Spacer()
             }
             if let urls = item.photo.urls, let url = state.api.absoluteURL(urls.thumb) {
-                AsyncImage(url: url) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle().fill(.quaternary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: density.returnedPhotoHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: density.returnedPhotoHeight)
+                    .overlay {
+                        AsyncImage(url: url) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(.quaternary)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             if let caption = item.photo.caption, !caption.isEmpty {
                 Text(caption).font(.callout)
@@ -729,12 +757,14 @@ struct PendingCaptureCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                Color.clear
                     .frame(maxWidth: .infinity)
                     .frame(height: density.feedPhotoHeight)
-                    .clipped()
+                    .overlay {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     // Held back a little until it's real for everyone else.
                     .opacity(pending.rejection == nil ? 0.72 : 0.5)
