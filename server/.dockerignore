@@ -1,0 +1,16 @@
+fly.toml
+.git/
+__pycache__/
+.envrc
+.venv/
+
+# Local dev state. Docker does not read .gitignore, so without these lines
+# `COPY . .` ships the seeded dev database and its photos inside the image —
+# and STANLEY_DATA_DIR defaults to `var` relative to WORKDIR, so the deployed
+# app would come up on them.
+var/
+build/
+*.egg-info/
+.pytest_cache/
+.hypothesis/
+.DS_Store
