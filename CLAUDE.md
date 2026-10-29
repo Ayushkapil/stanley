@@ -176,14 +176,23 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a capture queued at 23:50 and sent at 00:10 lands on the *new* day and spends
   that slot. The local claim was for the old one. Rare, and acceptable for the
   pilot, but it is a real seam.
-- **iPhone Duo on real hardware.** Xcode 26.6 ships only an iOS 26.5 runtime —
-  no Duo device type, no iOS 27 — so nothing has been seen on the real device.
-  Two specific unknowns: (a) whether the inner display actually reports a
-  **regular** horizontal size class to an iPhone-family app; the whole layout
-  hinges on that, and if it reports compact the inner display silently keeps the
-  outer layout. (b) The crease: no SDK fold geometry exists, so `creaseBuffer`
-  is a conservative 20pt margin rather than a measurement. It is now actually
-  applied (`creaseSafe`) to the interactive rows that can benefit, but a
+- **iPhone Duo — simulator yes, hardware no.** The machine now has **Xcode
+  27.1** with an **iOS 27.1** runtime and a real **iPhone Duo** device type
+  (`iPhone19,4`), so the app has been run and walked on the Duo *simulator*
+  (still nothing on physical hardware). The **outer (cover) display** —
+  466×678pt, reported **compact**, the ordinary-iPhone path — is verified end to
+  end: Today / Held / You / Settings in dark, Today in light, a real 9-person
+  circle, no black bars, and iOS 27 draws the tab bar as a vertical floating
+  dock on the trailing edge that the layout clears. Two unknowns remain. (a) The
+  **inner (unfolded) panel** is still unseen: this simulator exposes no
+  fold-posture control to a headless `simctl` session (powering the cover off
+  does not migrate the scene, and forcing it wedges SpringBoard), and the
+  Simulator GUI window binds to a different device, so the scene stays on the
+  cover. Whether the 669×951pt inner panel reports **regular** to an
+  iPhone-family app is therefore still not directly observed — the iPad proxy
+  (below) is the nearest evidence. (b) The crease: no SDK fold geometry exists,
+  so `creaseBuffer` is a conservative 20pt margin rather than a measurement. It
+  is applied (`creaseSafe`) to the interactive rows that can benefit, but a
   full-width or centred control — the onboarding button, the comment field —
   still straddles a vertical crease **by construction**, and no outer inset can
   change that: the crease runs down the middle, so clearing it would mean
@@ -197,9 +206,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   applied to onboarding, the 600pt cap visibly fires at 744pt, which proves
   iPad mini portrait really does report **regular** and that the whole
   `Density` pipeline resolves to `.room`. What that does *not* prove is (a) —
-  the Duo's inner display is different hardware. Past sign-in is still unseen:
-  signing in needs a human to type, so the feed, Held, You and Settings
-  layouts remain compiled and never looked at.
+  the Duo's inner display is different hardware. The regular feed / Held / You
+  with real content past sign-in was **not** captured on the iPad this round:
+  synthetic taps were not delivered reliably to the headless iPad session
+  (drags registered, discrete taps did not — and this hit both a
+  `readableWidth` control and a plain one, so it is an input-tooling artifact,
+  not a hit-testing regression). The same screens *are* seen with real content
+  on the Duo's compact cover; the regular variants differ only by `Density`
+  values, which do engage.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals
