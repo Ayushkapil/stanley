@@ -134,4 +134,8 @@ so snapshots are consistent while the app runs.
 - [ ] `APPLE_BUNDLE_ID` set; Sign in with Apple capability enabled on the app id.
 - [ ] HTTPS reachable; `STANLEY_API_BASE` in the iOS release build points at it.
 - [ ] Off-box backup copy scheduled.
-- [ ] `PRAGMA journal_mode` reports `wal`, `PRAGMA foreign_keys` reports `1`.
+- [ ] `PRAGMA journal_mode` reports `wal` — that one is stored in the file.
+      `foreign_keys` is **per-connection**: the app's PRAGMA listener sets it on
+      every connection it opens, so an external `sqlite3` shell will always
+      report `0` on the same file. That is not a fault, and not something to
+      check from outside the app.
