@@ -8,6 +8,12 @@ struct TodayFeedView: View {
     @State private var editingNote = false
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
+    /// The card at the top of the viewport, by id. Folding or unfolding
+    /// changes every photo's height, so a raw content offset would land on a
+    /// different card after the reflow; anchoring to the card itself means
+    /// the thing you were looking at is still the thing you are looking at.
+    /// No `scrollTargetBehavior`, so scrolling itself feels exactly as before.
+    @State private var anchor: String?
 
     var body: some View {
         NavigationStack {
@@ -19,17 +25,21 @@ struct TodayFeedView: View {
                     // it off a 678pt screen entirely, which made "one shared
                     // line atop Today" true only on days with neither.
                     NoteBar(note: state.communityNote) { editingNote = true }
+                        .id("note")
                     // The weekly mosaic sits above the feed itself (Part 2),
                     // Sun/Mon only.
                     if let mosaic = state.mosaic {
                         MosaicCard(mosaic: mosaic)
+                            .id("mosaic")
                     }
                     // Returned sits above the circle's own content, set apart.
                     if let item = state.returned {
                         ReturnedCard(item: item)
+                            .id("returned")
                     }
                     if let pending = state.queue.pending {
                         PendingCaptureCard(pending: pending)
+                            .id("pending")
                     }
                     if state.feedItems.isEmpty {
                         VStack(spacing: 8) {
@@ -40,7 +50,10 @@ struct TodayFeedView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.top, 80)
+                        .id("empty")
                     }
+                    // Feed cards carry their FeedItem id (a String, like the
+                    // header ids above), so one binding anchors to any of them.
                     ForEach(state.feedItems) { item in
                         if item.isMoment {
                             MomentCard(item: item)
@@ -49,9 +62,11 @@ struct TodayFeedView: View {
                         }
                     }
                 }
+                .scrollTargetLayout()
                 .padding()
                 .foldAnimated(hSizeClass)
             }
+            .scrollPosition(id: $anchor)
             .atmosphereWash()
             .navigationTitle("Today")
             .toolbar {
