@@ -33,7 +33,21 @@ enum Density {
     static let photoShare: CGFloat = 0.67
     static let cardGapShare: CGFloat = 0.05
 
-    private var screenHeight: CGFloat { UIScreen.main.bounds.height }
+    private var screenHeight: CGFloat { Density.canvasBounds().height }
+
+    /// The bounds of the display Stanley is actually on.
+    ///
+    /// Deliberately not `UIScreen.main`: on a two-display foldable, "main" is
+    /// the built-in primary, which is not necessarily the display showing this
+    /// app, and its identity does not change when the app moves between them.
+    /// The window scene knows which screen it is on. A single-screen device
+    /// resolves to the very same bounds, so an ordinary iPhone sees no change
+    /// at all — which is the point.
+    static func canvasBounds() -> CGRect {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        return scene?.screen.bounds ?? UIScreen.main.bounds
+    }
     var feedSpacing: CGFloat { (screenHeight * Density.cardGapShare).rounded() }
     var feedPhotoHeight: CGFloat { (screenHeight * Density.photoShare).rounded() }
     var cardPadding: CGFloat { isRoom ? 20 : 12 }
@@ -86,7 +100,7 @@ enum Density {
 /// and never as the primary signal. The size class decides layout.
 @MainActor
 func isLargeCanvas() -> Bool {
-    let bounds = UIScreen.main.bounds
+    let bounds = Density.canvasBounds()
     return min(bounds.width, bounds.height) >= 600
 }
 
@@ -101,8 +115,17 @@ extension View {
         }
     }
 
-    /// Keeps interactive content off the crease. Photos may span the fold —
-    /// a picture crossing it is fine — but tap targets should not straddle it.
+    /// Breathing room at the edges for interactive rows on the inner display,
+    /// and a no-op (0pt) everywhere else.
+    ///
+    /// Honest about its limits: the crease on a book-fold runs *vertically down
+    /// the middle*, so an outer inset cannot clear it. Nothing can, for a
+    /// control that is full-width or centred — a text field or a primary button
+    /// spans the centre by construction, the way a photo does. What this buys
+    /// is that a wide row is not pressed into the curvature at either edge, and
+    /// that rows of two controls keep their gap over the fold rather than a
+    /// tap target. When the SDK finally reports fold geometry, this is where
+    /// the real measurement goes.
     func creaseSafe(_ density: Density) -> some View {
         padding(.horizontal, density.creaseBuffer)
     }

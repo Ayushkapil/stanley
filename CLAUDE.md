@@ -126,9 +126,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   iPhone, which keeps today's behaviour exactly), regular is the inner one.
   Inner gets larger cards, a side-by-side shared moment, a two-column Held
   magazine, a horizontal profile header, a 600pt readable Settings column and a
-  bigger Returned photo. Only density and arrangement change — no feature is
-  gated to either surface. `isLargeCanvas()` exists for enhancements that need
-  real estate, never for gating.
+  bigger Returned photo, and a readable column on onboarding as well as
+  Settings. Only density and arrangement change — no feature is gated to either
+  surface. `isLargeCanvas()` exists for enhancements that need real estate,
+  never for gating, and is currently unused. Screen metrics come from
+  `Density.canvasBounds()` — the window scene's own screen, not `UIScreen.main`,
+  which on a two-display foldable names the primary display rather than the one
+  the app is on.
 - **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
   Rain; ambient tint + faint wash only; never affects function.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
@@ -172,16 +176,24 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   **regular** horizontal size class to an iPhone-family app; the whole layout
   hinges on that, and if it reports compact the inner display silently keeps the
   outer layout. (b) The crease: no SDK fold geometry exists, so `creaseBuffer`
-  is a conservative 20pt margin rather than a measurement, and a full-width
-  centred control (the onboarding button, the comment field) still straddles a
-  vertical crease by construction.
+  is a conservative 20pt margin rather than a measurement. It is now actually
+  applied (`creaseSafe`) to the interactive rows that can benefit, but a
+  full-width or centred control — the onboarding button, the comment field —
+  still straddles a vertical crease **by construction**, and no outer inset can
+  change that: the crease runs down the middle, so clearing it would mean
+  shoving the control entirely to one side. Treated like a photo crossing the
+  fold: acceptable.
 - **Regular-size-class surfaces are unverified past sign-in.** The app is
   iPhone-family (`TARGETED_DEVICE_FAMILY: "1"`), so an iPad runs it letterboxed
   in compatibility mode and reports *compact* — an iPad is only a valid proxy
-  with the family temporarily widened to `"1,2"`. Done once that way: the app
-  runs full-screen on iPad mini in regular, without crash or clipping, but only
-  onboarding was reachable (signing in needs a human), so the feed, Held, You
-  and Settings layouts have been compiled and never seen.
+  with the family temporarily widened to `"1,2"`. Done that way twice; the
+  second time confirmed more than "it doesn't crash": with the readable column
+  applied to onboarding, the 600pt cap visibly fires at 744pt, which proves
+  iPad mini portrait really does report **regular** and that the whole
+  `Density` pipeline resolves to `.room`. What that does *not* prove is (a) —
+  the Duo's inner display is different hardware. Past sign-in is still unseen:
+  signing in needs a human to type, so the feed, Held, You and Settings
+  layouts remain compiled and never looked at.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals

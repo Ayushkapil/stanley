@@ -13,7 +13,14 @@ struct TodayFeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: density.feedSpacing) {
-                    // The weekly mosaic sits at the very top (Part 2), Sun/Mon only.
+                    // The note is one line and it is the circle talking to
+                    // itself, so it goes first — above even the mosaic. On the
+                    // outer display a 440pt mosaic plus a Returned card pushed
+                    // it off a 678pt screen entirely, which made "one shared
+                    // line atop Today" true only on days with neither.
+                    NoteBar(note: state.communityNote) { editingNote = true }
+                    // The weekly mosaic sits above the feed itself (Part 2),
+                    // Sun/Mon only.
                     if let mosaic = state.mosaic {
                         MosaicCard(mosaic: mosaic)
                     }
@@ -21,7 +28,6 @@ struct TodayFeedView: View {
                     if let item = state.returned {
                         ReturnedCard(item: item)
                     }
-                    NoteBar(note: state.communityNote) { editingNote = true }
                     if let pending = state.queue.pending {
                         PendingCaptureCard(pending: pending)
                     }
@@ -349,6 +355,7 @@ struct PhotoCard: View {
                 .font(.callout)
             }
         }
+        .creaseSafe(density)
     }
 }
 
@@ -696,6 +703,8 @@ struct ReturnedCard: View {
 struct PhotoStoriesView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     let photo: Photo
     @State private var newComment = ""
 
@@ -726,6 +735,7 @@ struct PhotoStoriesView: View {
                         }
                     }
                     .padding(.top, 2)
+                    .creaseSafe(density)
                 }
                 .padding()
             }

@@ -92,6 +92,7 @@ struct ProfileView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .foldAnimated(hSizeClass)
             }
             .atmosphereWash()
             .navigationTitle("You")

@@ -7,6 +7,8 @@ import SwiftUI
 /// couple of low-contrast lines, and the atmosphere's tint. No assets, no urgency.
 struct OnboardingView: View {
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     @State private var page = 0
 
     /// Called when the user is done — RootView sets the flag and shows Welcome.
@@ -65,7 +67,9 @@ struct OnboardingView: View {
                 .padding(.horizontal, 40)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
+                .readableWidth(density)
             }
+            .foldAnimated(hSizeClass)
         }
     }
 
@@ -87,5 +91,6 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, 36)
         .frame(maxWidth: .infinity)
+        .readableWidth(density)
     }
 }

@@ -5,6 +5,8 @@ import SwiftUI
 /// account-first path into an empty feed.
 struct CircleGateView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var density: Density { Density(hSizeClass) }
     @State private var circleName = ""
     @State private var inviteCode = ""
 
@@ -32,6 +34,8 @@ struct CircleGateView: View {
                     Text("Stanley works best with people you actually know. One circle per person.")
                 }
             }
+            .readableWidth(density)
+            .foldAnimated(hSizeClass)
             .navigationTitle("Your circle")
         }
     }
