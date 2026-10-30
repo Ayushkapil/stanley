@@ -196,57 +196,60 @@ extension View {
     func accentInk() -> some View { modifier(AccentInk()) }
 }
 
-/// The atmosphere picker: one swatch per mood, drawn in its own colors, so the
-/// choice is made by eye rather than by name. Each swatch is a scrap of that
-/// atmosphere's floor with its accent on it; the chosen one is filled with the
-/// accent and checked in its ink. Auto shows the season it resolves to now.
+/// The atmosphere picker: one row of named pills, the way iOS reads a row of
+/// filters. The one that is on wears its own accent, with the palette's ink
+/// for the word; the others are quiet capsules. Nothing else is drawn — no
+/// swatch, no checkmark — the chosen pill's color is the swatch. All six
+/// share one row wherever they fit; where they cannot (a large text size),
+/// the row scrolls and opens with the chosen one in view, so the one that
+/// is on is never the one hidden.
 struct AtmosphereChips: View {
     @Binding var selection: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Atmosphere")
-            // Six across, sharing the row, so every mood is in view at once
-            // on any phone — a row that scrolls can hide the one that is on.
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(Atmosphere.allCases) { atmosphere in
-                    chip(atmosphere)
-                        .frame(maxWidth: .infinity)
+            ViewThatFits(in: .horizontal) {
+                pills
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        pills
+                    }
+                    // Run under the row's own margins rather than stopping
+                    // at them, so a pill half out of view reads as scrolled,
+                    // not clipped.
+                    .contentMargins(.horizontal, 20, for: .scrollContent)
+                    .padding(.horizontal, -20)
+                    .onAppear { proxy.scrollTo(selection, anchor: .center) }
                 }
             }
-            .frame(maxWidth: 420)
             .padding(.vertical, 2)
+            .animation(.easeInOut(duration: 0.2), value: selection)
         }
     }
 
-    private func chip(_ atmosphere: Atmosphere) -> some View {
+    private var pills: some View {
+        HStack(spacing: 4) {
+            ForEach(Atmosphere.allCases) { atmosphere in
+                pill(atmosphere).id(atmosphere.rawValue)
+            }
+        }
+    }
+
+    private func pill(_ atmosphere: Atmosphere) -> some View {
         let palette = atmosphere.palette
         let on = selection == atmosphere.rawValue
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         return Button {
             selection = atmosphere.rawValue
         } label: {
-            VStack(spacing: 5) {
-                ZStack {
-                    shape.fill(on ? palette.accent : palette.floor)
-                    shape.strokeBorder(palette.accent.opacity(on ? 0 : 0.7), lineWidth: 1)
-                    if on {
-                        Image(systemName: "checkmark")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(palette.ink)
-                    } else {
-                        Circle()
-                            .fill(palette.accent)
-                            .frame(width: 20, height: 20)
-                    }
-                }
-                .frame(width: 48, height: 48)
-                Text(atmosphere.label)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .foregroundStyle(on ? .primary : .secondary)
-            }
+            Text(atmosphere.label)
+                .font(.footnote.weight(.medium))
+                .lineLimit(1)
+                .foregroundStyle(on ? palette.ink : Color.primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(on ? palette.accent : Color(.tertiarySystemFill)))
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(atmosphere.label)

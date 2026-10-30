@@ -140,7 +140,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   which on a two-display foldable names the primary display rather than the one
   the app is on.
 - **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
-  Rain, picked by swatch in Settings. Each is a `Palette` (`Atmosphere.swift`):
+  Rain, picked from a row of named pills in Settings. Each is a `Palette` (`Atmosphere.swift`):
   an `accent` (tab bar, buttons, bookmarks, edges), an `ink` for labels on an
   accent fill, an opaque per-mode `floor` (system background with the tone
   blended in; the root and every screen paint the same one, so overlaps are
