@@ -14,6 +14,7 @@ final class AppState {
     var communityNote: CommunityNote?
     var mosaic: Mosaic?
     var returned: ReturnedItem?
+    var news: [NewsArticle] = []
     var threads: [MemoryThread] = []
     var profile: MyProfile?
     var myId: String?
@@ -114,6 +115,7 @@ final class AppState {
         communityNote = nil
         mosaic = nil
         returned = nil
+        news = []
         threads = []
         profile = nil
         myId = nil
@@ -175,6 +177,18 @@ final class AppState {
             returned = returnedResponse.item
         } catch {
             surface(error)
+        }
+    }
+
+    /// The World Today. A failure here is never surfaced, because Today
+    /// without the news is just Today. This loads when Today appears and on
+    /// pull, and never after a like or a story, so headlines don't shift
+    /// under someone reading them.
+    func loadNews() async {
+        do {
+            news = try await api.send("GET", "/news/today")
+        } catch {
+            // Keep whatever was showing. An empty start means no section.
         }
     }
 

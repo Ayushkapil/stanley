@@ -87,6 +87,32 @@ struct TodayResponse: Codable {
     let items: [FeedItem]
 }
 
+/// One headline in The World Today. Text only, and there is nothing to do to
+/// it but read it: no like, no save, no share, no comment.
+struct NewsArticle: Codable, Identifiable, Hashable {
+    let title: String
+    let source: String
+    let summary: String?
+    let publishedAt: Date?
+    let url: String
+
+    enum CodingKeys: String, CodingKey {
+        case title, source, publishedAt, url
+        case summary = "description"
+    }
+
+    var id: String { url }
+
+    /// http(s) only. Those are the only links an in-app Safari sheet will
+    /// open (it crashes on anything else), and the server sends no others.
+    var link: URL? {
+        guard let link = URL(string: url),
+              let scheme = link.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return nil }
+        return link
+    }
+}
+
 /// A quiet, private milestone (Part 4) — a reflection, never a score.
 struct Milestone: Codable, Identifiable, Hashable {
     let id: Int

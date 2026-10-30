@@ -45,6 +45,11 @@ class Settings:
     max_upload_bytes: int = 15 * 1024 * 1024
     backups_keep: int = 7
 
+    # The World Today. Optional: with no key, nothing is fetched and the
+    # endpoint answers an empty list.
+    news_api_key: str | None = field(default_factory=lambda: _env_opt("NEWS_API_KEY"))
+    news_interval_seconds: int = 1800  # refetch headlines every 30 minutes
+
     # Sign in with Apple (Part 2). Required for /auth/apple to function.
     apple_bundle_id: str | None = field(default_factory=lambda: _env_opt("APPLE_BUNDLE_ID"))
     apple_jwks_cache_seconds: int = field(default_factory=lambda: int(_env("APPLE_JWKS_CACHE_SECONDS", "86400")))

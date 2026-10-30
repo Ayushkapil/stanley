@@ -11,6 +11,7 @@
 		118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB8427334A459A620854705 /* AvatarPicker.swift */; };
 		1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B371E63EBC11AC20695ED507 /* StanleyApp.swift */; };
 		26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */; };
+		2D6A2BE15AF99D9A87A677C8 /* WorldTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E137B196869A47ACE289A041 /* WorldTodayView.swift */; };
 		34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C775715F391ED80D954D9ED /* WelcomeView.swift */; };
 		36FA6366C2603F007A32B030 /* Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1803DD8144604B228075043B /* Layout.swift */; };
 		4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */; };
@@ -56,6 +57,7 @@
 		C9649D2EC31D301586F01D82 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueue.swift; sourceTree = "<group>"; };
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E137B196869A47ACE289A041 /* WorldTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldTodayView.swift; sourceTree = "<group>"; };
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
@@ -110,6 +112,7 @@
 				894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */,
 				C38170E6EF5384B93F19F643 /* UIComponents.swift */,
 				0C775715F391ED80D954D9ED /* WelcomeView.swift */,
+				E137B196869A47ACE289A041 /* WorldTodayView.swift */,
 			);
 			path = Stanley;
 			sourceTree = "<group>";
@@ -219,6 +222,7 @@
 				69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */,
 				A218937F0265E72919AAE872 /* UIComponents.swift in Sources */,
 				34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */,
+				2D6A2BE15AF99D9A87A677C8 /* WorldTodayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

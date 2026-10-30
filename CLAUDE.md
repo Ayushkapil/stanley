@@ -157,6 +157,29 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (unreachable, undecodable, Apple sign-in). A failed upload says the day is
   still open, which is true: the server rolls the whole request back. No
   signal never fails at all — it queues.
+- **The World Today** — twelve national headlines in a section at the very
+  foot of Today, below every photo and the note: a morning paper on the
+  counter, not a feed. The server fetches NewsAPI top-headlines
+  (`country=us`) every 30 minutes on its own background loop. It keeps the
+  last good set in a one-row `news_cache` table. Clients only ever read
+  `GET /news/today` (JWT only, no circle needed), so nobody but the server
+  talks to NewsAPI. The cached set is normalized once: text only (no images),
+  the outlet stripped from the headline, summaries trimmed to 60 words,
+  http(s) links only (anything else crashes the Safari sheet), and
+  `[Removed]` stubs dropped before the twelve are counted. The twelve are
+  NewsAPI's own pick, identical for everyone and shown newest first. Today's
+  photos above them are still reverse-chronological and nothing else. A
+  failed fetch keeps the last good set. A set older than 6h is not served,
+  rather than showing yesterday's world. With no `NEWS_API_KEY` the endpoint
+  returns `[]`, and the client draws no section, no empty state and no error.
+  Cards are quieter than photo cards: smaller type, and `cardSurface(muted:)`
+  at half weight. A tap opens an `SFSafariViewController` sheet. There are no
+  likes, saves, shares, comments or notifications. News never appears in
+  Held, Returned, the export or any memory surface. It loads when Today
+  appears and on pull, never after a like or a story, so headlines don't
+  shift under someone reading them. The pull runs its pass as a separate
+  `Task`, because SwiftUI cancels a `.refreshable` task the moment the state
+  it refreshes changes.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
@@ -230,6 +253,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   not a hit-testing regression). The same screens *are* seen with real content
   on the Duo's compact cover; the regular variants differ only by `Density`
   values, which do engage.
+- **The World Today, for real.** `NEWS_API_KEY` is **not set on Fly**, so the
+  pilot has no news section yet. It has been tested locally only, with sample
+  headlines in the cache. NewsAPI's free Developer plan is licensed for
+  development only and delays articles 24h, so testers need the paid Business
+  plan or another source. Headlines are national (`COUNTRY = "us"`). Regional
+  news is a `TODO(location)` in `server/stanley/news.py`, and the app requests
+  no location permission.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals
@@ -237,12 +267,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**178 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**197 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
-capture-race/orphan-blob safety, backups, nameless-vs-departed naming. Untested by nature: real-device SIWA,
+capture-race/orphan-blob safety, backups, nameless-vs-departed naming, the
+World Today cache (fetch + store, last-good-set on failure, stale and no-key
+silence, normalization, key-in-header). Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
 
 ## Key file locations
@@ -253,11 +285,11 @@ live APNs, concurrency under real load.
 - Decay engine: `decay.py`; standalone worker: `worker.py`; app factory: `main.py`
 - Config / secrets: `config.py`; clock abstraction: `clock.py`
 - Response shaping (payloads, mosaic, note, faces): `serialize.py`
-- Returned logic: `returned.py`; milestones: `milestones.py`
+- Returned logic: `returned.py`; milestones: `milestones.py`; The World Today: `news.py`
 - Auth: `auth.py` (JWT), `apple.py` (SIWA verify)
 - Storage + signed URLs: `storage.py`; image pipeline: `images.py`; backups: `backup.py`
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,
-  `feed.py`, `me.py`, `memories.py`, `safety.py`, `blobs.py`
+  `feed.py`, `me.py`, `memories.py`, `safety.py`, `blobs.py`, `news.py`
 - Tests: `server/tests/`; deploy notes: `server/DEPLOY.md`; seed/dev tools:
   `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`
 
@@ -267,7 +299,8 @@ live APNs, concurrency under real load.
 - Screens: `WelcomeView.swift` (sign-in), `NameGateView.swift` (name/username,
   shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
-  who-was-there), `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
+  who-was-there), `WorldTodayView.swift` (news section, cards, Safari sheet),
+  `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),
   `AvatarPicker.swift`, `Atmosphere.swift`, `Prompts.swift`, `AppLock.swift`,

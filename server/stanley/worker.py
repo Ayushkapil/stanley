@@ -2,14 +2,15 @@
 
 In production this can be a single process next to the API, or replaced by
 pg_cron once on Postgres (§9). The logic is identical either way: sweep,
-purge, digest.
+purge, digest, and The World Today's headlines when they're due.
 """
 from __future__ import annotations
 
 import argparse
 import time
+from datetime import timedelta
 
-from . import decay, notifications
+from . import decay, news, notifications
 from .clock import SystemClock
 from .config import Settings
 from .db import Base, ensure_schema, make_engine, make_sessionmaker
@@ -29,6 +30,11 @@ def run_once(settings: Settings | None = None) -> None:
         advanced = decay.sweep(session, clock, notifier)
         purged = decay.run_purges(session, storage, clock)
         digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)
+        session.commit()
+        news.refresh_if_due(
+            session, clock, settings.news_api_key,
+            timedelta(seconds=settings.news_interval_seconds),
+        )
         session.commit()
     print(f"sweep: {advanced} transitions, {purged} purged, {digests} digests")
 

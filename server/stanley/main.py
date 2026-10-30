@@ -4,18 +4,19 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
 
-from . import __version__, decay, notifications
+from . import __version__, decay, news, notifications
 from .apple import AppleVerifier
 from .backup import backup_database
 from .clock import Clock, SystemClock
 from .config import Settings, resolve_secret
 from .db import Base, ensure_schema, make_engine, make_sessionmaker
 from .notifications import Notifier
-from .routes import auth_routes, blobs, circles, feed, me, memories, photos, safety
+from .routes import auth_routes, blobs, circles, feed, me, memories, news as news_routes, photos, safety
 from .storage import make_blob_store
 
 log = logging.getLogger("stanley")
@@ -51,6 +52,29 @@ async def _sweep_loop(app: FastAPI) -> None:
         await asyncio.sleep(app.state.settings.sweep_interval_seconds)
 
 
+def refresh_news(app: FastAPI) -> None:
+    """One pass of The World Today: refetch the headlines if the cached set is
+    due. This runs on its own loop so that a slow NewsAPI never delays decay."""
+    settings: Settings = app.state.settings
+    with app.state.sessionmaker() as session:
+        news.refresh_if_due(
+            session,
+            app.state.clock,
+            settings.news_api_key,
+            timedelta(seconds=settings.news_interval_seconds),
+        )
+        session.commit()
+
+
+async def _news_loop(app: FastAPI) -> None:
+    while True:
+        try:
+            await asyncio.to_thread(refresh_news, app)
+        except Exception:
+            log.exception("news refresh failed")
+        await asyncio.sleep(app.state.settings.news_interval_seconds)
+
+
 def _ensure_sqlite_dir(database_url: str) -> None:
     """Create the directory holding the SQLite file if it isn't there yet. A
     fresh host — or a volume mounted empty on first deploy — has no `var/`, and
@@ -84,11 +108,14 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        task = None
+        tasks = []
         if settings.run_sweeper:
-            task = asyncio.create_task(_sweep_loop(app))
+            tasks.append(asyncio.create_task(_sweep_loop(app)))
+            # News is optional: with no key there is nothing to fetch.
+            if settings.news_api_key:
+                tasks.append(asyncio.create_task(_news_loop(app)))
         yield
-        if task is not None:
+        for task in tasks:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
@@ -113,7 +140,7 @@ def create_app(
         )
     app.state.apple_verifier = apple_verifier
 
-    for router in (auth_routes, circles, photos, feed, me, memories, safety, blobs):
+    for router in (auth_routes, circles, photos, feed, me, memories, safety, blobs, news_routes):
         app.include_router(router.router)
 
     @app.get("/health", tags=["ops"])

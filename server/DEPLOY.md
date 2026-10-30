@@ -44,6 +44,12 @@ Storage and tuning:
 | `STANLEY_RUN_SWEEPER` | `1` | In-process decay/purge/digest/backup loop. Keep on with a **single** process. |
 | `BLOB_BACKEND` | `local` | Set `r2` to use Cloudflare R2 (below). |
 
+Optional features:
+
+| Var | Notes |
+|-----|-------|
+| `NEWS_API_KEY` | Set NEWS_API_KEY for The World Today (optional; get a free key at newsapi.org). If it's unset, nothing is fetched, `GET /news/today` returns `[]`, and the app shows no section. **Licensing:** NewsAPI's free Developer plan is for development only. It can't be used in staging or production, and it delays articles by 24 hours. Any deployment real testers use needs the paid Business plan or a different source. The server fetches every 30 minutes, which is 48 requests a day, inside the free plan's 100. |
+
 Cloudflare R2 (optional — only when `BLOB_BACKEND=r2`):
 `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, `BLOB_R2_ACCESS_KEY`, `BLOB_R2_SECRET_KEY`.
 Switching to R2 is a config change only — no code change.
@@ -132,6 +138,8 @@ so snapshots are consistent while the app runs.
 - [ ] Persistent storage is really persistent — `STANLEY_DATA_DIR` on the mounted
       volume (Railway) or the persistent disk (VPS), not a container's local disk.
 - [ ] `APPLE_BUNDLE_ID` set; Sign in with Apple capability enabled on the app id.
+- [ ] `NEWS_API_KEY` left unset unless the NewsAPI plan allows production use
+      (the free one doesn't). Without it, Today simply has no news section.
 - [ ] HTTPS reachable; `STANLEY_API_BASE` in the iOS release build points at it.
 - [ ] Off-box backup copy scheduled.
 - [ ] `PRAGMA journal_mode` reports `wal` — that one is stored in the file.
