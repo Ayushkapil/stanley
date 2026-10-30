@@ -248,11 +248,28 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **TestFlight build.** Needs a **paid** Apple Developer Program membership: a
-  free personal team cannot provision Sign in with Apple (Xcode refuses outright)
-  and its profiles expire weekly. Also needs the capability enabled on the App ID
-  — `STANLEY_API_BASE` for the release config is set (build 4 points at the Fly
-  host; Debug still falls back to localhost).
+- **TestFlight build.** Build 13 (0.2.0) is archived and exported, **not yet
+  uploaded**. The archive is in Xcode's Organizer (`~/Library/Developer/Xcode/
+  Archives/2026-10-30/Stanley 0.2.0 (13).xcarchive`). The App Store Connect
+  IPA is at `ios/build/testflight-13/Stanley.ipa` (gitignored), with the
+  `ExportOptions.plist` that made it: method `app-store-connect`, destination
+  `export`, automatic signing. The paid membership is in place. The
+  IPA is signed with the team's cloud-managed Apple Distribution certificate
+  and the App Store profile (created 2026-10-29). It carries
+  `beta-reports-active`, Sign in with Apple, no `get-task-allow`, the Fly
+  `STANLEY_API_BASE`, and symbols. Release compiles out dev sign-in and the
+  simulator camera stand-in. `STANLEY_SENTRY_DSN` is empty, so this build
+  has no crash reporting. To ship, use Organizer → Distribute App → TestFlight
+  & App Store, or Transporter with the IPA.
+- **Fly runs an older server than the app expects.** As of 2026-10-30 the
+  Fly deployment's OpenAPI has no `/news/today` and no `filter` field on
+  capture, and it predates the commit-before-response fix (`5c3909e`). Build
+  13 still works against it, but it can't show the full feature set. The
+  World tab says "No stories right now." Filters are baked into the pixels
+  but their names are dropped. A new photo can miss the refresh right after
+  posting. Deploy `server/` to Fly (`fly deploy` from `server/`; the
+  `filter` column is added on startup by `ensure_schema`) before testers rely
+  on any of that.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
