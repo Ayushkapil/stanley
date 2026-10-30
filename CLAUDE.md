@@ -273,7 +273,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   466×678pt, reported **compact**, the ordinary-iPhone path — is verified end to
   end: Today / Held / You / Settings in dark, Today in light, a real 9-person
   circle, no black bars, and iOS 27 draws the tab bar as a vertical floating
-  dock on the trailing edge that the layout clears. Two unknowns remain. (a) The
+  dock on the trailing edge that the layout clears. Every screen before sign-in
+  too (build 13): the launch spinner, onboarding, Welcome, the name and
+  circle gates, and the Face ID lock. Welcome and the spinner used to leave a
+  black band in the dock strip. The root's floor only reached as far as its
+  child's frame, so `RootView` now fills the screen before painting it. Two unknowns remain. (a) The
   **inner (unfolded) panel** is still unseen: this simulator exposes no
   fold-posture control to a headless `simctl` session (powering the cover off
   does not migrate the scene, and forcing it wedges SpringBoard), and the

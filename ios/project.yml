@@ -30,7 +30,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "12"
+        CFBundleVersion: "13"
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to

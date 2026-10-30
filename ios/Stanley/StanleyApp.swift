@@ -79,6 +79,13 @@ struct RootView: View {
                     HomeView()
                 }
             }
+            // Fill the screen first. A background covers only its own view's
+            // frame, and `ignoresSafeArea` only pushes it into the insets that
+            // frame touches. Welcome is a column narrower than the screen, and
+            // the launch spinner is a dot, so the floor stopped at their edges
+            // and the Duo's dock strip showed the bare window as a black band.
+            // Children keep their own layout, centered as before.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Under every safe-area inset there is — including whatever a
             // hinge or a cover-display dock reserves on a foldable. Each screen
             // paints the floor too, but only within the region it is given; the
