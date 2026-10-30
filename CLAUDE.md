@@ -260,8 +260,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **TestFlight build.** Build 13 (0.2.0) is archived and exported, **not yet
-  uploaded**. The archive is in Xcode's Organizer (`~/Library/Developer/Xcode/
+- **TestFlight build.** Build 13 (0.2.0) is archived and exported from
+  `163ec6d` (it includes the gate sign-out), **not yet uploaded**. An earlier
+  build 13 archive from `4a616da` was moved to the Trash. The archive is in Xcode's Organizer (`~/Library/Developer/Xcode/
   Archives/2026-10-30/Stanley 0.2.0 (13).xcarchive`). The App Store Connect
   IPA is at `ios/build/testflight-13/Stanley.ipa` (gitignored), with the
   `ExportOptions.plist` that made it: method `app-store-connect`, destination
@@ -273,15 +274,24 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   simulator camera stand-in. `STANLEY_SENTRY_DSN` is empty, so this build
   has no crash reporting. To ship, use Organizer → Distribute App → TestFlight
   & App Store, or Transporter with the IPA.
-- **Fly runs an older server than the app expects.** As of 2026-10-30 the
-  Fly deployment's OpenAPI has no `/news/today` and no `filter` field on
-  capture, and it predates the commit-before-response fix (`5c3909e`). Build
-  13 still works against it, but it can't show the full feature set. The
-  World tab says "No stories right now." Filters are baked into the pixels
-  but their names are dropped. A new photo can miss the refresh right after
-  posting. Deploy `server/` to Fly (`fly deploy` from `server/`; the
-  `filter` column is added on startup by `ensure_schema`) before testers rely
-  on any of that.
+- **Fly runs an older server than the app expects.** Its newest release (v6,
+  2026-10-29) reuses the image first deployed in v3 at 04:55 UTC, which was
+  built from `9d92a8f`. Runtime server changes since then, none deployed:
+  `e15763a` (`UNNAMED` vs `DEPARTED`: without it, a member who never gave a
+  name shows to the circle as "departed"); `f03c792` (the digest says
+  "Something new from your circle today", not a count; logged only until
+  APNs is wired, but it is the no-counts rule); `12406fd`/`7d62c9a` (the World
+  Today: `news_cache` table, loop, `GET /news/today`. With no
+  `NEWS_API_KEY` it answers `[]`, which the app shows the same way as the
+  404 it gets now); `fb7b64c` (`photos.filter` and the `filter` form
+  field; without it filter names are dropped, the look is still in the
+  pixels); `5c3909e` (commit before the response; without it a new photo
+  can miss the refresh right after posting). Build 13 works against the old
+  server: `username_check` already takes `u` as a query item, the 401s
+  are the same, and `Photo.filter` is optional. Deploy with `fly deploy`
+  from `server/`. On startup, `create_all` adds `news_cache` and
+  `ensure_schema` adds `photos.filter`. No new secrets: `NEWS_API_KEY`
+  stays unset on purpose.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
