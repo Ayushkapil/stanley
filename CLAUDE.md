@@ -151,7 +151,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`NameGateView`) sits between sign-in and the circle gate whenever Apple gave
   us no name — it did not, for anyone who declined to share it — because the
   alternative was a new member labelled with the placeholder for a deleted
-  account. Name required, username optional, shown once. A nameless member
+  account. Name required, username optional, shown once. The name gate and
+  the circle gate each have a plain **Sign out** in the top bar, because
+  Settings is past both. There's no confirmation, the same as Settings. The
+  username field's live availability check sends `u` as a query item. Until
+  build 13 it was percent-encoded into the path and got a 404, so it never
+  ran (the server still validates on save). A nameless member
   serializes as `UNNAMED` ("New member"); `DEPARTED` ("departed") now means
   only a genuinely deleted account.
 - **Community note** — one shared line atop Today, last-writer-wins, clears at end
@@ -202,7 +207,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
   (unreachable, undecodable, Apple sign-in). A failed upload says the day is
   still open, which is true: the server rolls the whole request back. No
-  signal never fails at all — it queues.
+  signal never fails at all — it queues. A sign-in the server turns down
+  (a bare 401 on a request that carried a token: expired, secret rotated,
+  account gone) signs out **automatically**. `APIClient.onTokenRejected`
+  hands `AppState` the token that was refused, and the app signs out only if
+  that's still the token it holds, so a late answer can't undo a fresh
+  sign-in. It says why once (`APIError.signedOut`), and every other failure
+  from the same cause stays quiet. It used to say "Sign out in Settings",
+  which the name and circle gates can't reach.
 - **The World Today** — twelve national headlines in a **World** tab of
   their own (globe), the fourth of five: Today, Held, You, World, Settings. A
   morning paper on the counter, not a feed. Today is the circle's photos and

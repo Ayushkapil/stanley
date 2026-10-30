@@ -72,6 +72,14 @@ struct NameGateView: View {
             .foldAnimated(hSizeClass)
             .navigationTitle("What should we call you?")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Not a skip: a name is still required to go on. It's the way
+                // back to Welcome, because Settings is past this gate.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Sign out") { state.signOut() }
+                        .disabled(saving)
+                }
+            }
             // Same debounce as the edit sheet: retyping cancels the previous
             // check, then we wait a beat before asking the server.
             .task(id: username) {

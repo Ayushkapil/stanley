@@ -41,6 +41,15 @@ struct CircleGateView: View {
             .readableWidth(density)
             .foldAnimated(hSizeClass)
             .navigationTitle("Your circle")
+            .toolbar {
+                // The way back to Welcome: the wrong Apple ID, a different
+                // person on this phone, or just not now. Settings, where
+                // Sign out usually lives, is past this gate. Nothing is lost
+                // by leaving, so there's no confirmation, the same as Settings.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Sign out") { state.signOut() }
+                }
+            }
         }
     }
 }

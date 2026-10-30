@@ -32,6 +32,21 @@ final class AppState {
 
     init() {
         signedIn = api.token != nil
+        api.onTokenRejected { [weak self] token in
+            Task { @MainActor in self?.tokenRejected(token) }
+        }
+    }
+
+    /// The server turned down our sign-in, so nothing will work until the
+    /// person signs in again. Sign out now and say so once, wherever they
+    /// are, rather than answer every request with an error they can't act
+    /// on. On the name and circle gates there is no Settings to sign out
+    /// from. Only the token we still hold counts: a late answer to a request
+    /// sent before a fresh sign-in mustn't undo it.
+    private func tokenRejected(_ token: String) {
+        guard signedIn, api.token == token else { return }
+        signOut()
+        errorMessage = APIError.signedOut.errorDescription
     }
 
     /// Show an error — unless the "error" is the person changing their mind.
@@ -42,6 +57,11 @@ final class AppState {
     /// or a `.task` was torn down on disappear. Nothing to tell anyone.
     func surface(_ error: Error) {
         guard !AppState.isCancellation(error) else { return }
+        // `tokenRejected` has already signed out and said why, once. The
+        // other requests that fail the same way have nothing to add, and
+        // neither does one that left after the sign-out with no token at all.
+        if case APIError.signedOut = error { return }
+        if case APIError.status(401) = error, !signedIn { return }
         errorMessage = AppState.words(for: error)
     }
 
@@ -264,8 +284,10 @@ final class AppState {
     /// trouble — the caller treats that as "unknown", never as a block; the
     /// server re-validates on save regardless.
     func checkUsername(_ candidate: String) async -> UsernameCheck? {
-        let escaped = candidate.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? candidate
-        return try? await api.send("GET", "/me/username_check?u=\(escaped)")
+        // As a query item, not part of the path: `send` builds the path with
+        // `appending(path:)`, which encoded a "?u=" into the path itself, so
+        // the server answered 404 and this check never ran.
+        try? await api.send("GET", "/me/username_check", query: ["u": candidate])
     }
 
     // MARK: gestures

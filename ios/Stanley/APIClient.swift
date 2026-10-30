@@ -9,6 +9,12 @@ enum APIError: LocalizedError {
     case status(Int)
     /// Our own words, already in Stanley's voice.
     case message(String)
+    /// The server turned down the sign-in this request carried: it expired
+    /// (thirty days), the server's secret changed, or the account is gone.
+    /// Nothing works with that token again, so the app signs out on its own
+    /// (`APIClient.onTokenRejected`) and says this once. It never asks
+    /// anyone to find a Settings tab, which the gates before Today don't have.
+    case signedOut
 
     var errorDescription: String? {
         switch self {
@@ -41,6 +47,8 @@ enum APIError: LocalizedError {
             return Self.words(forStatus: status)
         case .message(let text):
             return text
+        case .signedOut:
+            return "Your sign-in has expired, so you've been signed out. Sign in again to carry on."
         }
     }
 
@@ -54,7 +62,9 @@ enum APIError: LocalizedError {
     /// What a bare status means to the person holding the phone.
     static func words(forStatus status: Int) -> String {
         switch status {
-        case 401: return "Your sign-in has expired. Sign out in Settings, then sign back in."
+        // A 401 with a token becomes `.signedOut`. This is the rest: a request
+        // that went out with no sign-in at all.
+        case 401: return "You're signed out. Sign in again to carry on."
         case 403: return "That isn't yours to change."
         case 404: return "That's no longer here."
         case 410: return "This moment has already faded."
@@ -73,6 +83,7 @@ struct Empty: Codable {}
 final class APIClient: Sendable {
     let baseURL: URL
     private let storedToken: OSAllocatedUnfairLock<String?>
+    private let rejectedHandler = OSAllocatedUnfairLock<(@Sendable (String) -> Void)?>(initialState: nil)
 
     var token: String? {
         get { storedToken.withLock { $0 } }
@@ -85,6 +96,14 @@ final class APIClient: Sendable {
     init() {
         self.baseURL = APIClient.resolveBaseURL()
         self.storedToken = OSAllocatedUnfairLock(initialState: KeychainToken.load())
+    }
+
+    /// Called, from whatever thread the request ran on, with the token the
+    /// server just refused. It's the token the request carried, not the
+    /// current one, so a late answer to a request sent before a fresh
+    /// sign-in can be told apart and ignored.
+    func onTokenRejected(_ handler: @escaping @Sendable (String) -> Void) {
+        rejectedHandler.withLock { $0 = handler }
     }
 
     /// Base URL precedence: STANLEY_API env (debug runs) → Info.plist
@@ -215,7 +234,7 @@ final class APIClient: Sendable {
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            throw Self.errorFrom(data: data, status: status)
+            throw failure(for: request, data: data, status: status)
         }
         return data
     }
@@ -224,12 +243,27 @@ final class APIClient: Sendable {
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            throw Self.errorFrom(data: data, status: status)
+            throw failure(for: request, data: data, status: status)
         }
         if T.self == Empty.self, data.isEmpty {
             return Empty() as! T
         }
         return try Self.decoder.decode(T.self, from: data)
+    }
+
+    /// What a failed request throws. A bare 401 on a request that carried a
+    /// token means the server no longer accepts that token. Sign in with
+    /// Apple's own refusal comes with a code, and a request sent with no token
+    /// has nothing to reject, so neither counts.
+    private func failure(for request: URLRequest, data: Data, status: Int) -> APIError {
+        let error = Self.errorFrom(data: data, status: status)
+        guard case .status(401) = error,
+              let header = request.value(forHTTPHeaderField: "Authorization"),
+              header.hasPrefix("Bearer ")
+        else { return error }
+        let sent = String(header.dropFirst("Bearer ".count))
+        rejectedHandler.withLock { $0 }?(sent)
+        return .signedOut
     }
 
     private static func errorFrom(data: Data, status: Int) -> APIError {
