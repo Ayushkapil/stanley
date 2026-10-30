@@ -47,6 +47,7 @@ struct MemoriesView: View {
                         // The image leads — a kept moment is a picture first,
                         // words second. Tombstones stay quiet and compact.
                         MemoryCard(memory: memory)
+                            .atmosphereRows()
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -142,6 +143,7 @@ struct RestedView: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(.tint)
                 }
+                .atmosphereRows()
             }
         }
         .atmosphereWash()

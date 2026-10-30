@@ -126,31 +126,35 @@ struct FacesSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    if held.isEmpty {
-                        Text("No one yet.").foregroundStyle(.secondary)
+                Group {
+                    Section {
+                        if held.isEmpty {
+                            Text("No one yet.").foregroundStyle(.secondary)
+                        }
+                        ForEach(held, id: \.id) { entry in
+                            FaceRow(face: entry.user, glyph: "bookmark.fill", tint: .accentColor)
+                        }
+                    } header: {
+                        Text("Held by")
+                    } footer: {
+                        Text("Who kept this moment. Only you can see this.")
                     }
-                    ForEach(held, id: \.id) { entry in
-                        FaceRow(face: entry.user, glyph: "bookmark.fill", tint: .accentColor)
+                    Section {
+                        if liked.isEmpty {
+                            Text("No likes yet.").foregroundStyle(.secondary)
+                        }
+                        ForEach(liked, id: \.id) { face in
+                            FaceRow(face: face, glyph: "heart.fill", tint: .pink)
+                        }
+                    } header: {
+                        Text("Liked by")
+                    } footer: {
+                        Text("Likes fade with the photo — when it leaves Today, this is gone for good.")
                     }
-                } header: {
-                    Text("Held by")
-                } footer: {
-                    Text("Who kept this moment. Only you can see this.")
                 }
-                Section {
-                    if liked.isEmpty {
-                        Text("No likes yet.").foregroundStyle(.secondary)
-                    }
-                    ForEach(liked, id: \.id) { face in
-                        FaceRow(face: face, glyph: "heart.fill", tint: .pink)
-                    }
-                } header: {
-                    Text("Liked by")
-                } footer: {
-                    Text("Likes fade with the photo — when it leaves Today, this is gone for good.")
-                }
+                .atmosphereRows()
             }
+            .atmosphereWash()
             .navigationTitle("Your circle's care")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

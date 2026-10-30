@@ -34,6 +34,11 @@ struct WelcomeView: View {
     }
 
     private func handle(_ result: Result<ASAuthorization, Error>) {
+        if case let .failure(error) = result {
+            // Backing out of the Apple sheet is not a failure; surface() knows.
+            state.surface(error)
+            return
+        }
         guard case let .success(auth) = result,
               let cred = auth.credential as? ASAuthorizationAppleIDCredential,
               let tokenData = cred.identityToken,

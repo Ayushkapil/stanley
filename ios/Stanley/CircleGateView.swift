@@ -13,27 +13,31 @@ struct CircleGateView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Join your circle") {
-                    TextField("e.g. NECR-7KX4", text: $inviteCode)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.characters)
-                    Button("Join") {
-                        Task { await state.joinCircle(code: inviteCode.trimmingCharacters(in: .whitespaces)) }
+                Group {
+                    Section("Join your circle") {
+                        TextField("e.g. NECR-7KX4", text: $inviteCode)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.characters)
+                        Button("Join") {
+                            Task { await state.joinCircle(code: inviteCode.trimmingCharacters(in: .whitespaces)) }
+                        }
+                        .disabled(inviteCode.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    .disabled(inviteCode.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-                Section {
-                    TextField("Circle name", text: $circleName)
-                    Button("Create") {
-                        Task { await state.createCircle(name: circleName.trimmingCharacters(in: .whitespaces)) }
+                    Section {
+                        TextField("A name for it — your floor, your house", text: $circleName)
+                        Button("Create") {
+                            Task { await state.createCircle(name: circleName.trimmingCharacters(in: .whitespaces)) }
+                        }
+                        .disabled(circleName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    } header: {
+                        Text("Or start one")
+                    } footer: {
+                        Text("Stanley works best with people you actually know. One circle per person.")
                     }
-                    .disabled(circleName.trimmingCharacters(in: .whitespaces).isEmpty)
-                } header: {
-                    Text("Or start one")
-                } footer: {
-                    Text("Stanley works best with people you actually know. One circle per person.")
                 }
+                .atmosphereRows()
             }
+            .atmosphereWash()
             .readableWidth(density)
             .foldAnimated(hSizeClass)
             .navigationTitle("Your circle")

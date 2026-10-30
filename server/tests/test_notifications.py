@@ -73,7 +73,9 @@ def test_evening_digest_at_most_one_per_day(circle, clock, app, db):
     run()
     ana_rows = _logs(db, user_id=circle.ana.id, kind="digest")
     assert len(ana_rows) == 1
-    assert ana_rows[0].body == "2 new moments from your circle today"  # ana's own absence counted out
+    # Two others posted; the words say so without a number (N4).
+    assert ana_rows[0].body == notifications.DIGEST_BODY
+    assert not any(ch.isdigit() for ch in ana_rows[0].body)
 
     # N1: running the job again the same evening sends nothing new
     run()

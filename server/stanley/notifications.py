@@ -55,6 +55,9 @@ def maybe_send_last_light_notice(
     notifier.send(session, owner.id, "last_light", f"Your moment from {weekday} is fading", now)
 
 
+DIGEST_BODY = "Something new from your circle today."
+
+
 def run_evening_digests(
     session: Session, notifier: Notifier, clock: Clock, digest_hour: int = 20
 ) -> int:
@@ -99,9 +102,8 @@ def run_evening_digests(
         )
         if n == 0:
             continue
-        noun = "moment" if n == 1 else "moments"
-        notifier.send(
-            session, user.id, "digest", f"{n} new {noun} from your circle today", now
-        )
+        # Whether anyone posted decides if there is a digest at all; how many
+        # never reaches the words. A notification carries no count (N4).
+        notifier.send(session, user.id, "digest", DIGEST_BODY, now)
         sent += 1
     return sent

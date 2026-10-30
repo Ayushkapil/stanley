@@ -1,13 +1,19 @@
 import Foundation
 
 enum APIError: LocalizedError {
+    /// The server said no, and said why.
     case server(code: String, status: Int)
+    /// The server said no without a code: a bare status, or a detail written
+    /// for developers ("not found", "invalid token"). Never shown as sent.
+    case status(Int)
+    /// Our own words, already in Stanley's voice.
     case message(String)
 
     var errorDescription: String? {
         switch self {
-        case .server(let code, _):
-            // The product never shouts. Error copy stays gentle.
+        case .server(let code, let status):
+            // The product never shouts. Error copy stays gentle, and no code
+            // or status number ever reaches the screen.
             switch code {
             case "slot_used": return "Today's photo is already given."
             case "too_soon": return "A little too soon — the day needs room to breathe."
@@ -19,10 +25,41 @@ enum APIError: LocalizedError {
             case "bad_username": return "Usernames are 3–30 characters: lowercase letters, numbers, dots and underscores, and can't start with a number."
             case "bad_display_name": return "A name can't be empty."
             case "location_too_long": return "Keep the place name short."
-            default: return "Something went wrong (\(code))."
+            case "caption_too_long": return "That caption is longer than a photo can carry. Try it shorter."
+            case "too_large": return "That photo is too large to send."
+            case "bad_image": return "That photo couldn't be read. Try taking it again."
+            case "upload_failed": return Self.photoNotPosted
+            case "creator_only": return "Only the person who started the circle can do that."
+            case "use_leave": return "To step away yourself, use Leave circle."
+            case "empty_note": return "A note needs a few words."
+            case "invalid_apple_token": return Self.appleSignInFailed
+            case "apple_auth_unconfigured": return "Signing in isn't available right now. Try again a little later."
+            default: return Self.words(forStatus: status)
             }
+        case .status(let status):
+            return Self.words(forStatus: status)
         case .message(let text):
             return text
+        }
+    }
+
+    /// When a server-side failure costs nothing: the server rolls the whole
+    /// request back, so the day was never spent. Weak or no signal never lands
+    /// here — that capture is kept on the phone and sent later.
+    static let photoNotPosted = "That photo couldn't be posted, and today is still open. Try again in a moment."
+    static let appleSignInFailed = "Sign in with Apple didn't go through. Try again."
+    static let unreachable = "Couldn't reach Stanley. Check your connection and try again."
+
+    /// What a bare status means to the person holding the phone.
+    static func words(forStatus status: Int) -> String {
+        switch status {
+        case 401: return "Your sign-in has expired. Sign out in Settings, then sign back in."
+        case 403: return "That isn't yours to change."
+        case 404: return "That's no longer here."
+        case 410: return "This moment has already faded."
+        case 413: return "That's too large to send."
+        case 400, 422: return "That didn't go through. Check what you wrote and try again."
+        default: return "Stanley is having trouble right now. Try again in a moment."
         }
     }
 }
@@ -188,10 +225,7 @@ final class APIClient {
             if let detail = obj["detail"] as? [String: Any], let code = detail["code"] as? String {
                 return .server(code: code, status: status)
             }
-            if let detail = obj["detail"] as? String {
-                return .message(detail)
-            }
         }
-        return .message("The server couldn't be reached (\(status)).")
+        return .status(status)
     }
 }

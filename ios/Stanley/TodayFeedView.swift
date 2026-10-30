@@ -485,7 +485,9 @@ struct NoteEditor: View {
                 } footer: {
                     Text("Everyone sees this line. It clears at the end of the day — it's a sticky note, not a chat.")
                 }
+                .atmosphereRows()
             }
+            .atmosphereWash()
             .navigationTitle("Today's note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -617,11 +619,13 @@ struct ReturnedCard: View {
 
     private var isRescue: Bool { item.source == "rescue" }
 
-    private var heading: String {
+    /// What the card says above the photo. A near-forgotten one says
+    /// nothing: the photo coming back is the whole message.
+    private var heading: String? {
         switch item.source {
         case "rescue": return "Fading soon"
         case "anniversary": return anniversaryLabel
-        case "near_forgotten": return "You'd forgotten this one"
+        case "near_forgotten": return nil
         default: return "Returned"
         }
     }
@@ -630,7 +634,6 @@ struct ReturnedCard: View {
         switch item.source {
         case "rescue": return rescueSubheading
         case "anniversary": return "From the memories you've held."
-        case "near_forgotten": return "From a while back."
         default: return ""
         }
     }
@@ -654,15 +657,19 @@ struct ReturnedCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(heading).font(.subheadline.weight(.medium))
-                    Text(subheading).font(.caption2).foregroundStyle(.secondary)
+            if let heading {
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(heading).font(.subheadline.weight(.medium))
+                        if !subheading.isEmpty {
+                            Text(subheading).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
                 }
-                Spacer()
             }
             if let urls = item.photo.urls, let url = state.api.absoluteURL(urls.thumb) {
                 Color.clear

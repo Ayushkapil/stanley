@@ -25,12 +25,15 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                circleSection
-                appearanceSection
-                quietSection
-                privacySection
-                dataSection
-                accountSection
+                Group {
+                    circleSection
+                    appearanceSection
+                    quietSection
+                    privacySection
+                    dataSection
+                    accountSection
+                }
+                .atmosphereRows()
             }
             .readableWidth(density)
             .foldAnimated(hSizeClass)
@@ -259,7 +262,9 @@ struct MembersView: View {
                     }
                 }
             }
+            .atmosphereRows()
         }
+        .atmosphereWash()
         .navigationTitle("Members")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(

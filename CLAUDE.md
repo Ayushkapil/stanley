@@ -140,13 +140,23 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   which on a two-display foldable names the primary display rather than the one
   the app is on.
 - **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
-  Rain, picked from a row of named pills in Settings. Each is a `Palette` (`Atmosphere.swift`):
-  an `accent` (tab bar, buttons, bookmarks, edges), an `ink` for labels on an
-  accent fill, an opaque per-mode `floor` (system background with the tone
-  blended in; the root and every screen paint the same one, so overlaps are
-  invisible) and a `card` tint laid over every Today card. The five are meant
-  to be told apart at a glance — golden, copper, icy, sage, fog. Ambient only;
-  never affects function.
+  Rain, picked from a row of named pills in Settings (the chosen one filled
+  with its accent; in dark mode the rest carry a hairline). Each is a `Palette`
+  (`Atmosphere.swift`): an `accent` (tab bar, buttons, bookmarks, edges), an
+  `ink` for labels on an accent fill, an opaque per-mode `floor` (the root and
+  every screen paint the same one, so overlaps are invisible), a `card` under
+  every Today card, and a `row` behind grouped-list rows (`.atmosphereRows()`,
+  on every Form and List). Light mode mixes the tone into the system white.
+  Dark mode is **chosen outright** per atmosphere — black mixed toward a pale
+  tone came out olive and gray-brown — so each gets a saturated accent, a deep
+  floor of its own hue and a card one step up: emerald, candlelight, ember,
+  ice on navy, slate. Ambient only; never affects function.
+- **Errors in Stanley's voice** — no status code, server `detail` string or
+  system description ever reaches the screen. `APIError` maps every server
+  code and bare status to a sentence; `AppState.words(for:)` covers the rest
+  (unreachable, undecodable, Apple sign-in). A failed upload says the day is
+  still open, which is true: the server rolls the whole request back. No
+  signal never fails at all — it queues.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),

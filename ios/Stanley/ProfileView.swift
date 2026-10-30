@@ -238,27 +238,31 @@ struct EditProfileSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Name") {
-                    TextField("Display name", text: $name)
+                Group {
+                    Section("Name") {
+                        TextField("Your name", text: $name)
+                    }
+                    Section {
+                        TextField("username", text: $username)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    } header: {
+                        Text("Username")
+                    } footer: {
+                        Username.footer(for: usernameStatus)
+                    }
+                    Section {
+                        TextEditor(text: $bio)
+                            .frame(minHeight: 140)
+                    } header: {
+                        Text("About you")
+                    } footer: {
+                        Text("As much room as you need. Circle members see your name and these words — never what you've kept.")
+                    }
                 }
-                Section {
-                    TextField("username", text: $username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Username")
-                } footer: {
-                    Username.footer(for: usernameStatus)
-                }
-                Section {
-                    TextEditor(text: $bio)
-                        .frame(minHeight: 140)
-                } header: {
-                    Text("About you")
-                } footer: {
-                    Text("As much room as you need. Circle members see your name and these words — never what you've kept.")
-                }
+                .atmosphereRows()
             }
+            .atmosphereWash()
             .navigationTitle("Edit profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

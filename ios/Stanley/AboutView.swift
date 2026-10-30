@@ -18,6 +18,7 @@ struct AboutView: View {
                     Label("Your account", systemImage: "person")
                 }
             }
+            .atmosphereRows()
         }
         .atmosphereWash()
         .navigationTitle("About")
@@ -151,6 +152,7 @@ struct AboutAccountView: View {
                     Text(memberSince)
                 }
             }
+            .atmosphereRows()
         }
         .atmosphereWash()
         .task { await state.loadProfile() }

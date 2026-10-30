@@ -33,7 +33,20 @@ final class AppState {
     /// or a `.task` was torn down on disappear. Nothing to tell anyone.
     func surface(_ error: Error) {
         guard !AppState.isCancellation(error) else { return }
-        errorMessage = error.localizedDescription
+        errorMessage = AppState.words(for: error)
+    }
+
+    /// Every error in Stanley's voice. The system's own descriptions ("The
+    /// Internet connection appears to be offline.", "The data couldn't be
+    /// read because it isn't in the correct format.") never reach the screen.
+    static func words(for error: Error) -> String {
+        switch error {
+        case let api as APIError: return api.errorDescription ?? APIError.words(forStatus: 0)
+        case is URLError: return APIError.unreachable
+        case is DecodingError: return "Something didn't load right. Try again in a moment."
+        case is ASAuthorizationError: return APIError.appleSignInFailed
+        default: return "Something went wrong. Try again in a moment."
+        }
     }
 
     /// True for every flavour of "the user backed out" we can be handed.
@@ -135,6 +148,9 @@ final class AppState {
         do {
             _ = try await api.send("POST", "/circles/join", json: ["code": trimmed]) as CircleInfo
             await loadCircle()
+        } catch APIError.status(404) {
+            // No circle has this code — mistyped, or rotated since it was shared.
+            errorMessage = "That invite code doesn't look right."
         } catch {
             surface(error)
         }
@@ -244,7 +260,14 @@ final class AppState {
             )
             await refreshToday()
         } catch {
-            guard isOffline(error) else { throw error }
+            guard isOffline(error) else {
+                // The server answered and failed (it rolls the request back,
+                // so the day is untouched). A refusal with a reason keeps it.
+                if let api = error as? APIError, case .status(let status) = api, status >= 500 {
+                    throw APIError.message(APIError.photoNotPosted)
+                }
+                throw error
+            }
             // No signal: keep the moment, claim the day, send it later.
             queue.enqueue(jpeg: jpeg, caption: caption, location: location, tagged: tagged)
             flash = "Saved. It'll go up when you're back online."

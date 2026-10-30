@@ -36,34 +36,38 @@ struct NameGateView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Your name", text: $name)
-                        .textInputAutocapitalization(.words)
-                } header: {
-                    Text("Name")
-                } footer: {
-                    Text("However you'd introduce yourself. Your circle sees this on your photos.")
-                }
-                Section {
-                    TextField("username", text: $username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Username (optional)")
-                } footer: {
-                    Username.footer(for: status)
-                }
-                Section {
-                    Button(action: save) {
-                        if saving {
-                            ProgressView()
-                        } else {
-                            Text("Continue")
-                        }
+                Group {
+                    Section {
+                        TextField("Your name", text: $name)
+                            .textInputAutocapitalization(.words)
+                    } header: {
+                        Text("Name")
+                    } footer: {
+                        Text("However you'd introduce yourself. Your circle sees this on your photos.")
                     }
-                    .disabled(!canContinue)
+                    Section {
+                        TextField("username", text: $username)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    } header: {
+                        Text("Username (optional)")
+                    } footer: {
+                        Username.footer(for: status)
+                    }
+                    Section {
+                        Button(action: save) {
+                            if saving {
+                                ProgressView()
+                            } else {
+                                Text("Continue")
+                            }
+                        }
+                        .disabled(!canContinue)
+                    }
                 }
+                .atmosphereRows()
             }
+            .atmosphereWash()
             .readableWidth(density)
             .foldAnimated(hSizeClass)
             .navigationTitle("What should we call you?")
