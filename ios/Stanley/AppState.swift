@@ -2,6 +2,14 @@ import AuthenticationServices
 import Foundation
 import Observation
 
+/// Everything the screens show. Main-actor isolated: every observed
+/// property is written on the main thread, where SwiftUI reads it. The
+/// network calls still run off it (`APIClient.send` is its own `async`), so
+/// requests and JSON decoding never block the UI. Only the assignments
+/// come back here. Without this, Swift 5 ran these `async` methods on a
+/// background executor, and `feedItems` and the rest were written off the
+/// main thread while SwiftUI read them on it: a data race.
+@MainActor
 @Observable
 final class AppState {
     let api = APIClient()
@@ -40,7 +48,7 @@ final class AppState {
     /// Every error in Stanley's voice. The system's own descriptions ("The
     /// Internet connection appears to be offline.", "The data couldn't be
     /// read because it isn't in the correct format.") never reach the screen.
-    static func words(for error: Error) -> String {
+    nonisolated static func words(for error: Error) -> String {
         switch error {
         case let api as APIError: return api.errorDescription ?? APIError.words(forStatus: 0)
         case is URLError: return APIError.unreachable
@@ -51,7 +59,7 @@ final class AppState {
     }
 
     /// True for every flavour of "the user backed out" we can be handed.
-    static func isCancellation(_ error: Error) -> Bool {
+    nonisolated static func isCancellation(_ error: Error) -> Bool {
         if error is CancellationError { return true }
         if let urlError = error as? URLError, urlError.code == .cancelled { return true }
         if let authError = error as? ASAuthorizationError, authError.code == .canceled { return true }

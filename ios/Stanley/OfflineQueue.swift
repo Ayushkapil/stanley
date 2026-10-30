@@ -30,9 +30,13 @@ struct PendingCapture: Codable, Equatable, Identifiable {
 /// that only holds when you have bars isn't a law.
 ///
 /// At most one capture is ever pending, which falls out of the law itself.
+///
+/// Main-actor isolated like `AppState`, which owns it and is the only thing
+/// that changes it; the pending card reads it on the main thread.
+@MainActor
 @Observable
 final class OfflineQueue {
-    static let directory: URL = {
+    nonisolated static let directory: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("PendingCaptures", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum APIError: LocalizedError {
     /// The server said no, and said why.
@@ -66,17 +67,24 @@ enum APIError: LocalizedError {
 
 struct Empty: Codable {}
 
-final class APIClient {
+/// Safe to call from any thread. `AppState` sets the token on the main actor
+/// while requests read it from whatever thread they run on, so the token
+/// sits behind a lock. The base URL never changes after launch.
+final class APIClient: Sendable {
     let baseURL: URL
+    private let storedToken: OSAllocatedUnfairLock<String?>
+
     var token: String? {
-        didSet {
-            if let token { KeychainToken.save(token) } else { KeychainToken.delete() }
+        get { storedToken.withLock { $0 } }
+        set {
+            storedToken.withLock { $0 = newValue }
+            if let newValue { KeychainToken.save(newValue) } else { KeychainToken.delete() }
         }
     }
 
     init() {
         self.baseURL = APIClient.resolveBaseURL()
-        self.token = KeychainToken.load()
+        self.storedToken = OSAllocatedUnfairLock(initialState: KeychainToken.load())
     }
 
     /// Base URL precedence: STANLEY_API env (debug runs) → Info.plist

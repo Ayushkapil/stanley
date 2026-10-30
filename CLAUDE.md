@@ -78,7 +78,14 @@ The authoritative source for the physics constants is
   iss/aud/exp, trusts `sub`). Stanley issues its own HS256 JWT (30-day). A dev-only
   `/auth/dev` exists and returns 404 unless `STANLEY_DEV_AUTH=1`. The server
   refuses to boot without `STANLEY_SECRET_KEY` when dev auth is off.
-- **Client:** SwiftUI, iOS 17+, XcodeGen project. JWT in the Keychain. API base URL
+- **Client:** SwiftUI, iOS 17+, XcodeGen project. JWT in the Keychain.
+  `AppState` and `OfflineQueue` are `@MainActor`, so every observed
+  property is written on the main thread, where SwiftUI reads it. In Swift
+  5 mode their `async` methods used to run on a background executor, which
+  was a data race. Network calls and JSON decoding still run off the main
+  thread inside `APIClient`. `APIClient` is `Sendable`: the base URL is a
+  `let` and the token sits behind an `OSAllocatedUnfairLock`, because it is
+  set on the main actor and read by every request. API base URL
   from `STANLEY_API_BASE` (Info.plist) / env, localhost in debug. Sentry captures
   crashes only, and only when `STANLEY_SENTRY_DSN` is set (never in dev builds);
   no user is attached, so crash data stays anonymous — see `PRIVACY_LABEL.md`.

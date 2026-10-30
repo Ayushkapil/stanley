@@ -9,9 +9,11 @@ struct AvatarEditor: View {
     @State private var toCrop: UIImage?
 
     var body: some View {
+        // Read here, on the main actor; the picker's label closure isn't.
+        let profile = state.profile
         PhotosPicker(selection: $picked, matching: .images, photoLibrary: .shared()) {
             ZStack(alignment: .bottomTrailing) {
-                AvatarView(url: state.profile?.avatarUrl, name: state.profile?.displayName, size: 84)
+                AvatarView(url: profile?.avatarUrl, name: profile?.displayName, size: 84)
                 Image(systemName: "pencil.circle.fill")
                     .font(.title3)
                     .foregroundStyle(.white, Color.accentColor)
