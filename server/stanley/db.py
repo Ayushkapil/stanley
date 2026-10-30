@@ -79,7 +79,7 @@ def make_sessionmaker(engine):
 # tables, so existing pilot databases get these via ALTER on startup.
 _LATER_COLUMNS = {
     "users": {"username": "VARCHAR(30)", "bio": "TEXT"},
-    "photos": {"location": "VARCHAR(120)"},
+    "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]

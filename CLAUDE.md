@@ -32,8 +32,8 @@ guarded by tests; treat a change to any of them as a spec change.
   DB, the API, or any screen. People are shown as **faces, never numbers**. Owner-
   only "who held / who liked" lists show avatars, never a tally. (Invariant **A2**:
   hold/like identities are owner-only; the photo payload has no field for them.)
-- **The like is on Stanley's physics, not Instagram's.** Double-tap, a cosmetic
-  heart, owner-only faces, decays *with the photo* (gone forever when it leaves
+- **The like is on Stanley's physics, not Instagram's.** Double-tap (or a tap on
+  the heart, since build 12), a cosmetic heart, owner-only faces, decays *with the photo* (gone forever when it leaves
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
@@ -82,7 +82,31 @@ The authoritative source for the physics constants is
 Backend and iOS unless noted. All guarded by the test suite where testable.
 
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
-  orphan blobs), caption ≤2000.
+  orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
+  under it, then Post; nothing uploads until Post.
+- **Capture filters** — four looks, plus None (the default), as one row of
+  `ChoicePill`s under the preview: **Mono** (a well-printed black and white),
+  **Grain** (warm film: less saturation, lifted blacks, amber in the shadows,
+  fine grain), **Dusk** (golden hour, deeper shadows, a soft vignette), and
+  **Clean** (a held-back gray-world white balance, Apple's auto-enhance, a
+  touch of clarity). One tap, no sliders, no intensity. `PhotoFilters.swift` is
+  plain CoreImage with no UIKit, so a macOS harness can run it against sample
+  photos. Every distance (grain, vignette, clarity) comes from the photo's own
+  size, and Clean measures a 1080 copy, so the 1080 preview (the size Today
+  shows) matches the full-size upload once the server scales it down. Grain,
+  the warm cast and the vignette work on gamma-encoded values, because in
+  CoreImage's linear light they land far too hard in the shadows. Two traps
+  are documented in the code. `CIRandomGenerator`'s alpha is random, so the
+  noise is made opaque before any filter reads it; otherwise it comes out as
+  white specks. And None posts the camera's own JPEG untouched. The look is
+  baked into the pixels on Post, so it can't change after posting. The server keeps only
+  the name: `photos.filter` (`mono`/`grain`/`dusk`/`clean` or NULL), sent as
+  the `filter` form field. An unknown name is dropped rather than refused,
+  because a label must never cost someone their day. The name is in the photo
+  payload and the export, and it's purged with the caption. Nothing renders it
+  yet. On the simulator, a `SampleCapture.jpg` or `.heic` in the app's
+  Documents folder stands in for the camera, so the filters can be tried on a
+  real photo. The simulators' own `DCIM/100APPLE/IMG_0006.HEIC` works.
 - **Today feed** — reverse-chronological, ambient fade rendered client-side from
   `decay_progress` (smoothstep, dark-mode-aware floor).
 - **Decay engine** — server-authoritative state machine, idempotent sweep,
@@ -91,7 +115,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   faces, full-saturation archive, tombstones, "Held" tab + per-friend threads.
 - **Likes** — double-tap heart, owner-only faces, decays with the photo. The
   heart bottom-right of each photo is *your own* state only (filled if you
-  liked it), never a signal to anyone else and never a number.
+  liked it), never a signal to anyone else and never a number. Since build 12
+  it is also a button, because real users reached for it, and a tap does what
+  a double-tap does.
+- **Gesture icon size** — the heart and the bookmark share one size,
+  `GestureIcon`: a 22pt glyph (about 24pt tall, roughly 40% up from build 11)
+  inside a 44pt target, through `@ScaledMetric` so it follows Dynamic Type.
+  It applies on Today cards, shared-moment tiles, the story sheet, and
+  Returned's "Keep this". The heart's whole 44pt square takes a tap. The
+  caption-row bookmark gets its 44pt target from a clear background centered
+  on the glyph, so the row keeps its height.
 - **Story-comments** — flat, chronological, part of the artifact. Today shows
   the first one on the card; the rest sit behind "More stories" (never "2
   more" — a tally is still a count) which opens the photo with the thread.
@@ -273,14 +306,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**197 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**212 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming, the
 World Today cache (fetch + store, last-good-set on failure, stale and no-key
-silence, normalization, key-in-header). Untested by nature: real-device SIWA,
+silence, normalization, key-in-header), capture filters (the name kept, an
+unknown one dropped without refusing the photo, purged on delete, exported).
+The filter looks themselves are checked in a macOS harness, not in pytest.
+Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
 
 ## Key file locations
@@ -305,11 +341,12 @@ live APNs, concurrency under real load.
 - Screens: `WelcomeView.swift` (sign-in), `NameGateView.swift` (name/username,
   shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
-  who-was-there), `WorldTodayView.swift` (the World tab, Safari),
+  who-was-there, preview + filter pills), `PhotoFilters.swift` (the four
+  looks, `FilterRenderer`), `WorldTodayView.swift` (the World tab, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),
-  `AvatarPicker.swift`, `Atmosphere.swift`, `Prompts.swift`, `AppLock.swift`,
+  `AvatarPicker.swift`, `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
 - Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
 

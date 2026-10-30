@@ -61,7 +61,7 @@ class Api:
         token = issue_token(app.state.settings.secret_key, self.id, app.state.clock.now())
         return {"Authorization": f"Bearer {token}"}
 
-    def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None, tagged: list[str] | None = None):
+    def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None, tagged: list[str] | None = None, filter: str | None = None):
         data: dict = {"tz": tz}
         if caption is not None:
             data["caption"] = caption
@@ -71,6 +71,8 @@ class Api:
             data["taken_at_claim"] = claim
         if tagged:
             data["tagged"] = tagged  # list → repeated form fields
+        if filter is not None:
+            data["filter"] = filter
         files = {"file": ("photo.jpg", image or jpeg_bytes(), "image/jpeg")}
         return self.client.post("/photos", files=files, data=data, headers=self.h)
 

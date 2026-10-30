@@ -12,6 +12,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 CAPTION_MAX = 2000  # I4: cap caption like comments (unbounded TEXT otherwise)
+# The four capture filters. The client bakes the look into the image; the
+# server keeps only the name. There is no fifth, and no intensity.
+FILTERS = frozenset({"mono", "grain", "dusk", "clean"})
 
 from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, owner_hash_for, scrub
@@ -80,6 +83,7 @@ def capture(
     location: str | None = Form(default=None),
     tagged: list[str] = Form(default=[]),
     taken_at_claim: str | None = Form(default=None),
+    filter_name: str | None = Form(default=None, alias="filter"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
@@ -100,6 +104,11 @@ def capture(
     # I4: caption is bounded like every other text field.
     if caption is not None and len(caption) > CAPTION_MAX:
         raise HTTPException(422, {"code": "caption_too_long"})
+
+    # A label for a look that's already in the pixels. An unknown name is
+    # dropped, not refused: a label must never cost someone their day.
+    filter_name = (filter_name or "").strip().lower()
+    filter_name = filter_name if filter_name in FILTERS else None
 
     now = clock.now()
     taken_at = physics.reconcile_taken_at(now, _parse_claim(taken_at_claim))
@@ -158,6 +167,7 @@ def capture(
         local_date=physics.local_capture_date(taken_at, tz),
         caption=caption,
         location=location,
+        filter=filter_name,
         state=physics.LIVE,
         state_deadline=physics.state_deadline(physics.LIVE, taken_at),
         created_at=now,

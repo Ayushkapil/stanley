@@ -237,6 +237,7 @@ def export_memories(
                 "date": photo.taken_at.date().isoformat(),
                 "caption": photo.caption,
                 "location": photo.location,
+                "filter": photo.filter,
                 "note": anchor.note,
                 "from": user_brief(db, photo.owner_id)["display_name"],
             }

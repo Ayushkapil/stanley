@@ -7,6 +7,10 @@ struct PendingCapture: Codable, Equatable, Identifiable {
     var caption: String?
     var location: String?
     var tagged: [String]
+    /// The capture filter's name, if one was chosen. The look itself is
+    /// already in the saved JPEG. Missing from captures queued by builds
+    /// before filters existed, which decode as nil.
+    var filter: String?
     var capturedAt: Date
     /// The timezone the shutter closed in — the day it belongs to.
     var timeZone: String
@@ -52,12 +56,15 @@ final class OfflineQueue {
     var isHoldingTheDay: Bool { pending != nil }
 
     @discardableResult
-    func enqueue(jpeg: Data, caption: String?, location: String?, tagged: [String]) -> PendingCapture {
+    func enqueue(
+        jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
+    ) -> PendingCapture {
         let item = PendingCapture(
             id: UUID().uuidString,
             caption: caption?.isEmpty == true ? nil : caption,
             location: location?.isEmpty == true ? nil : location,
             tagged: tagged,
+            filter: filter,
             capturedAt: Date(),
             timeZone: TimeZone.current.identifier,
             rejection: nil

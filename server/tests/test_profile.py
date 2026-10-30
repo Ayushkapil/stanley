@@ -170,6 +170,7 @@ def test_ensure_schema_adds_late_columns(app):
         conn.execute(text("ALTER TABLE users DROP COLUMN username"))
         conn.execute(text("ALTER TABLE users DROP COLUMN bio"))
         conn.execute(text("ALTER TABLE photos DROP COLUMN location"))
+        conn.execute(text("ALTER TABLE photos DROP COLUMN filter"))
     added = ensure_schema(engine)
-    assert set(added) == {"users.username", "users.bio", "photos.location"}
+    assert set(added) == {"users.username", "users.bio", "photos.location", "photos.filter"}
     assert ensure_schema(engine) == []  # idempotent

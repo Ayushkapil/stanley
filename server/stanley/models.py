@@ -84,6 +84,10 @@ class Photo(Base):
     # A human-written place label ("Dunn Meadow"), never coordinates. EXIF GPS
     # is stripped at ingest (§9); location is memory detail, not device data.
     location: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # The name of the filter chosen at capture ("mono", "grain", "dusk",
+    # "clean"), or None. A label only: the look is already baked into the
+    # pixels the client uploaded, so nothing here ever re-renders the photo.
+    filter: Mapped[str | None] = mapped_column(String(12), nullable=True)
     state: Mapped[str] = mapped_column(String(12), default=LIVE)
     state_deadline: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     last_light_notified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

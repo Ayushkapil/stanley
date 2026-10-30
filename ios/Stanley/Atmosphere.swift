@@ -235,7 +235,6 @@ extension View {
 /// is on is never the one hidden.
 struct AtmosphereChips: View {
     @Binding var selection: String
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -268,12 +267,30 @@ struct AtmosphereChips: View {
     }
 
     private func pill(_ atmosphere: Atmosphere) -> some View {
-        let palette = atmosphere.palette
-        let on = selection == atmosphere.rawValue
-        return Button {
+        ChoicePill(
+            label: atmosphere.label,
+            on: selection == atmosphere.rawValue,
+            palette: atmosphere.palette
+        ) {
             selection = atmosphere.rawValue
-        } label: {
-            Text(atmosphere.label)
+        }
+    }
+}
+
+/// One named pill in a row of choices. The one that is on wears the
+/// palette's accent with its ink for the word; the others are quiet
+/// capsules. Shared by the atmosphere picker and the capture filters, so a
+/// row of choices looks the same wherever it appears.
+struct ChoicePill: View {
+    let label: String
+    let on: Bool
+    let palette: Atmosphere.Palette
+    let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
                 .font(.footnote.weight(.medium))
                 .lineLimit(1)
                 .foregroundStyle(on ? palette.ink : Color.primary)
@@ -293,7 +310,7 @@ struct AtmosphereChips: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(atmosphere.label)
+        .accessibilityLabel(label)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 }

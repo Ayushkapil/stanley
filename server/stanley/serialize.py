@@ -192,6 +192,9 @@ def photo_payload(
         # A typed place label, part of the memory like the caption. Never
         # coordinates, never a map link (§9: EXIF GPS is stripped at ingest).
         "location": photo.location,
+        # Which capture filter, by name, or None. Display only: the look is
+        # baked into the image itself.
+        "filter": photo.filter,
         "state": photo.state,
         "decay_progress": physics.decay_progress(photo.taken_at, now),
         # §13: clients interpolate the fade between syncs from this deadline.

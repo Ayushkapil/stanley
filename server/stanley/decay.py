@@ -106,6 +106,7 @@ def scrub(
     photo.blob_key = photo.deriv_key = photo.thumb_key = None
     photo.caption = None
     photo.location = None
+    photo.filter = None
     # Likes never outlive the photo they belonged to. A delete before expiry
     # takes its likes with it, just as expiry would have.
     session.execute(delete(Like).where(Like.photo_id == photo.id))

@@ -30,6 +30,9 @@ struct Photo: Codable, Identifiable, Hashable {
     let takenAt: Date
     let caption: String?
     let location: String?
+    /// The capture filter's name, or nil. Display only: the look is baked
+    /// into the image, and it can't be changed after posting.
+    let filter: String?
     let state: String
     let decayProgress: Double
     let stateDeadline: Date?

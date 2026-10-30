@@ -101,6 +101,15 @@ struct ViewedMember: Identifiable {
     let id: String
 }
 
+/// The heart and the bookmark, at a size a thumb finds on a real device: a
+/// 22pt glyph (about 24pt tall) inside a 44pt target, Apple's minimum. One
+/// size for both, everywhere they appear, so they never drift apart. Views
+/// read the glyph through `@ScaledMetric`, so it grows with Dynamic Type.
+enum GestureIcon {
+    static let glyph: CGFloat = 22
+    static let target: CGFloat = 44
+}
+
 /// The image with its two gestures: double-tap to like (ephemeral, a heart),
 /// press-and-hold to hold (permanent, a bookmark). Color deepens under the
 /// thumb while held, with a soft settle on commit — never applause. Reused by
@@ -115,6 +124,7 @@ struct PhotoImageView: View {
     @State private var holdProgress: Double = 0
     @State private var settleScale: CGFloat = 1
     @State private var likeGlow: Double = 0
+    @ScaledMetric(relativeTo: .body) private var glyph = GestureIcon.glyph
 
     private var fade: Double {
         let fadingStart = 1.0 / 3.0
@@ -141,17 +151,23 @@ struct PhotoImageView: View {
                         .allowsHitTesting(false)
                 )
                 .overlay(alignment: .topLeading) {
-                    if photo.anchoredByMe { marker("bookmark.fill", .accentColor) }
+                    if photo.anchoredByMe {
+                        marker("bookmark.fill", .accentColor)
+                            .allowsHitTesting(false)
+                    }
                 }
                 .overlay(alignment: .bottomTrailing) {
                     // Personal state, never a public signal: this says "you
-                    // liked this", only to you, and never how many did. Not a
-                    // button either — the like is still the double-tap.
-                    marker(photo.likedByMe ? "heart.fill" : "heart",
-                           photo.likedByMe ? .pink : .white)
-                        .opacity(photo.likedByMe ? 1 : 0.8)
-                        .allowsHitTesting(false)
-                        .accessibilityLabel(photo.likedByMe ? "You liked this" : "You haven't liked this")
+                    // liked this", only to you, and never how many did. It's
+                    // also a button, because people reach for it: a tap does
+                    // what a double-tap on the photo does.
+                    Button { like() } label: {
+                        marker(photo.likedByMe ? "heart.fill" : "heart",
+                               photo.likedByMe ? .pink : .white)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(photo.likedByMe ? "Unlike" : "Like")
+                    .accessibilityValue(photo.likedByMe ? "You liked this" : "")
                 }
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
                 .scaleEffect(settleScale)
@@ -198,23 +214,27 @@ struct PhotoImageView: View {
             .clipped()
     }
 
-    /// A gesture marker on the photo: small and quiet, but legible over a
-    /// white sky and a black room alike. The material disc carries a soft
-    /// shadow and the glyph its own, so neither dissolves into the picture.
-    /// It earns its contrast rather than its size — this is a state, never a
-    /// button.
+    /// A gesture marker on the photo, legible over a white sky and a black
+    /// room alike. The material disc carries a soft shadow and the glyph its
+    /// own, so neither dissolves into the picture. The glyph is the shared
+    /// gesture size, and on the heart the whole 44pt square around the disc
+    /// takes the tap. The outline is drawn a weight heavier than the default
+    /// so an empty heart reads as clearly as a full one.
     private func marker(_ systemName: String, _ tint: Color) -> some View {
         Image(systemName: systemName)
-            .font(.footnote)
+            .font(.system(size: glyph, weight: .semibold))
             .foregroundStyle(tint)
-            .shadow(color: .black.opacity(0.28), radius: 2)
+            .contentTransition(.symbolEffect(.replace))
+            .shadow(color: .black.opacity(0.3), radius: 2)
             .padding(6)
             .background {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .shadow(color: .black.opacity(0.22), radius: 4, y: 1)
             }
-            .padding(8)
+            .frame(minWidth: GestureIcon.target, minHeight: GestureIcon.target)
+            .contentShape(Rectangle())
+            .padding(4)
     }
 
     private func hold() {
@@ -241,6 +261,7 @@ struct PhotoCard: View {
     @State private var viewedMember: ViewedMember?
     @State private var showFaces = false
     @State private var showStories = false
+    @ScaledMetric(relativeTo: .body) private var glyph = GestureIcon.glyph
 
     private var isMine: Bool { state.myId != nil && state.myId == photo.owner.id }
 
@@ -332,7 +353,17 @@ struct PhotoCard: View {
             // Held: the keep gesture. Tap is the accessible path; press-and-hold
             // the photo is the primary one. No counts, ever (A2).
             Button { Task { await state.toggleAnchor(photo) } } label: {
+                // The 44pt target is centered on the glyph behind it, so
+                // the row keeps its height and the glyph still lines up
+                // with the caption and the card's edge.
                 Image(systemName: photo.anchoredByMe ? "bookmark.fill" : "bookmark")
+                    .font(.system(size: glyph, weight: .medium))
+                    .contentTransition(.symbolEffect(.replace))
+                    .background {
+                        Color.clear
+                            .frame(width: GestureIcon.target, height: GestureIcon.target)
+                            .contentShape(Rectangle())
+                    }
             }
             .buttonStyle(.plain)
             .foregroundStyle(photo.anchoredByMe ? Color.accentColor : Color.secondary)
@@ -622,6 +653,7 @@ struct ReturnedCard: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let item: ReturnedItem
+    @ScaledMetric(relativeTo: .body) private var glyph = GestureIcon.glyph
 
     private var isRescue: Bool { item.source == "rescue" }
 
@@ -697,9 +729,14 @@ struct ReturnedCard: View {
                 Button {
                     Task { await state.keepReturned(photoId: item.photo.id) }
                 } label: {
-                    Label("Keep this", systemImage: "bookmark")
-                        .frame(maxWidth: .infinity)
-                        .accentInk()
+                    Label {
+                        Text("Keep this")
+                    } icon: {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: glyph, weight: .medium))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accentInk()
                 }
                 .buttonStyle(.borderedProminent)
             }

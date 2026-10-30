@@ -262,7 +262,9 @@ final class AppState {
 
     // MARK: gestures
 
-    func capture(jpeg: Data, caption: String?, location: String?, tagged: [String]) async throws {
+    func capture(
+        jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
+    ) async throws {
         // The day is already spoken for by something waiting to go up. The
         // law holds offline too, so this is refused here, not at the server.
         if queue.isHoldingTheDay {
@@ -270,7 +272,7 @@ final class AppState {
         }
         do {
             _ = try await api.uploadPhoto(
-                jpeg: jpeg, caption: caption, location: location, tagged: tagged
+                jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter
             )
             await refreshToday()
         } catch {
@@ -283,7 +285,7 @@ final class AppState {
                 throw error
             }
             // No signal: keep the moment, claim the day, send it later.
-            queue.enqueue(jpeg: jpeg, caption: caption, location: location, tagged: tagged)
+            queue.enqueue(jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter)
             flash = "Saved. It'll go up when you're back online."
         }
     }
@@ -294,7 +296,8 @@ final class AppState {
         guard let item = queue.pending, item.rejection == nil, let jpeg = queue.jpeg() else { return }
         do {
             _ = try await api.uploadPhoto(
-                jpeg: jpeg, caption: item.caption, location: item.location, tagged: item.tagged
+                jpeg: jpeg, caption: item.caption, location: item.location, tagged: item.tagged,
+                filter: item.filter
             )
             queue.clear()
             flash = "Your photo went up."
