@@ -157,9 +157,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (unreachable, undecodable, Apple sign-in). A failed upload says the day is
   still open, which is true: the server rolls the whole request back. No
   signal never fails at all — it queues.
-- **The World Today** — twelve national headlines in a section at the very
-  foot of Today, below every photo and the note: a morning paper on the
-  counter, not a feed. The server fetches NewsAPI top-headlines
+- **The World Today** — twelve national headlines behind one quiet summary
+  card at the very foot of Today, below every photo and the note: a morning
+  paper on the counter, not a feed. The card shows a header, "What's
+  happening nearby", the first headline on one line, and "See all 12 stories
+  ›". Tapping it opens a sheet with all of them ("12 stories, refreshed every
+  half hour"), closed with Done. There is no fifth tab. The server fetches NewsAPI top-headlines
   (`country=us`) every 30 minutes on its own background loop. It keeps the
   last good set in a one-row `news_cache` table. Clients only ever read
   `GET /news/today` (JWT only, no circle needed), so nobody but the server
@@ -171,10 +174,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   photos above them are still reverse-chronological and nothing else. A
   failed fetch keeps the last good set. A set older than 6h is not served,
   rather than showing yesterday's world. With no `NEWS_API_KEY` the endpoint
-  returns `[]`, and the client draws no section, no empty state and no error.
-  Cards are quieter than photo cards: smaller type, and `cardSurface(muted:)`
-  at half weight. A tap opens an `SFSafariViewController` sheet. There are no
-  likes, saves, shares, comments or notifications. News never appears in
+  returns `[]`, and the client draws no card, no empty state and no error.
+  The card and the sheet both use the real count, never a hard-coded 12. That
+  number is the size of the edition, not a tally of anyone's activity. The
+  summary card is quieter than photo cards: smaller type, and
+  `cardSurface(muted:)` at half weight. A story opens in
+  `SFSafariViewController`, which UIKit presents over whatever is on top
+  (`StoryReader`). As a SwiftUI sheet, Safari's own Close forced a second
+  dismissal, and that second dismissal also closed the stories sheet. There
+  are no likes, saves, shares, comments or notifications. News never appears in
   Held, Returned, the export or any memory surface. It loads when Today
   appears and on pull, never after a like or a story, so headlines don't
   shift under someone reading them. The pull runs its pass as a separate
@@ -299,7 +307,7 @@ live APNs, concurrency under real load.
 - Screens: `WelcomeView.swift` (sign-in), `NameGateView.swift` (name/username,
   shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
-  who-was-there), `WorldTodayView.swift` (news section, cards, Safari sheet),
+  who-was-there), `WorldTodayView.swift` (summary card, stories sheet, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),

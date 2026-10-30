@@ -61,10 +61,11 @@ struct TodayFeedView: View {
                             PhotoCard(photo: photo)
                         }
                     }
-                    // The World Today goes at the very foot, below every photo
-                    // and the note. If there's nothing to show, it's absent.
+                    // The World Today: one quiet card at the very foot, below
+                    // every photo and the note. The stories open in a sheet.
+                    // If there's nothing to show, it's absent.
                     if !state.news.isEmpty {
-                        WorldTodaySection(articles: state.news)
+                        WorldTodayCard(articles: state.news)
                             .id("world")
                     }
                 }
