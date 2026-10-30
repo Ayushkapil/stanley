@@ -62,7 +62,13 @@ The authoritative source for the physics constants is
 - **Database:** SQLite with a per-connection PRAGMA listener: **WAL**,
   `busy_timeout=5000`, **`foreign_keys=ON`**. SQLite is the correct DB at this
   scale — do not migrate away. A tiny forward-only migration (`ensure_schema`) adds
-  late columns/indexes and bumps legacy circle caps on startup.
+  late columns/indexes and bumps legacy circle caps on startup. Every route
+  takes its session as `Depends(get_db, scope="function")`, so the commit
+  happens before the response is sent. Under FastAPI's default scope it ran
+  after the response and after any background task. A new photo then stayed
+  uncommitted while its full-size original encoded, so the app's refresh
+  right after posting didn't see it. A test fails if any route goes back to
+  the default.
 - **Blobs:** local disk by default (`BlobStore`), served via short-TTL (15 min)
   **HMAC-signed URLs** — no public URLs ever. An `R2BlobStore` (S3-compatible,
   presigned URLs) is wired behind `BLOB_BACKEND=r2`; switching is config-only.
@@ -306,7 +312,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**212 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**214 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -314,7 +320,9 @@ moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming, the
 World Today cache (fetch + store, last-good-set on failure, stale and no-key
 silence, normalization, key-in-header), capture filters (the name kept, an
-unknown one dropped without refusing the photo, purged on delete, exported).
+unknown one dropped without refusing the photo, purged on delete, exported),
+and commit-before-response (capture commits before the background original
+store; every route's session is function-scoped).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.

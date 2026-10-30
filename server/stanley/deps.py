@@ -33,6 +33,17 @@ def get_apple_verifier(request: Request):
 
 
 def get_db(request: Request):
+    """One session per request, committed when the endpoint returns.
+
+    Every route takes it as `Depends(get_db, scope="function")`. That scope
+    runs this teardown, and so the commit, before the response is sent.
+    Under the default scope it ran after the response and after any
+    background task. Capture defers the full-size original's encode to a
+    background task, so the new photo stayed uncommitted for the second that
+    took, and the app's own Today refresh, sent the moment the POST
+    answered, read a feed without it. It also meant a 2xx could go out
+    before the write was durable. `test_every_route_commits_before_it_answers`
+    keeps any route from going back to the default."""
     session: Session = request.app.state.sessionmaker()
     try:
         yield session
@@ -46,7 +57,7 @@ def get_db(request: Request):
 
 def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     settings=Depends(get_settings),
     clock=Depends(get_clock),
 ) -> User:

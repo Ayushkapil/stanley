@@ -23,7 +23,7 @@ class BlockBody(BaseModel):
 @router.post("/reports", status_code=201)
 def report(
     body: ReportBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -55,7 +55,7 @@ def report(
 @router.post("/blocks", status_code=204)
 def block(
     body: BlockBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -74,7 +74,7 @@ def block(
 @router.delete("/blocks/{user_id}", status_code=204)
 def unblock(
     user_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     existing = db.get(Block, (user.id, user_id))

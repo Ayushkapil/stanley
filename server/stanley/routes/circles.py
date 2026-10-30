@@ -74,7 +74,7 @@ def _ensure_not_in_a_circle(db: Session, user: User) -> None:
 @router.post("/circles", status_code=201)
 def create_circle(
     body: CircleCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -92,7 +92,7 @@ def create_circle(
 @router.post("/circles/join", status_code=201)
 def join_by_code(
     body: JoinCodeBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -119,7 +119,7 @@ def join_by_code(
 def join_circle(
     circle_id: str,
     body: JoinBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -140,7 +140,7 @@ def join_circle(
 
 @router.get("/circles/mine")
 def my_circle(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -158,7 +158,7 @@ def my_circle(
 @router.post("/circles/{circle_id}/rotate_invite")
 def rotate_invite(
     circle_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Creator-only. Mints a fresh token; the old code stops joining at once."""
@@ -173,7 +173,7 @@ def rotate_invite(
 def remove_member(
     circle_id: str,
     user_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Creator-only. Removes another member's place in the circle. Their own
@@ -192,7 +192,7 @@ def remove_member(
 @router.post("/circles/{circle_id}/leave", status_code=204)
 def leave_circle(
     circle_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Any member may leave. If the creator leaves, the role passes to the
@@ -219,7 +219,7 @@ def leave_circle(
 def set_note(
     circle_id: str,
     body: NoteBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -257,7 +257,7 @@ def set_note(
 @router.get("/members/{user_id}")
 def member_profile(
     user_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),

@@ -66,7 +66,7 @@ def me(
 @router.post("/me/avatar")
 def upload_avatar(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -90,7 +90,7 @@ def upload_avatar(
 @router.patch("/me/profile")
 def patch_profile(
     body: ProfilePatch,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     if body.display_name is not None:
@@ -116,7 +116,7 @@ def patch_profile(
 @router.get("/me/username_check")
 def username_check(
     u: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Real-time availability for the edit-profile sheet. Mirrors the PATCH
@@ -134,7 +134,7 @@ def username_check(
 @router.patch("/me/settings")
 def patch_settings(
     body: SettingsPatch,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     if body.last_light_notice_enabled is not None:
@@ -144,7 +144,7 @@ def patch_settings(
 
 @router.get("/me/anchored")
 def my_memories(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -178,7 +178,7 @@ def my_memories(
 
 @router.get("/me/milestones")
 def my_milestones(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -198,7 +198,7 @@ def my_milestones(
 @router.delete("/me/milestones/{milestone_id}", status_code=204)
 def dismiss_milestone(
     milestone_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Dismissed milestones don't reappear (Part 4)."""
@@ -209,7 +209,7 @@ def dismiss_milestone(
 
 @router.get("/me/export")
 def export_memories(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     storage=Depends(get_storage),
@@ -260,7 +260,7 @@ def export_memories(
 
 @router.delete("/me", status_code=204)
 def delete_account(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     storage=Depends(get_storage),

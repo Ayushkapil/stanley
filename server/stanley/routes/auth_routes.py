@@ -25,7 +25,7 @@ class AppleAuthBody(BaseModel):
 
 
 @router.post("/auth/dev", status_code=201)
-def dev_auth(body: DevAuthBody, db: Session = Depends(get_db), settings=Depends(get_settings), clock=Depends(get_clock)):
+def dev_auth(body: DevAuthBody, db: Session = Depends(get_db, scope="function"), settings=Depends(get_settings), clock=Depends(get_clock)):
     """Pilot-stage auth. Returns 404 unless STANLEY_DEV_AUTH=1 — in a real
     deployment this endpoint does not exist."""
     if not settings.dev_auth:
@@ -53,7 +53,7 @@ def dev_auth(body: DevAuthBody, db: Session = Depends(get_db), settings=Depends(
 @router.post("/auth/apple", status_code=201)
 def apple_auth(
     body: AppleAuthBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     settings=Depends(get_settings),
     clock=Depends(get_clock),
     verifier=Depends(get_apple_verifier),

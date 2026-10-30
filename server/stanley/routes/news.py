@@ -12,7 +12,7 @@ router = APIRouter(tags=["news"])
 
 @router.get("/news/today")
 def world_today(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),

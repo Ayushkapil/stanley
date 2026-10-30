@@ -25,7 +25,7 @@ router = APIRouter(tags=["feed"])
 
 @router.get("/feed/today")
 def today(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -98,7 +98,7 @@ def today(
 @router.get("/feed/returned")
 def returned(
     tz: str | None = Query(default=None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -112,7 +112,7 @@ def returned(
 @router.post("/feed/returned/dismiss", status_code=204)
 def dismiss_returned(
     tz: str | None = Query(default=None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):

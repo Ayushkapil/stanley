@@ -26,7 +26,7 @@ def _related_photo(db: Session, user: User, photo_id: str) -> Photo:
 @router.post("/memories/{photo_id}/rest", status_code=201)
 def rest(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -42,7 +42,7 @@ def rest(
 @router.delete("/memories/{photo_id}/rest", status_code=204)
 def unrest(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """'Let it return' — undo a rest from the Rested view (§14)."""
@@ -53,7 +53,7 @@ def unrest(
 
 @router.get("/memories/rested")
 def rested(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),

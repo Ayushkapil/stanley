@@ -84,7 +84,7 @@ def capture(
     tagged: list[str] = Form(default=[]),
     taken_at_claim: str | None = Form(default=None),
     filter_name: str | None = Form(default=None, alias="filter"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     storage=Depends(get_storage),
@@ -224,7 +224,7 @@ def capture(
 @router.delete("/photos/{photo_id}", status_code=204)
 def delete_photo(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     storage=Depends(get_storage),
@@ -265,7 +265,7 @@ def _require_public(photo: Photo) -> None:
 def anchor(
     photo_id: str,
     body: AnchorBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -283,7 +283,7 @@ def anchor(
 @router.delete("/photos/{photo_id}/anchor", status_code=204)
 def unanchor(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -306,7 +306,7 @@ def unanchor(
 @router.get("/photos/{photo_id}/anchors")
 def anchor_list(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -337,7 +337,7 @@ def anchor_list(
 @router.post("/photos/{photo_id}/like", status_code=201)
 def like(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
@@ -354,7 +354,7 @@ def like(
 @router.delete("/photos/{photo_id}/like", status_code=204)
 def unlike(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     existing = db.get(Like, (photo_id, user.id))
@@ -365,7 +365,7 @@ def unlike(
 @router.get("/photos/{photo_id}/likes")
 def like_faces(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -390,7 +390,7 @@ def like_faces(
 @router.delete("/photos/{photo_id}/tags/me", status_code=204)
 def untag_me(
     photo_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Opt out: remove your own 'who was there' tag from someone's photo (Part 3)."""
@@ -403,7 +403,7 @@ def untag_me(
 def add_comment(
     photo_id: str,
     body: CommentBody,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):

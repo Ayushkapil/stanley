@@ -197,3 +197,57 @@ def test_circle_cap_is_a_hundred_with_a_human_message(client, circle):
     assert r.json()["detail"]["code"] == "circle_full"
     # A sentence, not a number - the cap is a guardrail, never a scoreboard.
     assert "people you actually know" in r.json()["detail"]["message"]
+
+
+def test_capture_commits_before_the_original_is_stored(circle, monkeypatch):
+    """The app asks for Today the moment the POST answers. If the commit
+    waited behind the background encode of the full-size original, that
+    first refresh would read a feed without the new photo, and the photo
+    would only show up on the next pull."""
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session
+
+    from stanley.routes import photos as photo_routes
+
+    order: list[str] = []
+    store_original = photo_routes._store_original_blob
+
+    def spy(*args):
+        order.append("original")
+        store_original(*args)
+
+    def committed(session):
+        order.append("commit")
+
+    monkeypatch.setattr(photo_routes, "_store_original_blob", spy)
+    event.listen(Session, "after_commit", committed)
+    try:
+        assert circle.ana.post_photo().status_code == 201
+    finally:
+        event.remove(Session, "after_commit", committed)
+    assert "original" in order
+    assert order.index("commit") < order.index("original"), order
+
+
+def test_every_route_commits_before_it_answers(app):
+    """The commit lives in get_db's teardown. Scoped to the function, the
+    teardown runs before the response is sent, so a 2xx means the write is
+    durable and the client's next read sees it. A route left on the default
+    scope would answer first and commit after."""
+    from fastapi.routing import APIRoute
+
+    from stanley.deps import get_db
+
+    def sessions(dependant):
+        for sub in dependant.dependencies:
+            if sub.call is get_db:
+                yield sub
+            yield from sessions(sub)
+
+    checked = 0
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            for dep in sessions(route.dependant):
+                assert dep.scope == "function", f"{route.path} commits after it answers"
+                checked += 1
+    assert checked > 30
