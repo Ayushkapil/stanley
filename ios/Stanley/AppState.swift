@@ -20,6 +20,18 @@ final class AppState {
     var errorMessage: String?
     var flash: String?  // gentle, transient confirmation (e.g. after resting)
     var checkedCircle = false
+    /// Why the launch check couldn't say which circle this is; nil once it
+    /// could. Only the server answering `no_circle` means "no circle" — a
+    /// member on a bad connection was being sent to join one.
+    var circleTrouble: CircleTrouble?
+
+    enum CircleTrouble: Equatable {
+        /// No signal, a timeout, the server having trouble. Worth another try.
+        case unreachable
+        /// The server no longer knows this sign-in (401). Trying again can't
+        /// help; signing in again can.
+        case signInExpired
+    }
 
     init() {
         signedIn = api.token != nil
@@ -110,6 +122,7 @@ final class AppState {
         signedIn = false
         circle = nil
         checkedCircle = false
+        circleTrouble = nil
         feedItems = []
         communityNote = nil
         mosaic = nil
@@ -119,15 +132,45 @@ final class AppState {
         myId = nil
     }
 
+    /// The launch check: who this is, then which circle they're in. Also the
+    /// trouble screen's retry. Quiet: when Stanley can't be reached, that
+    /// screen says so, and an alert on top of it would only say it twice.
+    func checkIn() async {
+        if let me = try? await api.send("GET", "/me") as MyProfile {
+            profile = me
+            myId = me.id
+        }
+        await loadCircle()
+    }
+
     func loadCircle() async {
-        defer { checkedCircle = true }
         do {
             circle = try await api.send("GET", "/circles/mine") as CircleInfo
+            circleTrouble = nil
         } catch APIError.server(code: "no_circle", status: _) {
+            // The one answer that means there is no circle to show.
             circle = nil
+            circleTrouble = nil
+        } catch let error where AppState.isCancellation(error) {
+            // Its view went away mid-request. No answer either way, so change
+            // nothing — and above all don't mark the circle as checked.
+            return
         } catch {
-            surface(error)
+            if circle == nil {
+                // Not an answer. Whether they have a circle is unknown, and
+                // the circle gate would tell a member they don't.
+                if case APIError.status(401) = error {
+                    circleTrouble = .signInExpired
+                } else {
+                    circleTrouble = .unreachable
+                }
+            } else {
+                // Mid-session (a new avatar, a rotated invite): keep the
+                // circle already on screen. A blip is only a blip.
+                surface(error)
+            }
         }
+        checkedCircle = true
     }
 
     func createCircle(name: String) async {

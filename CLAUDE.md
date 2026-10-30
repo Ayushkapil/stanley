@@ -157,6 +157,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (unreachable, undecodable, Apple sign-in). A failed upload says the day is
   still open, which is true: the server rolls the whole request back. No
   signal never fails at all — it queues.
+- **Only `no_circle` reaches the circle gate.** The launch check
+  (`AppState.checkIn`: profile, then circle) used to send any failure there,
+  so a member opening Stanley with no signal was asked to join their own
+  circle. Now a failure that is not the server's `no_circle` answer sets
+  `circleTrouble` and shows `CircleTroubleView`: "Couldn't reach Stanley",
+  Try again, and a retry on its own whenever the app returns to the
+  foreground. No alert on top of it, and if a capture is waiting, one line
+  says it is safe on the phone. A 401 shows "Your sign-in has expired" with
+  Sign in again instead, because retrying can't help. A check cancelled
+  mid-request (its view went away) changes nothing. A failure mid-session
+  still keeps the circle already on screen.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
@@ -192,6 +203,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a capture queued at 23:50 and sent at 00:10 lands on the *new* day and spends
   that slot. The local claim was for the old one. Rare, and acceptable for the
   pilot, but it is a real seam.
+- **Offline cold launch has no camera.** The camera lives on Today, and Today
+  needs the circle, which only the server can name. So a member who opens
+  Stanley with no signal gets "Couldn't reach Stanley", not the shutter: the
+  offline queue only catches captures made in a session that started online.
+  Remembering the last-known circle on the phone would close this.
 - **iPhone Duo — simulator yes, hardware no.** The machine now has **Xcode
   27.1** with an **iOS 27.1** runtime and a real **iPhone Duo** device type
   (`iPhone19,4`), so the app has been run and walked on the Duo *simulator*
@@ -268,7 +284,8 @@ live APNs, concurrency under real load.
   shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
   who-was-there), `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
-  milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
+  milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`,
+  `CircleTroubleView.swift` (couldn't reach Stanley / sign-in expired)
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),
   `AvatarPicker.swift`, `Atmosphere.swift`, `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
