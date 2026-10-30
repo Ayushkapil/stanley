@@ -61,13 +61,6 @@ struct TodayFeedView: View {
                             PhotoCard(photo: photo)
                         }
                     }
-                    // The World Today: one quiet card at the very foot, below
-                    // every photo and the note. The stories open in a sheet.
-                    // If there's nothing to show, it's absent.
-                    if !state.news.isEmpty {
-                        WorldTodayCard(articles: state.news)
-                            .id("world")
-                    }
                 }
                 .scrollTargetLayout()
                 .padding()
@@ -89,18 +82,16 @@ struct TodayFeedView: View {
             .refreshable {
                 // SwiftUI cancels a pull's own task as soon as the state it is
                 // refreshing changes, which cut the pass short after the first
-                // response: Returned, the queued upload and the news never
-                // ran. The pass runs as its own task and the pull waits on it.
+                // response: Returned and the queued upload never ran. The
+                // pass runs as its own task and the pull waits on it.
                 await Task {
                     await state.refreshToday()
                     await state.flushPendingCapture()
-                    await state.loadNews()
                 }.value
             }
             .task {
                 await state.refreshToday()
                 await state.flushPendingCapture()
-                await state.loadNews()
             }
         }
     }

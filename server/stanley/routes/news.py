@@ -20,7 +20,7 @@ def world_today(
     """The World Today: the cached headlines, the same twelve for everyone.
     Nothing about the caller changes the list, and there is nothing to do to
     an article but read it. With no key configured this is an empty list, and
-    the client then shows no section at all."""
+    the World tab then says there are no stories right now."""
     if not settings.news_api_key:
         return []
     return news.today(db, clock.now())

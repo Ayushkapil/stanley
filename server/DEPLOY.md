@@ -48,7 +48,7 @@ Optional features:
 
 | Var | Notes |
 |-----|-------|
-| `NEWS_API_KEY` | Set NEWS_API_KEY for The World Today (optional; get a free key at newsapi.org). If it's unset, nothing is fetched, `GET /news/today` returns `[]`, and the app shows no section. **Licensing:** NewsAPI's free Developer plan is for development only. It can't be used in staging or production, and it delays articles by 24 hours. Any deployment real testers use needs the paid Business plan or a different source. The server fetches every 30 minutes, which is 48 requests a day, inside the free plan's 100. |
+| `NEWS_API_KEY` | Set NEWS_API_KEY for The World Today (optional; get a free key at newsapi.org). If it's unset, nothing is fetched, `GET /news/today` returns `[]`, and the app's World tab shows no stories. **Licensing:** NewsAPI's free Developer plan is for development only. It can't be used in staging or production, and it delays articles by 24 hours. Any deployment real testers use needs the paid Business plan or a different source. The server fetches every 30 minutes, which is 48 requests a day, inside the free plan's 100. |
 
 Cloudflare R2 (optional — only when `BLOB_BACKEND=r2`):
 `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, `BLOB_R2_ACCESS_KEY`, `BLOB_R2_SECRET_KEY`.

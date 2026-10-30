@@ -189,15 +189,11 @@ struct AtmosphereWash: ViewModifier {
 struct CardSurface: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let corner: CGFloat
-    /// Half the weight, for what sits beside the circle's content rather than
-    /// being part of it (The World Today). It's the same room, only quieter.
-    var muted = false
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: corner)
-        let weight = muted ? 0.5 : 1
         content.background {
-            shape.fill(.quinary.opacity(weight))
-                .overlay(shape.fill(Atmosphere.resolve(raw).palette.card.opacity(weight)))
+            shape.fill(.quinary)
+                .overlay(shape.fill(Atmosphere.resolve(raw).palette.card))
         }
     }
 }
@@ -225,9 +221,7 @@ struct AccentInk: ViewModifier {
 
 extension View {
     func atmosphereWash() -> some View { modifier(AtmosphereWash()) }
-    func cardSurface(corner: CGFloat, muted: Bool = false) -> some View {
-        modifier(CardSurface(corner: corner, muted: muted))
-    }
+    func cardSurface(corner: CGFloat) -> some View { modifier(CardSurface(corner: corner)) }
     func accentInk() -> some View { modifier(AccentInk()) }
     func atmosphereRows() -> some View { modifier(AtmosphereRows()) }
 }

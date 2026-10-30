@@ -180,15 +180,15 @@ final class AppState {
         }
     }
 
-    /// The World Today. A failure here is never surfaced, because Today
-    /// without the news is just Today. This loads when Today appears and on
-    /// pull, and never after a like or a story, so headlines don't shift
-    /// under someone reading them.
+    /// The World Today. A failure here is never surfaced, because the news
+    /// is a convenience, not part of the circle. This loads when the World
+    /// tab appears and on pull, so headlines don't shift under someone
+    /// reading them.
     func loadNews() async {
         do {
             news = try await api.send("GET", "/news/today")
         } catch {
-            // Keep whatever was showing. An empty start means no section.
+            // Keep whatever was showing.
         }
     }
 

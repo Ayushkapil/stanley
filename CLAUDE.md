@@ -157,12 +157,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (unreachable, undecodable, Apple sign-in). A failed upload says the day is
   still open, which is true: the server rolls the whole request back. No
   signal never fails at all — it queues.
-- **The World Today** — twelve national headlines behind one quiet summary
-  card at the very foot of Today, below every photo and the note: a morning
-  paper on the counter, not a feed. The card shows a header, "What's
-  happening nearby", the first headline on one line, and "See all 12 stories
-  ›". Tapping it opens a sheet with all of them ("12 stories, refreshed every
-  half hour"), closed with Done. There is no fifth tab. The server fetches NewsAPI top-headlines
+- **The World Today** — twelve national headlines in a **World** tab of
+  their own (globe), the fourth of five: Today, Held, You, World, Settings. A
+  morning paper on the counter, not a feed. Today is the circle's photos and
+  nothing else. The tab is titled "The World Today", with "12 stories,
+  refreshed every half hour" above the list. The list stops at the last story.
+  The server fetches NewsAPI top-headlines
   (`country=us`) every 30 minutes on its own background loop. It keeps the
   last good set in a one-row `news_cache` table. Clients only ever read
   `GET /news/today` (JWT only, no circle needed), so nobody but the server
@@ -170,24 +170,21 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the outlet stripped from the headline, summaries trimmed to 60 words,
   http(s) links only (anything else crashes the Safari sheet), and
   `[Removed]` stubs dropped before the twelve are counted. The twelve are
-  NewsAPI's own pick, identical for everyone and shown newest first. Today's
-  photos above them are still reverse-chronological and nothing else. A
+  NewsAPI's own pick, identical for everyone and shown newest first. A
   failed fetch keeps the last good set. A set older than 6h is not served,
   rather than showing yesterday's world. With no `NEWS_API_KEY` the endpoint
-  returns `[]`, and the client draws no card, no empty state and no error.
-  The card and the sheet both use the real count, never a hard-coded 12. That
-  number is the size of the edition, not a tally of anyone's activity. The
-  summary card is quieter than photo cards: smaller type, and
-  `cardSurface(muted:)` at half weight. A story opens in
+  returns `[]`, and the tab says "No stories right now." The tab is always
+  there, even with no key. The subtitle uses the real count, never a
+  hard-coded 12. That number is the size of the edition, not a tally of
+  anyone's activity. A story opens in
   `SFSafariViewController`, which UIKit presents over whatever is on top
-  (`StoryReader`). As a SwiftUI sheet, Safari's own Close forced a second
-  dismissal, and that second dismissal also closed the stories sheet. There
+  (`StoryReader`). When Safari was a SwiftUI sheet, its own Close forced a
+  second dismissal, and that closed whatever was beneath it too. There
   are no likes, saves, shares, comments or notifications. News never appears in
-  Held, Returned, the export or any memory surface. It loads when Today
-  appears and on pull, never after a like or a story, so headlines don't
-  shift under someone reading them. The pull runs its pass as a separate
-  `Task`, because SwiftUI cancels a `.refreshable` task the moment the state
-  it refreshes changes.
+  Today, Held, Returned, the export or any memory surface. It loads when the
+  World tab appears and on pull, never on a timer. Today's pull runs its pass
+  as a separate `Task`, because SwiftUI cancels a `.refreshable` task the
+  moment the state it refreshes changes.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
@@ -261,8 +258,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   not a hit-testing regression). The same screens *are* seen with real content
   on the Duo's compact cover; the regular variants differ only by `Density`
   values, which do engage.
-- **The World Today, for real.** `NEWS_API_KEY` is **not set on Fly**, so the
-  pilot has no news section yet. It has been tested locally only, with sample
+- **The World Today, for real.** `NEWS_API_KEY` is **not set on Fly**, so a
+  build pointed at Fly shows a World tab that only ever says "No stories
+  right now." Set the key, or hide the tab, before testers see it. It has been tested locally only, with sample
   headlines in the cache. NewsAPI's free Developer plan is licensed for
   development only and delays articles 24h, so testers need the paid Business
   plan or another source. Headlines are national (`COUNTRY = "us"`). Regional
@@ -307,7 +305,7 @@ live APNs, concurrency under real load.
 - Screens: `WelcomeView.swift` (sign-in), `NameGateView.swift` (name/username,
   shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
-  who-was-there), `WorldTodayView.swift` (summary card, stories sheet, Safari),
+  who-was-there), `WorldTodayView.swift` (the World tab, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),

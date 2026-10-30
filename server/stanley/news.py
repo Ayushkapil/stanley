@@ -1,4 +1,4 @@
-"""The World Today: twelve national headlines at the foot of Today.
+"""The World Today: twelve national headlines, in a tab of their own.
 
 A convenience, not a feed. The server fetches NewsAPI's top headlines on a
 fixed clock and keeps the last good set in a single row. Every client reads
@@ -12,7 +12,7 @@ has no likes, saves, shares or comments, and it never sends a notification.
 
 Optional end to end. With no NEWS_API_KEY there is no fetch and the endpoint
 returns an empty list. A failed fetch keeps the last good set until that set
-is too old to call today's, and then the section just goes quiet.
+is too old to call today's, and then the World tab has no stories.
 """
 from __future__ import annotations
 

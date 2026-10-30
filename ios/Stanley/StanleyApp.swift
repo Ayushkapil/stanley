@@ -129,6 +129,8 @@ struct HomeView: View {
                 .tabItem { Label("Held", systemImage: "bookmark") }
             ProfileView()
                 .tabItem { Label("You", systemImage: "person") }
+            WorldTodayView()
+                .tabItem { Label("World", systemImage: "globe") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
