@@ -14,6 +14,8 @@ struct TodayFeedView: View {
     /// the thing you were looking at is still the thing you are looking at.
     /// No `scrollTargetBehavior`, so scrolling itself feels exactly as before.
     @State private var anchor: String?
+    /// The keyboard is up, so the floating camera is out of the way.
+    @State private var typing = false
 
     var body: some View {
         NavigationStack {
@@ -67,16 +69,31 @@ struct TodayFeedView: View {
                 .foldAnimated(hSizeClass)
             }
             .scrollPosition(id: $anchor)
-            .atmosphereWash()
-            .navigationTitle("Today")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    // The day is claimed the moment the shutter closes, signal
-                    // or not — so a queued capture closes the camera too.
-                    Button { showCapture = true } label: { Image(systemName: "camera") }
-                        .disabled(state.queue.isHoldingTheDay)
+            // The camera floats at the bottom right, where a thumb already is,
+            // instead of in the top bar, which it can't reach on a tall phone.
+            // As a safe-area inset the feed scrolls under it, and the last
+            // card can still scroll clear of it. The day is claimed the moment
+            // the shutter closes, signal or not, so a queued capture closes
+            // the camera too.
+            .safeAreaInset(edge: .bottom, alignment: .trailing) {
+                // While a story is being typed the button steps aside. Above
+                // the keyboard it would sit on the field and its Add button.
+                if !typing {
+                    CaptureButton(disabled: state.queue.isHoldingTheDay) { showCapture = true }
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 12)
+                        .transition(.opacity)
                 }
             }
+            .animation(.easeOut(duration: 0.15), value: typing)
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                typing = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                typing = false
+            }
+            .atmosphereWash()
+            .navigationTitle("Today")
             .sheet(isPresented: $showCapture) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
             .refreshable {
@@ -95,6 +112,52 @@ struct TodayFeedView: View {
             }
         }
     }
+}
+
+/// Today's photo, from a round accent button floating over the feed: 56pt,
+/// the camera in the palette's ink, a soft shadow so it sits above the cards
+/// it passes. It stays put while Today scrolls. Disabled, not hidden, while a
+/// queued capture holds the day, so where it lives never changes.
+struct CaptureButton: View {
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    let disabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        let palette = Atmosphere.resolve(raw).palette
+        Button(action: action) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(palette.ink)
+                .frame(width: 56, height: 56)
+                .background {
+                    Circle()
+                        .fill(palette.accent)
+                        .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .opacity(disabled ? 0.45 : 1)
+        .disabled(disabled)
+        .accessibilityLabel("Take today's photo")
+    }
+}
+
+/// One story on a photo, and the line that asks for the next one.
+enum StoryLine {
+    /// Who, then what they remember: the name in bold at full strength, the
+    /// words a step quieter in the secondary color. Two people's lines never
+    /// run together into one white run of text.
+    static func text(_ comment: Comment) -> Text {
+        Text(comment.author.displayName).bold().foregroundStyle(.primary)
+            + Text("  ")
+            + Text(comment.body).foregroundStyle(.secondary)
+    }
+
+    /// The empty field under a photo. A question about the moment, because a
+    /// story here is co-remembering, not a post.
+    static let prompt = "What do you remember?"
 }
 
 struct ViewedMember: Identifiable {
@@ -377,8 +440,7 @@ struct PhotoCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Co-remembering, visible without digging: one line, the way
                 // you'd overhear it.
-                (Text(first.author.displayName).fontWeight(.medium)
-                    + Text("  ") + Text(first.body))
+                StoryLine.text(first)
                     .font(.callout)
                     .lineLimit(density.storyLineLimit)
                 if photo.comments.count > 1 {
@@ -395,7 +457,7 @@ struct PhotoCard: View {
 
     private var commentField: some View {
         HStack {
-            TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
+            TextField("", text: $newComment, prompt: .fieldPrompt(StoryLine.prompt))
                 .font(.callout)
                 .storyField()
             if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -783,12 +845,11 @@ struct PhotoStoriesView: View {
                         Text(caption).font(.body)
                     }
                     ForEach(photo.comments) { comment in
-                        (Text(comment.author.displayName).fontWeight(.medium)
-                            + Text("  ") + Text(comment.body))
+                        StoryLine.text(comment)
                             .font(.callout)
                     }
                     HStack {
-                        TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
+                        TextField("", text: $newComment, prompt: .fieldPrompt(StoryLine.prompt))
                             .font(.callout)
                             .storyField()
                         if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {

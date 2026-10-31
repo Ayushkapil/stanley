@@ -21,6 +21,7 @@ struct CaptureView: View {
     /// The looks rendered so far for this shot, at preview size, so going
     /// back to one is instant.
     @State private var looks: [PhotoFilter: UIImage] = [:]
+    @State private var pickingPlace = false
 
     private var members: [CircleMember] {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
@@ -49,9 +50,9 @@ struct CaptureView: View {
                     }
                     TextField("", text: $caption, prompt: .fieldPrompt("A few words, if you like"))
                         .stanleyField()
-                    // a typed place name, as you'd say it — never GPS, never a map
-                    TextField("", text: $location, prompt: .fieldPrompt("Where was this? (a place, optional)"))
-                        .stanleyField()
+                    // a typed place name, as you'd say it — never GPS, never a map.
+                    // The picker only offers places this person typed before.
+                    PlaceField(place: $location) { pickingPlace = true }
                     if !members.isEmpty {
                         WhoWasThere(members: members, selected: $tagged)
                     }
@@ -99,6 +100,9 @@ struct CaptureView: View {
                     .ignoresSafeArea()
             }
             .task(id: DevelopKey(shot: shot?.id, filter: filter)) { await develop() }
+            .sheet(isPresented: $pickingPlace) {
+                PlacePicker(userId: state.myId, current: location) { location = $0 }
+            }
         }
     }
 
@@ -176,6 +180,9 @@ struct CaptureView: View {
                 tagged: Array(tagged),
                 filter: filter.serverName
             )
+            // Posted, or kept to post later: either way the place was used,
+            // so it's the first thing the picker offers next time.
+            PlaceBook(userId: state.myId).remember(location)
             dismiss()
         } catch {
             state.surface(error)

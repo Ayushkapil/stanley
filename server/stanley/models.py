@@ -272,7 +272,7 @@ class NotificationLog(Base):
 class NewsCache(Base):
     """The World Today: the last good set of headlines, in a single row. The
     background refresh is the only writer, and every client reads this row
-    rather than calling NewsAPI. No user's data is involved, so nothing in
+    rather than calling the feed. No user's data is involved, so nothing in
     deletion, export or Held ever looks here."""
 
     __tablename__ = "news_cache"

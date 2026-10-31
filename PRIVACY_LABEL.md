@@ -105,6 +105,12 @@ launches)**, Surroundings, Body, Other Data.
   `America/New_York`) sent with each capture — it defines "one photo per local
   day". It is not a location under Apple's definitions (no GPS/network
   derivation) and has no label category.
+- Saved places stay on the phone. The capture screen remembers the place
+  labels someone typed (recent ones, plus up to ten starred favorites) in the
+  app's local storage, per account, to offer them again. They are never sent
+  anywhere: a place reaches the server only as the label on a photo they post,
+  as before. No location permission, no GPS, no maps or places service.
+  Account deletion erases them from the phone.
 - Push notifications: when APNs is wired, the server stores a **device push
   token**. Tokens exist to deliver the single last-light notice/digest and are
   not an Apple label category by themselves.

@@ -238,7 +238,7 @@ extension View {
 
 /// A field that belongs to the words around it, not to a form.
 ///
-/// "Add to the story…" sits under a photo's stories the way a comment line
+/// "What do you remember?" sits under a photo's stories the way a comment line
 /// sits flat beneath a post: placeholder text at the card's own inner margin,
 /// no box, no bezel. The card is the container. The row is taller than its
 /// one line of text so it is easy to land on, without drawing anything to

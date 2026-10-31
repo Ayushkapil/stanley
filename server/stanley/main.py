@@ -54,13 +54,15 @@ async def _sweep_loop(app: FastAPI) -> None:
 
 def refresh_news(app: FastAPI) -> None:
     """One pass of The World Today: refetch the headlines if the cached set is
-    due. This runs on its own loop so that a slow NewsAPI never delays decay."""
+    empty or due. This runs on its own loop so that a slow feed never delays
+    decay."""
     settings: Settings = app.state.settings
+    if not settings.news_enabled:
+        return
     with app.state.sessionmaker() as session:
         news.refresh_if_due(
             session,
             app.state.clock,
-            settings.news_api_key,
             timedelta(seconds=settings.news_interval_seconds),
         )
         session.commit()
@@ -111,8 +113,9 @@ def create_app(
         tasks = []
         if settings.run_sweeper:
             tasks.append(asyncio.create_task(_sweep_loop(app)))
-            # News is optional: with no key there is nothing to fetch.
-            if settings.news_api_key:
+            # The loop's first pass runs at startup, so an empty cache fills
+            # as soon as the server is up rather than half an hour later.
+            if settings.news_enabled:
                 tasks.append(asyncio.create_task(_news_loop(app)))
         yield
         for task in tasks:

@@ -532,6 +532,9 @@ final class AppState {
     func deleteAccount() async {
         do {
             let _: Empty = try await api.send("DELETE", "/me")
+            // The places this person named live only on this phone. The
+            // account is gone, so they go too.
+            if let myId { PlaceBook.erase(userId: myId) }
             signOut()
         } catch {
             surface(error)

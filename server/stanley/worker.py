@@ -31,11 +31,11 @@ def run_once(settings: Settings | None = None) -> None:
         purged = decay.run_purges(session, storage, clock)
         digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)
         session.commit()
-        news.refresh_if_due(
-            session, clock, settings.news_api_key,
-            timedelta(seconds=settings.news_interval_seconds),
-        )
-        session.commit()
+        if settings.news_enabled:
+            news.refresh_if_due(
+                session, clock, timedelta(seconds=settings.news_interval_seconds),
+            )
+            session.commit()
     print(f"sweep: {advanced} transitions, {purged} purged, {digests} digests")
 
 

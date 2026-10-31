@@ -198,6 +198,8 @@ def app(tmp_path, clock):
         secret_key="test-secret-key-with-enough-bytes-for-hs256",
         dev_auth=True,
         run_sweeper=False,
+        # Off unless a test turns it on: nothing in the suite reaches Google.
+        news_enabled=False,
     )
     return create_app(settings, clock=clock)
 

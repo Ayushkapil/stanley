@@ -19,8 +19,8 @@ def world_today(
 ) -> list[dict]:
     """The World Today: the cached headlines, the same twelve for everyone.
     Nothing about the caller changes the list, and there is nothing to do to
-    an article but read it. With no key configured this is an empty list, and
-    the World tab then says there are no stories right now."""
-    if not settings.news_api_key:
+    an article but read it. With news turned off (STANLEY_NEWS=0) this is an
+    empty list, and the World tab then says there are no stories right now."""
+    if not settings.news_enabled:
         return []
     return news.today(db, clock.now())

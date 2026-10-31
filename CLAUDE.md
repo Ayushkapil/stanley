@@ -96,7 +96,24 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
   orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
-  under it, then Post; nothing uploads until Post.
+  under it, then Post; nothing uploads until Post. Today's photo is taken from
+  a **floating camera button** (`CaptureButton`): 56pt, accent-filled, bottom
+  right above the tab bar on a standard iPhone and beside the Duo's side
+  dock. It stays put while Today scrolls. It's dimmed, not hidden, while a
+  queued capture holds the day. It hides while the keyboard is up: a
+  safe-area inset rides above the keyboard and would sit on the story field's
+  Add button. The top-bar camera is gone.
+- **Places** (client only, build 14) — the capture screen's place field
+  opens a picker (`Places.swift`) with a search bar, **Favorites** (starred,
+  at most 10), **Recent** (the last five typed, favorites excluded), and
+  search over the person's *own* typed places only. Anything new can be used
+  exactly as typed. `PlaceBook` keeps them in UserDefaults keyed by user id,
+  so a shared phone doesn't mix people, and an expired sign-in keeps them.
+  Deleting the account erases them. A place is recorded when the photo
+  posts or queues, not when it's picked. **No** location permission,
+  CLLocationManager, GPS, or maps/places API: the place is still the words
+  someone typed, and the server sees only the label on the photo, as
+  before.
 - **Capture filters** — four looks, plus None (the default), as one row of
   `ChoicePill`s under the preview: **Mono** (a well-printed black and white),
   **Grain** (warm film: less saturation, lifted blacks, amber in the shadows,
@@ -141,6 +158,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Story-comments** — flat, chronological, part of the artifact. Today shows
   the first one on the card; the rest sit behind "More stories" (never "2
   more" — a tally is still a count) which opens the photo with the thread.
+  Every story line is `StoryLine.text`: the name **bold** in the primary
+  color, two spaces, the words in the secondary color, so two people's lines
+  never run together. The empty field asks "What do you remember?"
+  (`StoryLine.prompt`; it used to say "Add to the story…", which read like
+  Instagram Stories).
 - **Returned + rest-a-memory** — one quiet card atop Today; priority **rescue >
   anniversary > near-forgotten**; Keep / Rest (never again) / Dismiss (not now);
   a Rested view with "let it return"; tombstoned photos never resurface.
@@ -220,19 +242,27 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   morning paper on the counter, not a feed. Today is the circle's photos and
   nothing else. The tab is titled "The World Today", with "12 stories,
   refreshed every half hour" above the list. The list stops at the last story.
-  The server fetches NewsAPI top-headlines
-  (`country=us`) every 30 minutes on its own background loop. It keeps the
-  last good set in a one-row `news_cache` table. Clients only ever read
+  Since build 14 the source is **Google News's top-stories RSS**
+  (`https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en`): keyless, on by
+  default, off with `STANLEY_NEWS=0`. It was NewsAPI behind `NEWS_API_KEY`,
+  which was never set on Fly, so production had no news at all. That, not
+  networking, was the bug: the news loop only started when a key was set,
+  and Fly reaches Google fine. The server fetches on its own background loop
+  at startup (an empty cache is always due) and then every 30 minutes, and
+  keeps the last good set in a one-row `news_cache` table. Clients only ever read
   `GET /news/today` (JWT only, no circle needed), so nobody but the server
-  talks to NewsAPI. The cached set is normalized once: text only (no images),
-  the outlet stripped from the headline, summaries trimmed to 60 words,
-  http(s) links only (anything else crashes the Safari sheet), and
-  `[Removed]` stubs dropped before the twelve are counted. The twelve are
-  NewsAPI's own pick, identical for everyone and shown newest first. A
+  talks to Google. The feed is parsed with ElementTree (no external entities,
+  and expat caps expansion) and capped at 2 MB. The cached set is normalized
+  once: text only (no images), the outlet stripped from the headline, http(s)
+  links only (anything else crashes the Safari sheet), and duplicates
+  dropped before the twelve are counted. Google's `<description>` is a
+  cluster of related headlines, not a summary, so cards show headline,
+  source and time with no summary line. The links are Google News redirect
+  URLs, which Safari follows to the outlet. The twelve are the feed's own
+  pick, identical for everyone and shown newest first. A
   failed fetch keeps the last good set. A set older than 6h is not served,
-  rather than showing yesterday's world. With no `NEWS_API_KEY` the endpoint
-  returns `[]`, and the tab says "No stories right now." The tab is always
-  there, even with no key. The subtitle uses the real count, never a
+  rather than showing yesterday's world; the tab then says "No stories right
+  now." The subtitle uses the real count, never a
   hard-coded 12. That number is the size of the edition, not a tally of
   anyone's activity. A story opens in
   `SFSafariViewController`, which UIKit presents over whatever is on top
@@ -242,7 +272,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Today, Held, Returned, the export or any memory surface. It loads when the
   World tab appears and on pull, never on a timer. Today's pull runs its pass
   as a separate `Task`, because SwiftUI cancels a `.refreshable` task the
-  moment the state it refreshes changes.
+  moment the state it refreshes changes. The test suite turns news off by
+  default and stubs the fetch, so it never reaches the network.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
@@ -274,24 +305,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   simulator camera stand-in. `STANLEY_SENTRY_DSN` is empty, so this build
   has no crash reporting. To ship, use Organizer → Distribute App → TestFlight
   & App Store, or Transporter with the IPA.
-- **Fly runs an older server than the app expects.** Its newest release (v6,
-  2026-10-29) reuses the image first deployed in v3 at 04:55 UTC, which was
-  built from `9d92a8f`. Runtime server changes since then, none deployed:
-  `e15763a` (`UNNAMED` vs `DEPARTED`: without it, a member who never gave a
-  name shows to the circle as "departed"); `f03c792` (the digest says
-  "Something new from your circle today", not a count; logged only until
-  APNs is wired, but it is the no-counts rule); `12406fd`/`7d62c9a` (the World
-  Today: `news_cache` table, loop, `GET /news/today`. With no
-  `NEWS_API_KEY` it answers `[]`, which the app shows the same way as the
-  404 it gets now); `fb7b64c` (`photos.filter` and the `filter` form
-  field; without it filter names are dropped, the look is still in the
-  pixels); `5c3909e` (commit before the response; without it a new photo
-  can miss the refresh right after posting). Build 13 works against the old
-  server: `username_check` already takes `u` as a query item, the 401s
-  are the same, and `Photo.filter` is optional. Deploy with `fly deploy`
-  from `server/`. On startup, `create_all` adds `news_cache` and
-  `ensure_schema` adds `photos.filter`. No new secrets: `NEWS_API_KEY`
-  stays unset on purpose.
+- **Fly deploys.** Release v7 (2026-10-30 21:43 UTC) runs the server as of
+  `0f07d54`: filters, commit-before-response, `UNNAMED`, the digest wording,
+  and the NewsAPI version of the World Today, which never fetched because
+  `NEWS_API_KEY` was never set. Build 14's server change, the Google News RSS
+  source, needs `fly deploy` from `server/`. It adds no table, column or
+  secret; news then fills within seconds of startup (`news refreshed: 12
+  headlines` in the logs). Fly's outbound HTTPS to news.google.com was
+  checked from the machine: 200, about 120 KB of RSS.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
@@ -347,14 +368,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   not a hit-testing regression). The same screens *are* seen with real content
   on the Duo's compact cover; the regular variants differ only by `Density`
   values, which do engage.
-- **The World Today, for real.** `NEWS_API_KEY` is **not set on Fly**, so a
-  build pointed at Fly shows a World tab that only ever says "No stories
-  right now." Set the key, or hide the tab, before testers see it. It has been tested locally only, with sample
-  headlines in the cache. NewsAPI's free Developer plan is licensed for
-  development only and delays articles 24h, so testers need the paid Business
-  plan or another source. Headlines are national (`COUNTRY = "us"`). Regional
-  news is a `TODO(location)` in `server/stanley/news.py`, and the app requests
-  no location permission.
+- **The World Today's terms.** Google's feed says it is for "a personal feed
+  reader for personal, non-commercial use". That's acceptable for a closed
+  pilot as a judgement call, and needs revisiting before any wider release.
+  Headlines are national (`gl=US`). Regional news is a `TODO(location)` in
+  `server/stanley/news.py`, and the app requests no location permission.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals
@@ -362,14 +380,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**214 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**222 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming, the
 World Today cache (fetch + store, last-good-set on failure, stale and no-key
-silence, normalization, key-in-header), capture filters (the name kept, an
+silence, normalization, RSS parsing, no key sent, a hostile or oversized
+feed refused), capture filters (the name kept, an
 unknown one dropped without refusing the photo, purged on delete, exported),
 and commit-before-response (capture commits before the background original
 store; every route's session is function-scoped).
@@ -400,7 +419,8 @@ live APNs, concurrency under real load.
   shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
   who-was-there, preview + filter pills), `PhotoFilters.swift` (the four
-  looks, `FilterRenderer`), `WorldTodayView.swift` (the World tab, Safari),
+  looks, `FilterRenderer`), `Places.swift` (place picker, favorites,
+  `PlaceBook`), `WorldTodayView.swift` (the World tab, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),

@@ -48,7 +48,7 @@ Optional features:
 
 | Var | Notes |
 |-----|-------|
-| `NEWS_API_KEY` | Set NEWS_API_KEY for The World Today (optional; get a free key at newsapi.org). If it's unset, nothing is fetched, `GET /news/today` returns `[]`, and the app's World tab shows no stories. **Licensing:** NewsAPI's free Developer plan is for development only. It can't be used in staging or production, and it delays articles by 24 hours. Any deployment real testers use needs the paid Business plan or a different source. The server fetches every 30 minutes, which is 48 requests a day, inside the free plan's 100. |
+| `STANLEY_NEWS` | The World Today, on by default. The server reads Google News's top-stories RSS (`https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en`), keyless, at startup and then every 30 minutes, and caches the newest twelve. Set `STANLEY_NEWS=0` to turn it off: nothing is fetched and `GET /news/today` returns `[]`. The host needs outbound HTTPS to news.google.com (Fly allows it). **Terms:** the feed says it is for "a personal feed reader for personal, non-commercial use". That's a judgement call for a private pilot; revisit the source before any wider release. |
 
 Cloudflare R2 (optional — only when `BLOB_BACKEND=r2`):
 `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, `BLOB_R2_ACCESS_KEY`, `BLOB_R2_SECRET_KEY`.
@@ -138,8 +138,9 @@ so snapshots are consistent while the app runs.
 - [ ] Persistent storage is really persistent — `STANLEY_DATA_DIR` on the mounted
       volume (Railway) or the persistent disk (VPS), not a container's local disk.
 - [ ] `APPLE_BUNDLE_ID` set; Sign in with Apple capability enabled on the app id.
-- [ ] `NEWS_API_KEY` left unset unless the NewsAPI plan allows production use
-      (the free one doesn't). Without it, Today simply has no news section.
+- [ ] News: after deploy, the logs show `news refreshed: 12 headlines` within
+      a few seconds of startup. If not, look for `news fetch failed` (outbound
+      HTTPS to news.google.com), or set `STANLEY_NEWS=0` to turn it off.
 - [ ] HTTPS reachable; `STANLEY_API_BASE` in the iOS release build points at it.
 - [ ] Off-box backup copy scheduled.
 - [ ] `PRAGMA journal_mode` reports `wal` — that one is stored in the file.

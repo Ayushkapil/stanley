@@ -21,6 +21,7 @@
 		608876305B018E5CDACEA8ED /* Prompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */; };
 		617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9649D2EC31D301586F01D82 /* APIClient.swift */; };
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
+		6A8050442F9E778834687E15 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43DA9DBBFC78AE87EE56D899 /* Places.swift */; };
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
 		94AEB28C15F346341A3D530D /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 084BA58C8E57A560A7FCABDD /* Sentry */; };
 		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
@@ -43,6 +44,7 @@
 		1803DD8144604B228075043B /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
 		28BF0640C2B868C0AD896FBF /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prompts.swift; sourceTree = "<group>"; };
+		43DA9DBBFC78AE87EE56D899 /* Places.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
 		54B7A0448179C1D07FE2922B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		59A4482F0EEC4500194DB4B1 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		643284CE27799EBF5CE62A06 /* PhotoFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoFilters.swift; sourceTree = "<group>"; };
@@ -107,6 +109,7 @@
 				D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */,
 				A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */,
 				643284CE27799EBF5CE62A06 /* PhotoFilters.swift */,
+				43DA9DBBFC78AE87EE56D899 /* Places.swift */,
 				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
 				2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */,
 				E1D927F2B4D7F02207747D21 /* SettingsView.swift */,
@@ -219,6 +222,7 @@
 				59CE1167E20B3C2CA615946E /* OfflineQueue.swift in Sources */,
 				A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */,
 				DC1E92CA63D8409753C579A8 /* PhotoFilters.swift in Sources */,
+				6A8050442F9E778834687E15 /* Places.swift in Sources */,
 				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,
 				608876305B018E5CDACEA8ED /* Prompts.swift in Sources */,
 				7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */,
