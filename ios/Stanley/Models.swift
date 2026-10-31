@@ -215,6 +215,9 @@ struct AuthResponse: Codable {
 
     let token: String
     let user: AuthedUser
+    /// True when this sign-in made the account, so setup comes next. Absent
+    /// from a server before build 16, which reads as false.
+    let newAccount: Bool?
 }
 
 struct MeSettings: Codable {

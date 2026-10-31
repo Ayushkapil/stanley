@@ -36,6 +36,11 @@ final class AppState {
     var errorMessage: String?
     var flash: String?  // gentle, transient confirmation (e.g. after resting)
     var checkedCircle = false
+    /// A new avatar is on its way up.
+    var avatarUploading = false
+    /// This account hasn't been through setup yet (`SetupView`). Kept on the
+    /// phone per account, so someone who quits halfway is brought back to it.
+    var setupPending = false
 
     init() {
         signedIn = api.token != nil
@@ -102,12 +107,22 @@ final class AppState {
         }
     }
 
-    /// Apple hands over a name only on the very first authorization, and only
-    /// if the person agrees to share it. Decline, and we genuinely do not know
-    /// what to call them — so ask, once, before the circle gate.
-    var needsName: Bool {
+    /// Setup comes before the circle gate for a new account, and for anyone
+    /// we have no name for. Apple hands over a name only on the very first
+    /// authorization, and only if the person agrees to share it. Decline,
+    /// and we genuinely do not know what to call them.
+    var needsSetup: Bool {
+        if setupPending { return true }
         guard let profile else { return false }
         return (profile.displayName ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private static func setupKey(_ userId: String) -> String { "stanley.setupPending.\(userId)" }
+
+    /// Setup is done, or was finished from its last step.
+    func finishSetup() {
+        if let myId { UserDefaults.standard.removeObject(forKey: Self.setupKey(myId)) }
+        setupPending = false
     }
 
     // MARK: auth & circle
@@ -118,10 +133,7 @@ final class AppState {
             var body: [String: Any?] = ["identity_token": identityToken]
             if let name, !name.isEmpty { body["name"] = name }
             let auth: AuthResponse = try await api.send("POST", "/auth/apple", json: body)
-            api.token = auth.token
-            myId = auth.user.id
-            signedIn = true
-            await loadCircle()
+            await startSession(auth)
         } catch {
             surface(error)
         }
@@ -132,18 +144,32 @@ final class AppState {
             let auth: AuthResponse = try await api.send(
                 "POST", "/auth/dev", json: ["display_name": name]
             )
-            api.token = auth.token
-            myId = auth.user.id
-            signedIn = true
-            await loadCircle()
+            await startSession(auth)
         } catch {
             surface(error)
         }
     }
 
+    /// A new account is marked for setup before anything else happens, so
+    /// quitting right after signing in still brings setup back. The profile
+    /// loads before the circle, because setup reads the name.
+    private func startSession(_ auth: AuthResponse) async {
+        if auth.newAccount == true {
+            UserDefaults.standard.set(true, forKey: Self.setupKey(auth.user.id))
+        }
+        api.token = auth.token
+        myId = auth.user.id
+        setupPending = UserDefaults.standard.bool(forKey: Self.setupKey(auth.user.id))
+        signedIn = true
+        await loadProfile()
+        await loadCircle()
+    }
+
     func signOut() {
         api.token = nil
         signedIn = false
+        setupPending = false
+        avatarUploading = false
         circle = nil
         checkedCircle = false
         feedItems = []
@@ -294,16 +320,21 @@ final class AppState {
         do {
             profile = try await api.send("GET", "/me") as MyProfile
             myId = profile?.id
+            if let myId {
+                setupPending = UserDefaults.standard.bool(forKey: Self.setupKey(myId))
+            }
         } catch {
             surface(error)
         }
     }
 
     func uploadAvatar(jpeg: Data) async {
+        avatarUploading = true
+        defer { avatarUploading = false }
         do {
             _ = try await api.uploadAvatar(jpeg: jpeg)
             await loadProfile()
-            await loadCircle()  // so the roster cluster shows the new face
+            await loadCircle()  // so the roster shows the new face
         } catch {
             surface(error)
         }
@@ -316,6 +347,18 @@ final class AppState {
         }
         do {
             profile = try await api.send("PATCH", "/me/profile", json: body) as MyProfile
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// Change only the fields given; the server leaves the rest as they are.
+    /// Setup saves one step at a time this way.
+    func patchProfile(_ fields: [String: Any?]) async -> Bool {
+        do {
+            profile = try await api.send("PATCH", "/me/profile", json: fields) as MyProfile
             return true
         } catch {
             surface(error)

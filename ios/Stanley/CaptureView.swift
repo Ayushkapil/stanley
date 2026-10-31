@@ -1,14 +1,19 @@
 import CoreImage
+import CoreLocation
+import PhotosUI
 import SwiftUI
 import UIKit
 
-/// Capture is a commitment (§8.4): one shot, a look at it (with a filter, if
-/// you want one), then Post. There is no camera roll. On the simulator (no
-/// camera) a stand-in frame is used so the flow stays testable end to end.
+/// Capture is a commitment (§8.4): one photo, a look at it (with a filter, if
+/// you want one), then Post. The photo is taken with the camera or chosen
+/// from the library (since build 16; the library picker needs no Photos
+/// permission), and either way it's today's one: the day law is the same.
+/// On the simulator (no camera) a stand-in frame is used so the flow stays
+/// testable end to end.
 ///
 /// Laid out like composing a memory rather than filling in a form: the photo
-/// first and largest, its looks right beneath it, then the words, the place
-/// and who was there on one card, and one wide button at the foot of the
+/// first and largest, where it was right under it, its looks beneath that,
+/// then the words and who was there, and one wide button at the foot of the
 /// sheet that is always within reach.
 struct CaptureView: View {
     @Environment(AppState.self) private var state
@@ -23,6 +28,10 @@ struct CaptureView: View {
     @State private var suggestedPlace: String?
     @State private var tagged: Set<String> = []
     @State private var showCamera = false
+    @State private var showLibrary = false
+    @State private var libraryItem: PhotosPickerItem?
+    /// A library photo is being read.
+    @State private var opening = false
     @State private var uploading = false
     /// The frame between the shutter and Post.
     @State private var shot: Shot?
@@ -38,9 +47,11 @@ struct CaptureView: View {
 
     private static let corner: CGFloat = 20
 
-    /// The photo's height in the sheet, before the shutter and after it.
+    /// The photo's height in the sheet, before the shutter and after it: a
+    /// little shorter than a card in Today, so the place and the looks
+    /// beneath it are in view without scrolling, even on the Duo's cover.
     private static func photoHeight(_ density: Density) -> CGFloat {
-        (density.feedPhotoHeight * 0.85).rounded()
+        (density.feedPhotoHeight * 0.72).rounded()
     }
 
     var body: some View {
@@ -49,10 +60,12 @@ struct CaptureView: View {
                 VStack(spacing: 0) {
                     if let shot {
                         preview(shot)
+                        placeLine
+                            .padding(.top, 12)
                         FilterPills(selection: $filter)
                             .padding(.top, 14)
                         details
-                            .padding(.top, 24)
+                            .padding(.top, 22)
                     } else {
                         waiting
                     }
@@ -78,6 +91,17 @@ struct CaptureView: View {
                 CameraPicker { image in took(image) }
                     .ignoresSafeArea()
             }
+            // The system's photo picker, out of process: Stanley sees only
+            // the photo chosen, and needs no Photos permission for it.
+            .photosPicker(
+                isPresented: $showLibrary, selection: $libraryItem,
+                matching: .images, preferredItemEncoding: .current
+            )
+            .onChange(of: libraryItem) { _, item in
+                guard let item else { return }
+                libraryItem = nil
+                Task { await chose(item) }
+            }
             .task(id: DevelopKey(shot: shot?.id, filter: filter)) { await develop() }
             .task(id: shot?.id) { await suggestPlace() }
             .sheet(isPresented: $pickingPlace) {
@@ -98,9 +122,13 @@ struct CaptureView: View {
                     .cardSurface(corner: Self.corner)
                     .overlay {
                         VStack(spacing: 16) {
-                            Image(systemName: "camera.aperture")
-                                .font(.system(size: 40, weight: .light))
-                                .foregroundStyle(.tertiary)
+                            if opening {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "camera.aperture")
+                                    .font(.system(size: 40, weight: .light))
+                                    .foregroundStyle(.tertiary)
+                            }
                             // The day's prompt — a whisper, not an instruction (Part 1).
                             Text(DailyPrompt.forToday())
                                 .font(.callout)
@@ -117,7 +145,7 @@ struct CaptureView: View {
             VStack(spacing: 6) {
                 Text("One photo. This is today's.")
                     .font(.headline)
-                Text("No retakes. It fades in six days unless someone keeps it.")
+                Text("From the camera or your library. It fades in six days unless someone keeps it.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -125,24 +153,71 @@ struct CaptureView: View {
         }
     }
 
-    /// The words, the place and who was there. The two fields share one card
-    /// with a hairline between them, the way grouped rows do in Settings.
+    /// Where it was, right under the photo, where pilot users looked for it
+    /// (on the card below the looks it was out of sight on the Duo's cover).
+    /// A place name, as you'd say it. With location allowed, where the phone
+    /// is fills it in after the shutter; for a library photo, where the photo
+    /// was taken. A filled place shows a pencil, because it's still the
+    /// person's to change, and a tap anywhere on the line opens the picker:
+    /// here, favorites, recents, search. Only the words are posted.
+    private var placeLine: some View {
+        let suggested = !location.isEmpty && location == suggestedPlace
+        return HStack(spacing: 8) {
+            Button { pickingPlace = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: suggested ? "location.fill" : "mappin.and.ellipse")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 22)
+                    Text(location.isEmpty ? "Add a place" : location)
+                        .font(.subheadline.weight(location.isEmpty ? .regular : .semibold))
+                        .foregroundStyle(location.isEmpty ? .secondary : .primary)
+                        .lineLimit(1)
+                    if !location.isEmpty {
+                        Image(systemName: "pencil")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    if location.isEmpty {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Where was this")
+            .accessibilityValue(location.isEmpty ? "No place" : location)
+            .accessibilityHint("Opens your places")
+            if !location.isEmpty {
+                Button { location = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.body)
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear the place")
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, location.isEmpty ? 14 : 4)
+        .frame(height: 48)
+        .cardSurface(corner: 14)
+    }
+
+    /// The words and who was there.
     private var details: some View {
         VStack(alignment: .leading, spacing: 22) {
-            VStack(spacing: 0) {
-                ComposeRow(icon: "text.quote") {
-                    TextField(
-                        "", text: $caption, prompt: .fieldPrompt("A few words, if you like"), axis: .vertical
-                    )
-                    .lineLimit(1...5)
-                }
-                Divider().padding(.leading, 46)
-                // A place name, as you'd say it. With location allowed, where
-                // the phone is fills it in after the shutter; it stays the
-                // person's to change or clear. Only the words are posted.
-                ComposeRow(icon: location == suggestedPlace && !location.isEmpty ? "location.fill" : "mappin") {
-                    PlaceField(place: $location) { pickingPlace = true }
-                }
+            ComposeRow(icon: "text.quote") {
+                TextField(
+                    "", text: $caption, prompt: .fieldPrompt("A few words, if you like"), axis: .vertical
+                )
+                .lineLimit(1...5)
             }
             .cardSurface(corner: 16)
             if !members.isEmpty {
@@ -152,14 +227,27 @@ struct CaptureView: View {
         }
     }
 
-    /// One wide button at the foot of the sheet, above the keyboard when it's
-    /// up, on the sheet's own floor so the content scrolls away beneath it.
+    /// The action at the foot of the sheet, above the keyboard when it's up,
+    /// on the sheet's own floor so the content scrolls away beneath it.
+    /// Before the photo, two ways to it: the camera, and under it the
+    /// library. After, Post.
     private var footer: some View {
         Group {
             if let shot {
                 WideButton(title: "Post", busy: uploading) { post(shot) }
             } else {
-                WideButton(title: "Open camera", systemImage: "camera", busy: uploading, action: openCamera)
+                VStack(spacing: 2) {
+                    WideButton(title: "Take photo", systemImage: "camera", busy: uploading, action: openCamera)
+                    Button { showLibrary = true } label: {
+                        Label("Choose from library", systemImage: "photo.on.rectangle")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(uploading || opening)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -200,19 +288,41 @@ struct CaptureView: View {
             .accessibilityLabel(filter == .none ? "Your photo" : "Your photo, \(filter.label)")
     }
 
-    /// After the shutter, offer where the phone is as the place. Asked here,
-    /// in the moment it is for, the first time. Never over a place the
-    /// person has already chosen.
+    /// After the shutter, offer where the phone is as the place, asking for
+    /// location here, in the moment it's for, the first time. A library
+    /// photo is offered where it was taken, if it says, and never where the
+    /// phone is: it could be from anywhere. Never over a place the person
+    /// has already chosen.
     private func suggestPlace() async {
-        guard shot != nil, location.isEmpty else { return }
-        let whereabouts = state.whereabouts
-        await whereabouts.ask()
-        guard let place = await whereabouts.here()?.place, location.isEmpty else { return }
+        guard let shot, location.isEmpty else { return }
+        let place: String?
+        if shot.fromLibrary {
+            guard let taken = shot.takenAt else { return }
+            place = await Whereabouts.place(at: taken)
+        } else {
+            let whereabouts = state.whereabouts
+            await whereabouts.ask()
+            place = await whereabouts.here()?.place
+        }
+        guard let place, location.isEmpty else { return }
         location = place
         suggestedPlace = place
     }
 
-    private func took(_ image: UIImage) {
+    /// A photo chosen from the library, read upright and at no more than
+    /// 4096 pixels on its longest side: plenty for the server, which keeps
+    /// less, and well under its upload limit.
+    private func chose(_ item: PhotosPickerItem) async {
+        opening = true
+        defer { opening = false }
+        guard let photo = await LibraryPhoto.load(item, longestSide: 4096) else {
+            state.surface(APIError.message("That photo couldn't be opened. Try another one."))
+            return
+        }
+        took(photo.image, library: photo)
+    }
+
+    private func took(_ image: UIImage, library: LibraryPhoto? = nil) {
         guard let source = FilterRenderer.upright(image) else {
             // CoreImage can't read this frame, so there's no preview to
             // offer. Post it as it was taken, the way capture always did.
@@ -223,7 +333,10 @@ struct CaptureView: View {
         }
         looks = [:]
         filter = .none
-        shot = Shot(original: image, source: source, preview: FilterRenderer.preview(of: source))
+        shot = Shot(
+            original: image, source: source, preview: FilterRenderer.preview(of: source),
+            fromLibrary: library != nil, takenAt: library?.location
+        )
     }
 
     /// Renders the chosen look at preview size, off the main thread.
@@ -311,13 +424,17 @@ struct CaptureView: View {
     #endif
 }
 
-/// A frame between the shutter and Post: the photo as the camera gave it,
-/// and the same photo upright for CoreImage, at full size and preview size.
+/// A frame between the shutter and Post: the photo as the camera (or the
+/// library) gave it, and the same photo upright for CoreImage, at full size
+/// and preview size.
 private struct Shot {
     let id = UUID()
     let original: UIImage
     let source: CIImage
     let preview: CIImage
+    var fromLibrary = false
+    /// Where a library photo was taken, from its own metadata.
+    var takenAt: CLLocation?
 }
 
 private struct DevelopKey: Equatable {
@@ -344,40 +461,6 @@ private struct ComposeRow<Content: View>: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
-    }
-}
-
-/// The sheet's one action, as wide as the sheet, in the atmosphere's accent
-/// with its ink for the words. While a photo is on its way it holds a
-/// spinner in place of the words and takes no second tap.
-private struct WideButton: View {
-    let title: String
-    var systemImage: String?
-    var busy = false
-    let action: () -> Void
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
-
-    var body: some View {
-        let palette = Atmosphere.resolve(raw).palette
-        Button(action: action) {
-            ZStack {
-                if busy {
-                    ProgressView().tint(palette.ink)
-                } else if let systemImage {
-                    Label(title, systemImage: systemImage)
-                } else {
-                    Text(title)
-                }
-            }
-            .font(.headline)
-            .foregroundStyle(palette.ink)
-            .frame(maxWidth: .infinity, minHeight: 52)
-            .background(palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(busy)
-        .accessibilityLabel(busy ? "Posting" : title)
     }
 }
 

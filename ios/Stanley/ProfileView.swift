@@ -14,6 +14,11 @@ struct ProfileView: View {
         state.threads.flatMap(\.memories)
     }
 
+    /// Everyone in the circle but you.
+    private var others: [CircleMember] {
+        (state.circle?.members ?? []).filter { $0.id != state.myId }
+    }
+
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: 3), count: density.keptColumns)
     }
@@ -57,12 +62,12 @@ struct ProfileView: View {
                     if !density.profileIsHorizontal {
                         bioView
                     }
-                    if let members = state.circle?.members, !members.isEmpty {
+                    if !others.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Your circle")
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.secondary)
-                            AvatarCluster(members: members, maxFaces: density.circleFacesShown)
+                            CircleFaces(members: others)
                         }
                         .padding(.top, 6)
                     }
@@ -113,6 +118,46 @@ struct ProfileView: View {
                 milestones = await state.loadMilestones()
             }
         }
+    }
+}
+
+/// The circle on the You tab: a face and a first name for each person, in a
+/// row that scrolls when there are more than fit. Each face opens that
+/// person's profile, their name and their words. Faces, never a number:
+/// the row has no "+7", and nothing says how many there are.
+private struct CircleFaces: View {
+    let members: [CircleMember]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(members) { member in
+                    NavigationLink {
+                        MemberProfileView(memberId: member.id)
+                    } label: {
+                        VStack(spacing: 5) {
+                            AvatarView(url: member.avatarUrl, name: member.displayName, size: 52)
+                            Text(firstName(member))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .frame(maxWidth: 64)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(member.displayName ?? "New member")
+                    .accessibilityHint("Opens their profile")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollClipDisabled()
+    }
+
+    private func firstName(_ member: CircleMember) -> String {
+        let name = member.displayName ?? "New member"
+        return name.split(separator: " ").first.map(String.init) ?? name
     }
 }
 
@@ -236,9 +281,24 @@ struct EditProfileSheet: View {
     }
 
     var body: some View {
+        let profile = state.profile
+        let uploading = state.avatarUploading
         NavigationStack {
             Form {
                 Group {
+                    Section {
+                        HStack(spacing: 14) {
+                            AvatarView(url: profile?.avatarUrl, name: profile?.displayName, size: 56)
+                                .overlay {
+                                    if uploading { ProgressView() }
+                                }
+                            AvatarChooser {
+                                Text(profile?.avatarUrl == nil ? "Add a photo" : "Change photo")
+                                    .foregroundStyle(Color.accentColor)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
                     Section("Name") {
                         TextField("Your name", text: $name)
                     }
@@ -360,6 +420,8 @@ struct MemberProfileView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .atmosphereWash()
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             do {
                 member = try await state.loadMember(memberId)

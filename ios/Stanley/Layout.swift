@@ -79,8 +79,6 @@ enum Density {
     /// tiles themselves larger, which is the point.
     var keptColumns: Int { 3 }
     var threadColumns: Int { isRoom ? 5 : 4 }
-    /// Room for more faces before the cluster overflows.
-    var circleFacesShown: Int { isRoom ? 10 : 5 }
     /// Name and words sit beside the avatar once there is width for it.
     var profileIsHorizontal: Bool { isRoom }
 

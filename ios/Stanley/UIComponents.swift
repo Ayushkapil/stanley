@@ -91,24 +91,41 @@ struct FaceCluster: View {
     }
 }
 
-/// The circle as faces, not a number (Part 6).
-struct AvatarCluster: View {
-    let members: [CircleMember]
-    var size: CGFloat = 36
-    /// A ceiling on faces, not a count of them. Overflow is silent — showing
-    /// "+7" would be a tally, which is exactly what A2 forbids.
-    var maxFaces: Int?
-
-    private var shown: [CircleMember] {
-        guard let maxFaces else { return members }
-        return Array(members.prefix(maxFaces))
-    }
+/// A screen's one action, as wide as the screen, in the atmosphere's accent
+/// with its ink for the words: capture's Take photo and Post, and setup's
+/// Continue. While it's working it holds a spinner in place of the words and
+/// takes no second tap; disabled, it fades back.
+struct WideButton: View {
+    let title: String
+    var systemImage: String?
+    var busy = false
+    let action: () -> Void
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
-        FaceCluster(
-            faces: shown.map { (id: $0.id, url: $0.avatarUrl, name: $0.displayName) },
-            size: size
-        )
+        let palette = Atmosphere.resolve(raw).palette
+        Button(action: action) {
+            ZStack {
+                if busy {
+                    ProgressView().tint(palette.ink)
+                } else if let systemImage {
+                    Label(title, systemImage: systemImage)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.headline)
+            .foregroundStyle(palette.ink)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .opacity(enabled || busy ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .accessibilityLabel(title)
+        .accessibilityValue(busy ? "In progress" : "")
     }
 }
 

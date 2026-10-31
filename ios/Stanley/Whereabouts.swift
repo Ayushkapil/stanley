@@ -5,7 +5,10 @@ import Observation
 /// Where the phone is, used for two things only and only with permission: a
 /// place name offered for a new photo, and the town whose headlines the World
 /// tab shows. Permission is "while using", asked for in context (after the
-/// shutter, or from the World tab's invitation), never at launch.
+/// shutter, or from the World tab's invitation), never at launch. A photo
+/// chosen from the library is named from its own location instead
+/// (`place(at:)`), which needs no permission: it came with the photo the
+/// person chose.
 ///
 /// Coordinates never reach Stanley's server. The phone turns them into names
 /// with Apple's geocoder, and Stanley only ever sends a name: a photo's place
@@ -83,6 +86,14 @@ final class Whereabouts: NSObject, CLLocationManagerDelegate {
             fixes.append(continuation)
             if fixes.count == 1 { manager.requestLocation() }
         }
+    }
+
+    /// A place name for where a photo from the library was taken, from the
+    /// location in its own metadata. Never where the phone is now: an old
+    /// photo could be from anywhere.
+    static func place(at location: CLLocation) async -> String? {
+        guard let mark = try? await CLGeocoder().reverseGeocodeLocation(location).first else { return nil }
+        return names(mark, precise: true).place
     }
 
     /// Names from a placemark. With approximate location (the person's

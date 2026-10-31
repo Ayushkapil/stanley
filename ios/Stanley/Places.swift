@@ -113,37 +113,6 @@ final class PlaceBook {
     }
 }
 
-/// The capture screen's place line. It reads like the caption above it, but
-/// a tap opens the picker instead of a keyboard; the clear button empties
-/// it. The card it sits on draws the surface.
-struct PlaceField: View {
-    @Binding var place: String
-    let open: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Button(action: open) {
-                Text(place.isEmpty ? "Where was this?" : place)
-                    .foregroundStyle(place.isEmpty ? .secondary : .primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Where was this")
-            .accessibilityValue(place.isEmpty ? "No place" : place)
-            if !place.isEmpty {
-                Button { place = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Clear the place")
-            }
-        }
-    }
-}
-
 /// Pick a place: where the phone is (with location allowed), then
 /// favorites, then the last few you used, or search what you've named
 /// before. Anything new can be typed and used as it is. A star keeps a place

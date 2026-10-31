@@ -56,6 +56,16 @@ def test_dev_auth_same_name_returns_same_user(client):
     assert first.json()["user"]["id"] == second.json()["user"]["id"]
 
 
+def test_dev_auth_says_when_it_made_the_account(client):
+    """The app walks a new account through setup, so sign-in says whether it
+    just made the account: once, on the first sign-in, and never again."""
+    first = client.post("/auth/dev", json={"display_name": "Noor"}).json()
+    again = client.post("/auth/dev", json={"display_name": "Noor"}).json()
+    assert first["new_account"] is True
+    assert again["new_account"] is False
+    assert set(first) == {"token", "user", "new_account"}
+
+
 def test_dev_auth_distinct_names_are_distinct_users(client):
     a = client.post("/auth/dev", json={"display_name": "Ayush"})
     b = client.post("/auth/dev", json={"display_name": "Sahana"})
@@ -203,6 +213,9 @@ def test_second_sign_in_same_sub_returns_same_user(apple_app, apple_keypair, clo
     ).json()
     assert first["user"]["id"] == second["user"]["id"]
     assert second["user"]["display_name"] == "Ben"  # original name retained
+    # Setup follows the first sign-in only.
+    assert first["new_account"] is True
+    assert second["new_account"] is False
 
 
 def test_apple_auth_unconfigured_returns_503(tmp_path, clock):

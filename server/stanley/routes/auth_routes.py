@@ -42,12 +42,12 @@ def dev_auth(body: DevAuthBody, db: Session = Depends(get_db, scope="function"),
             User.deleted_at.is_(None),
         )
     ).first()
-    if user is None:
+    new_account = user is None
+    if new_account:
         user = User(display_name=body.display_name, created_at=now)
         db.add(user)
         db.flush()
-    token = auth.issue_token(settings.secret_key, user.id, now)
-    return {"token": token, "user": {"id": user.id, "display_name": user.display_name}}
+    return _signed_in(settings, user, now, new_account)
 
 
 @router.post("/auth/apple", status_code=201)
@@ -73,12 +73,23 @@ def apple_auth(
 
     now = clock.now()
     user = db.scalars(select(User).where(User.apple_sub == sub)).first()
-    if user is None:
+    new_account = user is None
+    if new_account:
         # First sign-in: this is the only time Apple gives us the name.
         name = (body.name or "").strip() or None
         user = User(apple_sub=sub, display_name=name, created_at=now)
         db.add(user)
         db.flush()
+    return _signed_in(settings, user, now, new_account)
 
+
+def _signed_in(settings, user: User, now, new_account: bool) -> dict:
+    """A Stanley token, and whether this sign-in made the account: the app
+    walks a new account through setup (name, username, words, face) before
+    the circle gate. Nothing else about the account is said here."""
     token = auth.issue_token(settings.secret_key, user.id, now)
-    return {"token": token, "user": {"id": user.id, "display_name": user.display_name}}
+    return {
+        "token": token,
+        "user": {"id": user.id, "display_name": user.display_name},
+        "new_account": new_account,
+    }

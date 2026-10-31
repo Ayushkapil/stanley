@@ -4,7 +4,15 @@ import UIKit
 
 struct TodayFeedView: View {
     @Environment(AppState.self) private var state
-    @State private var showCapture = false
+    /// The capture sheet is up. Shared with `HomeView`, which shows the
+    /// camera itself where the tab bar is a dock down the side.
+    @Binding var capturing: Bool
+    /// The tab bar's dock, when it stands down the side of the screen (the
+    /// iPhone Duo's cover display). Nil on an ordinary iPhone. Read here,
+    /// inside the tab bar controller, for `HomeView`.
+    @Binding var sideDock: CGRect?
+    /// The keyboard is up, so the floating camera is out of the way.
+    @Binding var typing: Bool
     @State private var editingNote = false
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
@@ -14,8 +22,6 @@ struct TodayFeedView: View {
     /// the thing you were looking at is still the thing you are looking at.
     /// No `scrollTargetBehavior`, so scrolling itself feels exactly as before.
     @State private var anchor: String?
-    /// The keyboard is up, so the floating camera is out of the way.
-    @State private var typing = false
 
     var body: some View {
         NavigationStack {
@@ -69,17 +75,20 @@ struct TodayFeedView: View {
                 .foldAnimated(hSizeClass)
             }
             .scrollPosition(id: $anchor)
-            // The camera floats at the bottom right, where a thumb already is,
-            // instead of in the top bar, which it can't reach on a tall phone.
-            // As a safe-area inset the feed scrolls under it, and the last
-            // card can still scroll clear of it. The day is claimed the moment
-            // the shutter closes, signal or not, so a queued capture closes
-            // the camera too.
+            .background(SideDockReader(dock: $sideDock))
+            // The camera floats where a thumb already is, instead of in the
+            // top bar, which it can't reach on a tall phone. On an ordinary
+            // iPhone that's the bottom right, as a safe-area inset, so the
+            // feed scrolls under it and the last card can still scroll clear
+            // of it. Where the tab bar is a dock down the side (the Duo's
+            // cover), `HomeView` puts it in the dock's own column, just above
+            // it. The day is claimed the moment the shutter closes, signal or
+            // not, so a queued capture closes the camera too.
             .safeAreaInset(edge: .bottom, alignment: .trailing) {
                 // While a story is being typed the button steps aside. Above
                 // the keyboard it would sit on the field and its Add button.
-                if !typing {
-                    CaptureButton(disabled: state.queue.isHoldingTheDay) { showCapture = true }
+                if !typing && sideDock == nil {
+                    CaptureButton(disabled: state.queue.isHoldingTheDay) { capturing = true }
                         .padding(.trailing, 16)
                         .padding(.bottom, 12)
                         .transition(.opacity)
@@ -94,7 +103,7 @@ struct TodayFeedView: View {
             }
             .atmosphereWash()
             .navigationTitle("Today")
-            .sheet(isPresented: $showCapture) { CaptureView() }
+            .sheet(isPresented: $capturing) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
             .refreshable {
                 // SwiftUI cancels a pull's own task as soon as the state it is
@@ -114,11 +123,100 @@ struct TodayFeedView: View {
     }
 }
 
-/// Today's photo, from a round accent button floating over the feed: 56pt,
-/// the camera in the palette's ink, a soft shadow so it sits above the cards
-/// it passes. It stays put while Today scrolls. Disabled, not hidden, while a
-/// queued capture holds the day, so where it lives never changes.
+/// The tab bar when it stands on its side, as iOS 27 draws it on the iPhone
+/// Duo's cover display: a floating dock down the trailing edge. Reports the
+/// dock's visible frame in window coordinates, or nil where the tab bar runs
+/// along the bottom, as on every ordinary iPhone.
+///
+/// UIKit gives the tab bar the whole strip, top to bottom; the dock you see
+/// is a glass view inside the tab container, about 48 by 262pt on the Duo.
+/// It's found by its shape (inside the strip, narrower than it, and well
+/// short of the screen's height), not by a private class name, so a change
+/// in how iOS builds it falls back to the bottom-right camera rather than
+/// breaking.
+struct SideDockReader: UIViewRepresentable {
+    @Binding var dock: CGRect?
+
+    func makeUIView(context: Context) -> Probe {
+        let probe = Probe()
+        probe.isUserInteractionEnabled = false
+        return probe
+    }
+
+    func updateUIView(_ probe: Probe, context: Context) {
+        probe.report = { frame in
+            if dock != frame { dock = frame }
+        }
+    }
+
+    final class Probe: UIView {
+        var report: (CGRect?) -> Void = { _ in }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            measureSoon()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            measureSoon()
+        }
+
+        /// After this pass, once the tab bar has laid out too. The dock can
+        /// be drawn a moment after the tab bar is, so a vertical strip with
+        /// no dock found yet is looked at again, a few times, shortly after.
+        private func measureSoon(attempt: Int = 0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (attempt == 0 ? 0 : 0.3)) { [weak self] in
+                self?.measure(attempt: attempt)
+            }
+        }
+
+        private func measure(attempt: Int) {
+            guard let window else { return }
+            var responder: UIResponder? = self
+            while let next = responder, !(next is UITabBarController) { responder = next.next }
+            guard let tabs = responder as? UITabBarController, !tabs.tabBar.isHidden else {
+                return report(nil)
+            }
+            let strip = tabs.tabBar.convert(tabs.tabBar.bounds, to: window)
+            guard strip.height > strip.width else { return report(nil) }
+            let found = Self.dock(in: tabs.view, strip: strip, window: window)
+            report(found)
+            if found == nil && attempt < 4 { measureSoon(attempt: attempt + 1) }
+        }
+
+        private static func dock(in root: UIView, strip: CGRect, window: UIWindow) -> CGRect? {
+            let lane = strip.insetBy(dx: -8, dy: 0)
+            var best: CGRect?
+            var stack = root.subviews
+            while let view = stack.popLast() {
+                guard !view.isHidden, view.alpha > 0 else { continue }
+                // A scroll view is content (the feed, a list), never the
+                // dock, and holds most of the views there are.
+                if !(view is UIScrollView) { stack.append(contentsOf: view.subviews) }
+                let frame = view.convert(view.bounds, to: window)
+                guard lane.contains(frame), frame.width > 20, frame.width < strip.width,
+                      frame.height > 100, frame.height < window.bounds.height * 0.8 else { continue }
+                if frame.width * frame.height > (best.map { $0.width * $0.height } ?? 0) {
+                    best = frame
+                }
+            }
+            return best
+        }
+    }
+}
+
+/// Today's photo, from a round button floating over the feed: the camera
+/// in the palette's ink on a solid disc of its accent, so on Auto it's a
+/// black camera on warm white in dark mode and a cream one on charcoal in
+/// light, and on a mood it wears the mood's color. Solid, not Liquid Glass:
+/// glass mixes in what's behind it, and over a dark feed it turned Auto's
+/// warm white into the cool gray pilot users called outdated. A hairline of
+/// light at the rim and a soft shadow lift it off the cards it passes. It
+/// stays put while Today scrolls. Disabled, not hidden, while a queued
+/// capture holds the day, so where it lives never changes.
 struct CaptureButton: View {
+    static let size: CGFloat = 56
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let disabled: Bool
     let action: () -> Void
@@ -127,13 +225,14 @@ struct CaptureButton: View {
         let palette = Atmosphere.resolve(raw).palette
         Button(action: action) {
             Image(systemName: "camera.fill")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 21, weight: .semibold))
                 .foregroundStyle(palette.ink)
-                .frame(width: 56, height: 56)
+                .frame(width: Self.size, height: Self.size)
                 .background {
                     Circle()
                         .fill(palette.accent)
-                        .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+                        .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
                 }
                 .contentShape(Circle())
         }

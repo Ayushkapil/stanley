@@ -18,7 +18,10 @@ guarded by tests; treat a change to any of them as a spec change.
 
 - **One photo per person per local calendar day**, plus a 12-hour minimum gap.
   Enforced server-side by `UNIQUE(owner_id, local_date)` + an app check; a race
-  returns 409, never a double post. Capture is in-app only (no camera roll).
+  returns 409, never a double post. The photo is taken with the in-app camera
+  or, since build 16 (a product decision from pilot feedback), chosen from
+  the library with the system picker, of any age; either way it is the
+  day's one photo and spends the slot the same.
   **One redo per local day:** deleting *today's* photo refunds the slot exactly
   once (the row is released to an anonymous tombstone, so holders keep theirs);
   a second delete spends the day for good, and deleting an older photo never
@@ -97,25 +100,38 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
   orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
   under it, then Post; nothing uploads until Post. Today's photo is taken from
-  a **floating camera button** (`CaptureButton`): 56pt, accent-filled, bottom
-  right above the tab bar on a standard iPhone and beside the Duo's side
-  dock. It stays put while Today scrolls. It's dimmed, not hidden, while a
-  queued capture holds the day. It hides while the keyboard is up: a
-  safe-area inset rides above the keyboard and would sit on the story field's
-  Add button. The top-bar camera is gone. The sheet (build 15) is laid out
-  like composing a memory: before the shutter, an empty rounded frame holding
-  the day's prompt (tapping it opens the camera) and the rule in a line
-  beneath; after it, the photo full-width with 20pt corners, cropped the way a
-  Today card crops it at 85% of that card's height so the pills show without
-  scrolling on the Duo's cover. The filter pills sit right under it, then one
-  card (`cardSurface`) with the caption and the place as rows with quiet
-  glyphs and a hairline between, then who-was-there. The caption and place
-  appear only after the shutter. **Open camera** / **Post** is one full-width
-  accent button (`WideButton`, 52pt, the palette's ink) pinned to the foot of
-  the sheet on its floor; it holds a spinner while posting. The boxed
-  `stanleyField()` style is gone, as nothing used it any more.
+  a **floating camera button** (`CaptureButton`): a 56pt solid disc of the
+  accent with the camera in the palette's ink (on Auto, black on warm white
+  in dark mode, cream on charcoal in light; it was a gray-looking disc pilot
+  users called outdated, and Liquid Glass turned Auto's white gray again, so
+  it's solid). On a standard iPhone it floats bottom right above the tab bar.
+  On the Duo's cover, where iOS 27 stands the tab bar on its side as a dock,
+  it sits in the dock's column just above it (build 16; it had been beside
+  the dock). `SideDockReader` finds the dock by shape, not by a private class
+  name: UIKit gives a side tab bar the whole 69pt strip, and the visible dock
+  is a glass view inside the tab container (48×262pt on the Duo). Not found,
+  or a bottom tab bar, means the bottom-right camera. `HomeView` draws the
+  Duo camera, over the tab bar, because inside Today, over that strip, it
+  never saw a tap. It stays put while Today scrolls. It's dimmed, not
+  hidden, while a queued capture holds the day. It hides while the keyboard
+  is up: a safe-area inset rides above the keyboard and would sit on the
+  story field's Add button. The sheet (build 15) is laid out like composing
+  a memory: before the photo, an empty rounded frame holding the day's
+  prompt (tapping it opens the camera) and the rule in a line beneath;
+  after it, the photo full-width with 20pt corners at 72% of a Today card's
+  height. **Where it was** sits right under the photo (build 16; on the card
+  below the pills it was out of sight on the Duo's cover), then the filter
+  pills, then the caption card, then who-was-there. The foot of the sheet
+  is **Take photo**, a full-width accent button (`WideButton`, 52pt, the
+  palette's ink, shared with setup), with **Choose from library** under it;
+  after the photo it's **Post**, which holds a spinner while posting. A
+  library photo (`LibraryPhoto.swift`) goes through the same preview,
+  filters, place, caption and post. It's read with ImageIO's thumbnail path
+  (upright, at most 4096px, never decoded at full size) and re-encoded from
+  its pixels, so its metadata, GPS included, never leaves the phone. The
+  picker is `PhotosPicker`, out of process, and needs no Photos permission.
 - **Places** (client only, build 14; location since build 15) — the capture
-  screen's place row opens a picker (`Places.swift`) with a search bar,
+  screen's place line, right under the photo, opens a picker (`Places.swift`) with a search bar,
   **Here** (where the phone is, with location allowed), **Favorites**
   (starred, at most 10), **Recent** (the last five used, favorites
   excluded), and search over the person's *own* places only. Anything new
@@ -126,9 +142,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   location allowed (asked right then, the first time), the place fills in
   from where the phone is (`Whereabouts`): the landmark or campus Apple's
   geocoder names ("Indiana University"), else the neighborhood, else the
-  town; only the town under approximate location. It never overwrites a
-  place already chosen, its row shows a location glyph until changed, and
-  it stays the person's to edit or clear. Coordinates never reach Stanley's
+  town; only the town under approximate location. A **library photo** is
+  named from the location in its own metadata instead (`Whereabouts.place
+  (at:)`, no permission needed), never from where the phone is, since it
+  could be from anywhere. It never overwrites a place already chosen. A
+  filled place shows a pencil, and a location glyph while it's the
+  suggestion; it stays the person's to edit or clear. Coordinates never reach Stanley's
   server: only the label on the photo does, as before, and GPS is still
   stripped from the image. No maps or places search.
 - **Capture filters** — four looks, plus None (the default), as one row of
@@ -186,13 +205,27 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Circles** — circle-first onboarding (invite code), roster as avatar cluster,
   rotate invite, remove member (creator), leave (with creator succession).
 - **Profiles** — display name, username, multi-line bio, avatar (soft-square,
-  crop), member profiles (A2-safe: name + words + face only). A **name gate**
-  (`NameGateView`) sits between sign-in and the circle gate whenever Apple gave
-  us no name — it did not, for anyone who declined to share it — because the
-  alternative was a new member labelled with the placeholder for a deleted
-  account. Name required, username optional, shown once. The name gate and
-  the circle gate each have a plain **Sign out** in the top bar, because
-  Settings is past both. There's no confirmation, the same as Settings. The
+  crop), member profiles (A2-safe: name + words + face only). The You tab's
+  circle is a scrolling row of faces with first names, and each opens that
+  person's profile (build 16; the old cluster did nothing). **Setup**
+  (`SetupView`, build 16) walks a new account through four screens between
+  sign-in and the circle gate: "What should we call you?" (required, no
+  Skip), "Pick a username" (live check, Skip), "Write a little about
+  yourself" (Skip), "Add a photo of yourself" (Skip). Each saves as it goes
+  (`patchProfile`, only that field) and starts from what the profile holds.
+  The server says `new_account: true` on the sign-in that made the account;
+  the phone keeps a per-account flag until setup's last step, so quitting
+  halfway brings it back. Anyone with no name gets setup too, as the old
+  name gate did (Apple gives a name only on the first authorization, and
+  only if shared). A server without `new_account` reads as false. **Avatars**
+  (`AvatarPicker.swift`, build 16): one `AvatarChooser` for the You tab's
+  face, the edit sheet's photo row and setup. The crop is a full-screen
+  "Move and Scale" (it was a sheet, whose drag-to-dismiss fought the photo's
+  drag, and whose item was rebuilt on every redraw), with drag and pinch at
+  once, the photo clamped to always cover the window, and the framed square
+  cut from the photo's own pixels at up to 1024px. Setup and the circle gate
+  each have a plain **Sign out** in the top bar, because Settings is past
+  both. There's no confirmation, the same as Settings. The
   username field's live availability check sends `u` as a query item. Until
   build 13 it was percent-encoded into the path and got a 404, so it never
   ran (the server still validates on save). A nameless member
@@ -229,18 +262,23 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   `Density.canvasBounds()` — the window scene's own screen, not `UIScreen.main`,
   which on a two-display foldable names the primary display rather than the one
   the app is on.
-- **Seasonal atmosphere** — Auto (season by hemisphere) + Spring/Warm/Fall/Cool/
-  Rain, picked from a row of named pills in Settings (the chosen one filled
-  with its accent; in dark mode the rest carry a hairline). Each is a `Palette`
-  (`Atmosphere.swift`): an `accent` (tab bar, buttons, bookmarks, edges), an
-  `ink` for labels on an accent fill, an opaque per-mode `floor` (the root and
-  every screen paint the same one, so overlaps are invisible), a `card` under
-  every Today card, and a `row` behind grouped-list rows (`.atmosphereRows()`,
-  on every Form and List). Light mode mixes the tone into the system white.
-  Dark mode is **chosen outright** per atmosphere — black mixed toward a pale
-  tone came out olive and gray-brown — so each gets a saturated accent, a deep
-  floor of its own hue and a card one step up: emerald, candlelight, ember,
-  ice on navy, slate. Ambient only; never affects function.
+- **Atmosphere** — neutral by default, personality by choice (build 16).
+  **Auto** is Stanley's own quiet look, no longer the season: warm paper
+  (#F8F6F1) and white cards in light mode, true black and a #1A1A1A card in
+  dark, with a warm-charcoal / warm-white accent, so tabs and buttons are
+  black and white with a little warmth. The five moods (Spring, Warm, Fall,
+  Cool, Rain) are picked from a **menu** in Settings (a `Picker` with
+  `.menu`; the pill row is gone). Each is a `Palette` (`Atmosphere.swift`):
+  an `accent` (tab bar, buttons, bookmarks, edges), an `ink` for labels on
+  an accent fill, an opaque per-mode `floor` (the root and every screen
+  paint the same one, so overlaps are invisible), a `card` under every
+  Today card, a `row` behind grouped-list rows (`.atmosphereRows()`, on
+  every Form and List), and a `toggle` (the accent, except Auto's dark
+  white, which would hide a switch's knob). Light mode mixes the tone into
+  the system white. **Dark mode** is black with about 5% of the tone in the
+  floor and 6% in the card (Rain 3% and 4%: fog, barely there); the mood
+  lives in the accent. Pilot users called build 10–15's colored dark floors
+  "terrible" and "artificial". Ambient only; never affects function.
 - **Errors in Stanley's voice** — no status code, server `detail` string or
   system description ever reaches the screen. `APIError` maps every server
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
@@ -327,6 +365,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
+- **Build 16** (0.2.0) is committed but not archived; the archive below is
+  build 13's.
 - **TestFlight build.** Build 13 (0.2.0) is archived and exported from
   `163ec6d` (it includes the gate sign-out), **not yet uploaded**. An earlier
   build 13 archive from `4a616da` was moved to the Trash. The archive is in Xcode's Organizer (`~/Library/Developer/Xcode/
@@ -351,7 +391,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   outbound HTTPS to news.google.com was checked from the machine (200);
   pbs.org and feeds.bbci.co.uk were checked from this Mac only. Build 15's
   app also calls `/news/nearby`, which v7 doesn't have: against v7 the World
-  tab shows nothing at all, so deploy before testers get build 15.
+  tab shows nothing at all, so deploy before testers get build 15. Build
+  16's server change is one field, `new_account` on sign-in; without it a
+  new account that Apple gave a name skips setup and goes straight to the
+  circle gate, as before.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
@@ -420,12 +463,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**251 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**252 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
-capture-race/orphan-blob safety, backups, nameless-vs-departed naming, the
+capture-race/orphan-blob safety, backups, nameless-vs-departed naming,
+`new_account` on the first sign-in only (dev and Apple), the
 World Today (PBS for the US and the unlocated, BBC elsewhere, a town's Google
 feed and what isn't a town, one upserted row per edition, last-good-set on
 failure, stale silence, fetch-when-due on request, the town cap and
@@ -457,18 +501,19 @@ live APNs, concurrency under real load.
 **iOS** (`ios/Stanley/`)
 - App entry / root / tabs / flash / atmosphere tint: `StanleyApp.swift`
 - State + API calls: `AppState.swift`; HTTP client: `APIClient.swift`; models: `Models.swift`
-- Screens: `WelcomeView.swift` (sign-in), `NameGateView.swift` (name/username,
-  shown once when Apple gave no name), `TodayFeedView.swift` (feed, photo card,
+- Screens: `WelcomeView.swift` (sign-in), `TodayFeedView.swift` (feed, photo card,
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
   who-was-there, preview + filter pills), `PhotoFilters.swift` (the four
   looks, `FilterRenderer`), `Places.swift` (place picker, favorites,
-  `PlaceBook`), `Whereabouts.swift` (location permission, one fix, names
+  `PlaceBook`), `LibraryPhoto.swift` (a library photo read upright, small,
+  with its own location), `SetupView.swift` (a new account's four steps),
+  `Whereabouts.swift` (location permission, one fix, names
   from Apple's geocoder), `WorldTodayView.swift` (the World tab, stories
   that open in place, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
-- Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),
-  `AvatarPicker.swift`, `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
+- Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share,
+  `WideButton`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
 - Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
 

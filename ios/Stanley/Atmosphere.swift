@@ -1,12 +1,19 @@
 import SwiftUI
 import UIKit
 
-/// Seasonal atmosphere (Part 5): an ambient color-temperature shift, never a
-/// skin. It tints accents, the tab bar, card surfaces, and the floor under
-/// everything — and nothing else. It never affects feed order, visibility, or
-/// any functionality. Every palette reads in both light and dark mode, and the
-/// five are meant to be told apart at a glance — golden, copper, icy, sage,
-/// fog — so a person knows which one is on without opening Settings.
+/// The atmosphere: an ambient color temperature, never a skin. It tints
+/// accents, the tab bar, card surfaces and the floor under everything, and
+/// nothing else. It never affects feed order, visibility, or anything Stanley
+/// does.
+///
+/// Neutral by default, personality by choice. Auto is Stanley's own quiet
+/// look: warm paper and white cards in light mode, true black in dark, with a
+/// charcoal or warm-white accent. The five moods (Spring, Warm, Fall, Cool,
+/// Rain) are picked in Settings. In light mode each mixes its tone into the
+/// floor and cards. In dark mode the tone is only a hint, about 5% over black,
+/// because pilot users found the colored floors of build 10 to 15 artificial:
+/// a dark mood is black with a little warmth or cool in it, and its color
+/// lives in the accent.
 enum Atmosphere: String, CaseIterable, Identifiable {
     case auto, spring, warm, fall, cool, rain
     var id: String { rawValue }
@@ -26,81 +33,58 @@ enum Atmosphere: String, CaseIterable, Identifiable {
     struct Palette {
         /// Everything `.tint` reaches: the tab bar, buttons, bookmarks, edges.
         let accent: Color
-        /// What sits *on* an accent fill — a prominent button's label, the
+        /// What sits *on* an accent fill: a prominent button's label, the
         /// chosen pill's name. White only where the accent is deep enough to
         /// carry it (Fall, in light mode); everywhere else a dark ink of the
         /// accent's own hue, so the control stays on-theme and stays legible.
         let ink: Color
-        /// The opaque surface under everything: the room's temperature. The
-        /// system background with the atmosphere's tone blended in — tinted
-        /// paper in light mode, a lifted black in dark. Opaque on purpose: the
-        /// root and each screen both paint it, and the same opaque color
-        /// painted twice is one color, not a darker band where they overlap.
+        /// The opaque surface under everything: the room's temperature. Opaque
+        /// on purpose: the root and each screen both paint it, and the same
+        /// opaque color painted twice is one color, not a darker band where
+        /// they overlap.
         let floor: Color
         /// Laid over a card's base fill, so cards carry the temperature too
         /// instead of reading as neutral gray cut-outs on a tinted floor.
-        /// Opaque in dark mode: the card *is* this color.
+        /// Opaque in dark mode, and in Auto's light mode: the card *is* this
+        /// color.
         let card: Color
         /// Behind the rows of a grouped list (Settings, the edit sheets). The
         /// system's own row color in light mode; in dark, the card, so a
         /// screen of rows is in the same room as Today.
         let row: Color
+        /// An on switch. The accent, except where the accent is near white
+        /// (Auto in dark mode), which would hide the switch's white knob.
+        let toggle: Color
     }
 
     var palette: Palette {
         switch self {
+        case .auto:
+            return .neutral
         // Light mode is the system's white with the tone blended in. Dark
-        // mode is chosen outright: an accent with the saturation to read on
-        // near-black, a deep floor of the mood's own hue, a card one step up.
-        case .spring:   // light: soft sage, fresh mint · dark: deep sage, emerald
+        // mode is black with about 5% of the tone, and the accent carries
+        // the mood.
+        case .spring:   // light: soft sage, fresh mint · dark: emerald on black
             return .make(
                 light: .init(accent: 0x8CB87B, ink: 0x16291A, tone: 0x8CB87B, floor: 0.14, card: 0.09),
-                dark: .init(accent: 0x6CC48E, ink: 0x0A2414, floor: 0x0A1710, card: 0x13291D))
+                dark: .init(accent: 0x6CC48E, ink: 0x0A2414, tone: 0x6CC48E, floor: 0.05, card: 0.06))
         case .warm:     // light: golden amber, summer · dark: candlelight
             return .make(
                 light: .init(accent: 0xF2B24A, ink: 0x3A2808, tone: 0xF0BE50, floor: 0.16, card: 0.10),
-                dark: .init(accent: 0xFFB53D, ink: 0x2E1C02, floor: 0x1F1708, card: 0x3B2C11))
-        case .fall:     // light: deep copper, burnt orange · dark: terracotta, ember
+                dark: .init(accent: 0xFFB53D, ink: 0x2E1C02, tone: 0xFFB53D, floor: 0.05, card: 0.06))
+        case .fall:     // light: deep copper, burnt orange · dark: ember
             return .make(
                 light: .init(accent: 0xB85C2C, ink: 0xFFF4EA, tone: 0xC45A30, floor: 0.13, card: 0.09),
-                dark: .init(accent: 0xE8773D, ink: 0x2B0F03, floor: 0x1D0D07, card: 0x351A0F))
-        case .cool:     // light: slate blue, icy silver · dark: ice on deep navy
+                dark: .init(accent: 0xE8773D, ink: 0x2B0F03, tone: 0xE8773D, floor: 0.05, card: 0.06))
+        case .cool:     // light: slate blue, icy silver · dark: ice
             return .make(
                 light: .init(accent: 0x7B9EB8, ink: 0x0F1E2C, tone: 0x6D9BC4, floor: 0.16, card: 0.09),
-                dark: .init(accent: 0x96D0F6, ink: 0x08203A, floor: 0x08111C, card: 0x122133))
-        case .rain:     // light: blue-gray fog · dark: slate, through a wet window
+                dark: .init(accent: 0x96D0F6, ink: 0x08203A, tone: 0x96D0F6, floor: 0.05, card: 0.06))
+        case .rain:     // light: blue-gray fog · dark: fog, barely there
             return .make(
                 light: .init(accent: 0x8899AA, ink: 0x1B2229, tone: 0x949CA4, floor: 0.24, card: 0.05),
-                dark: .init(accent: 0xA2B5C8, ink: 0x141B23, floor: 0x12161B, card: 0x1D242C))
-        case .auto:
-            return Atmosphere.seasonNow.palette
+                dark: .init(accent: 0xA2B5C8, ink: 0x141B23, tone: 0xA2B5C8, floor: 0.03, card: 0.04))
         }
-    }
-
-    /// The current real-world season as a concrete atmosphere, by hemisphere.
-    static var seasonNow: Atmosphere {
-        let month = Calendar.current.component(.month, from: Date())
-        let northern = !isSouthernHemisphere(TimeZone.current.identifier)
-        // Northern mapping; southern is shifted by six months.
-        let m = northern ? month : ((month + 5) % 12) + 1
-        switch m {
-        case 3...5: return .spring
-        case 6...8: return .warm
-        case 9...11: return .fall
-        default: return .cool   // Dec–Feb
-        }
-    }
-
-    /// Coarse hemisphere guess from the timezone identifier's region.
-    static func isSouthernHemisphere(_ tz: String) -> Bool {
-        let south = [
-            "Australia/", "Pacific/Auckland", "Pacific/Chatham", "Antarctica/",
-            "America/Argentina", "America/Sao_Paulo", "America/Santiago",
-            "America/La_Paz", "America/Asuncion", "America/Montevideo", "America/Lima",
-            "Africa/Johannesburg", "Africa/Windhoek", "Africa/Maputo", "Africa/Harare",
-            "Indian/", "Pacific/Fiji", "Pacific/Port_Moresby",
-        ]
-        return south.contains { tz.hasPrefix($0) || tz == $0 }
     }
 
     static func resolve(_ raw: String) -> Atmosphere {
@@ -118,29 +102,55 @@ extension Atmosphere.Palette {
         let floor: CGFloat, card: CGFloat
     }
 
-    /// Dark mode, chosen. Black mixed toward a pale tone comes out gray-olive
-    /// for gold and brownish-gray for copper — a tint on black, not a mood —
-    /// so each surface is named outright instead.
+    /// Dark mode: black with a hint of `tone`. `floor` and `card` say how
+    /// much of it goes over black and over the neutral card, a few percent
+    /// at most.
     struct Dark {
-        let accent: UInt32, ink: UInt32, floor: UInt32, card: UInt32
+        let accent: UInt32, ink: UInt32, tone: UInt32
+        let floor: CGFloat, card: CGFloat
     }
+
+    /// Dark mode's neutral surfaces, before any tone: true black, and a card
+    /// one step up from it.
+    private static let darkFloor = UIColor(hex: 0x000000)
+    private static let darkCard = UIColor(hex: 0x1A1A1A)
 
     static func make(light: Light, dark: Dark) -> Self {
         let tone = UIColor(hex: light.tone)
-        let darkCard = UIColor(hex: dark.card)
+        let darkTone = UIColor(hex: dark.tone)
+        let card = darkCard.blended(toward: darkTone, by: dark.card)
+        let accent = adaptive(light: UIColor(hex: light.accent), dark: UIColor(hex: dark.accent))
         return Self(
-            accent: adaptive(light: UIColor(hex: light.accent), dark: UIColor(hex: dark.accent)),
+            accent: accent,
             ink: adaptive(light: UIColor(hex: light.ink), dark: UIColor(hex: dark.ink)),
             floor: adaptive(
                 light: UIColor.white.blended(toward: tone, by: light.floor),
-                dark: UIColor(hex: dark.floor)
+                dark: darkFloor.blended(toward: darkTone, by: dark.floor)
             ),
-            card: adaptive(light: tone.withAlphaComponent(light.card), dark: darkCard),
-            row: adaptive(light: .secondarySystemGroupedBackground, dark: darkCard)
+            card: adaptive(light: tone.withAlphaComponent(light.card), dark: card),
+            row: adaptive(light: .secondarySystemGroupedBackground, dark: card),
+            toggle: accent
         )
     }
 
-    private static func adaptive(light: UIColor, dark: UIColor) -> Color {
+    /// Auto: warm paper and white cards in light mode, true black and a card
+    /// one step up in dark. The accent is warm charcoal in light and warm
+    /// white in dark, so the tab bar and buttons are black and white with a
+    /// little warmth, and nothing else is tinted. A white accent would hide
+    /// a switch's white knob, so in dark mode switches keep the system green.
+    static let neutral: Self = {
+        let card = adaptive(light: .white, dark: darkCard)
+        return Self(
+            accent: adaptive(light: UIColor(hex: 0x2A2724), dark: UIColor(hex: 0xF2EFEA)),
+            ink: adaptive(light: UIColor(hex: 0xFAF8F4), dark: UIColor(hex: 0x141414)),
+            floor: adaptive(light: UIColor(hex: 0xF8F6F1), dark: darkFloor),
+            card: card,
+            row: card,
+            toggle: adaptive(light: UIColor(hex: 0x2A2724), dark: .systemGreen)
+        )
+    }()
+
+    fileprivate static func adaptive(light: UIColor, dark: UIColor) -> Color {
         Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })
     }
 }
@@ -226,61 +236,9 @@ extension View {
     func atmosphereRows() -> some View { modifier(AtmosphereRows()) }
 }
 
-/// The atmosphere picker: one row of named pills, the way iOS reads a row of
-/// filters. The one that is on wears its own accent, with the palette's ink
-/// for the word; the others are quiet capsules. Nothing else is drawn — no
-/// swatch, no checkmark — the chosen pill's color is the swatch. All six
-/// share one row wherever they fit; where they cannot (a large text size),
-/// the row scrolls and opens with the chosen one in view, so the one that
-/// is on is never the one hidden.
-struct AtmosphereChips: View {
-    @Binding var selection: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Atmosphere")
-            ViewThatFits(in: .horizontal) {
-                pills
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        pills
-                    }
-                    // Run under the row's own margins rather than stopping
-                    // at them, so a pill half out of view reads as scrolled,
-                    // not clipped.
-                    .contentMargins(.horizontal, 20, for: .scrollContent)
-                    .padding(.horizontal, -20)
-                    .onAppear { proxy.scrollTo(selection, anchor: .center) }
-                }
-            }
-            .padding(.vertical, 2)
-            .animation(.easeInOut(duration: 0.2), value: selection)
-        }
-    }
-
-    private var pills: some View {
-        HStack(spacing: 4) {
-            ForEach(Atmosphere.allCases) { atmosphere in
-                pill(atmosphere).id(atmosphere.rawValue)
-            }
-        }
-    }
-
-    private func pill(_ atmosphere: Atmosphere) -> some View {
-        ChoicePill(
-            label: atmosphere.label,
-            on: selection == atmosphere.rawValue,
-            palette: atmosphere.palette
-        ) {
-            selection = atmosphere.rawValue
-        }
-    }
-}
-
 /// One named pill in a row of choices. The one that is on wears the
 /// palette's accent with its ink for the word; the others are quiet
-/// capsules. Shared by the atmosphere picker and the capture filters, so a
-/// row of choices looks the same wherever it appears.
+/// capsules. The capture filters are a row of these.
 struct ChoicePill: View {
     let label: String
     let on: Bool

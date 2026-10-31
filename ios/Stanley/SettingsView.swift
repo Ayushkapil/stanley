@@ -142,17 +142,25 @@ struct SettingsView: View {
                 Text("Dark").tag("dark")
             }
             .pickerStyle(.segmented)
-            AtmosphereChips(selection: $atmosphere)
+            // A menu, the way iOS picks one of a few: the choice shows in the
+            // row, and the six names open from it.
+            Picker("Atmosphere", selection: $atmosphere) {
+                ForEach(Atmosphere.allCases) { atmosphere in
+                    Text(atmosphere.label).tag(atmosphere.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
         } header: {
             Text("Appearance")
         } footer: {
-            Text("Atmosphere shifts the color with the season (Auto), or you can pick a mood. Rain is the quiet one. It's only color — nothing about how Stanley works changes.")
+            Text("Auto is Stanley's own quiet look: warm white in light mode, black in dark. The others are moods, and Rain is the quiet one. It's only color — nothing about how Stanley works changes.")
         }
     }
 
     private var quietSection: some View {
         Section {
             Toggle("Tell me when my own photo is fading", isOn: $lastLight)
+                .tint(Atmosphere.resolve(atmosphere).palette.toggle)
                 .onChange(of: lastLight) { _, newValue in
                     guard loaded else { return }
                     Task {
@@ -177,6 +185,7 @@ struct SettingsView: View {
     private var privacySection: some View {
         Section {
             Toggle("Require Face ID to open", isOn: $appLock)
+                .tint(Atmosphere.resolve(atmosphere).palette.toggle)
         } header: {
             Text("Lock")
         } footer: {

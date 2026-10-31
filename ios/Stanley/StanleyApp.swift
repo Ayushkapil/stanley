@@ -63,16 +63,18 @@ struct RootView: View {
                     ProgressView()
                         .task {
                             // The profile first: whether we know this person's
-                            // name decides which gate comes next.
+                            // name decides whether setup comes next.
                             await state.loadProfile()
                             await state.loadCircle()
                         }
-                } else if state.needsName {
-                    // Signed in, but Apple never told us what to call them.
-                    // Ask before they meet the circle. If loadProfile failed,
-                    // needsName is false and this is skipped — a network blip
-                    // should not strand anyone behind a name screen.
-                    NameGateView()
+                } else if state.needsSetup {
+                    // A new account, or one we have no name for: a name, a
+                    // username, a few words and a face, one to a screen,
+                    // before they meet the circle. If loadProfile failed on
+                    // an older account, this is skipped: a network blip
+                    // shouldn't strand anyone behind setup.
+                    SetupView()
+                        .transition(.opacity)
                 } else if state.circle == nil {
                     CircleGateView()
                 } else {
@@ -128,18 +130,52 @@ struct RootView: View {
 }
 
 struct HomeView: View {
+    private enum Tab { case today, held, you, world, settings }
+
+    @Environment(AppState.self) private var state
+    @State private var tab = Tab.today
+    @State private var capturing = false
+    @State private var sideDock: CGRect?
+    @State private var typing = false
+
     var body: some View {
-        TabView {
-            TodayFeedView()
+        TabView(selection: $tab) {
+            TodayFeedView(capturing: $capturing, sideDock: $sideDock, typing: $typing)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
+                .tag(Tab.today)
             MemoriesView()
                 .tabItem { Label("Held", systemImage: "bookmark") }
+                .tag(Tab.held)
             ProfileView()
                 .tabItem { Label("You", systemImage: "person") }
+                .tag(Tab.you)
             WorldTodayView()
                 .tabItem { Label("World", systemImage: "globe") }
+                .tag(Tab.world)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(Tab.settings)
         }
+        // Where the tab bar is a dock down the side (the Duo's cover), Today's
+        // camera sits in the dock's column, just above it. It's drawn here,
+        // over the tab bar, because UIKit gives a side dock's tab bar the whole
+        // strip it stands in, top to bottom: a button inside Today, over that
+        // strip, never saw a tap. Today has no pushed screens, so showing it
+        // whenever Today is the tab is the same as showing it on Today.
+        .overlay {
+            if tab == .today, let sideDock, !typing {
+                GeometryReader { geo in
+                    let origin = geo.frame(in: .global).origin
+                    CaptureButton(disabled: state.queue.isHoldingTheDay) { capturing = true }
+                        .position(
+                            x: sideDock.midX - origin.x,
+                            y: sideDock.minY - 12 - CaptureButton.size / 2 - origin.y
+                        )
+                }
+                .ignoresSafeArea()
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: typing)
     }
 }

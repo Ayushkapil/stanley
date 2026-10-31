@@ -49,8 +49,13 @@ Personalization, never Other.
 
 - [ ] **Photos or Videos — COLLECTED · Linked to identity · Not used for tracking.**
   The daily photo and the optional avatar, uploaded to and stored on Stanley's
-  server, tied to the account. Server-side ingest strips **all EXIF except the
-  capture timestamp — GPS is removed** before the image ever touches disk.
+  server, tied to the account. The daily photo is taken with the in-app
+  camera or, since build 16, chosen with the system photo picker, which
+  needs no Photos permission: Stanley sees only the one photo chosen. A
+  chosen photo is re-encoded on the phone from its pixels, so its metadata
+  (GPS included) is never sent, and an avatar is cropped and re-encoded the
+  same way. Server-side ingest strips **all EXIF except the capture
+  timestamp — GPS is removed** before the image ever touches disk.
   Photos are visible only to the user's one circle (≤30 people), served via
   short-TTL signed URLs, and are deleted by decay physics unless held.
 - [ ] **Other User Content — COLLECTED · Linked to identity · Not used for tracking.**
@@ -72,10 +77,12 @@ Personalization, never Other.
 - [ ] **Precise Location — NOT COLLECTED.**
   With "while using" permission (asked after the shutter, or from the World
   tab's invitation), the phone takes one fix and turns it into names with
-  Apple's geocoder (`Whereabouts.swift`). The coordinates go to Apple, as
-  platform geocoding, and never to Stanley's server. What can reach the
-  server is a place *name* the person keeps on a photo, which is Other User
-  Content above. Photos still have EXIF GPS stripped at ingest.
+  Apple's geocoder (`Whereabouts.swift`). A photo chosen from the library is
+  named the same way from the location in its own metadata, read on the
+  phone (`LibraryPhoto.swift`). The coordinates go to Apple, as platform
+  geocoding, and never to Stanley's server. What can reach the server is a
+  place *name* the person keeps on a photo, which is Other User Content
+  above. Photos still have EXIF GPS stripped at ingest.
 - [ ] **Coarse Location — COLLECTED · NOT linked to identity · Not used for
   tracking.**
   With permission, the World tab sends the **town and country**
@@ -141,6 +148,9 @@ launches)**, Surroundings, Body, Other Data.
 - The town for local news is ever stored with the account, logged, or sent
   in a query string → Coarse Location becomes **Linked to identity**.
 - Coordinates are ever sent to Stanley's server → add Precise Location.
+- A library photo is ever uploaded as its original file rather than
+  re-encoded → its GPS reaches the server before ingest strips it; check
+  Precise Location again.
 
 - `.email` is added to SIWA `requestedScopes` → Email becomes Collected.
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no
