@@ -55,8 +55,9 @@ Personalization, never Other.
   short-TTL signed URLs, and are deleted by decay physics unless held.
 - [ ] **Other User Content — COLLECTED · Linked to identity · Not used for tracking.**
   Captions, story-comments, bio, username, hold notes, the community note,
-  user-typed location labels (a free-text string like "Dunn Meadow" — never
-  device GPS), who-was-there tags, and report text.
+  location labels (a free-text string like "Dunn Meadow", typed, or offered
+  from where the phone is and kept by the person; never coordinates),
+  who-was-there tags, and report text.
 - [ ] Emails or Text Messages / Audio / Gameplay / Customer Support — **not collected.**
 
 ### Identifiers
@@ -65,6 +66,26 @@ Personalization, never Other.
   Stanley issues an opaque account ID (the JWT subject) and stores the SIWA
   `sub` to recognize repeat sign-ins. Required for accounts to exist.
 - [ ] Device ID — **not collected** (no IDFA, no IDFV use).
+
+### Location
+
+- [ ] **Precise Location — NOT COLLECTED.**
+  With "while using" permission (asked after the shutter, or from the World
+  tab's invitation), the phone takes one fix and turns it into names with
+  Apple's geocoder (`Whereabouts.swift`). The coordinates go to Apple, as
+  platform geocoding, and never to Stanley's server. What can reach the
+  server is a place *name* the person keeps on a photo, which is Other User
+  Content above. Photos still have EXIF GPS stripped at ingest.
+- [ ] **Coarse Location — COLLECTED · NOT linked to identity · Not used for
+  tracking.**
+  With permission, the World tab sends the **town and country**
+  ("Bloomington, IN", "US") to fetch local headlines (`GET /news/nearby`),
+  in request headers so they never land in an access log. The server uses
+  the town to pick a feed and caches that feed under the town's name, never
+  against the account that asked; a town nobody asks about is dropped after
+  a day. Declared conservatively: the town outlives the request in that
+  cache. Without permission nothing is sent and the national edition is the
+  US one.
 
 ### Diagnostics — depends on the build
 
@@ -90,9 +111,7 @@ Personalization, never Other.
 
 ### Everything else — Not Collected
 
-Health & Fitness, Financial Info, **Location (precise and coarse — the app
-never requests location permission; photo locations are typed labels and EXIF
-GPS is stripped)**, Sensitive Info, Contacts, Browsing History, Search
+Health & Fitness, Financial Info, Sensitive Info, Contacts, Browsing History, Search
 History, Purchases, **Usage Data (no analytics, no product-interaction
 telemetry, no advertising data — nothing in the app records taps, views, or
 launches)**, Surroundings, Body, Other Data.
@@ -106,11 +125,11 @@ launches)**, Surroundings, Body, Other Data.
   day". It is not a location under Apple's definitions (no GPS/network
   derivation) and has no label category.
 - Saved places stay on the phone. The capture screen remembers the place
-  labels someone typed (recent ones, plus up to ten starred favorites) in the
+  labels someone used (recent ones, plus up to ten starred favorites) in the
   app's local storage, per account, to offer them again. They are never sent
   anywhere: a place reaches the server only as the label on a photo they post,
-  as before. No location permission, no GPS, no maps or places service.
-  Account deletion erases them from the phone.
+  as before. No maps or places service. Account deletion erases them from
+  the phone.
 - Push notifications: when APNs is wired, the server stores a **device push
   token**. Tokens exist to deliver the single last-light notice/digest and are
   not an Apple label category by themselves.
@@ -118,6 +137,10 @@ launches)**, Surroundings, Body, Other Data.
   all purge. Owner-deleted photos purge everywhere immediately.
 
 ## Re-derive this label when…
+
+- The town for local news is ever stored with the account, logged, or sent
+  in a query string → Coarse Location becomes **Linked to identity**.
+- Coordinates are ever sent to Stanley's server → add Precise Location.
 
 - `.email` is added to SIWA `requestedScopes` → Email becomes Collected.
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no

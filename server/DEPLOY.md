@@ -48,7 +48,7 @@ Optional features:
 
 | Var | Notes |
 |-----|-------|
-| `STANLEY_NEWS` | The World Today, on by default. The server reads Google News's top-stories RSS (`https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en`), keyless, at startup and then every 30 minutes, and caches the newest twelve. Set `STANLEY_NEWS=0` to turn it off: nothing is fetched and `GET /news/today` returns `[]`. The host needs outbound HTTPS to news.google.com (Fly allows it). **Terms:** the feed says it is for "a personal feed reader for personal, non-commercial use". That's a judgement call for a private pilot; revisit the source before any wider release. |
+| `STANLEY_NEWS` | The World Today, on by default, keyless RSS. National edition: PBS News Hour (`https://www.pbs.org/newshour/feeds/rss/headlines`) for the US and for phones that haven't been located, BBC World (`https://feeds.bbci.co.uk/news/world/rss.xml`) elsewhere. Nearby edition: Google News's local feed for a town (`https://news.google.com/rss/headlines/section/geo/<town>`), only for phones with location permission. The US edition is fetched at startup and every 30 minutes; the others when someone asks. Set `STANLEY_NEWS=0` to turn it off: nothing is fetched and `GET /news/today` and `GET /news/nearby` return `[]`. The host needs outbound HTTPS to www.pbs.org, feeds.bbci.co.uk and news.google.com. **Terms:** Google's feed says it is for "a personal feed reader for personal, non-commercial use"; PBS's and the BBC's haven't been checked. A judgement call for a private pilot; revisit the sources before any wider release. |
 
 Cloudflare R2 (optional — only when `BLOB_BACKEND=r2`):
 `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, `BLOB_R2_ACCESS_KEY`, `BLOB_R2_SECRET_KEY`.
@@ -138,9 +138,11 @@ so snapshots are consistent while the app runs.
 - [ ] Persistent storage is really persistent — `STANLEY_DATA_DIR` on the mounted
       volume (Railway) or the persistent disk (VPS), not a container's local disk.
 - [ ] `APPLE_BUNDLE_ID` set; Sign in with Apple capability enabled on the app id.
-- [ ] News: after deploy, the logs show `news refreshed: 12 headlines` within
-      a few seconds of startup. If not, look for `news fetch failed` (outbound
-      HTTPS to news.google.com), or set `STANLEY_NEWS=0` to turn it off.
+- [ ] News: after deploy, the logs show `news refreshed: 12 stories for
+      national:us` within a few seconds of startup. If not, look for `news
+      fetch for national:us failed` (outbound HTTPS to www.pbs.org), or set
+      `STANLEY_NEWS=0` to turn it off. A phone with location allowed adds a
+      `nearby:US:<town>` line the first time its World tab opens.
 - [ ] HTTPS reachable; `STANLEY_API_BASE` in the iOS release build points at it.
 - [ ] Off-box backup copy scheduled.
 - [ ] `PRAGMA journal_mode` reports `wal` — that one is stored in the file.

@@ -102,18 +102,35 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   dock. It stays put while Today scrolls. It's dimmed, not hidden, while a
   queued capture holds the day. It hides while the keyboard is up: a
   safe-area inset rides above the keyboard and would sit on the story field's
-  Add button. The top-bar camera is gone.
-- **Places** (client only, build 14) — the capture screen's place field
-  opens a picker (`Places.swift`) with a search bar, **Favorites** (starred,
-  at most 10), **Recent** (the last five typed, favorites excluded), and
-  search over the person's *own* typed places only. Anything new can be used
-  exactly as typed. `PlaceBook` keeps them in UserDefaults keyed by user id,
-  so a shared phone doesn't mix people, and an expired sign-in keeps them.
-  Deleting the account erases them. A place is recorded when the photo
-  posts or queues, not when it's picked. **No** location permission,
-  CLLocationManager, GPS, or maps/places API: the place is still the words
-  someone typed, and the server sees only the label on the photo, as
-  before.
+  Add button. The top-bar camera is gone. The sheet (build 15) is laid out
+  like composing a memory: before the shutter, an empty rounded frame holding
+  the day's prompt (tapping it opens the camera) and the rule in a line
+  beneath; after it, the photo full-width with 20pt corners, cropped the way a
+  Today card crops it at 85% of that card's height so the pills show without
+  scrolling on the Duo's cover. The filter pills sit right under it, then one
+  card (`cardSurface`) with the caption and the place as rows with quiet
+  glyphs and a hairline between, then who-was-there. The caption and place
+  appear only after the shutter. **Open camera** / **Post** is one full-width
+  accent button (`WideButton`, 52pt, the palette's ink) pinned to the foot of
+  the sheet on its floor; it holds a spinner while posting. The boxed
+  `stanleyField()` style is gone, as nothing used it any more.
+- **Places** (client only, build 14; location since build 15) — the capture
+  screen's place row opens a picker (`Places.swift`) with a search bar,
+  **Here** (where the phone is, with location allowed), **Favorites**
+  (starred, at most 10), **Recent** (the last five used, favorites
+  excluded), and search over the person's *own* places only. Anything new
+  can be used exactly as typed. `PlaceBook` keeps them in UserDefaults keyed
+  by user id, so a shared phone doesn't mix people, and an expired sign-in
+  keeps them. Deleting the account erases them. A place is recorded when the
+  photo posts or queues, not when it's picked. **After the shutter**, with
+  location allowed (asked right then, the first time), the place fills in
+  from where the phone is (`Whereabouts`): the landmark or campus Apple's
+  geocoder names ("Indiana University"), else the neighborhood, else the
+  town; only the town under approximate location. It never overwrites a
+  place already chosen, its row shows a location glyph until changed, and
+  it stays the person's to edit or clear. Coordinates never reach Stanley's
+  server: only the label on the photo does, as before, and GPS is still
+  stripped from the image. No maps or places search.
 - **Capture filters** — four looks, plus None (the default), as one row of
   `ChoicePill`s under the preview: **Mono** (a well-printed black and white),
   **Grain** (warm film: less saturation, lifted blacks, amber in the shadows,
@@ -237,43 +254,62 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sign-in. It says why once (`APIError.signedOut`), and every other failure
   from the same cause stays quiet. It used to say "Sign out in Settings",
   which the name and circle gates can't reach.
-- **The World Today** — twelve national headlines in a **World** tab of
-  their own (globe), the fourth of five: Today, Held, You, World, Settings. A
-  morning paper on the counter, not a feed. Today is the circle's photos and
-  nothing else. The tab is titled "The World Today", with "12 stories,
-  refreshed every half hour" above the list. The list stops at the last story.
-  Since build 14 the source is **Google News's top-stories RSS**
-  (`https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en`): keyless, on by
-  default, off with `STANLEY_NEWS=0`. It was NewsAPI behind `NEWS_API_KEY`,
-  which was never set on Fly, so production had no news at all. That, not
-  networking, was the bug: the news loop only started when a key was set,
-  and Fly reaches Google fine. The server fetches on its own background loop
-  at startup (an empty cache is always due) and then every 30 minutes, and
-  keeps the last good set in a one-row `news_cache` table. Clients only ever read
-  `GET /news/today` (JWT only, no circle needed), so nobody but the server
-  talks to Google. The feed is parsed with ElementTree (no external entities,
-  and expat caps expansion) and capped at 2 MB. The cached set is normalized
-  once: text only (no images), the outlet stripped from the headline, http(s)
-  links only (anything else crashes the Safari sheet), and duplicates
-  dropped before the twelve are counted. Google's `<description>` is a
-  cluster of related headlines, not a summary, so cards show headline,
-  source and time with no summary line. The links are Google News redirect
-  URLs, which Safari follows to the outlet. The twelve are the feed's own
-  pick, identical for everyone and shown newest first. A
-  failed fetch keeps the last good set. A set older than 6h is not served,
-  rather than showing yesterday's world; the tab then says "No stories right
-  now." The subtitle uses the real count, never a
-  hard-coded 12. That number is the size of the edition, not a tally of
-  anyone's activity. A story opens in
-  `SFSafariViewController`, which UIKit presents over whatever is on top
-  (`StoryReader`). When Safari was a SwiftUI sheet, its own Close forced a
-  second dismissal, and that closed whatever was beneath it too. There
-  are no likes, saves, shares, comments or notifications. News never appears in
-  Today, Held, Returned, the export or any memory surface. It loads when the
-  World tab appears and on pull, never on a timer. Today's pull runs its pass
-  as a separate `Task`, because SwiftUI cancels a `.refreshable` task the
-  moment the state it refreshes changes. The test suite turns news off by
-  default and stubs the fetch, so it never reaches the network.
+- **The World Today** — the news in a **World** tab of its own (globe), the
+  fourth of five: Today, Held, You, World, Settings. A morning paper on the
+  counter, not a feed. Today is the circle's photos and nothing else. Since
+  build 15 there are **two editions** (`server/stanley/news.py`), all
+  keyless RSS, on by default, off with `STANLEY_NEWS=0`:
+  - **National**, with summaries: **PBS News Hour**
+    (`pbs.org/newshour/feeds/rss/headlines`) for a phone in the US, and for
+    any phone that hasn't been located, since the pilot is in the US; **BBC
+    World** (`feeds.bbci.co.uk/news/world/rss.xml`) for a phone located
+    anywhere else. Twelve stories, each with the one- or two-sentence summary
+    it was published with, trimmed to 60 words. `GET /news/today`, the
+    country in an `X-Stanley-Country` header. Build 14 used Google News's top
+    stories, which carry no summaries (Google's `<description>` is a cluster
+    of other outlets' links), so an in-app reader had nothing to read. The
+    country is never the region in Settings: on the simulators (and likely on
+    the user's own phone) that's `en_IN`, and a student from abroad keeps
+    their home region while living in Bloomington.
+  - **Nearby**, headlines only: Google News's local feed for the town the
+    phone is in (`news.google.com/rss/headlines/section/geo/<town>`, which
+    redirects to that town's topic). Six stories, shown first as "Near
+    Bloomington". `GET /news/nearby`, with the town ("Bloomington, IN",
+    percent-encoded) in `X-Stanley-Town`. Only with location permission; no
+    town, no section. Where the phone is goes in headers, never the query
+    string, so it stays out of access logs. The server keys the cache by
+    town, never by who asked, caps it at 50 towns, and drops a town nobody
+    has asked about for a day.
+  Each edition is one row of `news_editions` (key, fetched_at, articles;
+  `news_cache` is dropped on startup), written by upsert. The background loop
+  fills the US edition at startup and every 30 minutes; any other edition is
+  fetched when someone asks and it's missing or 30 minutes old (a 5s
+  timeout). Clients read only the server, so nobody but the server talks to
+  the feeds. Parsing is ElementTree (no external entities, expat caps
+  expansion), capped at 2 MB. Normalized once: text only, the outlet
+  stripped from Google's headlines, http(s) links only (anything else
+  crashes the Safari sheet), repeats dropped by link and by headline before
+  counting. Each edition is its source's own pick, shown newest first. A
+  failed fetch keeps the last good set; a set older than 6h is not served,
+  and an empty tab says "No stories right now."
+  **Reading in place** (build 15): a card shows the headline, outlet and
+  time; a tap opens it where it is, with the full headline, the summary, and
+  a small "Read full article ↗" that opens `SFSafariViewController`. Several
+  can be open at once. A local story opens to its headline and the link.
+  Safari is presented by UIKit over whatever is on top (`StoryReader`): as a
+  SwiftUI sheet, its Close forced a second dismissal that closed what was
+  beneath it too. A quiet card at the top asks once for location ("News from
+  near you", Allow location / Not now) before the system sheet; "Not now"
+  puts it away for good. Subtitles use the real count ("12 stories from PBS
+  News Hour, refreshed every half hour"), the edition's size, not a tally of
+  anyone. No likes, saves, shares, comments or notifications. News never
+  appears in Today, Held, Returned, the export or any memory surface. It
+  loads when the tab appears and on pull, never on a timer, and the pull
+  runs as a separate `Task` because SwiftUI cancels a `.refreshable` task the
+  moment the state it refreshes changes. The national stories don't wait for
+  a location fix; if the fix finds the phone in another country, the
+  national edition reloads once. The test suite turns news off by default,
+  and an autouse guard fails any test that tries to reach a feed.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
@@ -308,11 +344,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Fly deploys.** Release v7 (2026-10-30 21:43 UTC) runs the server as of
   `0f07d54`: filters, commit-before-response, `UNNAMED`, the digest wording,
   and the NewsAPI version of the World Today, which never fetched because
-  `NEWS_API_KEY` was never set. Build 14's server change, the Google News RSS
-  source, needs `fly deploy` from `server/`. It adds no table, column or
-  secret; news then fills within seconds of startup (`news refreshed: 12
-  headlines` in the logs). Fly's outbound HTTPS to news.google.com was
-  checked from the machine: 200, about 120 KB of RSS.
+  `NEWS_API_KEY` was never set. The news changes of builds 14 and 15 need
+  `fly deploy` from `server/`. No secret. On startup `ensure_schema` drops
+  `news_cache` and `create_all` adds `news_editions`; PBS then fills within
+  seconds (`news refreshed: 12 stories for national:us` in the logs). Fly's
+  outbound HTTPS to news.google.com was checked from the machine (200);
+  pbs.org and feeds.bbci.co.uk were checked from this Mac only. Build 15's
+  app also calls `/news/nearby`, which v7 doesn't have: against v7 the World
+  tab shows nothing at all, so deploy before testers get build 15.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
@@ -369,10 +408,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   on the Duo's compact cover; the regular variants differ only by `Density`
   values, which do engage.
 - **The World Today's terms.** Google's feed says it is for "a personal feed
-  reader for personal, non-commercial use". That's acceptable for a closed
-  pilot as a judgement call, and needs revisiting before any wider release.
-  Headlines are national (`gl=US`). Regional news is a `TODO(location)` in
-  `server/stanley/news.py`, and the app requests no location permission.
+  reader for personal, non-commercial use". PBS's and the BBC's feed terms
+  haven't been checked. All three are acceptable for a closed pilot as a
+  judgement call, and need revisiting before any wider release. Google's
+  local feeds for towns outside the US use a guessed `hl=en-XX` region
+  and are unverified past London.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
   switched on; Android, video, DMs, multiple circles per user (permanent non-goals
@@ -380,15 +420,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**222 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**251 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming, the
-World Today cache (fetch + store, last-good-set on failure, stale and no-key
-silence, normalization, RSS parsing, no key sent, a hostile or oversized
-feed refused), capture filters (the name kept, an
+World Today (PBS for the US and the unlocated, BBC elsewhere, a town's Google
+feed and what isn't a town, one upserted row per edition, last-good-set on
+failure, stale silence, fetch-when-due on request, the town cap and
+forgetting, keyed by town not person, summaries kept or dropped per feed,
+normalization, no key sent, a hostile or oversized feed refused), capture filters (the name kept, an
 unknown one dropped without refusing the photo, purged on delete, exported),
 and commit-before-response (capture commits before the background original
 store; every route's session is function-scoped).
@@ -420,7 +462,9 @@ live APNs, concurrency under real load.
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
   who-was-there, preview + filter pills), `PhotoFilters.swift` (the four
   looks, `FilterRenderer`), `Places.swift` (place picker, favorites,
-  `PlaceBook`), `WorldTodayView.swift` (the World tab, Safari),
+  `PlaceBook`), `Whereabouts.swift` (location permission, one fix, names
+  from Apple's geocoder), `WorldTodayView.swift` (the World tab, stories
+  that open in place, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),

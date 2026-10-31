@@ -5,13 +5,22 @@ import UIKit
 /// Capture is a commitment (§8.4): one shot, a look at it (with a filter, if
 /// you want one), then Post. There is no camera roll. On the simulator (no
 /// camera) a stand-in frame is used so the flow stays testable end to end.
+///
+/// Laid out like composing a memory rather than filling in a form: the photo
+/// first and largest, its looks right beneath it, then the words, the place
+/// and who was there on one card, and one wide button at the foot of the
+/// sheet that is always within reach.
 struct CaptureView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     @State private var caption = ""
     @State private var location = ""
+    /// The place filled in from where the phone is, so its row can say so
+    /// until the person changes it.
+    @State private var suggestedPlace: String?
     @State private var tagged: Set<String> = []
     @State private var showCamera = false
     @State private var uploading = false
@@ -27,64 +36,34 @@ struct CaptureView: View {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
     }
 
+    private static let corner: CGFloat = 20
+
+    /// The photo's height in the sheet, before the shutter and after it.
+    private static func photoHeight(_ density: Density) -> CGFloat {
+        (density.feedPhotoHeight * 0.85).rounded()
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 0) {
                     if let shot {
                         preview(shot)
                         FilterPills(selection: $filter)
+                            .padding(.top, 14)
+                        details
+                            .padding(.top, 24)
                     } else {
-                        Text("One photo. This is today's.")
-                            .font(.headline)
-                        // The day's prompt — a whisper, not an instruction (Part 1).
-                        Text(DailyPrompt.forToday())
-                            .font(.callout)
-                            .italic()
-                            .foregroundStyle(.tertiary)
-                            .multilineTextAlignment(.center)
-                        Text("No retakes. It fades in six days unless someone keeps it.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    TextField("", text: $caption, prompt: .fieldPrompt("A few words, if you like"))
-                        .stanleyField()
-                    // a typed place name, as you'd say it — never GPS, never a map.
-                    // The picker only offers places this person typed before.
-                    PlaceField(place: $location) { pickingPlace = true }
-                    if !members.isEmpty {
-                        WhoWasThere(members: members, selected: $tagged)
-                    }
-                    if uploading {
-                        ProgressView()
-                    } else if let shot {
-                        Button {
-                            post(shot)
-                        } label: {
-                            Text("Post").accentInk()
-                        }
-                        .buttonStyle(.borderedProminent)
-                    } else {
-                        #if targetEnvironment(simulator)
-                        Button {
-                            took(Self.simulatorFrame())
-                        } label: {
-                            Text("Capture (simulator frame)").accentInk()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        #else
-                        Button {
-                            showCamera = true
-                        } label: {
-                            Label("Open camera", systemImage: "camera").accentInk()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        #endif
+                        waiting
                     }
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+                .readableWidth(density)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom) { footer }
             // A sheet sits outside the root's floor, so it paints its own:
             // the camera button should land on the same temperature as Today.
             .atmosphereWash()
@@ -100,30 +79,137 @@ struct CaptureView: View {
                     .ignoresSafeArea()
             }
             .task(id: DevelopKey(shot: shot?.id, filter: filter)) { await develop() }
+            .task(id: shot?.id) { await suggestPlace() }
             .sheet(isPresented: $pickingPlace) {
                 PlacePicker(userId: state.myId, current: location) { location = $0 }
             }
         }
     }
 
-    /// The shot with the chosen look, as the circle will see it, or a quiet
-    /// placeholder of the same shape for the moment it takes to render.
-    private func preview(_ shot: Shot) -> some View {
-        Group {
-            if let image = looks[filter] ?? looks[.none] {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else {
-                Rectangle()
-                    .fill(.quaternary)
-                    .aspectRatio(shot.aspect, contentMode: .fit)
+    /// Before the shutter: an empty frame where the photo will be, holding
+    /// the day's prompt, and the rule in a line beneath. Tapping the frame
+    /// opens the camera, the same as the button.
+    private var waiting: some View {
+        VStack(spacing: 20) {
+            Button(action: openCamera) {
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Self.photoHeight(density))
+                    .cardSurface(corner: Self.corner)
+                    .overlay {
+                        VStack(spacing: 16) {
+                            Image(systemName: "camera.aperture")
+                                .font(.system(size: 40, weight: .light))
+                                .foregroundStyle(.tertiary)
+                            // The day's prompt — a whisper, not an instruction (Part 1).
+                            Text(DailyPrompt.forToday())
+                                .font(.callout)
+                                .italic()
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                        }
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open the camera")
+            VStack(spacing: 6) {
+                Text("One photo. This is today's.")
+                    .font(.headline)
+                Text("No retakes. It fades in six days unless someone keeps it.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
-        .frame(maxHeight: density.feedPhotoHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement()
-        .accessibilityLabel(filter == .none ? "Your photo" : "Your photo, \(filter.label)")
+    }
+
+    /// The words, the place and who was there. The two fields share one card
+    /// with a hairline between them, the way grouped rows do in Settings.
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(spacing: 0) {
+                ComposeRow(icon: "text.quote") {
+                    TextField(
+                        "", text: $caption, prompt: .fieldPrompt("A few words, if you like"), axis: .vertical
+                    )
+                    .lineLimit(1...5)
+                }
+                Divider().padding(.leading, 46)
+                // A place name, as you'd say it. With location allowed, where
+                // the phone is fills it in after the shutter; it stays the
+                // person's to change or clear. Only the words are posted.
+                ComposeRow(icon: location == suggestedPlace && !location.isEmpty ? "location.fill" : "mappin") {
+                    PlaceField(place: $location) { pickingPlace = true }
+                }
+            }
+            .cardSurface(corner: 16)
+            if !members.isEmpty {
+                WhoWasThere(members: members, selected: $tagged)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    /// One wide button at the foot of the sheet, above the keyboard when it's
+    /// up, on the sheet's own floor so the content scrolls away beneath it.
+    private var footer: some View {
+        Group {
+            if let shot {
+                WideButton(title: "Post", busy: uploading) { post(shot) }
+            } else {
+                WideButton(title: "Open camera", systemImage: "camera", busy: uploading, action: openCamera)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .readableWidth(density)
+        .background(Atmosphere.resolve(raw).palette.floor.ignoresSafeArea())
+    }
+
+    private func openCamera() {
+        #if targetEnvironment(simulator)
+        took(Self.simulatorFrame())
+        #else
+        showCamera = true
+        #endif
+    }
+
+    /// The shot with the chosen look: the full width of the sheet, cropped
+    /// the way a card in Today crops it, and a little shorter than that card
+    /// so the looks beneath it are in view without scrolling, even on the
+    /// Duo's cover. A quiet placeholder of the same size stands in for the
+    /// moment it takes to render. The frame owns the size and the photo fills
+    /// it, as in Today, so a wide photo can't push the sheet wider.
+    private func preview(_ shot: Shot) -> some View {
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.photoHeight(density))
+            .overlay {
+                if let image = looks[filter] ?? looks[.none] {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    Rectangle().fill(.quaternary)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+            .accessibilityElement()
+            .accessibilityLabel(filter == .none ? "Your photo" : "Your photo, \(filter.label)")
+    }
+
+    /// After the shutter, offer where the phone is as the place. Asked here,
+    /// in the moment it is for, the first time. Never over a place the
+    /// person has already chosen.
+    private func suggestPlace() async {
+        guard shot != nil, location.isEmpty else { return }
+        let whereabouts = state.whereabouts
+        await whereabouts.ask()
+        guard let place = await whereabouts.here()?.place, location.isEmpty else { return }
+        location = place
+        suggestedPlace = place
     }
 
     private func took(_ image: UIImage) {
@@ -232,13 +318,67 @@ private struct Shot {
     let original: UIImage
     let source: CIImage
     let preview: CIImage
-
-    var aspect: CGFloat { source.extent.width / max(1, source.extent.height) }
 }
 
 private struct DevelopKey: Equatable {
     let shot: UUID?
     let filter: PhotoFilter
+}
+
+/// A row on the compose card: a quiet glyph, then the field. The glyph sits
+/// on the field's first line, however many lines the caption grows to. (A
+/// baseline alignment would do it in principle, but a multi-line field
+/// reports its baseline lower than its first line.)
+private struct ComposeRow<Content: View>: View {
+    let icon: String
+    @ViewBuilder let content: Content
+    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 22
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: line)
+            content
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+}
+
+/// The sheet's one action, as wide as the sheet, in the atmosphere's accent
+/// with its ink for the words. While a photo is on its way it holds a
+/// spinner in place of the words and takes no second tap.
+private struct WideButton: View {
+    let title: String
+    var systemImage: String?
+    var busy = false
+    let action: () -> Void
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+
+    var body: some View {
+        let palette = Atmosphere.resolve(raw).palette
+        Button(action: action) {
+            ZStack {
+                if busy {
+                    ProgressView().tint(palette.ink)
+                } else if let systemImage {
+                    Label(title, systemImage: systemImage)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.headline)
+            .foregroundStyle(palette.ink)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .accessibilityLabel(busy ? "Posting" : title)
+    }
 }
 
 /// The four filters, and none, as a row of pills under the preview. A tap

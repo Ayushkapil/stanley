@@ -2,9 +2,10 @@ import Observation
 import SwiftUI
 
 /// The places someone has named on their photos, kept on this phone so the
-/// next one is a tap away. It's a memory of what they typed: no GPS, no
-/// location permission, no maps or places service. Stanley strips GPS at
-/// ingest, and a place here is only ever the words a person chose.
+/// next one is a tap away. It's a memory of the words they posted, not of
+/// where they were: no coordinates, no maps or places service. Stanley strips
+/// GPS at ingest, and a place here is only ever words a person kept, whether
+/// they typed them or took the name `Whereabouts` offered.
 ///
 /// Kept per account (keyed by user id), so a shared phone doesn't show one
 /// person's places to another, and an expired sign-in doesn't lose them.
@@ -112,8 +113,9 @@ final class PlaceBook {
     }
 }
 
-/// The capture screen's place line. It looks like the other fields, but a
-/// tap opens the picker instead of a keyboard; the clear button empties it.
+/// The capture screen's place line. It reads like the caption above it, but
+/// a tap opens the picker instead of a keyboard; the clear button empties
+/// it. The card it sits on draws the surface.
 struct PlaceField: View {
     @Binding var place: String
     let open: () -> Void
@@ -121,7 +123,7 @@ struct PlaceField: View {
     var body: some View {
         HStack(spacing: 8) {
             Button(action: open) {
-                Text(place.isEmpty ? "Where was this? (a place, optional)" : place)
+                Text(place.isEmpty ? "Where was this?" : place)
                     .foregroundStyle(place.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,14 +141,17 @@ struct PlaceField: View {
                 .accessibilityLabel("Clear the place")
             }
         }
-        .stanleyField()
     }
 }
 
-/// Pick a place: search what you've named before, favorites first, then
-/// the last few you typed. Anything new can be typed and used as it is. A
-/// star keeps a place among the favorites.
+/// Pick a place: where the phone is (with location allowed), then
+/// favorites, then the last few you used, or search what you've named
+/// before. Anything new can be typed and used as it is. A star keeps a place
+/// among the favorites.
 struct PlacePicker: View {
+    @Environment(AppState.self) private var state
+    /// Where the phone is, as a place name, once it's known.
+    @State private var here: String?
     /// Read from this phone's store when the picker opens. Every PlaceBook
     /// writes straight through, so the post that records the place later
     /// can use a book of its own.
@@ -194,6 +199,7 @@ struct PlacePicker: View {
             }
             .navigationTitle("Where was this?")
             .navigationBarTitleDisplayMode(.inline)
+            .task { await locate() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -204,6 +210,20 @@ struct PlacePicker: View {
 
     @ViewBuilder
     private var browse: some View {
+        if let here {
+            Section("Here") { row(here, icon: "location.fill") }
+        } else if state.whereabouts.undecided {
+            Section {
+                Button {
+                    Task {
+                        await state.whereabouts.ask()
+                        await locate()
+                    }
+                } label: {
+                    Label("Use where I am", systemImage: "location")
+                }
+            }
+        }
         if !places.favorites.isEmpty {
             Section("Favorites") {
                 ForEach(places.favorites, id: \.self) { row($0) }
@@ -246,14 +266,19 @@ struct PlacePicker: View {
 
     /// A place to tap, with its star. Both are borderless buttons so each
     /// keeps its own target inside the list row.
-    private func row(_ place: String, title: String? = nil) -> some View {
+    private func row(_ place: String, title: String? = nil, icon: String? = nil) -> some View {
         let starred = places.isFavorite(place)
         return HStack {
             Button { pick(place) } label: {
-                Text(title ?? place)
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                HStack(spacing: 8) {
+                    if let icon {
+                        Image(systemName: icon).foregroundStyle(Color.accentColor)
+                    }
+                    Text(title ?? place)
+                        .foregroundStyle(.primary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             Button {
@@ -265,6 +290,11 @@ struct PlacePicker: View {
             .tint(.accentColor)
             .accessibilityLabel(starred ? "Remove from favorites" : "Add to favorites")
         }
+    }
+
+    private func locate() async {
+        guard state.whereabouts.allowed else { return }
+        here = await state.whereabouts.here()?.place
     }
 
     private func pick(_ place: String) {

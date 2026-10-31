@@ -146,7 +146,8 @@ final class APIClient: Sendable {
         _ method: String,
         _ path: String,
         json: [String: Any?]? = nil,
-        query: [String: String] = [:]
+        query: [String: String] = [:],
+        headers: [String: String] = [:]
     ) async throws -> T {
         var components = URLComponents(
             url: baseURL.appending(path: path), resolvingAgainstBaseURL: false
@@ -158,6 +159,9 @@ final class APIClient: Sendable {
         request.httpMethod = method
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        for (name, value) in headers {
+            request.setValue(value, forHTTPHeaderField: name)
         }
         if let json {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

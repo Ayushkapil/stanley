@@ -30,7 +30,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "14"
+        CFBundleVersion: "15"
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to
@@ -47,6 +47,10 @@ targets:
           Stanley never reads your library — capture is in-app, in the moment.
         NSFaceIDUsageDescription: >-
           Stanley can lock itself behind Face ID so only you can open it.
+        NSLocationWhenInUseUsageDescription: >-
+          Stanley fills in where a photo was taken and shows headlines from the
+          town you're in. Stanley only ever sends the name of a place, never
+          where you are exactly, and you can change or clear it before posting.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:

@@ -15,6 +15,9 @@ final class AppState {
     let api = APIClient()
     /// Captures taken before the network was there. Claims the day locally.
     let queue = OfflineQueue()
+    /// Where the phone is, as names, with permission: a photo's place and
+    /// the town for the news.
+    let whereabouts = Whereabouts()
 
     var signedIn: Bool
     var circle: CircleInfo?
@@ -23,6 +26,10 @@ final class AppState {
     var mosaic: Mosaic?
     var returned: ReturnedItem?
     var news: [NewsArticle] = []
+    /// Headlines from the town the phone is in, and that town's name. Empty
+    /// without location permission.
+    var nearby: [NewsArticle] = []
+    var nearbyTown: String?
     var threads: [MemoryThread] = []
     var profile: MyProfile?
     var myId: String?
@@ -144,6 +151,8 @@ final class AppState {
         mosaic = nil
         returned = nil
         news = []
+        nearby = []
+        nearbyTown = nil
         threads = []
         profile = nil
         myId = nil
@@ -211,10 +220,48 @@ final class AppState {
     /// The World Today. A failure here is never surfaced, because the news
     /// is a convenience, not part of the circle. This loads when the World
     /// tab appears and on pull, so headlines don't shift under someone
-    /// reading them.
+    /// reading them. The national stories don't wait for a location fix:
+    /// they load for the country the phone was last found in, and again only
+    /// if this fix finds it somewhere else.
     func loadNews() async {
+        let assumed = whereabouts.foundCountry
+        async let national: Void = loadNational(country: assumed)
+        async let local: Void = loadNearby()
+        _ = await (national, local)
+        if let found = whereabouts.foundCountry, found != (assumed ?? "US") {
+            await loadNational(country: found)
+        }
+    }
+
+    /// PBS for a phone in the US, BBC World elsewhere. Without a country (no
+    /// location permission, or no fix yet) the server assumes the US, where
+    /// the pilot is.
+    private func loadNational(country: String?) async {
+        var headers: [String: String] = [:]
+        if let country { headers["X-Stanley-Country"] = country }
         do {
-            news = try await api.send("GET", "/news/today")
+            news = try await api.send("GET", "/news/today", headers: headers)
+        } catch {
+            // Keep whatever was showing.
+        }
+    }
+
+    /// The town's headlines. Only the town's name and country go to the
+    /// server, in headers so they never reach an access log, and the town is
+    /// percent-encoded because a header is ASCII and a town may not be.
+    private func loadNearby() async {
+        guard whereabouts.allowed else {
+            nearby = []
+            nearbyTown = nil
+            return
+        }
+        guard let here = await whereabouts.here(), let town = here.town else { return }
+        let ascii = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        var headers = ["X-Stanley-Town": town.addingPercentEncoding(withAllowedCharacters: ascii) ?? ""]
+        if let country = here.country { headers["X-Stanley-Country"] = country }
+        do {
+            nearby = try await api.send("GET", "/news/nearby", headers: headers)
+            nearbyTown = here.townName
         } catch {
             // Keep whatever was showing.
         }

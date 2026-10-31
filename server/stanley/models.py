@@ -269,14 +269,16 @@ class NotificationLog(Base):
     sent_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
-class NewsCache(Base):
-    """The World Today: the last good set of headlines, in a single row. The
-    background refresh is the only writer, and every client reads this row
-    rather than calling the feed. No user's data is involved, so nothing in
-    deletion, export or Held ever looks here."""
+class NewsEdition(Base):
+    """The World Today: the last good set of stories for each edition, one row
+    apiece, keyed by what the edition is ("national:us", or a town's
+    "nearby:US:bloomington, in"). A town's row is keyed by the town, never by
+    who asked for it. Every client reads these rows rather than calling a
+    feed. No user's data is involved, so nothing in deletion, export or Held
+    ever looks here."""
 
-    __tablename__ = "news_cache"
+    __tablename__ = "news_editions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime)
     articles: Mapped[str] = mapped_column(Text)  # JSON list, already normalized

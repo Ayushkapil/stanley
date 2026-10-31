@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from stanley import decay
+from stanley import decay, news
 from stanley.auth import issue_token
 from stanley.clock import FakeClock
 from stanley.config import Settings
@@ -190,6 +190,23 @@ def clock():
     return FakeClock(START)
 
 
+@pytest.fixture(autouse=True)
+def no_news_feeds(monkeypatch):
+    """Nothing in the suite reaches PBS, the BBC or Google. A test that turns
+    news on stands in its own fetcher; one that forgets fails here. The
+    refusal is recorded rather than raised, because news swallows a failed
+    fetch on purpose and keeps the last good set."""
+    tried = []
+
+    def refuse(edition, **_):
+        tried.append(edition.url)
+        raise OSError("the tests don't reach the network")
+
+    monkeypatch.setattr(news, "fetch_edition", refuse)
+    yield
+    assert not tried, f"a test tried to fetch {tried}"
+
+
 @pytest.fixture
 def app(tmp_path, clock):
     settings = Settings(
@@ -198,7 +215,7 @@ def app(tmp_path, clock):
         secret_key="test-secret-key-with-enough-bytes-for-hs256",
         dev_auth=True,
         run_sweeper=False,
-        # Off unless a test turns it on: nothing in the suite reaches Google.
+        # Off unless a test turns it on.
         news_enabled=False,
     )
     return create_app(settings, clock=clock)

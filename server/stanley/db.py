@@ -92,8 +92,9 @@ _LATER_INDEXES = [
     ("ix_anchors_photo", "anchors", "photo_id"),
 ]
 # Tables left behind by a rename. Their data was ephemeral by design, so a drop
-# is safe — "warmth" became "likes" (same mechanic, cosmetic heart).
-_LEGACY_TABLES = ["warmth"]
+# is safe — "warmth" became "likes" (same mechanic, cosmetic heart), and
+# "news_cache" (one row of headlines) became "news_editions".
+_LEGACY_TABLES = ["warmth", "news_cache"]
 
 
 def ensure_schema(engine) -> list[str]:

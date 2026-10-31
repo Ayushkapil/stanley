@@ -203,36 +203,7 @@ extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
-/// A text field that stays visible on any background, in either mode.
-///
-/// `.roundedBorder` draws a hairline bezel that all but disappears against a
-/// dark background on real hardware — on device the capture fields read as
-/// black rectangles with no edge, no padding and a placeholder you have to
-/// hunt for. This draws its own fill and border from the semantic palette, so
-/// the field has a shape of its own wherever it lands.
-///
-/// Only for fields on custom surfaces. Fields inside a `Form` or `List` get a
-/// proper row background from the system already; boxing those would double
-/// the chrome and stop them looking like iOS.
-private struct StanleyFieldBox: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .textFieldStyle(.plain)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.quinary)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color(.separator), lineWidth: 1)
-            )
-    }
-}
-
 extension View {
-    func stanleyField() -> some View { modifier(StanleyFieldBox()) }
     func storyField() -> some View { modifier(StoryField()) }
 }
 

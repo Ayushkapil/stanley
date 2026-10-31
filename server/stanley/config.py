@@ -45,10 +45,11 @@ class Settings:
     max_upload_bytes: int = 15 * 1024 * 1024
     backups_keep: int = 7
 
-    # The World Today: Google News's keyless RSS, on unless STANLEY_NEWS=0.
-    # Off means nothing is fetched and the endpoint answers an empty list.
+    # The World Today: keyless RSS (PBS, BBC World, Google News's local
+    # pages), on unless STANLEY_NEWS=0. Off means nothing is fetched and the
+    # endpoints answer an empty list.
     news_enabled: bool = field(default_factory=lambda: _env("STANLEY_NEWS", "1") != "0")
-    news_interval_seconds: int = 1800  # refetch headlines every 30 minutes
+    news_interval_seconds: int = 1800  # refetch an edition every 30 minutes
 
     # Sign in with Apple (Part 2). Required for /auth/apple to function.
     apple_bundle_id: str | None = field(default_factory=lambda: _env_opt("APPLE_BUNDLE_ID"))

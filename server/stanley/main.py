@@ -53,9 +53,10 @@ async def _sweep_loop(app: FastAPI) -> None:
 
 
 def refresh_news(app: FastAPI) -> None:
-    """One pass of The World Today: refetch the headlines if the cached set is
-    empty or due. This runs on its own loop so that a slow feed never delays
-    decay."""
+    """One pass of The World Today: refetch the US edition if it isn't cached
+    or is due, so it is ready before anyone asks, and drop towns nobody has
+    asked about lately. Other editions are fetched when someone asks. This
+    runs on its own loop so that a slow feed never delays decay."""
     settings: Settings = app.state.settings
     if not settings.news_enabled:
         return
@@ -65,6 +66,7 @@ def refresh_news(app: FastAPI) -> None:
             app.state.clock,
             timedelta(seconds=settings.news_interval_seconds),
         )
+        news.forget_towns(session, app.state.clock.now())
         session.commit()
 
 

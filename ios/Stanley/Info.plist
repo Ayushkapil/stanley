@@ -21,7 +21,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>14</string>
+	<string>15</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -31,6 +31,8 @@
 	<string>Stanley captures one photo a day, in the moment. The camera is the only way in — there is no roll, no retakes.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Stanley can lock itself behind Face ID so only you can open it.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Stanley fills in where a photo was taken and shows headlines from the town you're in. Stanley only ever sends the name of a place, never where you are exactly, and you can change or clear it before posting.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Only ever to save a photo that could not be posted, so it isn't lost. Stanley never reads your library — capture is in-app, in the moment.</string>
 	<key>STANLEY_API_BASE</key>
