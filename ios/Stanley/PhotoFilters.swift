@@ -282,9 +282,24 @@ enum FilterRenderer {
         return UIImage(cgImage: cg)
     }
 
-    static func jpeg(_ source: CIImage, _ filter: PhotoFilter, quality: CGFloat = 0.9) -> Data? {
-        context.jpegRepresentation(
-            of: filter.apply(to: source, context: context),
+    /// The full-size photo with its look, cut to `crop` if there is one:
+    /// a rectangle in the photo's pixels, top-left origin, as `Framing`
+    /// gives it. The look goes on first, so the cut is exactly what the
+    /// preview showed in its frame.
+    static func jpeg(_ source: CIImage, _ filter: PhotoFilter, crop: CGRect? = nil, quality: CGFloat = 0.9) -> Data? {
+        var out = filter.apply(to: source, context: context)
+        if let crop {
+            // CoreImage counts from the bottom.
+            let flipped = CGRect(
+                x: source.extent.minX + crop.minX,
+                y: source.extent.maxY - crop.maxY,
+                width: crop.width, height: crop.height
+            )
+            out = out.cropped(to: flipped)
+                .transformed(by: CGAffineTransform(translationX: -flipped.minX, y: -flipped.minY))
+        }
+        return context.jpegRepresentation(
+            of: out,
             colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
             options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality]
         )

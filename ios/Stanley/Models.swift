@@ -64,6 +64,8 @@ struct FeedItem: Codable, Identifiable {
     let photos: [Photo]?
 
     var isMoment: Bool { kind == "moment" }
+    /// When it was taken: a moment's newest photo, as the server orders it.
+    var takenAt: Date? { photo?.takenAt ?? photos?.first?.takenAt }
     var id: String {
         if isMoment { return "moment:\(location ?? "")|\(photos?.first?.id ?? "")" }
         return photo?.id ?? UUID().uuidString
@@ -151,11 +153,15 @@ struct Memory: Codable, Identifiable, Hashable {
     // both
     let note: String?
     let anchoredAt: Date?
+    /// Which circle it's from. Held gathers every circle (build 17). Absent
+    /// from a server before that, and from Returned's rescue payload.
+    let circleName: String?
 
     var id: String { photoId ?? photoPayloadId ?? UUID().uuidString }
 
     enum CodingKeys: String, CodingKey {
         case tombstone, photoId, date, takenAt, caption, location, urls, comments, tagged, note, anchoredAt
+        case circleName
         case photoPayloadId = "id"
     }
 }
@@ -190,6 +196,18 @@ struct CircleMember: Codable, Identifiable, Hashable {
     let avatarUrl: String?
     let joinedAt: Date
     let isCreator: Bool?
+}
+
+/// One of the circles a person is in, for the switcher atop Today. A name,
+/// and nothing that ranks one circle above another.
+struct CircleSummary: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let isCreator: Bool
+}
+
+struct CirclesResponse: Codable {
+    let circles: [CircleSummary]
 }
 
 struct CircleInfo: Codable {

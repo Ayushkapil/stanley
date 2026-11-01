@@ -12,6 +12,18 @@ extension Font {
         return .system(size: size, design: .serif)
     }
 
+    /// Handwriting, for the words that are a person's own hand on the page:
+    /// a name on a photo, a sticky note. Noteworthy is built into iOS; the
+    /// system's rounded face stands in if it's ever missing. Scales with
+    /// Dynamic Type from `size`.
+    static func hand(_ size: CGFloat, bold: Bool = false, relativeTo style: Font.TextStyle = .body) -> Font {
+        let name = bold ? "Noteworthy-Bold" : "Noteworthy-Light"
+        if UIFont(name: name, size: size) != nil {
+            return .custom(name, size: size, relativeTo: style)
+        }
+        return .system(style, design: .rounded).weight(bold ? .semibold : .regular)
+    }
+
     /// A decorative editorial display face for the weekly-mosaic captions —
     /// Instagram-deco in spirit. Prefers Didot, then Bodoni 72, then Georgia
     /// (all built into iOS — nothing bundled), finally the system serif.

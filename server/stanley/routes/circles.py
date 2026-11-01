@@ -5,19 +5,23 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from ..deps import (
+    active_circle_id,
     get_clock,
     get_current_user,
     get_db,
     get_settings,
     member_count,
+    membership_in,
     require_membership,
+    shares_a_circle,
 )
 from ..models import Circle, CommunityNote, Membership, User, new_id, new_invite_code
+from ..physics import CIRCLES_PER_PERSON
 from ..serialize import avatar_url, blocked_ids, community_note_payload
 
 # Said once, in words rather than a number: the cap is a guardrail, not a goal.
@@ -64,11 +68,17 @@ def _members_payload(db: Session, circle: Circle, settings=None, now=None) -> li
     ]
 
 
-def _ensure_not_in_a_circle(db: Session, user: User) -> None:
-    existing = db.scalars(select(Membership).where(Membership.user_id == user.id)).first()
-    if existing is not None:
-        # §16: one circle per person at MVP.
+def _ensure_room_for_another(db: Session, user: User, circle: Circle | None = None) -> None:
+    """A person can be in a few circles (build 17), each with its own day.
+    Joining one you're already in is `already_in_circle`; past five, the
+    answer is no, said in words by the app, never as a tally."""
+    if circle is not None and db.get(Membership, (circle.id, user.id)) is not None:
         raise HTTPException(409, {"code": "already_in_circle"})
+    held = db.scalar(
+        select(func.count()).select_from(Membership).where(Membership.user_id == user.id)
+    )
+    if held >= CIRCLES_PER_PERSON:
+        raise HTTPException(409, {"code": "too_many_circles"})
 
 
 @router.post("/circles", status_code=201)
@@ -78,7 +88,7 @@ def create_circle(
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
-    _ensure_not_in_a_circle(db, user)
+    _ensure_room_for_another(db, user)
     now = clock.now()
     circle = Circle(name=body.name, created_by=user.id, created_at=now)
     db.add(circle)
@@ -106,7 +116,7 @@ def join_by_code(
     circle = db.scalars(select(Circle).where(Circle.invite_token == raw)).first()
     if circle is None:
         raise HTTPException(404, "not found")
-    _ensure_not_in_a_circle(db, user)
+    _ensure_room_for_another(db, user, circle)
     if member_count(db, circle.id) >= circle.cap:
         raise HTTPException(409, {"code": "circle_full", "message": CIRCLE_FULL_MESSAGE})
     now = clock.now()
@@ -128,7 +138,7 @@ def join_circle(
     if circle is None or circle.invite_token != body.invite_token:
         # A rotated code lands here: the old token no longer matches.
         raise HTTPException(404, "not found")
-    _ensure_not_in_a_circle(db, user)
+    _ensure_room_for_another(db, user, circle)
     if member_count(db, circle.id) >= circle.cap:
         # §16: a soft ceiling, not a wall — see physics.CIRCLE_CAP.
         raise HTTPException(409, {"code": "circle_full", "message": CIRCLE_FULL_MESSAGE})
@@ -138,14 +148,38 @@ def join_circle(
     return {"id": circle.id, "name": circle.name, "members": _members_payload(db, circle, settings, now)}
 
 
+@router.get("/circles")
+def my_circles(
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """Every circle the person is in, in the order they joined, for the
+    switcher atop Today. Names only: no member counts, no activity, nothing
+    that ranks one circle above another."""
+    rows = db.execute(
+        select(Membership, Circle)
+        .join(Circle, Circle.id == Membership.circle_id)
+        .where(Membership.user_id == user.id)
+        .order_by(Membership.joined_at, Membership.circle_id)
+    ).all()
+    return {
+        "circles": [
+            {"id": c.id, "name": c.name, "is_creator": c.created_by == user.id}
+            for _, c in rows
+        ]
+    }
+
+
 @router.get("/circles/mine")
 def my_circle(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
+    circle_id: str | None = Depends(active_circle_id),
 ):
-    membership, circle = require_membership(db, user)
+    """The circle on screen: the one the app names, else the first joined."""
+    membership, circle = require_membership(db, user, circle_id)
     return {
         "id": circle.id,
         "name": circle.name,
@@ -162,8 +196,8 @@ def rotate_invite(
     user: User = Depends(get_current_user),
 ):
     """Creator-only. Mints a fresh token; the old code stops joining at once."""
-    _, circle = require_membership(db, user)
-    if circle.id != circle_id or circle.created_by != user.id:
+    _, circle = membership_in(db, user, circle_id)
+    if circle.created_by != user.id:
         raise HTTPException(403, {"code": "creator_only"})
     circle.invite_token = new_invite_code()
     return {"invite_token": circle.invite_token}
@@ -178,8 +212,8 @@ def remove_member(
 ):
     """Creator-only. Removes another member's place in the circle. Their own
     held memories stay theirs; they simply can no longer see or post here."""
-    _, circle = require_membership(db, user)
-    if circle.id != circle_id or circle.created_by != user.id:
+    _, circle = membership_in(db, user, circle_id)
+    if circle.created_by != user.id:
         raise HTTPException(403, {"code": "creator_only"})
     if user_id == user.id:
         raise HTTPException(400, {"code": "use_leave"})
@@ -196,10 +230,9 @@ def leave_circle(
     user: User = Depends(get_current_user),
 ):
     """Any member may leave. If the creator leaves, the role passes to the
-    next-earliest member so the circle is never left ownerless."""
-    membership, circle = require_membership(db, user)
-    if circle.id != circle_id:
-        raise HTTPException(404, "not found")
+    next-earliest member so the circle is never left ownerless. Leaving one
+    circle leaves the others as they were."""
+    membership, circle = membership_in(db, user, circle_id)
     db.delete(membership)
     db.flush()
     if circle.created_by == user.id:
@@ -227,9 +260,7 @@ def set_note(
     """Set or replace the circle's shared line (Part 4). Single active note,
     last-writer-wins. It expires at the end of the setter's local day. Not a
     chat — there is nowhere to reply, and nothing is notified."""
-    membership, circle = require_membership(db, user)
-    if circle.id != circle_id:
-        raise HTTPException(404, "not found")
+    membership, circle = membership_in(db, user, circle_id)
     text = body.text.strip()
     if not text:
         raise HTTPException(400, {"code": "empty_note"})
@@ -264,10 +295,10 @@ def member_profile(
 ):
     """A circle member's profile: their face, name and words, nothing else.
     Invariant A2 extends to identity surfaces — keepings are owner-private, so
-    this payload structurally has no field for anchors, kept grids, or counts."""
-    membership, _ = require_membership(db, user)
-    target_membership = db.get(Membership, (membership.circle_id, user_id))
-    if target_membership is None or user_id in blocked_ids(db, user.id):
+    this payload structurally has no field for anchors, kept grids, or counts.
+    Anyone you share a circle with, whichever circle is on screen."""
+    require_membership(db, user)
+    if not shares_a_circle(db, user.id, user_id) or user_id in blocked_ids(db, user.id):
         raise HTTPException(404, "not found")
     target = db.get(User, user_id)
     if target is None or target.deleted_at is not None:

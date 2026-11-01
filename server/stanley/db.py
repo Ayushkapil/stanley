@@ -161,4 +161,84 @@ def ensure_schema(engine) -> list[str]:
                         {"t": _gen(), "id": cid},
                     )
 
+    if _photo_slot_is_per_person(engine):
+        try:
+            _rebuild_photos(engine)
+            log.info("ensure_schema: the day's slot is now per circle")
+        except Exception:
+            # Nothing was changed (it's one transaction). Stanley still runs:
+            # the old slot only means a second circle's photo on the same day
+            # is refused as slot_used, which costs nobody a photo they'd
+            # already posted. Loud, so it gets looked at.
+            log.exception("ensure_schema: photos rebuild failed; the day's slot is still per person")
+
     return added
+
+
+def _photo_slot_is_per_person(engine) -> bool:
+    """Whether photos still has build 16's UNIQUE(owner_id, local_date): one
+    photo a day across everything, from when a person had one circle."""
+    from sqlalchemy import inspect
+
+    inspector = inspect(engine)
+    if "photos" not in inspector.get_table_names():
+        return False
+    return any(
+        set(uc["column_names"]) == {"owner_id", "local_date"}
+        for uc in inspector.get_unique_constraints("photos")
+    )
+
+
+def _rebuild_photos(engine) -> None:
+    """Make the day's slot per circle (build 17). SQLite can't change a
+    table's constraints in place, so this is its documented rebuild: a new
+    table from the model, every row copied, the old one dropped and the new
+    one renamed into its place, in one transaction. Foreign keys are off
+    while it runs, because dropping photos would otherwise trip every anchor,
+    like and comment that points at it; they're checked before committing,
+    and nothing is kept if a single one would dangle. Rows keep their ids, so
+    every reference still lands on the same photo. A database that already
+    had dangling references (from before foreign keys were enforced) isn't
+    held hostage to them: only a new one stops the rebuild."""
+    from sqlalchemy import inspect
+    from sqlalchemy.schema import CreateIndex, CreateTable
+
+    from .models import Photo
+
+    table = Photo.__table__
+    have = {c["name"] for c in inspect(engine).get_columns("photos")}
+    columns = ", ".join(c.name for c in table.columns if c.name in have)
+    create = str(CreateTable(table).compile(engine)).strip()
+    create = create.replace("CREATE TABLE photos ", "CREATE TABLE photos__rebuild ", 1)
+    indexes = [str(CreateIndex(index).compile(engine)) for index in table.indexes]
+
+    raw = engine.raw_connection()
+    try:
+        sqlite = raw.driver_connection
+        isolation = sqlite.isolation_level
+        # Autocommit, so the BEGIN and COMMIT below are the only ones, and the
+        # PRAGMA lands outside any transaction (inside one, SQLite ignores it).
+        sqlite.isolation_level = None
+        cur = sqlite.cursor()
+        cur.execute("PRAGMA foreign_keys=OFF")
+        try:
+            cur.execute("BEGIN")
+            before = len(cur.execute("PRAGMA foreign_key_check").fetchall())
+            cur.execute(create)
+            cur.execute(f"INSERT INTO photos__rebuild ({columns}) SELECT {columns} FROM photos")
+            cur.execute("DROP TABLE photos")
+            cur.execute("ALTER TABLE photos__rebuild RENAME TO photos")
+            for index in indexes:
+                cur.execute(index)
+            after = len(cur.execute("PRAGMA foreign_key_check").fetchall())
+            if after > before:
+                raise RuntimeError(f"photos rebuild would leave {after - before} new dangling references")
+            cur.execute("COMMIT")
+        except Exception:
+            cur.execute("ROLLBACK")
+            raise
+        finally:
+            cur.execute("PRAGMA foreign_keys=ON")
+            sqlite.isolation_level = isolation
+    finally:
+        raw.close()

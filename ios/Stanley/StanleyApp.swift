@@ -166,7 +166,7 @@ struct HomeView: View {
             if tab == .today, let sideDock, !typing {
                 GeometryReader { geo in
                     let origin = geo.frame(in: .global).origin
-                    CaptureButton(disabled: state.queue.isHoldingTheDay) { capturing = true }
+                    CaptureButton(disabled: state.holdsTheDay) { capturing = true }
                         .position(
                             x: sideDock.midX - origin.x,
                             y: sideDock.minY - 12 - CaptureButton.size / 2 - origin.y
@@ -177,5 +177,23 @@ struct HomeView: View {
             }
         }
         .animation(.easeOut(duration: 0.15), value: typing)
+        .modifier(QuietTabBar(sideDock: sideDock))
+    }
+}
+
+/// The tab bar steps back while you read (build 17): scrolling down Today's
+/// pages folds it to the tab you're on, and scrolling back up brings the rest.
+/// Not where it's a dock down the side (the Duo's cover), where the camera
+/// is placed against the dock's own frame and it's out of the page's way
+/// already.
+private struct QuietTabBar: ViewModifier {
+    let sideDock: CGRect?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.tabBarMinimizeBehavior(sideDock == nil ? .onScrollDown : .never)
+        } else {
+            content
+        }
     }
 }

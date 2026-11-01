@@ -77,74 +77,79 @@ struct AvatarEditor: View {
 }
 
 /// Move and scale: the photo under a soft-square window (an avatar's own
-/// shape), dimmed outside it. Drag to move, pinch to zoom, or both at once.
-/// The photo always covers the window: it can't be zoomed out past filling
-/// it or dragged off an edge, so a crop never has an empty corner. Choose
-/// cuts exactly the framed pixels out of the photo itself, rather than
-/// rendering what's on screen again.
+/// shape), dimmed outside it. Drag to move, pinch to zoom, or both at once,
+/// with `Framing`, the same arithmetic as today's photo. Choose cuts exactly
+/// the framed pixels out of the photo itself.
+///
+/// Cancel and Choose sit in a navigation bar's own corners, where Apple's own
+/// picker puts them. They used to sit at the foot of the screen, where on
+/// some phones they were too low to tap. A real navigation bar, not a row
+/// drawn to look like one: on the Duo's cover the system keeps the bar's
+/// trailing button clear of the front camera, which a drawn row sat under.
 struct AvatarCropView: View {
     /// Upright, one point to a pixel, as `LibraryPhoto` reads it.
     let image: UIImage
     let onChoose: (Data) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    @State private var zoom: CGFloat = 1
-    @State private var offset: CGSize = .zero
-    /// The zoom when the current pinch began.
-    @State private var pinchStart: CGFloat?
-    /// How far the current drag had gone at its last step.
-    @State private var dragged: CGSize = .zero
+    @State private var framing = Framing()
+    @State private var moving = false
     /// The window's side, in points, as last laid out.
     @State private var side: CGFloat = 300
 
-    private static let maxZoom: CGFloat = 5
     /// The largest an avatar is sent. The server keeps less.
     private static let outputSide: CGFloat = 1024
 
     var body: some View {
-        ZStack {
+        NavigationStack {
+            content
+                .navigationTitle("Move and Scale")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Choose") { choose() }
+                            .fontWeight(.semibold)
+                    }
+                }
+                .toolbarBackground(.black, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .tint(.white)
+        .preferredColorScheme(.dark)
+    }
+
+    private var content: some View {
+        VStack(spacing: 0) {
             GeometryReader { geo in
-                let side = min(geo.size.width - 40, geo.size.height - 220, 480)
+                let side = min(geo.size.width - 40, geo.size.height - 40, 480)
                 stage(side: side)
                     .frame(width: geo.size.width, height: geo.size.height)
-                    .contentShape(Rectangle())
-                    .gesture(pinch(side: side))
-                    .simultaneousGesture(drag(side: side))
+                    .framing($framing, photo: image.size, window: CGSize(width: side, height: side), moving: $moving)
                     .onAppear { self.side = side }
                     .onChange(of: side) { _, new in
                         self.side = new
-                        offset = clamp(offset, side: new, zoom: zoom)
+                        framing = framing.clamped(image.size, CGSize(width: new, height: new))
                     }
             }
-            .ignoresSafeArea()
-            VStack {
-                Text("Move and Scale")
-                    .font(.headline)
-                    .padding(.top, 16)
-                Spacer()
-                HStack {
-                    Button("Cancel") { dismiss() }
-                    Spacer()
-                    Button("Choose") { choose() }
-                        .fontWeight(.semibold)
-                }
-                .font(.body)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
-            }
-            .foregroundStyle(.white)
+            Text("Drag to move, pinch to zoom.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.vertical, 14)
         }
         .background(Color.black.ignoresSafeArea())
     }
 
     private func stage(side: CGFloat) -> some View {
-        let filled = Self.filled(image.size, side: side)
+        let filled = Framing.covering(image.size, CGSize(width: side, height: side))
         let window = RoundedRectangle(cornerRadius: side * 0.28, style: .continuous)
         return ZStack {
             Image(uiImage: image)
                 .resizable()
-                .frame(width: filled.width * zoom, height: filled.height * zoom)
-                .offset(offset)
+                .frame(width: filled.width * framing.zoom, height: filled.height * framing.zoom)
+                .offset(framing.offset)
             // Everything outside the window, dimmed.
             Rectangle()
                 .fill(.black.opacity(0.6))
@@ -154,6 +159,11 @@ struct AvatarCropView: View {
                         .blendMode(.destinationOut)
                 }
                 .compositingGroup()
+            if moving {
+                ThirdsGuide()
+                    .frame(width: side, height: side)
+                    .clipShape(window)
+            }
             window
                 .strokeBorder(.white.opacity(0.75), lineWidth: 1)
                 .frame(width: side, height: side)
@@ -163,62 +173,8 @@ struct AvatarCropView: View {
         .accessibilityLabel("Your photo, framed")
     }
 
-    private func pinch(side: CGFloat) -> some Gesture {
-        MagnifyGesture()
-            .onChanged { value in
-                let start = pinchStart ?? zoom
-                pinchStart = start
-                let next = min(max(start * value.magnification, 1), Self.maxZoom)
-                // Scale the offset with the photo, so what's in the middle of
-                // the window stays in the middle.
-                let ratio = next / zoom
-                zoom = next
-                offset = clamp(
-                    CGSize(width: offset.width * ratio, height: offset.height * ratio),
-                    side: side, zoom: next
-                )
-            }
-            .onEnded { _ in pinchStart = nil }
-    }
-
-    /// Moves by each step of the drag rather than its total, so a drag and a
-    /// pinch at the same time both move the same photo.
-    private func drag(side: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                let step = CGSize(
-                    width: value.translation.width - dragged.width,
-                    height: value.translation.height - dragged.height
-                )
-                dragged = value.translation
-                offset = clamp(
-                    CGSize(width: offset.width + step.width, height: offset.height + step.height),
-                    side: side, zoom: zoom
-                )
-            }
-            .onEnded { _ in dragged = .zero }
-    }
-
-    /// The photo's size on screen at zoom 1: just big enough to cover the
-    /// window.
-    private static func filled(_ size: CGSize, side: CGFloat) -> CGSize {
-        let scale = side / max(1, min(size.width, size.height))
-        return CGSize(width: size.width * scale, height: size.height * scale)
-    }
-
-    /// Keeps the photo over every part of the window.
-    private func clamp(_ proposed: CGSize, side: CGFloat, zoom: CGFloat) -> CGSize {
-        let filled = Self.filled(image.size, side: side)
-        let x = max(0, (filled.width * zoom - side) / 2)
-        let y = max(0, (filled.height * zoom - side) / 2)
-        return CGSize(
-            width: min(max(proposed.width, -x), x),
-            height: min(max(proposed.height, -y), y)
-        )
-    }
-
     private func choose() {
-        if let jpeg = Self.crop(image, side: side, zoom: zoom, offset: offset) {
+        if let jpeg = Self.crop(image, side: side, framing: framing) {
             onChoose(jpeg)
         }
         dismiss()
@@ -226,19 +182,10 @@ struct AvatarCropView: View {
 
     /// The framed square, cut from the photo's own pixels and sent at no
     /// more than 1024 on a side.
-    static func crop(_ image: UIImage, side: CGFloat, zoom: CGFloat, offset: CGSize) -> Data? {
+    static func crop(_ image: UIImage, side: CGFloat, framing: Framing) -> Data? {
         guard let pixels = image.cgImage else { return nil }
-        let width = CGFloat(pixels.width), height = CGFloat(pixels.height)
-        // Points on screen per pixel of the photo.
-        let k = side / min(width, height) * zoom
-        let edge = side / k
-        let rect = CGRect(
-            x: width / 2 - offset.width / k - edge / 2,
-            y: height / 2 - offset.height / k - edge / 2,
-            width: edge, height: edge
-        )
-        .integral
-        .intersection(CGRect(x: 0, y: 0, width: width, height: height))
+        let size = CGSize(width: pixels.width, height: pixels.height)
+        let rect = framing.crop(pixels: size, window: CGSize(width: side, height: side))
         guard !rect.isEmpty, let cut = pixels.cropping(to: rect) else { return nil }
         let out = min(rect.width, rect.height, outputSide)
         let format = UIGraphicsImageRendererFormat()

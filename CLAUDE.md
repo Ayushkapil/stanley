@@ -3,7 +3,7 @@
 ## What it is
 
 Stanley is a small-circle photo app built on two structural laws: each person may
-post **exactly one photo per day**, and every photo **decays out of existence
+post **exactly one photo per day** in each circle they're in, and every photo **decays out of existence
 within six days unless someone deliberately keeps (anchors) it**. The only social
 gestures are *holding* (a private act of keeping, never counted) and
 *story-comments* (co-remembering). The product's identity lives as much in what it
@@ -16,12 +16,17 @@ floor); the circle ceiling is a soft 100. Codename: Stanley.
 These are invariants, not preferences. Most are enforced structurally in code and
 guarded by tests; treat a change to any of them as a spec change.
 
-- **One photo per person per local calendar day**, plus a 12-hour minimum gap.
-  Enforced server-side by `UNIQUE(owner_id, local_date)` + an app check; a race
-  returns 409, never a double post. The photo is taken with the in-app camera
+- **One photo per person per circle per local calendar day**, plus a 12-hour
+  minimum gap. Enforced server-side by `UNIQUE(owner_id, circle_id,
+  local_date)` + an app check; a race returns 409, never a double post. Per
+  circle since build 17 (a product decision, with multiple circles; it was
+  `UNIQUE(owner_id, local_date)`): a photo goes to the circle on screen, and
+  that circle's day, gap and redo are its own. A photo in one circle never
+  spends or delays another's. The photo is taken with the in-app camera
   or, since build 16 (a product decision from pilot feedback), chosen from
   the library with the system picker, of any age; either way it is the
-  day's one photo and spends the slot the same.
+  day's one photo and spends the slot the same. Since build 17 every photo is
+  cropped to 3:4 before it posts (`PhotoShape`).
   **One redo per local day:** deleting *today's* photo refunds the slot exactly
   once (the row is released to an anonymous tombstone, so holders keep theirs);
   a second delete spends the day for good, and deleting an older photo never
@@ -47,8 +52,12 @@ guarded by tests; treat a change to any of them as a spec change.
 - **The subject wins on deletion.** Owner delete purges the image everywhere;
   anchorers keep an honest tombstone ("a memory was here") plus their own comment
   text only.
-- **One circle per person**, mutual by construction, **soft cap 100** — a
-  guardrail against an audience, never a target. Nothing nudges toward it.
+- **Up to five circles per person** (build 17, a product decision from pilot
+  feedback; it had been one, a permanent non-goal), each mutual by
+  construction, each with a **soft cap 100** — a guardrail against an
+  audience, never a target. Nothing nudges toward either limit. Today shows
+  one circle at a time, the one on screen; nothing is mixed or ranked across
+  them. `CIRCLES_PER_PERSON` in `physics.py`.
 
 The authoritative source for the physics constants is
 [`server/stanley/physics.py`](server/stanley/physics.py) — pure functions, no I/O.
@@ -81,6 +90,17 @@ The authoritative source for the physics constants is
   iss/aud/exp, trusts `sub`). Stanley issues its own HS256 JWT (30-day). A dev-only
   `/auth/dev` exists and returns 404 unless `STANLEY_DEV_AUTH=1`. The server
   refuses to boot without `STANLEY_SECRET_KEY` when dev auth is off.
+- **The circle on screen** (build 17): the app names it in an
+  `X-Stanley-Circle` header on every request (`APIClient.circleId`, behind a
+  lock like the token; a header, like the town for the news, so it stays out
+  of access logs). `deps.require_membership` reads it; without one, a
+  request is about the circle joined first, which is all a build before 17
+  ever sees. A circle the person isn't in is `not_in_circle`, never a quiet
+  switch to another, so a photo can't land in the wrong circle; the app then
+  falls back to a circle they're in. Per-photo gestures (like, hold, story,
+  report) reach a photo in any of the person's circles, since Held and
+  Returned aren't about the circle on screen; profiles and blocks follow any
+  shared circle. A queued capture carries the circle it was taken for.
 - **Client:** SwiftUI, iOS 17+, XcodeGen project. JWT in the Keychain.
   `AppState` and `OfflineQueue` are `@MainActor`, so every observed
   property is written on the main thread, where SwiftUI reads it. In Swift
@@ -118,8 +138,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   story field's Add button. The sheet (build 15) is laid out like composing
   a memory: before the photo, an empty rounded frame holding the day's
   prompt (tapping it opens the camera) and the rule in a line beneath;
-  after it, the photo full-width with 20pt corners at 72% of a Today card's
-  height. **Where it was** sits right under the photo (build 16; on the card
+  after it, the photo with 20pt corners. Both are `PhotoShape` (3:4, the
+  camera's own 4:3 held upright; build 17), as wide as the sheet allows and
+  no taller than 55% of the screen, so the place and the pills show on the
+  Duo's cover. **The frame is the crop** (build 17): a photo of another
+  shape (most library photos) fills it and drags to choose what's in it,
+  and any photo pinches in closer (`Framing.swift`, the same arithmetic as
+  the avatar crop). "Drag to frame it" shows until it's moved, and thirds
+  while it moves. On Post the look goes on at full size and then exactly
+  the frame is cut from it (`FilterRenderer.jpeg(_:_:crop:)`), so what's
+  posted is what was framed; a camera shot left as it came posts the
+  camera's own JPEG untouched. With more than one circle the sheet says whose
+  day it is ("for Climbing Club"). **Where it was** sits right under the photo (build 16; on the card
   below the pills it was out of sight on the Duo's cover), then the filter
   pills, then the caption card, then who-was-there. The foot of the sheet
   is **Take photo**, a full-width accent button (`WideButton`, 52pt, the
@@ -174,23 +204,42 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Documents folder stands in for the camera, so the filters can be tried on a
   real photo. The simulators' own `DCIM/100APPLE/IMG_0006.HEIC` works.
 - **Today feed** — reverse-chronological, ambient fade rendered client-side from
-  `decay_progress` (smoothstep, dark-mode-aware floor).
+  `decay_progress` (smoothstep, dark-mode-aware floor). Since build 17 it's a
+  **shared journal, not a card feed** (pilot users said it was "just
+  Instagram"). The circle's name is the page's title (`CircleSwitcher`). The
+  community note is a sticky note on the first page. Each day has a mark,
+  "Today", "Yesterday", then the weekday, with the date (`JournalDay`,
+  `DayMark`). Each photo is a **print**: the photo is the whole card,
+  `PhotoShape` 3:4, filled and clipped, never letterboxed, with 14pt corners
+  alike all round and no frame or header bar. It lies up to 0.9° off square,
+  decided by its id (`PrintTilt`). The poster's first name and the time are
+  written in Noteworthy (`Font.hand`) on a soft dark capsule in its
+  bottom-left corner; a tap opens their profile. The bookmark and the heart
+  sit in its bottom-right corner. Caption, place, who was there, the first
+  story and "What do you remember?" sit beneath with no chrome. A shared
+  moment is a run of prints under its place, written by hand. The mosaic and
+  Returned keep their cards; they're artifacts, not entries. On an ordinary
+  iPhone the tab bar folds to the current tab while Today scrolls down
+  (`tabBarMinimizeBehavior(.onScrollDown)`, iOS 26+; not on the Duo's side
+  dock, which the camera is placed against).
 - **Decay engine** — server-authoritative state machine, idempotent sweep,
   append-only audit log, 7-day tombstone, purge with blob deletion.
 - **Held (anchoring)** — press-and-hold to keep (bookmark), owner-only "held by"
   faces, full-saturation archive, tombstones, "Held" tab + per-friend threads.
+  Held gathers every circle a person is in; each memory carries its
+  `circle_name`, shown as a small tag (`CircleTag`) once there's more than
+  one circle to tell apart.
 - **Likes** — double-tap heart, owner-only faces, decays with the photo. The
-  heart bottom-right of each photo is *your own* state only (filled if you
+  heart bottom-right of each photo (the bookmark beside it, on the photo too,
+  since build 17) is *your own* state only (filled if you
   liked it), never a signal to anyone else and never a number. Since build 12
   it is also a button, because real users reached for it, and a tap does what
   a double-tap does.
 - **Gesture icon size** — the heart and the bookmark share one size,
   `GestureIcon`: a 22pt glyph (about 24pt tall, roughly 40% up from build 11)
   inside a 44pt target, through `@ScaledMetric` so it follows Dynamic Type.
-  It applies on Today cards, shared-moment tiles, the story sheet, and
-  Returned's "Keep this". The heart's whole 44pt square takes a tap. The
-  caption-row bookmark gets its 44pt target from a clear background centered
-  on the glyph, so the row keeps its height.
+  It applies on Today's prints, shared-moment prints, the story sheet, and
+  Returned's "Keep this". Each marker's whole 44pt square takes a tap.
 - **Story-comments** — flat, chronological, part of the artifact. Today shows
   the first one on the card; the rest sit behind "More stories" (never "2
   more" — a tally is still a count) which opens the photo with the thread.
@@ -204,10 +253,19 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a Rested view with "let it return"; tombstoned photos never resurface.
 - **Circles** — circle-first onboarding (invite code), roster as avatar cluster,
   rotate invite, remove member (creator), leave (with creator succession).
+  **More than one** (build 17): up to five, `GET /circles` lists them by
+  name in join order (no counts), and the circle's name atop Today is a
+  menu of them, with "Join another circle". That opens the circle gate as a
+  sheet (`CircleGateView(another: true)`); Settings has it too, and a circle
+  picker once there's more than one. Joining or starting one shows it. The
+  one on screen is remembered per account; leaving it brings up another, or
+  the gate if none is left. A sixth is `too_many_circles`, said in words.
 - **Profiles** — display name, username, multi-line bio, avatar (soft-square,
   crop), member profiles (A2-safe: name + words + face only). The You tab's
-  circle is a scrolling row of faces with first names, and each opens that
-  person's profile (build 16; the old cluster did nothing). **Setup**
+  circle, under "Your circle" and its name, is a scrolling row of small cards
+  (`CircleCards`, build 17): face or initial, name, a quiet "organizer" mark
+  on whoever started it, on the atmosphere's card surface. Each opens that
+  person's profile. **Setup**
   (`SetupView`, build 16) walks a new account through four screens between
   sign-in and the circle gate: "What should we call you?" (required, no
   Skip), "Pick a username" (live check, Skip), "Write a little about
@@ -221,7 +279,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`AvatarPicker.swift`, build 16): one `AvatarChooser` for the You tab's
   face, the edit sheet's photo row and setup. The crop is a full-screen
   "Move and Scale" (it was a sheet, whose drag-to-dismiss fought the photo's
-  drag, and whose item was rebuilt on every redraw), with drag and pinch at
+  drag, and whose item was rebuilt on every redraw). Cancel and Choose are in
+  a real navigation bar (build 17): drawn at the foot they were too low to
+  tap on some phones, and a drawn top row put Choose under the Duo cover's
+  front camera. Drag and pinch work at
   once, the photo clamped to always cover the window, and the framed square
   cut from the photo's own pixels at up to 1024px. Setup and the circle gate
   each have a plain **Sign out** in the top bar, because Settings is past
@@ -232,7 +293,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   serializes as `UNNAMED` ("New member"); `DEPARTED` ("departed") now means
   only a genuinely deleted account.
 - **Community note** — one shared line atop Today, last-writer-wins, clears at end
-  of the setter's local day. Not a chat.
+  of the setter's local day. Not a chat. Drawn as a sticky note (build 17):
+  yellow paper, a strip of tape, a slight tilt, the words in a hand; a lamplit
+  yellow in dark mode. Empty, it's a slip asking for a note.
 - **Shared moments** — photos with the same location label on the same local day by
   2+ people group into one view-only card; each photo keeps its own decay/like/hold.
 - **Daily prompt** (client only) — a deterministic-by-date whisper in the capture
@@ -248,12 +311,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   card where it will land. The day law is claimed **locally** at the shutter,
   so a queued capture closes the camera exactly as a posted one does. A
   server refusal (another device used the slot) strands it honestly: the owner
-  can save it to Photos or discard it, never a silent loss.
+  can save it to Photos or discard it, never a silent loss. Per circle since
+  build 17: at most one waiting in each, each carrying its circle and sent
+  there. One queued by an older build goes to the first circle joined.
 - **Adaptive density** (client) — `Density(horizontalSizeClass)` in
   `Layout.swift` is the single source for every size that differs between the
   iPhone Duo's two displays: compact is the outer display (and every ordinary
   iPhone, which keeps today's behaviour exactly), regular is the inner one.
-  Inner gets larger cards, a side-by-side shared moment, a two-column Held
+  Inner gets a 560pt journal column, a side-by-side shared moment, a two-column Held
   magazine, a horizontal profile header, a 600pt readable Settings column and a
   bigger Returned photo, and a readable column on onboarding as well as
   Settings. Only density and arrangement change — no feature is gated to either
@@ -365,7 +430,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 16** (0.2.0) is committed but not archived; the archive below is
+- **Build 17** (0.2.0) is committed but not archived; the archive below is
   build 13's.
 - **TestFlight build.** Build 13 (0.2.0) is archived and exported from
   `163ec6d` (it includes the gate sign-out), **not yet uploaded**. An earlier
@@ -394,7 +459,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   tab shows nothing at all, so deploy before testers get build 15. Build
   16's server change is one field, `new_account` on sign-in; without it a
   new account that Apple gave a name skips setup and goes straight to the
-  circle gate, as before.
+  circle gate, as before. **Build 17's server** is multiple circles, and on
+  first startup `ensure_schema` **rebuilds the photos table** to make the
+  day's slot per circle (`_rebuild_photos`: SQLite's documented rebuild in
+  one transaction, foreign keys checked before it commits; on failure
+  nothing changes and the slot stays per person). Run on the dev database
+  with real data (18 photos, 6 holds, nothing dangling) and in tests. Take a
+  manual backup of the Fly volume's `stanley.db` before that deploy. Build
+  17's app against an older server still works with one circle: `GET
+  /circles` 404s and it falls back to `/circles/mine`.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
@@ -458,18 +531,24 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   and are unverified past London.
 - **Phase 2 / deferred by design:** on-device Returned selection model; CSAM
   hash-matching + NCMEC path (required before any *open* release, §15); R2 actually
-  switched on; Android, video, DMs, multiple circles per user (permanent non-goals
-  for the pilot).
+  switched on; Android, video, DMs (permanent non-goals for the pilot).
+  Multiple circles per user was one too, until build 17.
 
 ## Tests
 
-**252 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**270 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming,
-`new_account` on the first sign-in only (dev and Apple), the
+`new_account` on the first sign-in only (dev and Apple), multiple circles
+(the day, the gap and the redo per circle, the per-circle UNIQUE, Today and
+capture follow the header and default to the first circle, a circle you're
+not in refused rather than swapped, five and no more, gestures across your
+circles, Held naming each circle, profiles and blocks across a shared
+circle, one digest a day however many circles, and the build 16 database
+rebuilt with its rows and references intact), the
 World Today (PBS for the US and the unlocated, BBC elsewhere, a town's Google
 feed and what isn't a town, one upserted row per edition, last-good-set on
 failure, stale silence, fetch-when-due on request, the town cap and
@@ -501,9 +580,11 @@ live APNs, concurrency under real load.
 **iOS** (`ios/Stanley/`)
 - App entry / root / tabs / flash / atmosphere tint: `StanleyApp.swift`
 - State + API calls: `AppState.swift`; HTTP client: `APIClient.swift`; models: `Models.swift`
-- Screens: `WelcomeView.swift` (sign-in), `TodayFeedView.swift` (feed, photo card,
-  moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
-  who-was-there, preview + filter pills), `PhotoFilters.swift` (the four
+- Screens: `WelcomeView.swift` (sign-in), `TodayFeedView.swift` (the journal,
+  circle switcher, day marks, prints, moments, mosaic card, returned card,
+  sticky note), `CaptureView.swift` (prompt, who-was-there, the framed
+  preview + filter pills), `Framing.swift` (move and scale, the crop
+  arithmetic both crops share), `PhotoFilters.swift` (the four
   looks, `FilterRenderer`), `Places.swift` (place picker, favorites,
   `PlaceBook`), `LibraryPhoto.swift` (a library photo read upright, small,
   with its own location), `SetupView.swift` (a new account's four steps),

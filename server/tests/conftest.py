@@ -45,6 +45,9 @@ class Api:
         self.token = token
         self.id = user["id"]
         self.name = user["display_name"]
+        # The circle on screen, sent as the app sends it. None sends nothing,
+        # like a build from before multiple circles.
+        self.circle_id: str | None = None
 
     @property
     def h(self) -> dict:
@@ -59,7 +62,10 @@ class Api:
         """
         app = self.client.app
         token = issue_token(app.state.settings.secret_key, self.id, app.state.clock.now())
-        return {"Authorization": f"Bearer {token}"}
+        headers = {"Authorization": f"Bearer {token}"}
+        if self.circle_id:
+            headers["X-Stanley-Circle"] = self.circle_id
+        return headers
 
     def post_photo(self, tz: str = NY, caption: str | None = None, location: str | None = None, image: bytes | None = None, claim: str | None = None, tagged: list[str] | None = None, filter: str | None = None):
         data: dict = {"tz": tz}

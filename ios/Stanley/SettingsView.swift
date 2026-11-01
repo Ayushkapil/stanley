@@ -14,6 +14,7 @@ struct SettingsView: View {
 
     @State private var confirmRotate = false
     @State private var confirmLeave = false
+    @State private var joiningAnother = false
     @State private var confirmDelete = false
 
     @State private var exporting = false
@@ -53,12 +54,15 @@ struct SettingsView: View {
             } message: {
                 Text("The current code stops working immediately. Anyone with the old link won't be able to join.")
             }
-            .alert("Leave this circle?", isPresented: $confirmLeave) {
+            .alert("Leave \(state.circle?.name ?? "this circle")?", isPresented: $confirmLeave) {
                 Button("Leave", role: .destructive) { Task { await state.leaveCircle() } }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("You'll stop seeing the circle. The memories you've held stay yours.")
+                Text(state.circles.count > 1
+                    ? "You'll stop seeing this circle. Your other circles stay as they are, and the memories you've held stay yours."
+                    : "You'll stop seeing the circle. The memories you've held stay yours.")
             }
+            .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
             .alert("Delete your account?", isPresented: $confirmDelete) {
                 Button("Delete", role: .destructive) { Task { await state.deleteAccount() } }
                 Button("Cancel", role: .cancel) {}
@@ -77,7 +81,19 @@ struct SettingsView: View {
     private var circleSection: some View {
         if let circle = state.circle {
             Section {
-                LabeledContent("Name", value: circle.name)
+                // With more than one, the circle these settings are for is
+                // a choice, the same one as the switcher atop Today.
+                if state.circles.count > 1 {
+                    Picker("Circle", selection: Binding(
+                        get: { circle.id },
+                        set: { id in Task { await state.switchCircle(to: id) } }
+                    )) {
+                        ForEach(state.circles) { Text($0.name).tag($0.id) }
+                    }
+                    .pickerStyle(.menu)
+                } else {
+                    LabeledContent("Name", value: circle.name)
+                }
                 NavigationLink {
                     MembersView()
                 } label: {
@@ -125,11 +141,13 @@ struct SettingsView: View {
                             .foregroundStyle(.primary)
                     }
                 }
+                Button("Join another circle") { joiningAnother = true }
+                    .foregroundStyle(.primary)
                 Button("Leave circle", role: .destructive) { confirmLeave = true }
             } header: {
                 Text("Circle")
             } footer: {
-                Text("Stanley works best with people you actually know. People, not numbers.")
+                Text("Stanley works best with people you actually know. People, not numbers. Each circle keeps its own day: one photo a day in each.")
             }
         }
     }

@@ -64,10 +64,13 @@ class Membership(Base):
 
 class Photo(Base):
     __tablename__ = "photos"
-    # The slot is per owner per local calendar day, including soft-deleted rows
-    # (no refunds, §8.4). NULL owner_id rows (anonymized tombstones) don't collide.
+    # The slot is per owner per circle per local calendar day, including
+    # soft-deleted rows (no refunds, §8.4). Per circle since build 17, when a
+    # person could be in more than one: each circle has its own day. NULL
+    # owner_id rows (anonymized tombstones) don't collide. Older databases
+    # had UNIQUE(owner_id, local_date); `ensure_schema` rebuilds the table.
     __table_args__ = (
-        UniqueConstraint("owner_id", "local_date", name="uq_owner_localdate"),
+        UniqueConstraint("owner_id", "circle_id", "local_date", name="uq_owner_circle_localdate"),
         Index("ix_photos_circle_state", "circle_id", "state"),  # feed query (M3)
     )
 

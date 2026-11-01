@@ -14,6 +14,11 @@ struct PendingCapture: Codable, Equatable, Identifiable {
     var capturedAt: Date
     /// The timezone the shutter closed in — the day it belongs to.
     var timeZone: String
+    /// The circle it was taken for. Each circle has its own day, so this is
+    /// whose day it holds and where it goes up. Nil for a capture queued by
+    /// a build before multiple circles; `AppState` gives it the first circle,
+    /// the only one that build knew.
+    var circleId: String?
     /// Set only when the server refused the slot. The photo is then stranded:
     /// it will never upload, and the one honest thing left is to let its owner
     /// keep a copy.
@@ -22,14 +27,15 @@ struct PendingCapture: Codable, Equatable, Identifiable {
     var jpegURL: URL { OfflineQueue.directory.appendingPathComponent("\(id).jpg") }
 }
 
-/// One photo a day, even with no signal.
+/// One photo a day in each circle, even with no signal.
 ///
 /// The day law is claimed **locally**, the moment the shutter closes: a queued
-/// capture blocks a second one exactly as an uploaded photo would. That is the
-/// whole reason the claim lives here rather than waiting on the server — a law
-/// that only holds when you have bars isn't a law.
+/// capture blocks a second one in its circle exactly as an uploaded photo
+/// would. That is the whole reason the claim lives here rather than waiting on
+/// the server — a law that only holds when you have bars isn't a law.
 ///
-/// At most one capture is ever pending, which falls out of the law itself.
+/// At most one capture is ever pending per circle, which falls out of the law
+/// itself.
 ///
 /// Main-actor isolated like `AppState`, which owns it and is the only thing
 /// that changes it; the pending card reads it on the main thread.
@@ -45,23 +51,41 @@ final class OfflineQueue {
 
     private static var indexURL: URL { directory.appendingPathComponent("pending.json") }
 
-    /// The one capture waiting to go up, if any. Survives relaunches.
-    private(set) var pending: PendingCapture?
+    /// The captures waiting to go up, at most one per circle. Survives
+    /// relaunches.
+    private(set) var items: [PendingCapture] = []
 
     init() {
-        if let data = try? Data(contentsOf: Self.indexURL),
-           let saved = try? JSONDecoder().decode(PendingCapture.self, from: data),
-           FileManager.default.fileExists(atPath: saved.jpegURL.path) {
-            pending = saved
-        }
+        guard let data = try? Data(contentsOf: Self.indexURL) else { return }
+        // Builds before 17 kept a single capture; a list since.
+        let saved = (try? JSONDecoder().decode([PendingCapture].self, from: data))
+            ?? (try? JSONDecoder().decode(PendingCapture.self, from: data)).map { [$0] }
+            ?? []
+        items = saved.filter { FileManager.default.fileExists(atPath: $0.jpegURL.path) }
     }
 
-    /// True while a capture is waiting — today's slot is spoken for.
-    var isHoldingTheDay: Bool { pending != nil }
+    /// The capture waiting for this circle, if any.
+    func pending(in circleId: String?) -> PendingCapture? {
+        items.first { $0.circleId == circleId }
+    }
+
+    /// True while a capture is waiting for this circle: its day is spoken for.
+    func isHoldingTheDay(in circleId: String?) -> Bool { pending(in: circleId) != nil }
+
+    /// A capture queued by a build before multiple circles belongs to the
+    /// circle that build showed, the first one joined.
+    func adopt(into circleId: String) {
+        guard items.contains(where: { $0.circleId == nil }) else { return }
+        for index in items.indices where items[index].circleId == nil {
+            items[index].circleId = circleId
+        }
+        persist()
+    }
 
     @discardableResult
     func enqueue(
-        jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
+        jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil,
+        circleId: String?
     ) -> PendingCapture {
         let item = PendingCapture(
             id: UUID().uuidString,
@@ -71,38 +95,40 @@ final class OfflineQueue {
             filter: filter,
             capturedAt: Date(),
             timeZone: TimeZone.current.identifier,
+            circleId: circleId,
             rejection: nil
         )
         try? jpeg.write(to: item.jpegURL, options: .atomic)
-        pending = item
+        items.append(item)
         persist()
         return item
     }
 
-    func jpeg() -> Data? {
-        guard let pending else { return nil }
-        return try? Data(contentsOf: pending.jpegURL)
+    func jpeg(_ item: PendingCapture) -> Data? {
+        try? Data(contentsOf: item.jpegURL)
     }
 
     /// The server refused the slot — another device got there first. The photo
     /// stays put so it can still be saved; it is never silently discarded.
-    func markRejected(_ reason: String) {
-        guard var item = pending else { return }
-        item.rejection = reason
-        pending = item
+    func markRejected(_ item: PendingCapture, _ reason: String) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[index].rejection = reason
         persist()
     }
 
     /// It went up, or its owner let it go.
-    func clear() {
-        if let pending { try? FileManager.default.removeItem(at: pending.jpegURL) }
-        pending = nil
-        try? FileManager.default.removeItem(at: Self.indexURL)
+    func clear(_ item: PendingCapture) {
+        try? FileManager.default.removeItem(at: item.jpegURL)
+        items.removeAll { $0.id == item.id }
+        persist()
     }
 
     private func persist() {
-        guard let pending, let data = try? JSONEncoder().encode(pending) else { return }
-        try? data.write(to: Self.indexURL, options: .atomic)
+        if items.isEmpty {
+            try? FileManager.default.removeItem(at: Self.indexURL)
+        } else if let data = try? JSONEncoder().encode(items) {
+            try? data.write(to: Self.indexURL, options: .atomic)
+        }
     }
 }
 

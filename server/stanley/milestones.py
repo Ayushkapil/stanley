@@ -48,7 +48,13 @@ def _surfaced_recently(session: Session, user_id: str, now: datetime) -> bool:
 
 
 def _membership(session: Session, user_id: str) -> Membership | None:
-    return session.scalars(select(Membership).where(Membership.user_id == user_id)).first()
+    """The circle joined first. Milestones about "your circle" are about
+    that one, the oldest, when a person is in several."""
+    return session.scalars(
+        select(Membership)
+        .where(Membership.user_id == user_id)
+        .order_by(Membership.joined_at, Membership.circle_id)
+    ).first()
 
 
 def _held_count(session: Session, user_id: str) -> int:

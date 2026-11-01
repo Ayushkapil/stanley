@@ -25,13 +25,16 @@ enum Density {
     var isRoom: Bool { self == .room }
 
     // --- Today ---------------------------------------------------------------
-    /// The photo is the moment, so it takes roughly two thirds of the screen in
-    /// every card. The remaining third is the story — face, name, time, caption,
-    /// place, first comment, gestures — deliberately secondary to the image.
-    /// Expressed as a share of the screen rather than in points, so the ratio
-    /// holds on both displays and only the scale changes.
-    static let photoShare: CGFloat = 0.67
-    static let cardGapShare: CGFloat = 0.05
+    /// Today is a journal, not a card feed (build 17): each photo is a print
+    /// in `PhotoShape`, as wide as the page allows, with its words beneath.
+    /// On the inner display the page is a readable column, so a print doesn't
+    /// grow taller than the screen.
+    var journalWidth: CGFloat? { isRoom ? 560 : nil }
+    /// Between one entry and the next on the same day: room to breathe, close
+    /// enough to read as pages of one book.
+    var entrySpacing: CGFloat { isRoom ? 40 : 30 }
+    /// Above a new day's mark.
+    var daySpacing: CGFloat { isRoom ? 44 : 34 }
 
     private var screenHeight: CGFloat { Density.canvasBounds().height }
 
@@ -48,8 +51,10 @@ enum Density {
         let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
         return scene?.screen.bounds ?? UIScreen.main.bounds
     }
-    var feedSpacing: CGFloat { (screenHeight * Density.cardGapShare).rounded() }
-    var feedPhotoHeight: CGFloat { (screenHeight * Density.photoShare).rounded() }
+    /// The capture preview's height at most: a share of the screen, so the
+    /// place and the looks beneath it are in view without scrolling, even on
+    /// the Duo's cover. Its width follows from `PhotoShape`.
+    var capturePhotoMaxHeight: CGFloat { (screenHeight * 0.55).rounded() }
     var cardPadding: CGFloat { isRoom ? 20 : 12 }
     var cardCorner: CGFloat { isRoom ? 22 : 18 }
     /// The first story gets room to be read before it truncates.
@@ -59,7 +64,7 @@ enum Density {
     /// Inner: a pair at meaningful size, with a sliver of the third so it is
     /// obvious there is more. Outer: the scroll strip, slightly narrower.
     func momentTileWidth(container: CGFloat) -> CGFloat {
-        isRoom ? (container - 30) / 2.25 : min(container * 0.62, 220)
+        isRoom ? (container - 30) / 2.25 : min(container * 0.7, 270)
     }
 
     // --- Weekly mosaic -------------------------------------------------------
@@ -91,6 +96,16 @@ enum Density {
     /// exposes no fold geometry, so this is a buffer, not a measurement — when
     /// the SDK reports the crease, this should read it instead.
     var creaseBuffer: CGFloat { isRoom ? 20 : 0 }
+}
+
+/// The one shape every photo in Today has (build 17): the camera's own 4:3,
+/// held upright, so three wide by four tall. A photo of any other shape fills
+/// it and is cropped, never letterboxed, and capture crops to it before
+/// posting, so what's posted is what Today shows. Width over height.
+enum PhotoShape {
+    static let aspect: CGFloat = 3.0 / 4.0
+    /// Rounded the same at every corner, wherever a photo sits on the page.
+    static let corner: CGFloat = 14
 }
 
 /// True on a canvas big enough to be the Duo's inner display (or an iPad).

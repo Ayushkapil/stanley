@@ -166,6 +166,12 @@ struct MemoryCard: View {
     private var density: Density { Density(hSizeClass) }
     let memory: Memory
 
+    /// Held gathers every circle. Which one a memory is from is worth saying
+    /// once there's more than one to tell apart.
+    private var showsCircle: Bool {
+        state.circles.count > 1 || Set(state.threads.flatMap(\.memories).compactMap(\.circleName)).count > 1
+    }
+
     private var heldTrace: String? {
         guard let taken = memory.takenAt else { return nil }
         return "held · \(taken.formatted(date: .abbreviated, time: .omitted))"
@@ -243,6 +249,10 @@ struct MemoryCard: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    if showsCircle, let circleName = memory.circleName {
+                        CircleTag(name: circleName)
+                            .padding(.top, 3)
+                    }
                     if let note = memory.note, !note.isEmpty {
                         Text(note)
                             .font(.caption)
@@ -250,6 +260,32 @@ struct MemoryCard: View {
                             .lineLimit(2)
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Which circle a held memory is from: its name, small, in a quiet capsule.
+struct CircleTag: View {
+    let name: String
+
+    var body: some View {
+        Label(name, systemImage: "circle.dotted")
+            .labelStyle(TightLabel())
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(.quaternary.opacity(0.6), in: Capsule())
+            .accessibilityLabel("From \(name)")
+    }
+
+    private struct TightLabel: LabelStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            HStack(spacing: 4) {
+                configuration.icon
+                configuration.title
             }
         }
     }

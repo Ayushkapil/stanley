@@ -9,7 +9,14 @@ from sqlalchemy.orm import Session
 from zoneinfo import ZoneInfo
 
 from .. import physics
-from ..deps import get_clock, get_current_user, get_db, get_settings, require_membership
+from ..deps import (
+    active_circle_id,
+    get_clock,
+    get_current_user,
+    get_db,
+    get_settings,
+    require_membership,
+)
 from ..models import Photo, ReturnedLog, User
 from ..returned import returned_item
 from ..serialize import (
@@ -29,6 +36,7 @@ def today(
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
+    circle_id: str | None = Depends(active_circle_id),
 ):
     """The Today feed: a handful of fading photos from the circle, ordered by
     time and nothing else. Non-goal §7: never reordered by engagement; holding
@@ -37,8 +45,11 @@ def today(
     Photos posted with the same location label on the same local day by 2+
     people are grouped into a 'shared moment' (Part 3): a presentation grouping
     only — each photo keeps its own decay, like, and Held state.
+
+    One circle at a time: the one on screen. Nothing from a person's other
+    circles is mixed in, and nothing ranks them against each other.
     """
-    membership, circle = require_membership(db, user)
+    membership, circle = require_membership(db, user, circle_id)
     now = clock.now()
     hidden = blocked_ids(db, user.id)
     photos = db.scalars(

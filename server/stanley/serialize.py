@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .config import Settings
-from .models import Anchor, Block, Comment, CommunityNote, Like, Photo, PhotoTag, User
+from .models import Anchor, Block, Circle, Comment, CommunityNote, Like, Photo, PhotoTag, User
 from .storage import read_url
 
 DEPARTED = "departed"
@@ -210,6 +210,11 @@ def photo_payload(
     }
 
 
+def circle_name(session: Session, circle_id: str | None) -> str | None:
+    circle = session.get(Circle, circle_id) if circle_id else None
+    return circle.name if circle else None
+
+
 def memory_payload(
     session: Session,
     settings: Settings,
@@ -218,6 +223,9 @@ def memory_payload(
     anchor: Anchor,
     viewer: User,
 ) -> dict:
+    """A held memory. Held gathers every circle a person is in (build 17),
+    so each memory says which circle it's from, by name."""
+    circle = circle_name(session, photo.circle_id)
     if photo.state == physics.PURGED:
         # §8.2 deletion override: an honest tombstone plus the viewer's own
         # comment text only. The loss is acknowledged, not hidden.
@@ -237,9 +245,15 @@ def memory_payload(
             "note": anchor.note,
             "anchored_at": iso(anchor.created_at),
             "comments": [comment_payload(session, c) for c in own_comments],
+            "circle_name": circle,
         }
     payload = photo_payload(session, settings, now, photo, viewer)
     payload.update(
-        {"tombstone": False, "note": anchor.note, "anchored_at": iso(anchor.created_at)}
+        {
+            "tombstone": False,
+            "note": anchor.note,
+            "anchored_at": iso(anchor.created_at),
+            "circle_name": circle,
+        }
     )
     return payload

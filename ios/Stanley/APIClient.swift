@@ -25,7 +25,9 @@ enum APIError: LocalizedError {
             case "slot_used": return "Today's photo is already given."
             case "too_soon": return "A little too soon — the day needs room to breathe."
             case "circle_full": return "This circle is full."
-            case "already_in_circle": return "You're already part of a circle."
+            case "already_in_circle": return "You're already in that circle."
+            case "too_many_circles": return "Stanley keeps it to five circles. Leave one to join another."
+            case "not_in_circle": return "You're no longer in that circle."
             case "no_circle": return "Join a circle first."
             case "faded": return "This moment has already faded."
             case "username_taken": return "That username is taken."
@@ -79,11 +81,25 @@ struct Empty: Codable {}
 
 /// Safe to call from any thread. `AppState` sets the token on the main actor
 /// while requests read it from whatever thread they run on, so the token
-/// sits behind a lock. The base URL never changes after launch.
+/// sits behind a lock, and so does the circle. The base URL never changes
+/// after launch.
 final class APIClient: Sendable {
     let baseURL: URL
     private let storedToken: OSAllocatedUnfairLock<String?>
+    private let storedCircle = OSAllocatedUnfairLock<String?>(initialState: nil)
     private let rejectedHandler = OSAllocatedUnfairLock<(@Sendable (String) -> Void)?>(initialState: nil)
+
+    /// The header that names the circle on screen.
+    static let circleHeader = "X-Stanley-Circle"
+
+    /// The circle on screen, sent with every request, because a person can
+    /// be in more than one (build 17) and Today, capture, the roster and the
+    /// note are each about one. Nil sends nothing, and the server answers
+    /// for the circle joined first.
+    var circleId: String? {
+        get { storedCircle.withLock { $0 } }
+        set { storedCircle.withLock { $0 = newValue } }
+    }
 
     var token: String? {
         get { storedToken.withLock { $0 } }
@@ -157,9 +173,7 @@ final class APIClient: Sendable {
         }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
-        if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        authorize(&request)
         for (name, value) in headers {
             request.setValue(value, forHTTPHeaderField: name)
         }
@@ -172,10 +186,25 @@ final class APIClient: Sendable {
         return try await perform(request)
     }
 
-    /// Capture upload (§8.4): multipart, in-app camera bytes only. Location is
-    /// a typed place label — never GPS, which the server strips anyway.
+    /// The sign-in, and the circle on screen.
+    private func authorize(_ request: inout URLRequest) {
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let circleId {
+            request.setValue(circleId, forHTTPHeaderField: Self.circleHeader)
+        }
+    }
+
+    /// Capture upload (§8.4): multipart. Location is a typed place label —
+    /// never GPS, which the server strips anyway. `circleId` is the circle
+    /// the photo was taken for, which for a capture that waited for signal
+    /// may not be the one on screen by the time it goes up. Nil (a capture
+    /// queued by a build before multiple circles) sends no circle, and the
+    /// server takes the first joined, the only one that build knew.
     func uploadPhoto(
-        jpeg: Data, caption: String?, location: String?, tagged: [String] = [], filter: String? = nil
+        jpeg: Data, caption: String?, location: String?, tagged: [String] = [], filter: String? = nil,
+        circleId: String?
     ) async throws -> Photo {
         let boundary = "stanley-\(UUID().uuidString)"
         var request = URLRequest(url: baseURL.appending(path: "/photos"))
@@ -183,9 +212,8 @@ final class APIClient: Sendable {
         request.setValue(
             "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type"
         )
-        if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        authorize(&request)
+        request.setValue(circleId, forHTTPHeaderField: Self.circleHeader)
         var body = Data()
         func append(_ s: String) { body.append(Data(s.utf8)) }
         func field(_ name: String, _ value: String) {
@@ -216,9 +244,7 @@ final class APIClient: Sendable {
         request.setValue(
             "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type"
         )
-        if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        authorize(&request)
         var body = Data()
         body.append(Data("--\(boundary)\r\n".utf8))
         body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.jpg\"\r\n".utf8))
@@ -232,9 +258,7 @@ final class APIClient: Sendable {
     /// Raw authed GET, for the export zip (not JSON).
     func fetchData(_ path: String) async throws -> Data {
         var request = URLRequest(url: baseURL.appending(path: path))
-        if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        authorize(&request)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {

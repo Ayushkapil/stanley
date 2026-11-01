@@ -56,8 +56,11 @@ Personalization, never Other.
   (GPS included) is never sent, and an avatar is cropped and re-encoded the
   same way. Server-side ingest strips **all EXIF except the capture
   timestamp — GPS is removed** before the image ever touches disk.
-  Photos are visible only to the user's one circle (≤30 people), served via
-  short-TTL signed URLs, and are deleted by decay physics unless held.
+  Each photo is visible only to the one circle it was posted to (a person
+  can be in up to five since build 17; each circle's soft cap is 100), served
+  via short-TTL signed URLs, and is deleted by decay physics unless held.
+  Nothing about this changes a label answer: the photo is still collected,
+  linked to the account, and not used for tracking.
 - [ ] **Other User Content — COLLECTED · Linked to identity · Not used for tracking.**
   Captions, story-comments, bio, username, hold notes, the community note,
   location labels (a free-text string like "Dunn Meadow", typed, or offered

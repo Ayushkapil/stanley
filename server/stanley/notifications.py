@@ -71,10 +71,12 @@ def run_evening_digests(
         local_now = now.astimezone(tz)
         if local_now.hour != digest_hour:
             continue
-        membership = session.scalars(
-            select(Membership).where(Membership.user_id == user.id)
-        ).first()
-        if membership is None:
+        # Every circle the person is in, and still one digest a day: a second
+        # circle never means a second push.
+        circle_ids = session.scalars(
+            select(Membership.circle_id).where(Membership.user_id == user.id)
+        ).all()
+        if not circle_ids:
             continue
         day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(
             ZoneInfo("UTC")
@@ -91,7 +93,7 @@ def run_evening_digests(
         n = len(
             session.scalars(
                 select(Photo.id).where(
-                    Photo.circle_id == membership.circle_id,
+                    Photo.circle_id.in_(circle_ids),
                     Photo.owner_id.is_not(None),
                     Photo.owner_id != user.id,
                     Photo.deleted_at.is_(None),

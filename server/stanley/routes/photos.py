@@ -19,6 +19,7 @@ FILTERS = frozenset({"mono", "grain", "dusk", "clean"})
 from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, owner_hash_for, scrub
 from ..deps import (
+    active_circle_id,
     get_circle_photo,
     get_clock,
     get_current_user,
@@ -89,8 +90,11 @@ def capture(
     clock=Depends(get_clock),
     storage=Depends(get_storage),
     settings=Depends(get_settings),
+    circle_id: str | None = Depends(active_circle_id),
 ):
-    membership, _ = require_membership(db, user)
+    # The circle on screen when the shutter closed. A circle the person has
+    # since left is refused (not_in_circle) rather than posted somewhere else.
+    membership, _ = require_membership(db, user, circle_id)
     try:
         ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError):
@@ -115,13 +119,12 @@ def capture(
 
     # The slot check includes soft-deleted and purged rows: capture is a
     # commitment, and deletion does not refund the day (§8.4). This is the fast
-    # path; the UNIQUE(owner_id, local_date) constraint is the race backstop.
-    existing_dates = set(
-        db.scalars(select(Photo.local_date).where(Photo.owner_id == user.id)).all()
-    )
-    last_taken = db.scalar(
-        select(func.max(Photo.taken_at)).where(Photo.owner_id == user.id)
-    )
+    # path; the UNIQUE(owner_id, circle_id, local_date) constraint is the race
+    # backstop. Every part of the law is this circle's: a photo posted to
+    # another circle today neither spends this one's day nor starts its gap.
+    in_this_circle = (Photo.owner_id == user.id, Photo.circle_id == membership.circle_id)
+    existing_dates = set(db.scalars(select(Photo.local_date).where(*in_this_circle)).all())
+    last_taken = db.scalar(select(func.max(Photo.taken_at)).where(*in_this_circle))
     # 8.4 redo: a released row keeps its local_date under an owner hash, so the
     # day still knows a redo was spent even though the slot itself is free.
     redos_used = db.scalar(
@@ -129,6 +132,7 @@ def capture(
         .select_from(Photo)
         .where(
             Photo.owner_hash == owner_hash_for(user.id),
+            Photo.circle_id == membership.circle_id,
             Photo.local_date == physics.local_capture_date(taken_at, tz),
         )
     ) or 0
@@ -240,7 +244,11 @@ def delete_photo(
         redone_today = db.scalar(
             select(func.count())
             .select_from(Photo)
-            .where(Photo.owner_hash == owner_hash, Photo.local_date == photo.local_date)
+            .where(
+                Photo.owner_hash == owner_hash,
+                Photo.circle_id == photo.circle_id,
+                Photo.local_date == photo.local_date,
+            )
         ) or 0
         is_today = photo.local_date == physics.local_capture_date(now, photo.taken_tz)
 
@@ -248,9 +256,10 @@ def delete_photo(
         scrub(db, storage, photo, now, owner_requested=True)
 
         if is_today and redone_today < physics.REDOS_PER_DAY:
-            # Release the row from the owner's (owner_id, local_date) slot so one
-            # repost fits. Anchorers keep the tombstone scrub just wrote - it is
-            # the same anonymous shape a scheduled purge leaves behind.
+            # Release the row from the owner's (owner_id, circle_id,
+            # local_date) slot so one repost fits. Anchorers keep the tombstone
+            # scrub just wrote - it is the same anonymous shape a scheduled
+            # purge leaves behind.
             photo.owner_hash = owner_hash
             photo.owner_id = None
 

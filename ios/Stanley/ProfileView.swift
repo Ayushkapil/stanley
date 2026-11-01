@@ -62,14 +62,20 @@ struct ProfileView: View {
                     if !density.profileIsHorizontal {
                         bioView
                     }
-                    if !others.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Your circle")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.secondary)
-                            CircleFaces(members: others)
+                    if let circle = state.circle, !others.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Your circle")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                Text(circle.name)
+                                    .font(.keepsake(24))
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(.isHeader)
+                            CircleCards(members: others)
                         }
-                        .padding(.top, 6)
+                        .padding(.top, 10)
                     }
                     ForEach(milestones) { milestone in
                         MilestoneCard(milestone: milestone) {
@@ -121,43 +127,64 @@ struct ProfileView: View {
     }
 }
 
-/// The circle on the You tab: a face and a first name for each person, in a
-/// row that scrolls when there are more than fit. Each face opens that
-/// person's profile, their name and their words. Faces, never a number:
-/// the row has no "+7", and nothing says how many there are.
-private struct CircleFaces: View {
+/// The circle on the You tab, as a row of small cards that scrolls when
+/// there are more than fit: each person's face (or their initial), their
+/// name beneath it, and a quiet mark on whoever started the circle. Each
+/// card opens that person's profile, their name and their words. People,
+/// never a number: the row has no "+7", and nothing says how many there are.
+private struct CircleCards: View {
     let members: [CircleMember]
+    @ScaledMetric(relativeTo: .caption) private var width: CGFloat = 92
+
+    /// Room for the organizer's mark on every card, so the row lines up,
+    /// only when the organizer is in it.
+    private var marksOrganizer: Bool { members.contains { $0.isCreator == true } }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: 10) {
                 ForEach(members) { member in
                     NavigationLink {
                         MemberProfileView(memberId: member.id)
                     } label: {
-                        VStack(spacing: 5) {
-                            AvatarView(url: member.avatarUrl, name: member.displayName, size: 52)
-                            Text(firstName(member))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .frame(maxWidth: 64)
-                        }
-                        .contentShape(Rectangle())
+                        card(member)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(member.displayName ?? "New member")
+                    .accessibilityLabel(
+                        (member.displayName ?? "New member") + (member.isCreator == true ? ", organizer" : "")
+                    )
                     .accessibilityHint("Opens their profile")
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
         }
         .scrollClipDisabled()
     }
 
-    private func firstName(_ member: CircleMember) -> String {
-        let name = member.displayName ?? "New member"
-        return name.split(separator: " ").first.map(String.init) ?? name
+    private func card(_ member: CircleMember) -> some View {
+        VStack(spacing: 8) {
+            AvatarView(url: member.avatarUrl, name: member.displayName, size: 56)
+            Text(member.displayName ?? "New member")
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            // Who started it, said quietly: a word, not a crown.
+            if marksOrganizer {
+                Text("organizer")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    .opacity(member.isCreator == true ? 1 : 0)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+        .frame(width: width)
+        .cardSurface(corner: 16)
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

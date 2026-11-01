@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..deps import get_clock, get_current_user, get_db, require_membership
-from ..models import Block, Comment, Membership, Photo, Report, User
+from ..deps import get_clock, get_current_user, get_db, my_circle_ids, require_membership, shares_a_circle
+from ..models import Block, Comment, Photo, Report, User
 
 router = APIRouter(tags=["safety"])
 
@@ -29,12 +29,12 @@ def report(
 ):
     """§15: report with a 24h human-review takedown commitment (App Review
     Guideline 1.2). Pilot-stage review is manual."""
-    membership, _ = require_membership(db, user)
+    require_membership(db, user)
     if not body.photo_id and not body.comment_id:
         raise HTTPException(400, "photo_id or comment_id required")
     if body.photo_id:
         photo = db.get(Photo, body.photo_id)
-        if photo is None or photo.circle_id != membership.circle_id:
+        if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
             raise HTTPException(404, "not found")
     if body.comment_id:
         comment = db.get(Comment, body.comment_id)
@@ -60,12 +60,13 @@ def block(
     clock=Depends(get_clock),
 ):
     """§15: blocking hides all content bidirectionally within the circle. An
-    abusive ex inside a circle is a small-N problem, not a large-N one."""
-    membership, _ = require_membership(db, user)
+    abusive ex inside a circle is a small-N problem, not a large-N one. A
+    block holds across every circle the two share: someone you met in one
+    circle, wherever you're looking."""
+    require_membership(db, user)
     if body.user_id == user.id:
         raise HTTPException(400, "cannot block yourself")
-    target = db.get(Membership, (membership.circle_id, body.user_id))
-    if target is None:
+    if not shares_a_circle(db, user.id, body.user_id):
         raise HTTPException(404, "not found")
     if db.get(Block, (user.id, body.user_id)) is None:
         db.add(Block(blocker_id=user.id, blocked_id=body.user_id, created_at=clock.now()))

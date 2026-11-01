@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import physics
 from ..deps import get_clock, get_current_user, get_db, get_settings
 from ..models import Anchor, Photo, Rest, User
-from ..serialize import blocked_ids, memory_payload, photo_payload
+from ..serialize import blocked_ids, circle_name, memory_payload, photo_payload
 
 router = APIRouter(tags=["memories"])
 
@@ -78,6 +78,13 @@ def rested(
             out.append(memory_payload(db, settings, now, photo, anchor, user))
         elif photo.owner_id == user.id and photo.deriv_key:
             payload = photo_payload(db, settings, now, photo, user)
-            payload.update({"tombstone": False, "note": None, "anchored_at": None})
+            payload.update(
+                {
+                    "tombstone": False,
+                    "note": None,
+                    "anchored_at": None,
+                    "circle_name": circle_name(db, photo.circle_id),
+                }
+            )
             out.append(payload)
     return {"memories": out}

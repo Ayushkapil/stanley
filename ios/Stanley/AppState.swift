@@ -20,7 +20,11 @@ final class AppState {
     let whereabouts = Whereabouts()
 
     var signedIn: Bool
+    /// The circle on screen, in full: its roster, its invite code.
     var circle: CircleInfo?
+    /// Every circle this person is in, in the order they joined. Up to five
+    /// (build 17); Today shows one at a time.
+    var circles: [CircleSummary] = []
     var feedItems: [FeedItem] = []
     var communityNote: CommunityNote?
     var mosaic: Mosaic?
@@ -118,6 +122,8 @@ final class AppState {
     }
 
     private static func setupKey(_ userId: String) -> String { "stanley.setupPending.\(userId)" }
+    /// The circle last on screen, per account, so the app opens where it was.
+    private static func circleKey(_ userId: String) -> String { "stanley.activeCircle.\(userId)" }
 
     /// Setup is done, or was finished from its last step.
     func finishSetup() {
@@ -167,10 +173,12 @@ final class AppState {
 
     func signOut() {
         api.token = nil
+        api.circleId = nil
         signedIn = false
         setupPending = false
         avatarUploading = false
         circle = nil
+        circles = []
         checkedCircle = false
         feedItems = []
         communityNote = nil
@@ -184,41 +192,95 @@ final class AppState {
         myId = nil
     }
 
+    /// Which circles this person is in, and the one on screen in full. The
+    /// one on screen is the one they last chose, while they're still in it,
+    /// else the first they joined.
     func loadCircle() async {
         defer { checkedCircle = true }
         do {
+            let list: CirclesResponse
+            do {
+                list = try await api.send("GET", "/circles")
+            } catch APIError.status(404) {
+                // A server from before multiple circles: the one it knows.
+                api.circleId = nil
+                let only: CircleInfo = try await api.send("GET", "/circles/mine")
+                circle = only
+                circles = [CircleSummary(id: only.id, name: only.name, isCreator: only.isCreator ?? false)]
+                return
+            }
+            circles = list.circles
+            guard let first = circles.first else {
+                circle = nil
+                api.circleId = nil
+                return
+            }
+            queue.adopt(into: first.id)
+            let chosen = myId.flatMap { UserDefaults.standard.string(forKey: Self.circleKey($0)) }
+            api.circleId = (circles.first { $0.id == chosen } ?? first).id
             circle = try await api.send("GET", "/circles/mine") as CircleInfo
         } catch APIError.server(code: "no_circle", status: _) {
             circle = nil
+            circles = []
+            api.circleId = nil
         } catch {
             surface(error)
         }
     }
 
-    func createCircle(name: String) async {
+    /// Show another of this person's circles. Today empties at once, so the
+    /// last circle's photos never sit under the new circle's name.
+    func switchCircle(to id: String) async {
+        if let myId { UserDefaults.standard.set(id, forKey: Self.circleKey(myId)) }
+        guard id != circle?.id else { return }
+        api.circleId = id
+        feedItems = []
+        communityNote = nil
+        mosaic = nil
+        await loadCircle()
+        await refreshToday()
+    }
+
+    /// The circle on screen is gone (left, or removed, on another phone).
+    /// Back to one they're in, or the gate if there's none.
+    private func lostCircle() async {
+        if let myId { UserDefaults.standard.removeObject(forKey: Self.circleKey(myId)) }
+        feedItems = []
+        communityNote = nil
+        mosaic = nil
+        await loadCircle()
+    }
+
+    /// Start a circle, and show it.
+    func createCircle(name: String) async -> Bool {
         do {
-            _ = try await api.send("POST", "/circles", json: ["name": name]) as CircleInfo
-            await loadCircle()  // pull the full shape: invite token, roster, creator
+            let made: CircleInfo = try await api.send("POST", "/circles", json: ["name": name])
+            await switchCircle(to: made.id)
+            return true
         } catch {
             surface(error)
+            return false
         }
     }
 
-    func joinCircle(code: String) async {
+    /// Join a circle by its code, and show it.
+    func joinCircle(code: String) async -> Bool {
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             errorMessage = "That invite code doesn't look right."
-            return
+            return false
         }
         do {
-            _ = try await api.send("POST", "/circles/join", json: ["code": trimmed]) as CircleInfo
-            await loadCircle()
+            let joined: CircleInfo = try await api.send("POST", "/circles/join", json: ["code": trimmed])
+            await switchCircle(to: joined.id)
+            return true
         } catch APIError.status(404) {
             // No circle has this code — mistyped, or rotated since it was shared.
             errorMessage = "That invite code doesn't look right."
         } catch {
             surface(error)
         }
+        return false
     }
 
     var inviteCode: String? {
@@ -229,8 +291,11 @@ final class AppState {
     // MARK: surfaces
 
     func refreshToday() async {
+        let asked = api.circleId
         do {
             let response: TodayResponse = try await api.send("GET", "/feed/today")
+            // Switched circles while this was on its way: it's the old one's.
+            guard api.circleId == asked else { return }
             feedItems = response.items
             communityNote = response.note
             mosaic = response.mosaic
@@ -238,6 +303,9 @@ final class AppState {
                 "GET", "/feed/returned", query: ["tz": TimeZone.current.identifier]
             )
             returned = returnedResponse.item
+        } catch APIError.server(code: "not_in_circle", status: _) {
+            await lostCircle()
+            if circle != nil { await refreshToday() }
         } catch {
             surface(error)
         }
@@ -382,19 +450,30 @@ final class AppState {
 
     // MARK: gestures
 
+    /// The capture waiting for signal in the circle on screen.
+    var pendingHere: PendingCapture? { queue.pending(in: circle?.id) }
+
+    /// The circle on screen has a capture waiting: its day is spoken for.
+    var holdsTheDay: Bool { pendingHere != nil }
+
     func capture(
         jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
     ) async throws {
+        let circleId = circle?.id
         // The day is already spoken for by something waiting to go up. The
         // law holds offline too, so this is refused here, not at the server.
-        if queue.isHoldingTheDay {
+        if queue.isHoldingTheDay(in: circleId) {
             throw APIError.message("Your photo for today is still waiting to upload.")
         }
         do {
             _ = try await api.uploadPhoto(
-                jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter
+                jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
+                circleId: circleId
             )
             await refreshToday()
+        } catch APIError.server(code: "not_in_circle", status: let status) {
+            await lostCircle()
+            throw APIError.server(code: "not_in_circle", status: status)
         } catch {
             guard isOffline(error) else {
                 // The server answered and failed (it rolls the request back,
@@ -405,31 +484,50 @@ final class AppState {
                 throw error
             }
             // No signal: keep the moment, claim the day, send it later.
-            queue.enqueue(jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter)
+            queue.enqueue(
+                jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
+                circleId: circleId
+            )
             flash = "Saved. It'll go up when you're back online."
         }
     }
 
-    /// Try the waiting capture again. Safe to call often — it no-ops unless
-    /// something is actually pending and still sendable.
+    /// Try the waiting captures again, each to the circle it was taken for.
+    /// Safe to call often — it no-ops unless something is actually pending
+    /// and still sendable.
     func flushPendingCapture() async {
-        guard let item = queue.pending, item.rejection == nil, let jpeg = queue.jpeg() else { return }
-        do {
-            _ = try await api.uploadPhoto(
-                jpeg: jpeg, caption: item.caption, location: item.location, tagged: item.tagged,
-                filter: item.filter
-            )
-            queue.clear()
+        var sent = false
+        for item in queue.items where item.rejection == nil {
+            guard let jpeg = queue.jpeg(item) else { continue }
+            do {
+                _ = try await api.uploadPhoto(
+                    jpeg: jpeg, caption: item.caption, location: item.location, tagged: item.tagged,
+                    filter: item.filter, circleId: item.circleId
+                )
+                queue.clear(item)
+                sent = true
+            } catch let error as APIError {
+                // The server refused the slot - another device got there
+                // first, or the circle is gone. Strand it honestly rather than
+                // retrying forever.
+                if case .server(let code, _) = error {
+                    switch code {
+                    case "slot_used", "too_soon":
+                        queue.markRejected(item, "Today's photo was already posted from another device.")
+                    case "not_in_circle":
+                        queue.markRejected(item, "You're no longer in the circle this was for.")
+                    default:
+                        break
+                    }
+                }
+            } catch {
+                // Still offline. Keep waiting; nothing to tell the user.
+                break
+            }
+        }
+        if sent {
             flash = "Your photo went up."
             await refreshToday()
-        } catch let error as APIError {
-            // The server refused the slot - another device got there first.
-            // Strand it honestly rather than retrying forever.
-            if case .server(let code, _) = error, code == "slot_used" || code == "too_soon" {
-                queue.markRejected("Today's photo was already posted from another device.")
-            }
-        } catch {
-            // Still offline. Keep waiting; nothing to tell the user.
         }
     }
 
@@ -609,11 +707,14 @@ final class AppState {
         }
     }
 
+    /// Leave the circle on screen. Another circle, if there is one, comes
+    /// up in its place; with none left, the circle gate.
     func leaveCircle() async {
         guard let circle else { return }
         do {
             let _: Empty = try await api.send("POST", "/circles/\(circle.id)/leave")
-            await loadCircle()  // -> no_circle -> back to the circle gate
+            await lostCircle()
+            if self.circle != nil { await refreshToday() }
         } catch {
             surface(error)
         }

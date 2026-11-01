@@ -29,6 +29,12 @@ DEVICE_CLAIM_TOLERANCE = timedelta(minutes=10)  # taken_at reconciliation
 # showing some of them, never by showing a number (A2 still holds everywhere).
 CIRCLE_CAP = 100
 
+# How many circles one person can be in (build 17). A floor, a team, a family,
+# a few old friends: enough for the places a life actually has, few enough
+# that Stanley never becomes a set of audiences to post at. Each circle keeps
+# its own day: one photo a day in each, never one photo shared across them.
+CIRCLES_PER_PERSON = 5
+
 # --- Redo (§8.4 amendment) ----------------------------------------------------
 # Capture is still a commitment, but the first minutes are allowed to be a
 # mistake: deleting the day's photo refunds the slot exactly once. A second
@@ -101,6 +107,10 @@ def violates_capture_rules(
     """The one-per-day law (§8.4): one photo per local calendar day at capture,
     plus a 12-hour minimum gap that blunts timezone-hopping without punishing
     real travel. Returns an error code or None if the capture is allowed.
+
+    The law holds per circle (since build 17, when a person could be in more
+    than one): every argument describes the owner's photos in the one circle
+    being posted to, and a photo in another circle has no bearing on it.
 
     `existing_local_dates` is every local date the owner still holds a photo
     for, soft-deleted ones included: deleting does not refund the slot. The one

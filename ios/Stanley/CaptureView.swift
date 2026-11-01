@@ -40,6 +40,13 @@ struct CaptureView: View {
     /// back to one is instant.
     @State private var looks: [PhotoFilter: UIImage] = [:]
     @State private var pickingPlace = false
+    /// Where the photo sits in its frame, which is what's posted.
+    @State private var framing = Framing()
+    /// The frame's size on screen, as last laid out.
+    @State private var window: CGSize = .zero
+    @State private var moving = false
+    /// The photo has been moved or zoomed at least once, so the hint goes.
+    @State private var framed = false
 
     private var members: [CircleMember] {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
@@ -47,11 +54,17 @@ struct CaptureView: View {
 
     private static let corner: CGFloat = 20
 
-    /// The photo's height in the sheet, before the shutter and after it: a
-    /// little shorter than a card in Today, so the place and the looks
-    /// beneath it are in view without scrolling, even on the Duo's cover.
-    private static func photoHeight(_ density: Density) -> CGFloat {
-        (density.feedPhotoHeight * 0.72).rounded()
+    /// The photo's frame in the sheet, before the shutter and after it:
+    /// `PhotoShape`, the shape of every photo in Today, as wide as the sheet
+    /// allows and no taller than `capturePhotoMaxHeight`, so the place and
+    /// the looks beneath it are in view without scrolling, even on the Duo's
+    /// cover. Centered when the height is what limits it.
+    private func photoFrame<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        let maxHeight = density.capturePhotoMaxHeight
+        return content()
+            .aspectRatio(PhotoShape.aspect, contentMode: .fit)
+            .frame(maxWidth: maxHeight * PhotoShape.aspect)
+            .frame(maxWidth: .infinity)
     }
 
     var body: some View {
@@ -86,6 +99,19 @@ struct CaptureView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Not now") { dismiss() }
                 }
+                // Each circle has its own day, so with more than one, the
+                // sheet says whose day this photo is.
+                if state.circles.count > 1, let name = state.circle?.name {
+                    ToolbarItem(placement: .principal) {
+                        VStack(spacing: 1) {
+                            Text("Today's photo").font(.headline)
+                            Text("for \(name)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
             }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { image in took(image) }
@@ -116,29 +142,29 @@ struct CaptureView: View {
     private var waiting: some View {
         VStack(spacing: 20) {
             Button(action: openCamera) {
-                Color.clear
-                    .frame(maxWidth: .infinity)
-                    .frame(height: Self.photoHeight(density))
-                    .cardSurface(corner: Self.corner)
-                    .overlay {
-                        VStack(spacing: 16) {
-                            if opening {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "camera.aperture")
-                                    .font(.system(size: 40, weight: .light))
-                                    .foregroundStyle(.tertiary)
+                photoFrame {
+                    Color.clear
+                        .cardSurface(corner: Self.corner)
+                        .overlay {
+                            VStack(spacing: 16) {
+                                if opening {
+                                    ProgressView()
+                                } else {
+                                    Image(systemName: "camera.aperture")
+                                        .font(.system(size: 40, weight: .light))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                // The day's prompt — a whisper, not an instruction (Part 1).
+                                Text(DailyPrompt.forToday())
+                                    .font(.callout)
+                                    .italic()
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
                             }
-                            // The day's prompt — a whisper, not an instruction (Part 1).
-                            Text(DailyPrompt.forToday())
-                                .font(.callout)
-                                .italic()
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
                         }
-                    }
-                    .contentShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open the camera")
@@ -264,28 +290,57 @@ struct CaptureView: View {
         #endif
     }
 
-    /// The shot with the chosen look: the full width of the sheet, cropped
-    /// the way a card in Today crops it, and a little shorter than that card
-    /// so the looks beneath it are in view without scrolling, even on the
-    /// Duo's cover. A quiet placeholder of the same size stands in for the
-    /// moment it takes to render. The frame owns the size and the photo fills
-    /// it, as in Today, so a wide photo can't push the sheet wider.
+    /// The shot with the chosen look, in the frame it will be posted in:
+    /// `PhotoShape`, exactly what Today shows. A photo of another shape (most
+    /// library photos) fills the frame and can be dragged to choose what's
+    /// in it; any photo can be pinched in closer. A quiet placeholder of the
+    /// same size stands in for the moment it takes to render. The frame owns
+    /// the size, so a wide photo can't push the sheet wider.
     private func preview(_ shot: Shot) -> some View {
-        Color.clear
-            .frame(maxWidth: .infinity)
-            .frame(height: Self.photoHeight(density))
-            .overlay {
-                if let image = looks[filter] ?? looks[.none] {
-                    Image(uiImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    Rectangle().fill(.quaternary)
+        let photo = shot.source.extent.size
+        let filled = Framing.covering(photo, window)
+        let movable = framing.canMove(photo, window)
+        return photoFrame {
+            Color.clear
+                .overlay {
+                    if let image = looks[filter] ?? looks[.none] {
+                        Image(uiImage: image)
+                            .resizable()
+                            .frame(width: filled.width * framing.zoom, height: filled.height * framing.zoom)
+                            .offset(framing.offset)
+                    } else {
+                        Rectangle().fill(.quaternary)
+                    }
                 }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
-            .accessibilityElement()
-            .accessibilityLabel(filter == .none ? "Your photo" : "Your photo, \(filter.label)")
+                .overlay {
+                    if moving { ThirdsGuide() }
+                }
+                .overlay(alignment: .bottom) {
+                    if movable && !framed {
+                        Text("Drag to frame it")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.35), in: Capsule())
+                            .padding(.bottom, 12)
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+                    window = size
+                    framing = framing.clamped(photo, size)
+                }
+                .framing($framing, photo: photo, window: window, moving: $moving)
+        }
+        .onChange(of: moving) { _, now in
+            if now { withAnimation(.easeOut(duration: 0.2)) { framed = true } }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(filter == .none ? "Your photo" : "Your photo, \(filter.label)")
+        .accessibilityHint(movable ? "Drag to choose what's in the frame" : "")
     }
 
     /// After the shutter, offer where the phone is as the place, asking for
@@ -333,6 +388,8 @@ struct CaptureView: View {
         }
         looks = [:]
         filter = .none
+        framing = Framing()
+        framed = false
         shot = Shot(
             original: image, source: source, preview: FilterRenderer.preview(of: source),
             fromLibrary: library != nil, takenAt: library?.location
@@ -353,13 +410,19 @@ struct CaptureView: View {
     private func post(_ shot: Shot) {
         uploading = true
         let filter = self.filter
+        let pixels = shot.source.extent.size
+        // What's in the frame, in the photo's own pixels. Nil when the frame
+        // takes the whole photo, as it does a camera shot left as it was.
+        let crop: CGRect? = framing.isWhole(pixels: pixels, window: window)
+            ? nil : framing.crop(pixels: pixels, window: window)
         Task {
-            // The look goes into the pixels here, at full size. None sends
-            // the frame exactly as the camera took it.
+            // The look goes into the pixels here, at full size, then the
+            // frame is cut from it: what was on screen is what's posted. None,
+            // uncropped, sends the frame exactly as the camera took it.
             let jpeg = await Task.detached(priority: .userInitiated) {
-                filter == .none
+                filter == .none && crop == nil
                     ? shot.original.jpegData(compressionQuality: 0.9)
-                    : FilterRenderer.jpeg(shot.source, filter)
+                    : FilterRenderer.jpeg(shot.source, filter, crop: crop)
             }.value
             guard let jpeg else {
                 state.surface(APIError.message("That photo couldn't be prepared, and today is still open. Try again."))

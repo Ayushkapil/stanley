@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -73,14 +73,69 @@ def get_current_user(
     return user
 
 
-def require_membership(db: Session, user: User) -> tuple[Membership, Circle]:
+def active_circle_id(
+    circle: str | None = Header(default=None, alias="X-Stanley-Circle"),
+) -> str | None:
+    """The circle the app is showing, which it sends with every request.
+    A person can be in more than one circle (build 17), and Today, capture,
+    the roster and the note are each about one of them. A header rather than
+    a query item, like the town for the news, so it stays out of access
+    logs; it carries no more than an id the person already belongs to."""
+    return circle or None
+
+
+def require_membership(
+    db: Session, user: User, circle_id: str | None = None
+) -> tuple[Membership, Circle]:
+    """The person's place in the circle this request is about.
+
+    `circle_id` is the active circle the app sent. Without one, it's the
+    circle they joined first: a build from before multiple circles never
+    sends one, and it keeps seeing the only circle it knows about. Naming a
+    circle they aren't in (they left it, or were removed, on another phone)
+    is `not_in_circle`, never a quiet switch to another one: a photo meant
+    for one circle must never land in a different one."""
+    query = select(Membership).where(Membership.user_id == user.id)
+    if circle_id:
+        query = query.where(Membership.circle_id == circle_id)
     membership = db.scalars(
-        select(Membership).where(Membership.user_id == user.id)
+        query.order_by(Membership.joined_at, Membership.circle_id)
     ).first()
     if membership is None:
+        if circle_id and my_circle_ids(db, user.id):
+            raise HTTPException(409, {"code": "not_in_circle"})
         raise HTTPException(409, {"code": "no_circle", "message": "join a circle first"})
     circle = db.get(Circle, membership.circle_id)
     return membership, circle
+
+
+def membership_in(db: Session, user: User, circle_id: str) -> tuple[Membership, Circle]:
+    """The person's place in a circle named in the path. Not a member reads
+    as not found: a circle you aren't in doesn't exist, as far as you can
+    tell. Someone in no circle at all hears `no_circle`, as everywhere."""
+    membership = db.get(Membership, (circle_id, user.id))
+    if membership is None:
+        if not my_circle_ids(db, user.id):
+            raise HTTPException(409, {"code": "no_circle", "message": "join a circle first"})
+        raise HTTPException(404, "not found")
+    return membership, db.get(Circle, circle_id)
+
+
+def my_circle_ids(db: Session, user_id: str) -> set[str]:
+    return set(
+        db.scalars(select(Membership.circle_id).where(Membership.user_id == user_id)).all()
+    )
+
+
+def shares_a_circle(db: Session, user_id: str, other_id: str) -> bool:
+    """Whether two people are in any circle together. That's who may see a
+    profile, or block: someone met in one circle, wherever you're looking."""
+    mine = my_circle_ids(db, user_id)
+    return bool(mine) and db.scalars(
+        select(Membership.circle_id).where(
+            Membership.user_id == other_id, Membership.circle_id.in_(mine)
+        )
+    ).first() is not None
 
 
 def member_count(db: Session, circle_id: str) -> int:
@@ -90,11 +145,15 @@ def member_count(db: Session, circle_id: str) -> int:
 
 
 def get_circle_photo(db: Session, user: User, photo_id: str) -> Photo:
-    """A photo is reachable only inside its circle, minus blocked pairs. Any
-    failure is a uniform 404 — existence is not leaked."""
-    membership, _ = require_membership(db, user)
+    """A photo is reachable only from inside its circle, minus blocked pairs:
+    any circle the person is in, not just the one on screen, so a memory
+    opened from Held or Returned still takes a story. Any failure is a
+    uniform 404 — existence is not leaked."""
+    mine = my_circle_ids(db, user.id)
+    if not mine:
+        raise HTTPException(409, {"code": "no_circle", "message": "join a circle first"})
     photo = db.get(Photo, photo_id)
-    if photo is None or photo.circle_id != membership.circle_id:
+    if photo is None or photo.circle_id not in mine:
         raise HTTPException(404, "not found")
     if photo.owner_id is not None and photo.owner_id in blocked_ids(db, user.id):
         raise HTTPException(404, "not found")
