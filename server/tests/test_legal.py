@@ -24,14 +24,24 @@ def test_the_policy_says_what_stanley_does_with_location_and_notifications(clien
     text = client.get("/privacy").text
     assert "never receive GPS coordinates" in text
     assert "notification token" in text
-    assert "not used to train AI models" in text
+    assert "to train AI models" in text
+    assert "Effective November 1, 2026" in text
+    assert "<h3>What we don&#x27;t collect</h3>" in text  # subheadings render
+
+
+def test_both_documents_are_complete():
+    """The brief's sections, in order: eleven in the policy, and the
+    terms' seventeen plus Apple's minimum terms before Contact."""
+    assert [h.split(". ")[0] for h, _ in legal.PRIVACY] == [str(i) for i in range(1, 12)]
+    assert [h.split(". ")[0] for h, _ in legal.TERMS] == [str(i) for i in range(1, 19)]
+    assert legal.PRIVACY[-1][0] == "11. Contact" and legal.TERMS[-1][0] == "18. Contact"
 
 
 def test_the_app_shows_the_same_words():
     """A change to either copy goes in both: the app's Legal.swift carries
     every heading and line of legal.py, verbatim."""
     swift = SWIFT.read_text()
-    assert f'"{legal.UPDATED}"' in swift
+    assert f'"{legal.EFFECTIVE}"' in swift
     for sections in (legal.TERMS, legal.PRIVACY):
         for heading, lines in sections:
             if heading:

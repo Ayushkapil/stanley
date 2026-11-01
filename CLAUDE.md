@@ -388,7 +388,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   signing in, you agree to the Terms of Use and the Privacy Policy", both
   links). One source, `server/stanley/legal.py`; the app's `Legal.swift`
   carries the same words and `test_legal.py` fails if they drift. About
-  Stanley is the product story in three paragraphs.
+  Stanley is the product story in three paragraphs. **Full versions**
+  (build 18, effective November 1, 2026): the Privacy Policy in eleven
+  numbered sections (about 1,950 words) and the Terms in eighteen (about
+  2,050), the brief's seventeen plus Apple's minimum terms (section 17,
+  before Contact). Lines may be `- ` list items or `## ` subheadings. Every
+  claim is meant to be what the code does, checked against it when written:
+  no email requested from Apple, the capture time the only metadata kept,
+  coordinates only ever between the phone and Apple's geocoder, the town and
+  country in headers and keyed by town, deletion immediate and out of the
+  seven daily backups within seven days, held copies gone when the poster
+  deletes, an exported copy beyond reach, the publisher's site when an
+  article opens. Change the words with the code, and `PRIVACY_LABEL.md`.
+  No straight double quotes or backslashes in the text (it's pasted into
+  Swift literals). Not reviewed by a lawyer.
 - **Errors in Stanley's voice** — no status code, server `detail` string or
   system description ever reaches the screen. `APIError` maps every server
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
@@ -465,7 +478,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   photos are hidden, never deleted; unblocking restores the thread intact),
   report (24h takedown), account deletion
   with cascading blob purge, signed URLs, Face ID app lock (off by default),
-  memories export (zip).
+  memories export (zip). Block and report are **server only**: the app has
+  no Report or Block (see Open items). Account deletion leaves a bare row for
+  tombstones and reports to point at, with no name, username, bio, Apple
+  `sub`, avatar, time zone or settings, and takes the person's community
+  note, notification log and Returned log with it (build 18; username, bio
+  and those rows used to survive). Deleting a story detaches any report about
+  it (`decay.delete_comments`, pointing the report at the photo instead):
+  before, foreign keys refused, and one reported story made its photo's
+  deletion, its purge and its author's account deletion fail.
 
 ## Open items (not yet built / not yet done)
 
@@ -507,7 +528,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   `server/var/fly-backups/pre-build18-20261101.db` here (gitignored). The
   app's own INFO lines (news, APNs) don't appear in `fly logs` under
   uvicorn's logging, so check state on the machine (`fly ssh console`)
-  rather than by a missing log line.
+  rather than by a missing log line. **Not yet deployed:** the full Terms
+  and Privacy Policy and the deletion fixes. Delete the pre-build-18
+  snapshot (both copies) by 2026-11-08, or the policy's "gone from our
+  backups within seven days" stops being true.
+- **Report, Block, delete a photo, untag yourself: not in the app.** The
+  server has had `/reports`, `/blocks` (and unblock), `DELETE
+  /photos/{id}` (with the day's one redo) and `DELETE /photos/{id}/tags/me`
+  for many builds; no version of the app calls them. App Review guideline
+  1.2 requires report and block in an app where people post, and the Terms
+  promise both, so they must ship before the build that carries the new
+  Terms goes to review. Reports also alert nobody: the 24-hour promise
+  means reading the `reports` table every day until something tells you.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs.** Configured on Fly (v11): `APNS_KEY` (the `.p8`, key ID
@@ -581,7 +613,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**296 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**301 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -592,8 +624,10 @@ off until asked for, tokens registered, refused, moved between accounts and
 removed on sign-out and deletion, delivery only after commit, a failed
 delivery never failing the sweep, dead tokens dropped, the exact APNs
 request and signed provider token, logging only without a key), renaming a
-circle (organizer only), the Terms and Privacy pages (public, plain, and the
-same words as the app's), multiple circles
+circle (organizer only), the Terms and Privacy pages (public, plain, the
+same words as the app's, every numbered section present), account deletion
+(nothing of the person left, a reported story stopping neither its photo's
+deletion, its purge nor its author's account deletion), multiple circles
 (the day, the gap and the redo per circle, the per-circle UNIQUE, Today and
 capture follow the header and default to the first circle, a circle you're
 not in refused rather than swapped, five and no more, gestures across your
