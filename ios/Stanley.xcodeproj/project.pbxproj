@@ -11,6 +11,7 @@
 		0CC4F7FA34CA0186377FD125 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31AD660F2C25D0127589383 /* SetupView.swift */; };
 		118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB8427334A459A620854705 /* AvatarPicker.swift */; };
 		1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B371E63EBC11AC20695ED507 /* StanleyApp.swift */; };
+		1DF6169DEAC8035205C69065 /* SafetyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73E1722ECC586EAD8BAA1DB /* SafetyViews.swift */; };
 		26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */; };
 		2D6A2BE15AF99D9A87A677C8 /* WorldTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E137B196869A47ACE289A041 /* WorldTodayView.swift */; };
 		34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C775715F391ED80D954D9ED /* WelcomeView.swift */; };
@@ -75,6 +76,7 @@
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
+		E73E1722ECC586EAD8BAA1DB /* SafetyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyViews.swift; sourceTree = "<group>"; };
 		FEBB1E80695B05BAB1F4CFC4 /* Push.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Push.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -125,6 +127,7 @@
 				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
 				2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */,
 				FEBB1E80695B05BAB1F4CFC4 /* Push.swift */,
+				E73E1722ECC586EAD8BAA1DB /* SafetyViews.swift */,
 				E1D927F2B4D7F02207747D21 /* SettingsView.swift */,
 				A31AD660F2C25D0127589383 /* SetupView.swift */,
 				830E153D6B3273810AD97B6E /* Stanley.entitlements */,
@@ -243,6 +246,7 @@
 				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,
 				608876305B018E5CDACEA8ED /* Prompts.swift in Sources */,
 				6702A1944998A8493E18E807 /* Push.swift in Sources */,
+				1DF6169DEAC8035205C69065 /* SafetyViews.swift in Sources */,
 				7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */,
 				0CC4F7FA34CA0186377FD125 /* SetupView.swift in Sources */,
 				1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */,

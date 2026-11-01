@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..deps import get_clock, get_current_user, get_db, my_circle_ids, require_membership, shares_a_circle
+from ..deps import (
+    get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
+)
 from ..models import Block, Comment, Photo, Report, User
+from ..serialize import user_brief
+
+log = logging.getLogger("stanley")
 
 router = APIRouter(tags=["safety"])
 
@@ -38,7 +46,9 @@ def report(
             raise HTTPException(404, "not found")
     if body.comment_id:
         comment = db.get(Comment, body.comment_id)
-        if comment is None:
+        photo = db.get(Photo, comment.photo_id) if comment else None
+        # Only a story you could have read: one on a photo in your circles.
+        if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
             raise HTTPException(404, "not found")
     row = Report(
         reporter_id=user.id,
@@ -49,6 +59,9 @@ def report(
     )
     db.add(row)
     db.flush()
+    # A warning, so it shows in the host's logs (the app's INFO lines don't):
+    # the 24-hour promise starts now. Nothing about who or what.
+    log.warning("A report is waiting for review: %s", row.id)
     return {"id": row.id, "review_within_hours": 24}
 
 
@@ -70,6 +83,22 @@ def block(
         raise HTTPException(404, "not found")
     if db.get(Block, (user.id, body.user_id)) is None:
         db.add(Block(blocker_id=user.id, blocked_id=body.user_id, created_at=clock.now()))
+
+
+@router.get("/blocks")
+def blocked_people(
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    settings=Depends(get_settings),
+    clock=Depends(get_clock),
+):
+    """The people you've blocked, as faces and names, so you can unblock
+    them (build 18). Only your own blocks: never who has blocked you."""
+    now = clock.now()
+    blocks = db.scalars(
+        select(Block).where(Block.blocker_id == user.id).order_by(Block.created_at)
+    ).all()
+    return {"people": [user_brief(db, b.blocked_id, settings, now) for b in blocks]}
 
 
 @router.delete("/blocks/{user_id}", status_code=204)

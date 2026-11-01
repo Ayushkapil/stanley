@@ -158,6 +158,7 @@ struct SettingsView: View {
             }
             .foregroundStyle(.primary)
             .disabled(exporting)
+            NavigationLink("Blocked") { BlockedView() }
             NavigationLink {
                 AccountView()
             } label: {

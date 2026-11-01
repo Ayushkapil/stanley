@@ -44,6 +44,10 @@ struct Photo: Codable, Identifiable, Hashable {
     let likedByMe: Bool
     // 'Who was there' — a memory detail, faces not mentions (Part 3).
     let tagged: [UserBrief]
+    /// Yours only (build 18): whether deleting this photo gives you the day
+    /// back — today's photo, with the day's one redo unspent. Nil on anyone
+    /// else's photo, and from a server older than build 18.
+    let retakeOnDelete: Bool?
 }
 
 /// One short shared line for the circle (Part 4). A sticky note the day erases
@@ -282,6 +286,12 @@ struct InviteResponse: Codable {
 /// Owner-only faces of who liked a photo — never a count (Part 1).
 struct LikesResponse: Codable {
     let faces: [UserBrief]
+}
+
+/// The people you've blocked (build 18), so you can unblock them. Never
+/// who has blocked you.
+struct BlockedPeople: Codable {
+    let people: [UserBrief]
 }
 
 /// Owner-only entry of who held a photo. Faces, not numbers (A2).

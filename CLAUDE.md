@@ -478,8 +478,28 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   photos are hidden, never deleted; unblocking restores the thread intact),
   report (24h takedown), account deletion
   with cascading blob purge, signed URLs, Face ID app lock (off by default),
-  memories export (zip). Block and report are **server only**: the app has
-  no Report or Block (see Open items). Account deletion leaves a bare row for
+  memories export (zip). **In the app since build 18** (`SafetyViews.swift`;
+  before, no build had ever called the server's report, block, photo delete
+  or untag): every print has a quiet "…" at the end of its caption line
+  (always drawn now), and its long-press menu and the stories sheet's
+  toolbar carry the same rows: **Report Photo** on anyone else's, **Delete
+  Photo** on yours, **Remove Me from This Photo** when you're tagged. A
+  story's long-press menu has **Report Story** (not on your own). Reporting
+  is one tap on a reason (six, plus Something else with your own words); the
+  sheet says it goes to the person who runs Stanley, not the poster, and is
+  read within a day, then offers to block them. A long press opens the menu
+  without holding the photo (checked). **Block** sits at the foot of every
+  member profile, behind an alert that says neither sees the other's photos
+  or stories and they aren't told; **Settings → Privacy & Security →
+  Blocked** lists the people you blocked (`GET /blocks`, faces and names,
+  never who blocked you) with Unblock. Blocking refreshes Today only after
+  its sheet has closed: refreshing under it removed the card that presented
+  it and tore the sheet down. Delete's alert says whether it gives the day
+  back, from `retake_on_delete` (owner-only, in the photo payload: today's
+  photo with the redo unspent), never a guess. A report is logged as a
+  WARNING ("A report is waiting for review: <id>"), which `fly logs` shows,
+  and a story can only be reported by someone in its photo's circles.
+  Account deletion leaves a bare row for
   tombstones and reports to point at, with no name, username, bio, Apple
   `sub`, avatar, time zone or settings, and takes the person's community
   note, notification log and Returned log with it (build 18; username, bio
@@ -529,17 +549,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   app's own INFO lines (news, APNs) don't appear in `fly logs` under
   uvicorn's logging, so check state on the machine (`fly ssh console`)
   rather than by a missing log line. **Not yet deployed:** the full Terms
-  and Privacy Policy and the deletion fixes. Delete the pre-build-18
+  and Privacy Policy, the deletion fixes, and what the app's Report, Block
+  and Delete need (`GET /blocks`, `retake_on_delete`, the report log line
+  and scope); against v11 the Blocked list fails quietly and Delete's alert
+  leaves out the day. Delete the pre-build-18
   snapshot (both copies) by 2026-11-08, or the policy's "gone from our
   backups within seven days" stops being true.
-- **Report, Block, delete a photo, untag yourself: not in the app.** The
-  server has had `/reports`, `/blocks` (and unblock), `DELETE
-  /photos/{id}` (with the day's one redo) and `DELETE /photos/{id}/tags/me`
-  for many builds; no version of the app calls them. App Review guideline
-  1.2 requires report and block in an app where people post, and the Terms
-  promise both, so they must ship before the build that carries the new
-  Terms goes to review. Reports also alert nobody: the 24-hour promise
-  means reading the `reports` table every day until something tells you.
+- **Reports alert nobody but the logs.** Each report is a WARNING line in
+  `fly logs`; nothing reaches a phone or an inbox. The Terms promise review
+  within 24 hours, so until something tells you, read the `reports` table
+  (or the logs) every day. Not yet seen on a device: Remove Me from This
+  Photo (no dev photo tags the dev account; the server path is tested).
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs.** Configured on Fly (v11): `APNS_KEY` (the `.p8`, key ID
@@ -613,7 +633,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**301 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**304 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -627,7 +647,10 @@ request and signed provider token, logging only without a key), renaming a
 circle (organizer only), the Terms and Privacy pages (public, plain, the
 same words as the app's, every numbered section present), account deletion
 (nothing of the person left, a reported story stopping neither its photo's
-deletion, its purge nor its author's account deletion), multiple circles
+deletion, its purge nor its author's account deletion), the app's safety
+controls (your own blocks listed and never who blocked you, the owner alone
+told whether deleting gives the day back, no reporting a story you couldn't
+have read), multiple circles
 (the day, the gap and the redo per circle, the per-circle UNIQUE, Today and
 capture follow the header and default to the first circle, a circle you're
 not in refused rather than swapped, five and no more, gestures across your
@@ -677,7 +700,8 @@ live APNs, concurrency under real load.
   `Whereabouts.swift` (location permission, one fix, names
   from Apple's geocoder), `WorldTodayView.swift` (the World tab, stories
   that open in place, Safari),
-  `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
+  `SafetyViews.swift` (photo and story menus, report sheet, Block,
+  Blocked), `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`

@@ -6,11 +6,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import physics
 from .config import Settings
+from .decay import owner_hash_for
 from .models import Anchor, Block, Circle, Comment, CommunityNote, Like, Photo, PhotoTag, User
 from .storage import read_url
 
@@ -207,7 +208,29 @@ def photo_payload(
         "liked_by_me": my_like is not None,
         # 'Who was there' (Part 3): part of the artifact, not a mention.
         "tagged": tagged_faces(session, photo.id, viewer.id, settings, now),
+        "retake_on_delete": retake_on_delete(session, photo, viewer, now),
     }
+
+
+def retake_on_delete(session: Session, photo: Photo, viewer: User, now: datetime) -> bool | None:
+    """For the owner only (build 18): whether deleting this photo gives them
+    the day back, so the delete can say so before it happens. True only for
+    today's photo while the day's one redo is unspent (8.4), counted the way
+    `delete_photo` counts it. None for everyone else."""
+    if photo.owner_id is None or photo.owner_id != viewer.id:
+        return None
+    if photo.local_date != physics.local_capture_date(now, photo.taken_tz):
+        return False
+    used = session.scalar(
+        select(func.count())
+        .select_from(Photo)
+        .where(
+            Photo.owner_hash == owner_hash_for(viewer.id),
+            Photo.circle_id == photo.circle_id,
+            Photo.local_date == photo.local_date,
+        )
+    ) or 0
+    return used < physics.REDOS_PER_DAY
 
 
 def circle_name(session: Session, circle_id: str | None) -> str | None:

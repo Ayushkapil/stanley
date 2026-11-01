@@ -438,6 +438,14 @@ struct MemberProfileView: View {
                                 .foregroundStyle(.tertiary)
                                 .padding(.top, 10)
                         }
+                        if member.id != state.myId {
+                            BlockButton(person: UserBrief(
+                                id: member.id,
+                                displayName: member.displayName ?? "New member",
+                                avatarUrl: member.avatarUrl
+                            ))
+                            .padding(.top, 36)
+                        }
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)

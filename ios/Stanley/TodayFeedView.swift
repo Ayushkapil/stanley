@@ -430,6 +430,8 @@ struct PhotoImageView: View {
     @State private var settleScale: CGFloat = 1
     /// Bumped by a double-tap that likes, to play the heart once.
     @State private var heartPops = 0
+    /// Report, delete or untag, asked for from the long-press menu.
+    @State private var action: PhotoAction?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var glyph = GestureIcon.glyph
 
@@ -485,7 +487,10 @@ struct PhotoImageView: View {
                     Button { Task { await state.toggleAnchor(photo) } } label: {
                         Label(photo.anchoredByMe ? "Let go" : "Hold", systemImage: "bookmark")
                     }
+                    Divider()
+                    PhotoMenuItems(photo: photo, action: $action)
                 }
+                .photoActions(photo, $action)
             }
         }
     }
@@ -658,6 +663,7 @@ struct PhotoCard: View {
     @State private var viewedMember: ViewedMember?
     @State private var showFaces = false
     @State private var showStories = false
+    @State private var action: PhotoAction?
 
     private var isMine: Bool { state.myId != nil && state.myId == photo.owner.id }
 
@@ -684,51 +690,54 @@ struct PhotoCard: View {
         .sheet(isPresented: $showStories) {
             PhotoStoriesView(photo: photo)
         }
+        .photoActions(photo, $action)
     }
 
-    @ViewBuilder
+    /// Caption, place and who was there, with the owner's faces button and
+    /// the photo's "…" menu at the end. Always drawn, so the menu (report,
+    /// delete, untag) is there on every print, not only behind a long press.
     private var words: some View {
         let caption = photo.caption.flatMap { $0.isEmpty ? nil : $0 }
         let place = photo.location.flatMap { $0.isEmpty ? nil : $0 }
-        if caption != nil || place != nil || !photo.tagged.isEmpty || isMine {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    if let caption {
-                        Text(caption).font(.body)
-                    }
-                    if let place {
-                        Text(place).font(.footnote).italic().foregroundStyle(.secondary)
-                    }
-                    // 'Who was there' — faces as a memory detail, not tappable (Part 3).
-                    if !photo.tagged.isEmpty {
-                        HStack(spacing: 6) {
-                            FaceCluster(
-                                faces: photo.tagged.map { (id: $0.id ?? $0.displayName, url: $0.avatarUrl, name: $0.displayName) },
-                                size: 20
-                            )
-                            Text("with " + photo.tagged.map(\.displayName).joined(separator: ", "))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        .padding(.top, 1)
-                    }
+        return HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 3) {
+                if let caption {
+                    Text(caption).font(.body)
                 }
-                Spacer(minLength: 8)
-                // Your own photo: who liked and who held it, as faces.
-                if isMine {
-                    Button { showFaces = true } label: {
-                        Image(systemName: "person.2")
-                            .frame(width: GestureIcon.target, height: 24)
-                            .contentShape(Rectangle())
+                if let place {
+                    Text(place).font(.footnote).italic().foregroundStyle(.secondary)
+                }
+                // 'Who was there' — faces as a memory detail, not tappable (Part 3).
+                if !photo.tagged.isEmpty {
+                    HStack(spacing: 6) {
+                        FaceCluster(
+                            faces: photo.tagged.map { (id: $0.id ?? $0.displayName, url: $0.avatarUrl, name: $0.displayName) },
+                            size: 20
+                        )
+                        Text("with " + photo.tagged.map(\.displayName).joined(separator: ", "))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Who liked and held this")
+                    .padding(.top, 1)
                 }
             }
-            .padding(.horizontal, 2)
+            Spacer(minLength: 8)
+            // Your own photo: who liked and who held it, as faces.
+            if isMine {
+                Button { showFaces = true } label: {
+                    Image(systemName: "person.2")
+                        .frame(width: GestureIcon.target, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Who liked and held this")
+            }
+            PhotoMenuButton(photo: photo, action: $action)
+                .padding(.trailing, -10)
         }
+        .padding(.horizontal, 2)
     }
 
     @ViewBuilder
@@ -740,6 +749,7 @@ struct PhotoCard: View {
                 StoryLine.text(first)
                     .font(.callout)
                     .lineLimit(density.storyLineLimit)
+                    .storyMenu(first, on: photo)
                 if photo.comments.count > 1 {
                     // "More", never "2 more" — the no-counts rule holds here too.
                     Button("More stories") { showStories = true }
@@ -1173,6 +1183,7 @@ struct PhotoStoriesView: View {
     private var density: Density { Density(hSizeClass) }
     let photo: Photo
     @State private var newComment = ""
+    @State private var action: PhotoAction?
 
     var body: some View {
         NavigationStack {
@@ -1185,6 +1196,7 @@ struct PhotoStoriesView: View {
                     ForEach(photo.comments) { comment in
                         StoryLine.text(comment)
                             .font(.callout)
+                            .storyMenu(comment, on: photo)
                     }
                     HStack {
                         TextField("", text: $newComment, prompt: .fieldPrompt(StoryLine.prompt))
@@ -1211,7 +1223,16 @@ struct PhotoStoriesView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        PhotoMenuItems(photo: photo, action: $action)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .accessibilityLabel("More")
+                }
             }
+            .photoActions(photo, $action)
         }
     }
 }

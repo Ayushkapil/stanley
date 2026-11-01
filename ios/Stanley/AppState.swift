@@ -660,6 +660,87 @@ final class AppState {
         }
     }
 
+    // MARK: - Safety (build 18): report, block, delete, untag
+    //
+    // The server has had all of these since the first pilot builds; the app
+    // reaches them through each photo's menu, a story's menu, a member's
+    // profile and Settings → Privacy & Security → Blocked.
+
+    /// A report about a photo or a story, with the reason in words. Read by a
+    /// person within a day (Terms §5). True once it's in.
+    func report(photo: Photo? = nil, comment: Comment? = nil, reason: String) async -> Bool {
+        do {
+            let _: Empty = try await api.send(
+                "POST", "/reports",
+                json: ["photo_id": photo?.id, "comment_id": comment?.id, "reason": reason]
+            )
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// Block someone: neither of you sees the other's photos or stories, in
+    /// any circle you share. They aren't told. True once it's done.
+    ///
+    /// Doesn't refresh Today: blocking happens in a sheet, often one that a
+    /// card of theirs presented, and refreshing would remove that card and
+    /// tear the sheet down mid-flight. The caller refreshes once its sheet
+    /// has gone (`onDisappear`).
+    func block(_ person: UserBrief) async -> Bool {
+        guard let id = person.id else { return false }
+        do {
+            let _: Empty = try await api.send("POST", "/blocks", json: ["user_id": id])
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    func unblock(_ person: UserBrief) async -> Bool {
+        guard let id = person.id else { return false }
+        do {
+            let _: Empty = try await api.send("DELETE", "/blocks/\(id)")
+            await refreshToday()
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    func blockedPeople() async throws -> [UserBrief] {
+        (try await api.send("GET", "/blocks") as BlockedPeople).people
+    }
+
+    /// Delete one of your own photos: removed everywhere at once, from the
+    /// people who held it too, who keep a note that a memory was here. Today's
+    /// photo gives the day back once (the redo, §8.4); the server decides.
+    func deletePhoto(_ photo: Photo) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)")
+            await refreshToday()
+            flash = photo.retakeOnDelete == true
+                ? "Deleted. You can take today's photo again."
+                : "Deleted."
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// Take your own face off a photo someone tagged you in.
+    func untagMe(from photo: Photo) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/tags/me")
+            await refreshToday()
+            flash = "You're no longer on that photo."
+        } catch {
+            surface(error)
+        }
+    }
+
     /// Rest a memory — one tap, no confirmation (§14). Works from a Returned
     /// card or any held row. Gentle, unexplaining confirmation after.
     func rest(photoId: String) async {
