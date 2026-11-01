@@ -240,6 +240,8 @@ struct AuthResponse: Codable {
 
 struct MeSettings: Codable {
     let lastLightNoticeEnabled: Bool
+    /// The evening note (build 18). Absent from an older server.
+    let digestEnabled: Bool?
 }
 
 /// Own profile (GET /me, PATCH /me/profile). Identity only — the API has no

@@ -14,7 +14,7 @@ from . import decay, news, notifications
 from .clock import SystemClock
 from .config import Settings
 from .db import Base, ensure_schema, make_engine, make_sessionmaker
-from .notifications import Notifier
+from .notifications import make_notifier
 from .storage import make_blob_store
 
 
@@ -24,9 +24,10 @@ def run_once(settings: Settings | None = None) -> None:
     Base.metadata.create_all(engine)
     ensure_schema(engine)
     clock = SystemClock()
-    notifier = Notifier()
+    sessionmaker = make_sessionmaker(engine)
+    notifier = make_notifier(settings, sessionmaker)
     storage = make_blob_store(settings)
-    with make_sessionmaker(engine)() as session:
+    with sessionmaker() as session:
         advanced = decay.sweep(session, clock, notifier)
         purged = decay.run_purges(session, storage, clock)
         digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)

@@ -73,7 +73,15 @@ Personalization, never Other.
 - [ ] **User ID — COLLECTED · Linked to identity · Not used for tracking.**
   Stanley issues an opaque account ID (the JWT subject) and stores the SIWA
   `sub` to recognize repeat sign-ins. Required for accounts to exist.
-- [ ] Device ID — **not collected** (no IDFA, no IDFV use).
+- [ ] **Device ID — COLLECTED · Linked to identity · Not used for tracking.**
+  Since build 18, only for someone who turns on a notice (Settings → Quiet):
+  the phone's APNs device token is sent to the server (`POST
+  /me/push-token`) and kept with the account (`push_tokens`) so the
+  last-light notice and the evening note can reach that phone. Purpose: App
+  Functionality. It's removed when they sign out on that phone, when they
+  delete the account, and when Apple reports it dead. Apple's guidance on
+  whether a push token counts as a Device ID isn't explicit; declaring it is
+  the conservative answer, and costs nothing. No IDFA, no IDFV.
 
 ### Location
 
@@ -156,6 +164,8 @@ launches)**, Surroundings, Body, Other Data.
   Precise Location again.
 
 - `.email` is added to SIWA `requestedScopes` → Email becomes Collected.
+- A notice ever carries a name, a photo or a count, or push is used for
+  anything but the two notices → revisit Device ID's purpose, and §10.
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no
   counts, no engagement signals" product rules deserve a second look anyway.
 - `SentrySDK.setUser` or custom Sentry events/breadcrumbs with user data are

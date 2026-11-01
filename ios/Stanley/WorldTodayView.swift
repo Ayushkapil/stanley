@@ -9,9 +9,11 @@ import UIKit
 ///
 /// Two editions. With location allowed, the town's own headlines come first
 /// ("Near Bloomington"), then the national stories, each with the summary it
-/// was published with. A story opens in place: tap it and the summary is
-/// there to read without leaving Stanley, with a link to the full piece for
-/// anyone who wants it.
+/// was published with. The two look different on purpose (build 18): a story
+/// with a summary has it beneath the headline, to read right there, and a
+/// link to the whole piece; a local story has only a headline (its feed
+/// carries no summary), so it's the headline, the source and "Read more",
+/// with no empty space where a summary would be.
 ///
 /// It loads when the tab appears and on pull, never on a timer, so stories
 /// don't shift under someone reading them. With nothing to show (news off on
@@ -23,8 +25,6 @@ struct WorldTodayView: View {
     /// Whether the first answer is in, so the empty line doesn't flash up
     /// before the stories arrive.
     @State private var asked = false
-    /// The stories opened to their summaries. Several can be open at once.
-    @State private var open: Set<String> = []
     @AppStorage("stanley.nearbyNews.notNow") private var notNow = false
 
     var body: some View {
@@ -90,10 +90,7 @@ struct WorldTodayView: View {
 
     private func stories(_ articles: [NewsArticle]) -> some View {
         ForEach(articles) { article in
-            NewsCard(article: article, open: Binding(
-                get: { open.contains(article.id) },
-                set: { if $0 { open.insert(article.id) } else { open.remove(article.id) } }
-            ))
+            NewsCard(article: article)
         }
     }
 
@@ -109,73 +106,70 @@ struct WorldTodayView: View {
     }
 }
 
-/// One story. Closed, it's the headline, where it's from and when. Open, the
-/// headline in full, the summary, and a quiet link to the whole piece in
-/// Safari. A local headline has no summary (its feed carries none), so open
-/// it is the headline and the link.
+/// One story. With a summary: the headline, where it's from and when, the
+/// summary beneath it, and "Read full article". Without one: the headline,
+/// the source line, and "Read more", and the whole card opens the story.
+/// Either way the full piece opens in Safari, in Stanley.
 private struct NewsCard: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let article: NewsArticle
-    @Binding var open: Bool
+
+    private var summary: String? {
+        article.summary?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.25)) { open.toggle() }
-            } label: {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(article.title)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(open ? nil : 2)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: open)
-                        Text(byline)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(open ? 180 : 0))
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint(open ? "Hides the summary" : "Shows the summary")
-
-            if open {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let summary = article.summary {
-                        Text(summary)
-                            .font(.callout)
-                            .lineSpacing(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if let link = article.link {
-                        Button {
-                            StoryReader.open(link)
-                        } label: {
-                            Label("Read full article", systemImage: "arrow.up.right")
-                                .labelStyle(TrailingIcon())
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(Color.accentColor)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Opens in Safari")
-                    }
-                }
-                .padding(.top, 12)
-                .transition(.opacity)
+        Group {
+            if summary == nil, let link = article.link {
+                // Headline only: the card is the link.
+                Button { StoryReader.open(link) } label: { content }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the story in Safari")
+            } else {
+                content
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(density.cardPadding)
         .cardSurface(corner: density.cardCorner - 4)
         .clipShape(RoundedRectangle(cornerRadius: density.cardCorner - 4))
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(article.title)
+                .font(.subheadline.weight(.semibold))
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(byline)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.top, 4)
+            if let summary {
+                Text(summary)
+                    .font(.callout)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 10)
+            }
+            if let link = article.link {
+                Button {
+                    StoryReader.open(link)
+                } label: {
+                    Label(summary == nil ? "Read more" : "Read full article", systemImage: "arrow.up.right")
+                        .labelStyle(TrailingIcon())
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens in Safari")
+                .padding(.top, 10)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     /// "Outlet · 2 hr. ago". This is a time, never a tally. It is formatted

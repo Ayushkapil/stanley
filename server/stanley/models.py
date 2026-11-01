@@ -38,6 +38,10 @@ class User(Base):
     tz_last_seen: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # §10 N2: the last-light notice is off by default, offerable in settings.
     last_light_notice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # §10 N1: the evening digest, off by default too (build 18). Before it was
+    # pushed it was only logged, for everyone; now that it reaches a phone it
+    # is asked for, like the last-light notice.
+    digest_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -270,6 +274,25 @@ class NotificationLog(Base):
     kind: Mapped[str] = mapped_column(String(24))
     body: Mapped[str] = mapped_column(Text)
     sent_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class PushToken(Base):
+    """Where a person's notices go: an APNs device token for one of their
+    phones (build 18). Kept only to deliver the two notices that exist, and
+    only what was asked for: the last-light notice and the evening digest.
+    A token belongs to one account at a time (a phone changes hands when
+    someone else signs in on it), goes when they sign out on that phone or
+    delete the account, and goes when Apple says it's no longer valid."""
+
+    __tablename__ = "push_tokens"
+    __table_args__ = (Index("ix_push_tokens_user", "user_id"),)
+
+    token: Mapped[str] = mapped_column(String(200), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    # "production" (TestFlight and the App Store) or "sandbox" (a build run
+    # from Xcode): which APNs host the token belongs to.
+    environment: Mapped[str] = mapped_column(String(12))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class NewsEdition(Base):

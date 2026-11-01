@@ -22,9 +22,9 @@ enum APIError: LocalizedError {
             // The product never shouts. Error copy stays gentle, and no code
             // or status number ever reaches the screen.
             switch code {
-            case "slot_used": return "Today's photo is already given."
+            case "slot_used": return "You've already shared today's moment."
             case "too_soon": return "A little too soon — the day needs room to breathe."
-            case "circle_full": return "This circle is full."
+            case "circle_full": return "This circle has reached its limit."
             case "already_in_circle": return "You're already in that circle."
             case "too_many_circles": return "Stanley keeps it to five circles. Leave one to join another."
             case "not_in_circle": return "You're no longer in that circle."
@@ -42,6 +42,8 @@ enum APIError: LocalizedError {
             case "use_leave": return "To step away yourself, use Leave circle."
             case "empty_note": return "A note needs a few words."
             case "invalid_apple_token": return Self.appleSignInFailed
+            case "empty_circle_name": return "A circle needs a name."
+            case "bad_push_token": return "Notifications couldn't be set up on this phone. Try again later."
             case "apple_auth_unconfigured": return "Signing in isn't available right now. Try again a little later."
             default: return Self.words(forStatus: status)
             }
@@ -55,11 +57,12 @@ enum APIError: LocalizedError {
     }
 
     /// When a server-side failure costs nothing: the server rolls the whole
-    /// request back, so the day was never spent. Weak or no signal never lands
-    /// here — that capture is kept on the phone and sent later.
-    static let photoNotPosted = "That photo couldn't be posted, and today is still open. Try again in a moment."
+    /// request back, so the day was never spent and trying again is safe.
+    /// Weak or no signal never lands here — that capture is kept on the
+    /// phone and sent later.
+    static let photoNotPosted = "That photo couldn't be posted. Try again."
     static let appleSignInFailed = "Sign in with Apple didn't go through. Try again."
-    static let unreachable = "Couldn't reach Stanley. Check your connection and try again."
+    static let unreachable = "Couldn't reach Stanley. Check your connection."
 
     /// What a bare status means to the person holding the phone.
     static func words(forStatus status: Int) -> String {

@@ -16,7 +16,7 @@ from ..decay import TOMBSTONE, enqueue_purge, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
 from ..images import BadImage, process_avatar
 from ..milestones import milestone_payload, surface_due
-from ..models import Anchor, Block, Comment, Like, Membership, Milestone, Photo, PhotoTag, Rest, User
+from ..models import Anchor, Block, Comment, Like, Membership, Milestone, Photo, PhotoTag, PushToken, Rest, User
 from ..serialize import avatar_url, blocked_ids, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
@@ -29,6 +29,16 @@ USERNAME_RE = re.compile(r"^(?![0-9])[a-z0-9._]{3,30}$")
 
 class SettingsPatch(BaseModel):
     last_light_notice_enabled: bool | None = None
+    digest_enabled: bool | None = None
+
+
+# An APNs device token: hex, 32 bytes today. Room for Apple to lengthen it.
+PUSH_TOKEN_RE = re.compile(r"^[0-9a-f]{64,200}$")
+
+
+class PushTokenBody(BaseModel):
+    token: str
+    environment: str = "production"
 
 
 class ProfilePatch(BaseModel):
@@ -60,6 +70,7 @@ def me(
         # join date for "About your account" — nothing else lives there.
         "created_at": iso(user.created_at),
         "last_light_notice_enabled": user.last_light_notice_enabled,
+        "digest_enabled": user.digest_enabled,
     }
 
 
@@ -139,7 +150,52 @@ def patch_settings(
 ):
     if body.last_light_notice_enabled is not None:
         user.last_light_notice_enabled = body.last_light_notice_enabled
-    return {"last_light_notice_enabled": user.last_light_notice_enabled}
+    if body.digest_enabled is not None:
+        user.digest_enabled = body.digest_enabled
+    return {
+        "last_light_notice_enabled": user.last_light_notice_enabled,
+        "digest_enabled": user.digest_enabled,
+    }
+
+
+def _push_token(body: PushTokenBody) -> str:
+    token = body.token.strip().lower()
+    if not PUSH_TOKEN_RE.match(token) or body.environment not in ("production", "sandbox"):
+        raise HTTPException(400, {"code": "bad_push_token"})
+    return token
+
+
+@router.post("/me/push-token", status_code=204)
+def register_push_token(
+    body: PushTokenBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """This phone can be reached, for whichever notices this person has turned
+    on. A token belongs to one account at a time: when someone else signs in
+    on the phone, it becomes theirs, so a notice never reaches a phone its
+    owner has signed out of."""
+    token = _push_token(body)
+    row = db.get(PushToken, token)
+    if row is None:
+        db.add(PushToken(token=token, user_id=user.id, environment=body.environment, updated_at=clock.now()))
+    else:
+        row.user_id = user.id
+        row.environment = body.environment
+        row.updated_at = clock.now()
+
+
+@router.delete("/me/push-token", status_code=204)
+def remove_push_token(
+    body: PushTokenBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """Signing out on a phone: nothing more reaches it for this account."""
+    row = db.get(PushToken, _push_token(body))
+    if row is not None and row.user_id == user.id:
+        db.delete(row)
 
 
 @router.get("/me/anchored")
@@ -302,6 +358,8 @@ def delete_account(
         select(Membership).where(Membership.user_id == user.id)
     ).all():
         db.delete(membership)
+    # Nothing reaches their phones again.
+    db.execute(delete(PushToken).where(PushToken.user_id == user.id))
 
     if user.avatar_key:
         storage.delete(user.avatar_key)

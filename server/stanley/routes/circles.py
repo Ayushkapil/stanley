@@ -46,6 +46,10 @@ class NoteBody(BaseModel):
     text: str = Field(min_length=1, max_length=90)
 
 
+class RenameBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
 def _members_payload(db: Session, circle: Circle, settings=None, now=None) -> list[dict]:
     """The circle as people — faces and names. Rendered as a cluster of avatars
     in the client, never a count."""
@@ -187,6 +191,25 @@ def my_circle(
         "is_creator": circle.created_by == user.id,
         "members": _members_payload(db, circle, settings, clock.now()),
     }
+
+
+@router.patch("/circles/{circle_id}")
+def rename_circle(
+    circle_id: str,
+    body: RenameBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """Creator-only (build 18): what the circle is called, as everyone in it
+    sees it atop Today."""
+    _, circle = membership_in(db, user, circle_id)
+    if circle.created_by != user.id:
+        raise HTTPException(403, {"code": "creator_only"})
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(400, {"code": "empty_circle_name"})
+    circle.name = name
+    return {"id": circle.id, "name": circle.name}
 
 
 @router.post("/circles/{circle_id}/rotate_invite")

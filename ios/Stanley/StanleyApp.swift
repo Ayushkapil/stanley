@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct StanleyApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var state = AppState()
 
     init() {
@@ -27,6 +28,14 @@ struct StanleyApp: App {
         WindowGroup {
             RootView()
                 .environment(state)
+                .task {
+                    // A token from APNs goes to the server for whoever is
+                    // signed in; with notifications allowed, every launch
+                    // registers again, because a token can change.
+                    let state = state
+                    Push.shared.onToken = { token in Task { await state.sendPushToken(token) } }
+                    await Push.shared.refresh()
+                }
         }
     }
 }

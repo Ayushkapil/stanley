@@ -1,27 +1,29 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
+/// Settings, laid out the way iOS lays out its own: five groups, every row in
+/// one, and nothing loose. Circle, Appearance, Quiet, Privacy & Security,
+/// About. Anything serious (resetting the invite code, deleting the account)
+/// is a level down, behind its own page and a confirmation.
 struct SettingsView: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.appLock") private var appLock = false
-    @State private var lastLight = false
-    @State private var loaded = false
 
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
 
-    @State private var confirmRotate = false
     @State private var confirmLeave = false
     @State private var joiningAnother = false
-    @State private var confirmDelete = false
 
     @State private var exporting = false
     @State private var exportURL: URL?
     @State private var showShare = false
 
     private var isCreator: Bool { state.circle?.isCreator ?? false }
+    private var palette: Atmosphere.Palette { Atmosphere.resolve(atmosphere).palette }
 
     var body: some View {
         NavigationStack {
@@ -29,10 +31,9 @@ struct SettingsView: View {
                 Group {
                     circleSection
                     appearanceSection
-                    quietSection
+                    QuietSection(toggleTint: palette.toggle)
                     privacySection
-                    dataSection
-                    accountSection
+                    aboutSection
                 }
                 .atmosphereRows()
             }
@@ -40,20 +41,6 @@ struct SettingsView: View {
             .foldAnimated(hSizeClass)
             .atmosphereWash()
             .navigationTitle("Settings")
-            .task {
-                if !loaded {
-                    if let me: MeSettings = try? await state.api.send("GET", "/me") {
-                        lastLight = me.lastLightNoticeEnabled
-                    }
-                    loaded = true
-                }
-            }
-            .alert("Rotate the invite code?", isPresented: $confirmRotate) {
-                Button("Rotate", role: .destructive) { Task { await state.rotateInvite() } }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("The current code stops working immediately. Anyone with the old link won't be able to join.")
-            }
             .alert("Leave \(state.circle?.name ?? "this circle")?", isPresented: $confirmLeave) {
                 Button("Leave", role: .destructive) { Task { await state.leaveCircle() } }
                 Button("Cancel", role: .cancel) {}
@@ -63,12 +50,6 @@ struct SettingsView: View {
                     : "You'll stop seeing the circle. The memories you've held stay yours.")
             }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
-            .alert("Delete your account?", isPresented: $confirmDelete) {
-                Button("Delete", role: .destructive) { Task { await state.deleteAccount() } }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Your photos are removed everywhere within a day. People who held them keep only a note that a memory was there. This can't be undone.")
-            }
             .sheet(isPresented: $showShare) {
                 if let exportURL {
                     ShareSheet(items: [exportURL])
@@ -77,20 +58,18 @@ struct SettingsView: View {
         }
     }
 
+    /// The circle on Today: what it's called, who's in it, how people join,
+    /// and the way out. Leave is last and the only red row.
     @ViewBuilder
     private var circleSection: some View {
         if let circle = state.circle {
             Section {
-                // With more than one, the circle these settings are for is
-                // a choice, the same one as the switcher atop Today.
-                if state.circles.count > 1 {
-                    Picker("Circle", selection: Binding(
-                        get: { circle.id },
-                        set: { id in Task { await state.switchCircle(to: id) } }
-                    )) {
-                        ForEach(state.circles) { Text($0.name).tag($0.id) }
+                if isCreator {
+                    NavigationLink {
+                        CircleNameView(name: circle.name)
+                    } label: {
+                        LabeledContent("Name", value: circle.name)
                     }
-                    .pickerStyle(.menu)
                 } else {
                     LabeledContent("Name", value: circle.name)
                 }
@@ -110,44 +89,21 @@ struct SettingsView: View {
                     }
                 }
                 if let code = state.inviteCode {
-                    HStack(alignment: .center) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Invite code")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            Text(code)
-                                .font(.system(.title3, design: .monospaced).weight(.semibold))
-                                .textSelection(.enabled)
+                    NavigationLink {
+                        InviteCodeView()
+                    } label: {
+                        LabeledContent("Invite Code") {
+                            Text(code).monospaced()
                         }
-                        Spacer()
-                        Button {
-                            UIPasteboard.general.string = code
-                            state.flash = "Copied"
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .imageScale(.medium)
-                        }
-                        .buttonStyle(.borderless)
-                        .padding(.leading, 8)
-                        ShareLink(item: "Join my circle on Stanley: \(code)") {
-                            Image(systemName: "square.and.arrow.up")
-                                .imageScale(.medium)
-                        }
-                        .buttonStyle(.borderless)
-                        .padding(.leading, 4)
-                    }
-                    if isCreator {
-                        Button("Rotate code") { confirmRotate = true }
-                            .foregroundStyle(.primary)
                     }
                 }
-                Button("Join another circle") { joiningAnother = true }
+                Button("Join Another Circle") { joiningAnother = true }
                     .foregroundStyle(.primary)
-                Button("Leave circle", role: .destructive) { confirmLeave = true }
+                Button("Leave Circle", role: .destructive) { confirmLeave = true }
             } header: {
                 Text("Circle")
             } footer: {
-                Text("Stanley works best with people you actually know. People, not numbers. Each circle keeps its own day: one photo a day in each.")
+                Text("Stanley works best with people you actually know. Each circle keeps its own day: one photo a day in each.")
             }
         }
     }
@@ -175,44 +131,10 @@ struct SettingsView: View {
         }
     }
 
-    private var quietSection: some View {
-        Section {
-            Toggle("Tell me when my own photo is fading", isOn: $lastLight)
-                .tint(Atmosphere.resolve(atmosphere).palette.toggle)
-                .onChange(of: lastLight) { _, newValue in
-                    guard loaded else { return }
-                    Task {
-                        do {
-                            let settings: MeSettings = try await state.api.send(
-                                "PATCH", "/me/settings",
-                                json: ["last_light_notice_enabled": newValue]
-                            )
-                            lastLight = settings.lastLightNoticeEnabled
-                        } catch {
-                            state.surface(error)
-                        }
-                    }
-                }
-        } header: {
-            Text("Quiet")
-        } footer: {
-            Text("The only notice that exists: one, for your own photo, on its last day. Off unless you ask. Stanley sends at most one digest a day and nothing else — no streaks, no nudges.")
-        }
-    }
-
     private var privacySection: some View {
         Section {
-            Toggle("Require Face ID to open", isOn: $appLock)
-                .tint(Atmosphere.resolve(atmosphere).palette.toggle)
-        } header: {
-            Text("Lock")
-        } footer: {
-            Text("Off by default. When on, Stanley asks for Face ID or your passcode each time it opens.")
-        }
-    }
-
-    private var dataSection: some View {
-        Section {
+            Toggle("Require Face ID", isOn: $appLock)
+                .tint(palette.toggle)
             Button {
                 exporting = true
                 Task {
@@ -227,28 +149,230 @@ struct SettingsView: View {
                 }
             } label: {
                 HStack {
-                    Text("Export my memories")
+                    Text("Export My Memories")
                     if exporting {
                         Spacer()
                         ProgressView()
                     }
                 }
             }
+            .foregroundStyle(.primary)
             .disabled(exporting)
             NavigationLink {
-                AboutView()
+                AccountView()
             } label: {
-                Text("About")
+                Text("About Your Account")
             }
+        } header: {
+            Text("Privacy & Security")
         } footer: {
-            Text("Export bundles the photos you've held, with their captions. Held only — there's no archive of everything you've ever posted.")
+            Text("With Face ID on, Stanley asks for it each time it opens. The export bundles the photos you've held, with their captions; there's no archive of everything you've ever posted.")
         }
     }
 
-    private var accountSection: some View {
+    private var aboutSection: some View {
         Section {
-            Button("Sign out", role: .destructive) { state.signOut() }
-            Button("Delete account", role: .destructive) { confirmDelete = true }
+            NavigationLink("About Stanley") { AboutStanleyView() }
+            NavigationLink("Terms of Use") {
+                LegalDocumentView(title: "Terms of Use", sections: Legal.terms)
+            }
+            NavigationLink("Privacy Policy") {
+                LegalDocumentView(title: "Privacy Policy", sections: Legal.privacy)
+            }
+        } header: {
+            Text("About")
+        } footer: {
+            Text(Self.versionLine)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 18)
+        }
+    }
+
+    static var versionLine: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? ""
+        let build = info?["CFBundleVersion"] as? String ?? ""
+        return "Stanley \(version) (\(build))"
+    }
+}
+
+/// The two notices Stanley can send, and the words for why there are so few.
+/// Both are off until asked for. Turning one on asks iOS for permission then
+/// and there, in the moment it means something, rather than at first launch;
+/// if iOS has it switched off, the row says so and opens Settings.
+private struct QuietSection: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.scenePhase) private var scenePhase
+    let toggleTint: Color
+    @State private var lastLight = false
+    @State private var digest = false
+    @State private var loaded = false
+    @State private var blocked = false
+
+    var body: some View {
+        Section {
+            Toggle("When My Photo Is Fading", isOn: $lastLight)
+                .tint(toggleTint)
+                .onChange(of: lastLight) { _, on in save("last_light_notice_enabled", on) { lastLight = $0 } }
+            Toggle("When My Circle Has Posted", isOn: $digest)
+                .tint(toggleTint)
+                .onChange(of: digest) { _, on in save("digest_enabled", on) { digest = $0 } }
+            if blocked {
+                Button("Allow Notifications in Settings") {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+        } header: {
+            Text("Quiet")
+        } footer: {
+            Text(blocked
+                ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."
+                : "Stanley is quiet on purpose. Two notices exist, both off unless you ask: one when your own photo reaches its last day, and one in the evening when someone in your circle has posted. No streaks, no nudges, nothing about likes or holds, and never a number.")
+        }
+        .task { await load() }
+        .onChange(of: scenePhase) { _, phase in
+            // Back from iOS Settings: see whether notifications are allowed now.
+            if phase == .active { Task { await checkBlocked() } }
+        }
+    }
+
+    private func load() async {
+        guard !loaded else { return }
+        if let me: MeSettings = try? await state.api.send("GET", "/me") {
+            lastLight = me.lastLightNoticeEnabled
+            digest = me.digestEnabled ?? false
+        }
+        await checkBlocked()
+        loaded = true
+    }
+
+    private func checkBlocked() async {
+        let status = await Push.shared.authorization()
+        blocked = status == .denied && (lastLight || digest)
+    }
+
+    /// Turning a notice on asks iOS first. If iOS says no, the switch goes
+    /// back off: a notice that can't arrive shouldn't look as if it will.
+    private func save(_ field: String, _ on: Bool, revert: @escaping (Bool) -> Void) {
+        guard loaded else { return }
+        Task {
+            if on {
+                let allowed = await Push.shared.requestPermission()
+                if !allowed {
+                    revert(false)
+                    blocked = true
+                    return
+                }
+            }
+            do {
+                let _: MeSettings = try await state.api.send("PATCH", "/me/settings", json: [field: on])
+                await checkBlocked()
+            } catch {
+                revert(!on)
+                state.surface(error)
+            }
+        }
+    }
+}
+
+/// The circle's name, which its organizer can change. Everyone in it sees
+/// the new name atop Today.
+private struct CircleNameView: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    @State var name: String
+    @State private var saving = false
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespaces) }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Circle name", text: $name)
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .onSubmit(save)
+            } footer: {
+                Text("Everyone in the circle sees this name.")
+            }
+            .atmosphereRows()
+        }
+        .atmosphereWash()
+        .navigationTitle("Name")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save", action: save)
+                    .disabled(trimmed.isEmpty || trimmed == state.circle?.name || saving)
+            }
+        }
+        .onAppear { focused = true }
+    }
+
+    private func save() {
+        guard !trimmed.isEmpty, trimmed != state.circle?.name else { return }
+        saving = true
+        Task {
+            if await state.renameCircle(trimmed) { dismiss() }
+            saving = false
+        }
+    }
+}
+
+/// How people join: the code, a way to copy it and a way to send it, and,
+/// for the organizer, a way to make it stop working.
+private struct InviteCodeView: View {
+    @Environment(AppState.self) private var state
+    @State private var confirmReset = false
+
+    var body: some View {
+        let code = state.inviteCode ?? ""
+        let name = state.circle?.name ?? "the circle"
+        List {
+            Group {
+                Section {
+                    Text(code)
+                        .font(.system(.largeTitle, design: .monospaced).weight(.semibold))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .accessibilityLabel("Invite code \(code.map(String.init).joined(separator: " "))")
+                } footer: {
+                    Text("Anyone with this code can join \(name).")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                Section {
+                    Button {
+                        UIPasteboard.general.string = code
+                        state.flash = "Copied"
+                    } label: {
+                        Label("Copy Code", systemImage: "doc.on.doc")
+                    }
+                    ShareLink(item: "Join \(name) on Stanley with the code \(code).") {
+                        Label("Share Invite", systemImage: "square.and.arrow.up")
+                    }
+                }
+                if state.circle?.isCreator == true {
+                    Section {
+                        Button("Reset Code", role: .destructive) { confirmReset = true }
+                    } footer: {
+                        Text("A new code replaces this one, and this one stops working.")
+                    }
+                }
+            }
+            .atmosphereRows()
+        }
+        .atmosphereWash()
+        .navigationTitle("Invite Code")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Reset the invite code?", isPresented: $confirmReset) {
+            Button("Reset Code", role: .destructive) { Task { await state.rotateInvite() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will invalidate the current code. Anyone with the old code won't be able to join.")
         }
     }
 }

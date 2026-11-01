@@ -78,7 +78,7 @@ def make_sessionmaker(engine):
 # Columns added after the first release. create_all() only creates missing
 # tables, so existing pilot databases get these via ALTER on startup.
 _LATER_COLUMNS = {
-    "users": {"username": "VARCHAR(30)", "bio": "TEXT"},
+    "users": {"username": "VARCHAR(30)", "bio": "TEXT", "digest_enabled": "BOOLEAN DEFAULT 0"},
     "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
 }

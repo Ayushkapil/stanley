@@ -1,82 +1,26 @@
 import SwiftUI
 
-/// About hub, reached from Settings → About. Two quiet doors: the product
-/// story, and a plain account summary. No insights, no analytics — nothing
-/// countable lives here.
-struct AboutView: View {
-    var body: some View {
-        List {
-            Section {
-                NavigationLink {
-                    AboutStanleyView()
-                } label: {
-                    Label("About Stanley", systemImage: "moon.stars")
-                }
-                NavigationLink {
-                    AboutAccountView()
-                } label: {
-                    Label("Your account", systemImage: "person")
-                }
-            }
-            .atmosphereRows()
-        }
-        .atmosphereWash()
-        .navigationTitle("About")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// The product story — one scrollable page, warm and brief. Three sections,
-/// then the legal doors and the build number. Headers in the keepsake serif;
-/// body in the system font; lots of room to breathe.
+/// About Stanley: what it is and why, in Stanley's own words. One page, read
+/// top to bottom, no links out.
 struct AboutStanleyView: View {
+    private static let paragraphs = [
+        "Stanley is a photo app for small circles. You post one photo a day. It fades in six days unless someone in your circle keeps it.",
+        "There are no followers, no like counts, no algorithm deciding what you see. Your feed is small because your circle is small. Your photos fade because not everything needs to last forever — but the ones someone reaches out to save become more meaningful because of everything that was allowed to go.",
+        "What you post here belongs to you. What your friends keep lives in their memory of you. If you ever delete something, it's gone everywhere. Stanley doesn't sell your data, doesn't show you ads, and doesn't use your photos to train anything.",
+    ]
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
-                section(
-                    "What Stanley is",
-                    [
-                        "One photo a day. Everything fades within six days — unless someone keeps it.",
-                        "No likes you can count, no followers, no algorithm deciding what you see. Just a small circle of people sharing one moment a day and choosing which ones to hold onto.",
-                    ]
-                )
-                section(
-                    "Why it's built this way",
-                    [
-                        "Stanley exists because social media stopped being social. Feeds got infinite, photos became performances, and the number under your post started mattering more than the moment in it.",
-                        "Stanley goes the other way. Your feed is small because your circle is small. Your photos fade because not everything needs to last forever — and the ones someone reaches out to keep mean more because of everything that was allowed to go.",
-                        "There are no counts anywhere. You see faces, not numbers. The only measure is whether this felt like a good place to share a photo today.",
-                    ]
-                )
-                section(
-                    "Your memories, your circle",
-                    [
-                        "What you post here belongs to you. What your friends keep lives in their memory of you — and if you ever delete it, it's gone everywhere.",
-                        "Stanley doesn't sell your data, doesn't show you ads, and doesn't use your photos to train anything.",
-                        "Stanley works best with people you actually know. There is a ceiling, but you are unlikely to meet it — nothing here will ever ask you to invite more people.",
-                    ]
-                )
-
-                VStack(spacing: 0) {
-                    NavigationLink {
-                        TermsView()
-                    } label: {
-                        legalRow("Terms of Use")
-                    }
-                    Divider().opacity(0.4)
-                    NavigationLink {
-                        PrivacyView()
-                    } label: {
-                        legalRow("Privacy Policy")
-                    }
+            VStack(alignment: .leading, spacing: 20) {
+                Text("One day, one photo.")
+                    .font(.keepsake(32))
+                    .padding(.bottom, 4)
+                ForEach(Self.paragraphs, id: \.self) { paragraph in
+                    Text(paragraph)
+                        .font(.body)
+                        .lineSpacing(5)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.top, 4)
-
-                Text(versionLine)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 4)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 28)
@@ -86,46 +30,15 @@ struct AboutStanleyView: View {
         .navigationTitle("About Stanley")
         .navigationBarTitleDisplayMode(.inline)
     }
-
-    private func section(_ title: String, _ paragraphs: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.keepsake(26))
-            ForEach(paragraphs, id: \.self) { paragraph in
-                Text(paragraph)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .lineSpacing(5)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func legalRow(_ title: String) -> some View {
-        HStack {
-            Text(title).font(.callout)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .foregroundStyle(.primary)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-    }
-
-    private var versionLine: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? "—"
-        return "Version \(version) (\(build))"
-    }
 }
 
-/// A plain account summary. Name, username, and when you joined — and nothing
-/// else. No post count, no activity, no analytics; there's nothing to total up.
-struct AboutAccountView: View {
+/// About your account: your name, your username, and when you joined, and
+/// nothing else (no post count, no activity; there's nothing to total up).
+/// Signing out and deleting the account live here, one level down from
+/// Settings, the way iOS keeps its own serious actions.
+struct AccountView: View {
     @Environment(AppState.self) private var state
+    @State private var confirmDelete = false
 
     private var name: String? {
         state.profile?.displayName?.trimmingCharacters(in: .whitespaces).nilIfEmpty
@@ -135,94 +48,45 @@ struct AboutAccountView: View {
         state.profile?.username?.trimmingCharacters(in: .whitespaces).nilIfEmpty
     }
 
-    private var memberSince: String? {
-        guard let created = state.profile?.createdAt else { return nil }
-        return "Member since " + created.formatted(.dateTime.month(.wide).year())
+    private var joined: String? {
+        state.profile?.createdAt?.formatted(.dateTime.month(.wide).year())
     }
 
     var body: some View {
         List {
-            Section {
-                // A dash reads like a bug. Say what is actually true: we
-                // haven't been told yet.
-                LabeledContent("Name", value: name ?? "Not set yet")
-                LabeledContent("Username", value: username.map { "@\($0)" } ?? "Not set yet")
-            } footer: {
-                if let memberSince {
-                    Text(memberSince)
+            Group {
+                Section {
+                    // A dash reads like a bug. Say what is actually true: we
+                    // haven't been told yet.
+                    LabeledContent("Name", value: name ?? "Not set yet")
+                    LabeledContent("Username", value: username.map { "@\($0)" } ?? "Not set yet")
+                    if let joined {
+                        LabeledContent("Joined", value: joined)
+                    }
+                } footer: {
+                    Text("Change your name, username and photo from Edit on the You tab.")
+                }
+                Section {
+                    Button("Sign Out") { state.signOut() }
+                        .foregroundStyle(.primary)
+                }
+                Section {
+                    Button("Delete Account", role: .destructive) { confirmDelete = true }
+                } footer: {
+                    Text("Deletes your account and everything you've posted. People who kept your photos keep only a note that a memory was there.")
                 }
             }
             .atmosphereRows()
         }
         .atmosphereWash()
         .task { await state.loadProfile() }
-        .navigationTitle("Your account")
+        .navigationTitle("About Your Account")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct TermsView: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Terms of use")
-                    .font(.title3.weight(.medium))
-                Text("Draft · June 2026 · pilot build. A plain-language summary for the pilot — these terms will be finalized before Stanley is released publicly.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                LegalParagraph(heading: "Who this is for", text: "Stanley is a private, invite-only app for small circles. You must be old enough to use it under the laws where you live.")
-                LegalParagraph(heading: "Your content", text: "You own the photos and words you share. You grant the people in your circle the ability to see them while they're live, and to keep (hold) them after — including after a photo would otherwise fade. Deleting your photo removes the image everywhere; people who held it keep only an honest note that a memory was there.")
-                LegalParagraph(heading: "What fades", text: "Photos fade within six days unless held. Warmth is ephemeral and disappears with the photo. None of this is recoverable — that's the contract, on purpose.")
-                LegalParagraph(heading: "Be kind", text: "No harassment, no abuse, no illegal content, no sharing of others' images without consent. You can block any member and report any photo or comment; reports are reviewed and acted on within 24 hours.")
-                LegalParagraph(heading: "No guarantees", text: "This is a pilot. The service is provided as-is, without warranty. We may suspend accounts that violate these terms.")
-                LegalParagraph(heading: "Contact", text: "Reach the team through the circle's organizer for anything not covered here.")
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .atmosphereWash()
-        .navigationTitle("Terms")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct PrivacyView: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Privacy policy")
-                    .font(.title3.weight(.medium))
-                Text("Draft · June 2026. A working summary for the pilot, not a final legal document — it will be finalized before Stanley is released publicly.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                LegalParagraph(heading: "What we collect", text: "Your sign-in through Apple, the name, username and bio you choose, and the photos and words you post. That's the whole list.")
-                LegalParagraph(heading: "What we don't do", text: "We don't sell your data. We don't show ads. We don't use your photos to train anything, and we never will.")
-                LegalParagraph(heading: "Your photos", text: "Location is stripped from every photo before it's stored — the GPS is gone, not hidden. Images are served over short-lived signed links, never public URLs.")
-                LegalParagraph(heading: "Fading and deletion", text: "Photos fade on their own within six days unless someone holds them. Deleting your photo removes the image everywhere within a day; deleting your account purges everything you posted.")
-                LegalParagraph(heading: "Who sees what", text: "Only your circle ever sees your photos. There is no public surface, and nothing is indexed or shared outside it.")
-                LegalParagraph(heading: "Questions", text: "Reach the team through your circle's organizer until a contact address is published with the final policy.")
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .atmosphereWash()
-        .navigationTitle("Privacy")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// One titled paragraph of legal-ish copy, shared by Terms and Privacy.
-private struct LegalParagraph: View {
-    let heading: String
-    let text: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(heading).font(.headline)
-            Text(text)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineSpacing(3)
+        .alert("Delete your account?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) { Task { await state.deleteAccount() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your photos are removed everywhere within a day. People who held them keep only a note that a memory was there. This can't be undone.")
         }
     }
 }

@@ -8,14 +8,15 @@ from datetime import timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 
-from . import __version__, decay, news, notifications
+from . import __version__, decay, legal, news, notifications
 from .apple import AppleVerifier
 from .backup import backup_database
 from .clock import Clock, SystemClock
 from .config import Settings, resolve_secret
 from .db import Base, ensure_schema, make_engine, make_sessionmaker
-from .notifications import Notifier
+from .notifications import make_notifier
 from .routes import auth_routes, blobs, circles, feed, me, memories, news as news_routes, photos, safety
 from .storage import make_blob_store
 
@@ -135,7 +136,9 @@ def create_app(
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.storage = make_blob_store(settings)
-    app.state.notifier = Notifier()
+    app.state.notifier = make_notifier(settings, app.state.sessionmaker)
+    if not settings.apns_configured:
+        log.info("APNs isn't configured: notices are logged, not pushed (see DEPLOY.md)")
     app.state.last_backup_day = None
 
     # Apple verifier: injected (tests) or built from config when a bundle id set.
@@ -154,5 +157,16 @@ def create_app(
         touches no database: it answers "this process is up and serving", which
         is the question a load balancer restarts on."""
         return {"status": "ok"}
+
+    # The Terms and the Privacy Policy, public: App Store Connect links the
+    # privacy policy by URL, and anyone deciding whether to join a circle
+    # should be able to read both before signing in.
+    @app.get("/terms", response_class=HTMLResponse, tags=["legal"])
+    def terms() -> str:
+        return legal.page("Terms of Use", legal.TERMS)
+
+    @app.get("/privacy", response_class=HTMLResponse, tags=["legal"])
+    def privacy() -> str:
+        return legal.page("Privacy Policy", legal.PRIVACY)
 
     return app

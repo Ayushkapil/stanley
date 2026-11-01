@@ -12,30 +12,75 @@ N4: no notification may contain an engagement count, a deadline timestamp, or
 
 There is deliberately no generic "send a push" endpoint anywhere else in the
 codebase; everything funnels through the two functions below.
+
+Both are off until the person turns them on (build 18; the digest used to go
+to everyone, back when it was only ever logged). A notice reaches a phone
+through APNs (`apns.py`) once its log row is committed, never before: a pass
+that rolls back sends nothing, so nothing is ever sent twice.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from .clock import Clock
 from .models import Membership, NotificationLog, Photo, User
 
 
+def make_notifier(settings, sessionmaker) -> "Notifier":
+    """A notifier for the app's sessions: pushing through APNs when the key is
+    configured, and only logging when it isn't (dev, tests, and a deployment
+    without a key)."""
+    transport = None
+    if settings.apns_configured:
+        from .apns import APNs, PushDelivery
+
+        apns = APNs(settings.apns_key, settings.apns_key_id, settings.apns_team_id, settings.apns_topic)
+        transport = PushDelivery(apns, sessionmaker)
+    notifier = Notifier(transport)
+    notifier.attach(sessionmaker)
+    return notifier
+
+
 class Notifier:
     """Records every send to NotificationLog and hands the payload to a
-    transport (APNs in production, nothing in dev/tests)."""
+    transport (APNs where it's configured, nothing in dev and tests) once the
+    session that logged it commits. `attach` connects it to the app's
+    sessions; a notice logged in a session it isn't attached to is only
+    logged."""
 
     def __init__(self, transport=None):
         self._transport = transport
+        # Where this notifier keeps a session's notices until it commits. Its
+        # own key, so two notifiers on one sessionmaker never take each
+        # other's.
+        self._pending = f"stanley.pending_notices.{id(self)}"
+
+    def attach(self, sessionmaker) -> None:
+        event.listen(sessionmaker, "after_commit", self._deliver)
+        event.listen(sessionmaker, "after_soft_rollback", self._forget)
 
     def send(self, session: Session, user_id: str, kind: str, body: str, now: datetime) -> None:
         session.add(NotificationLog(user_id=user_id, kind=kind, body=body, sent_at=now))
         if self._transport is not None:
-            self._transport(user_id, kind, body)
+            session.info.setdefault(self._pending, []).append((user_id, kind, body))
+
+    def _deliver(self, session: Session) -> None:
+        pending = session.info.pop(self._pending, [])
+        for user_id, kind, body in pending:
+            try:
+                self._transport(user_id, kind, body)
+            except Exception:
+                # The notice is logged and the pass is committed; a push that
+                # didn't go is a missed notice, never a failed sweep.
+                logging.getLogger("stanley").exception("notice delivery failed")
+
+    def _forget(self, session: Session, previous_transaction) -> None:
+        session.info.pop(self._pending, None)
 
 
 def maybe_send_last_light_notice(
@@ -65,7 +110,10 @@ def run_evening_digests(
     the digest hour and who haven't received one today. Returns sends."""
     now = clock.now()
     sent = 0
-    users = session.scalars(select(User).where(User.deleted_at.is_(None))).all()
+    # Only people who asked for it (off by default).
+    users = session.scalars(
+        select(User).where(User.deleted_at.is_(None), User.digest_enabled.is_(True))
+    ).all()
     for user in users:
         tz = ZoneInfo(user.tz_last_seen or "UTC")
         local_now = now.astimezone(tz)

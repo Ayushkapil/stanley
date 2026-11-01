@@ -55,6 +55,21 @@ class Settings:
     apple_bundle_id: str | None = field(default_factory=lambda: _env_opt("APPLE_BUNDLE_ID"))
     apple_jwks_cache_seconds: int = field(default_factory=lambda: int(_env("APPLE_JWKS_CACHE_SECONDS", "86400")))
 
+    # Push (build 18): APNs token auth. The key is the .p8 file's contents,
+    # from Apple Developer → Keys, with the key's id and the team's id. All
+    # three, or nothing is pushed and every notice is only logged, as before.
+    # The topic is the app's bundle id. See DEPLOY.md.
+    apns_key: str | None = field(default_factory=lambda: _env_opt("APNS_KEY"))
+    apns_key_id: str | None = field(default_factory=lambda: _env_opt("APNS_KEY_ID"))
+    apns_team_id: str | None = field(default_factory=lambda: _env_opt("APNS_TEAM_ID"))
+    apns_topic: str | None = field(
+        default_factory=lambda: _env_opt("APNS_TOPIC") or _env_opt("APPLE_BUNDLE_ID")
+    )
+
+    @property
+    def apns_configured(self) -> bool:
+        return bool(self.apns_key and self.apns_key_id and self.apns_team_id and self.apns_topic)
+
     # Blob storage backend (Part 3). "local" (disk) or "r2" (S3-compatible).
     blob_backend: str = field(default_factory=lambda: _env("BLOB_BACKEND", "local"))
     blob_r2_endpoint: str | None = field(default_factory=lambda: _env_opt("BLOB_R2_ENDPOINT"))

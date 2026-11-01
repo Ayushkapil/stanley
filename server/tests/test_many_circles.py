@@ -219,6 +219,7 @@ def test_one_digest_a_day_however_many_circles(two, clock, app, db):
     two.ben.post_photo()
     two.dee.post_photo()
     two.ana.returned(tz=NY)  # records ana's timezone
+    two.ana.patch_settings(digest_enabled=True)
     clock.set(datetime(2026, 6, 10, 0, 0, tzinfo=UTC))  # 20:00 in New York
     for _ in range(2):
         with app.state.sessionmaker() as session:
@@ -235,6 +236,7 @@ def test_one_digest_a_day_however_many_circles(two, clock, app, db):
 def test_a_digest_comes_from_a_second_circle_alone(two, clock, app, db):
     two.dee.post_photo()  # only climbing had anything today
     two.ana.returned(tz=NY)
+    two.ana.patch_settings(digest_enabled=True)
     clock.set(datetime(2026, 6, 10, 0, 0, tzinfo=UTC))
     with app.state.sessionmaker() as session:
         notifications.run_evening_digests(

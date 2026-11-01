@@ -50,6 +50,53 @@ Optional features:
 |-----|-------|
 | `STANLEY_NEWS` | The World Today, on by default, keyless RSS. National edition: PBS News Hour (`https://www.pbs.org/newshour/feeds/rss/headlines`) for the US and for phones that haven't been located, BBC World (`https://feeds.bbci.co.uk/news/world/rss.xml`) elsewhere. Nearby edition: Google News's local feed for a town (`https://news.google.com/rss/headlines/section/geo/<town>`), only for phones with location permission. The US edition is fetched at startup and every 30 minutes; the others when someone asks. Set `STANLEY_NEWS=0` to turn it off: nothing is fetched and `GET /news/today` and `GET /news/nearby` return `[]`. The host needs outbound HTTPS to www.pbs.org, feeds.bbci.co.uk and news.google.com. **Terms:** Google's feed says it is for "a personal feed reader for personal, non-commercial use"; PBS's and the BBC's haven't been checked. A judgement call for a private pilot; revisit the sources before any wider release. |
 
+Push notifications (build 18; without these, notices are logged and nothing is
+pushed):
+
+| Var | Notes |
+|-----|-------|
+| `APNS_KEY` | The contents of the APNs key file (`AuthKey_<KEYID>.p8`), PEM text including the `-----BEGIN PRIVATE KEY-----` lines. |
+| `APNS_KEY_ID` | The key's 10-character Key ID. |
+| `APNS_TEAM_ID` | The Apple Developer team id (Stanley's is `6P882KH9CZ`, the `DEVELOPMENT_TEAM` in `ios/project.yml`). |
+| `APNS_TOPIC` | Optional. The app's bundle id; defaults to `APPLE_BUNDLE_ID`. |
+
+### Setting up push (APNs) — required before notices reach phones
+
+Stanley pushes straight to Apple (token auth over HTTP/2, `stanley/apns.py`),
+no Firebase. Only two notices exist, both off until someone turns them on in
+Settings → Quiet: the last-light notice for their own photo, and the evening
+note when their circle has posted (at most one a day, no count, no names).
+
+1. **Create the key.** developer.apple.com → Certificates, Identifiers &
+   Profiles → Keys → **+**. Name it (e.g. "Stanley APNs"), tick **Apple Push
+   Notifications service (APNs)**, choose **Sandbox & Production**, Continue,
+   Register. **Download the .p8 now** — Apple lets you download it once.
+   Note the **Key ID** shown on the page.
+2. **Turn on Push for the App ID.** Identifiers → `com.ayushkapileshwar.stanley`
+   → tick **Push Notifications** → Save. (Xcode's automatic signing usually
+   does this itself the first time it archives a build with the
+   `aps-environment` entitlement, which build 18 has. If the archive fails with
+   a provisioning error about push, this is the step.)
+3. **Give the server the key** (from `server/`):
+
+   ```bash
+   fly secrets set APNS_KEY="$(cat ~/Downloads/AuthKey_XXXXXXXXXX.p8)" \
+     APNS_KEY_ID=XXXXXXXXXX APNS_TEAM_ID=6P882KH9CZ
+   ```
+
+   Setting secrets restarts the machine. The startup log no longer says
+   "APNs isn't configured".
+4. **Check it.** On a phone running a TestFlight build, Settings → Quiet →
+   turn on a notice and allow notifications. `push_tokens` gains a row with
+   environment `production`. A build run from Xcode registers a `sandbox`
+   token, which the server sends to Apple's sandbox host. The evening note
+   goes out at 20:00 in the person's own time zone when someone else in one of
+   their circles posted that day.
+
+Apple answers a dead token (app deleted, notifications turned off for good)
+with 410 or `BadDeviceToken`; the server deletes that token. Any other failure
+is logged and the notice is simply missed; nothing retries into a second push.
+
 Cloudflare R2 (optional — only when `BLOB_BACKEND=r2`):
 `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, `BLOB_R2_ACCESS_KEY`, `BLOB_R2_SECRET_KEY`.
 Switching to R2 is a config change only — no code change.
@@ -138,6 +185,11 @@ so snapshots are consistent while the app runs.
 - [ ] Persistent storage is really persistent — `STANLEY_DATA_DIR` on the mounted
       volume (Railway) or the persistent disk (VPS), not a container's local disk.
 - [ ] `APPLE_BUNDLE_ID` set; Sign in with Apple capability enabled on the app id.
+- [ ] Push: `APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID` set and Push Notifications
+      enabled on the app id (see "Setting up push" above). Without them the two
+      notices are logged and never reach a phone.
+- [ ] The Privacy Policy is public at `https://<host>/privacy` (and the Terms at
+      `/terms`); that URL goes in App Store Connect → App Privacy.
 - [ ] News: after deploy, the logs show `news refreshed: 12 stories for
       national:us` within a few seconds of startup. If not, look for `news
       fetch for national:us failed` (outbound HTTPS to www.pbs.org), or set

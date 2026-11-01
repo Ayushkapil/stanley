@@ -58,6 +58,7 @@ def test_evening_digest_at_most_one_per_day(circle, clock, app, db):
     circle.ben.post_photo()
     circle.cam.post_photo()
     circle.ana.returned(tz=NY)  # records ana's timezone
+    circle.ana.patch_settings(digest_enabled=True)
 
     # 20:00 in New York on June 9
     clock.set(datetime(2026, 6, 10, 0, 0, tzinfo=UTC))

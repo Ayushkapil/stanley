@@ -5,6 +5,7 @@ struct WelcomeView: View {
     @Environment(AppState.self) private var state
     @Environment(\.colorScheme) private var colorScheme
     @State private var devName = ""
+    @State private var reading: LegalDoc?
 
     var body: some View {
         VStack(spacing: 28) {
@@ -24,6 +25,18 @@ struct WelcomeView: View {
             .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
             .frame(width: 280, height: 48)
 
+            // What signing in agrees to, readable before agreeing to it. The
+            // two names are links that open the documents here.
+            Text("By signing in, you agree to the [Terms of Use](stanley-legal:terms) and the [Privacy Policy](stanley-legal:privacy).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+                .environment(\.openURL, OpenURLAction { url in
+                    reading = url.absoluteString.hasSuffix("privacy") ? .privacy : .terms
+                    return .handled
+                })
+
             #if DEBUG
             DevSignIn(devName: $devName)
             #endif
@@ -31,6 +44,16 @@ struct WelcomeView: View {
             Spacer()
         }
         .padding()
+        .sheet(item: $reading) { doc in
+            NavigationStack {
+                LegalDocumentView(title: doc.title, sections: doc.sections)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { reading = nil }
+                        }
+                    }
+            }
+        }
     }
 
     private func handle(_ result: Result<ASAuthorization, Error>) {
@@ -49,6 +72,14 @@ struct WelcomeView: View {
             .joined(separator: " ")
         Task { await state.appleSignIn(identityToken: token, name: name.isEmpty ? nil : name) }
     }
+}
+
+/// The Terms or the Privacy Policy, opened from Welcome.
+private enum LegalDoc: String, Identifiable {
+    case terms, privacy
+    var id: String { rawValue }
+    var title: String { self == .terms ? "Terms of Use" : "Privacy Policy" }
+    var sections: [Legal.Section] { self == .terms ? Legal.terms : Legal.privacy }
 }
 
 #if DEBUG

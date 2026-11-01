@@ -169,9 +169,23 @@ final class AppState {
         signedIn = true
         await loadProfile()
         await loadCircle()
+        // If this phone already allows notifications, its token now belongs
+        // to this account.
+        await Push.shared.refresh()
     }
 
     func signOut() {
+        // This phone stops hearing from this account: the token goes, under
+        // the sign-in that registered it, before that sign-in is dropped.
+        if let push = Push.shared.token, let auth = api.token {
+            let api = self.api
+            Task.detached {
+                let _: Empty? = try? await api.send(
+                    "DELETE", "/me/push-token", json: ["token": push],
+                    headers: ["Authorization": "Bearer \(auth)"]
+                )
+            }
+        }
         api.token = nil
         api.circleId = nil
         signedIn = false
@@ -225,6 +239,28 @@ final class AppState {
             api.circleId = nil
         } catch {
             surface(error)
+        }
+    }
+
+    /// This phone's APNs token, for the notices this person has turned on.
+    /// Sent on every launch that has one; the server keeps one row per token.
+    func sendPushToken(_ token: String) async {
+        guard signedIn else { return }
+        let _: Empty? = try? await api.send(
+            "POST", "/me/push-token", json: ["token": token, "environment": Push.environment]
+        )
+    }
+
+    /// The organizer renames the circle on screen.
+    func renameCircle(_ name: String) async -> Bool {
+        guard let circle else { return false }
+        do {
+            let _: Empty = try await api.send("PATCH", "/circles/\(circle.id)", json: ["name": name])
+            await loadCircle()
+            return true
+        } catch {
+            surface(error)
+            return false
         }
     }
 

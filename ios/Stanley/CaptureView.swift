@@ -425,7 +425,7 @@ struct CaptureView: View {
                     : FilterRenderer.jpeg(shot.source, filter, crop: crop)
             }.value
             guard let jpeg else {
-                state.surface(APIError.message("That photo couldn't be prepared, and today is still open. Try again."))
+                state.surface(APIError.message(APIError.photoNotPosted))
                 uploading = false
                 return
             }

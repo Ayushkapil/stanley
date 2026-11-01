@@ -19,6 +19,10 @@ targets:
       path: Stanley/Stanley.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # Push (build 18). "development" here; exporting for TestFlight or the
+        # App Store re-signs it as production. Xcode's automatic signing turns
+        # Push Notifications on for the App ID the first time it builds this.
+        aps-environment: development
     info:
       path: Stanley/Info.plist
       properties:
@@ -30,7 +34,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "17"
+        CFBundleVersion: "18"
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to
@@ -40,11 +44,11 @@ targets:
         # Set for TestFlight builds to get crash visibility on other devices.
         STANLEY_SENTRY_DSN: ""
         NSCameraUsageDescription: >-
-          Stanley captures one photo a day, in the moment. The camera is the
-          only way in — there is no roll, no retakes.
+          Stanley uses the camera to take your photo for the day.
         NSPhotoLibraryAddUsageDescription: >-
-          Only ever to save a photo that could not be posted, so it isn't lost.
-          Stanley never reads your library — capture is in-app, in the moment.
+          Stanley saves a photo to your library only when it couldn't be posted,
+          so it isn't lost. Photos you choose to post come through Apple's photo
+          picker, which needs no access to your library.
         NSFaceIDUsageDescription: >-
           Stanley can lock itself behind Face ID so only you can open it.
         NSLocationWhenInUseUsageDescription: >-

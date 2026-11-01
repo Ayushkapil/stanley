@@ -45,10 +45,16 @@ guarded by tests; treat a change to any of them as a spec change.
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
-- **Notifications are almost nothing.** The only push that exists is the owner's
-  single LAST_LIGHT notice for their own photo (off by default). At most one
-  evening digest per day. No notification may carry a count, deadline, or
-  countdown. No round has added a new notification.
+- **Notifications are almost nothing.** Two exist, and both are **off until
+  the person turns them on** in Settings → Quiet: the owner's single
+  LAST_LIGHT notice for their own photo, and at most one evening digest a day
+  ("Something new from your circle today.", when someone else in one of
+  their circles posted). No notification may carry a count, deadline,
+  countdown, name or image. No round has added a new notification. Build 18
+  made them real pushes (APNs, `apns.py`) and, because of that, made the
+  digest opt-in (it had gone to everyone back when it was only logged). A
+  brief asking for "3 new moments today" was kept to words: the count would
+  break this rule.
 - **The subject wins on deletion.** Owner delete purges the image everywhere;
   anchorers keep an honest tombstone ("a memory was here") plus their own comment
   text only.
@@ -344,6 +350,40 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   floor and 6% in the card (Rain 3% and 4%: fog, barely there); the mood
   lives in the accent. Pilot users called build 10–15's colored dark floors
   "terrible" and "artificial". Ambient only; never affects function.
+- **Settings** (build 18), grouped the way iOS groups its own, every row in a
+  group: **Circle** (Name, editable by the organizer through `PATCH
+  /circles/{id}`; Members; **Invite Code**, one row opening its own page with
+  the code, Copy Code, Share Invite and, for the organizer, Reset Code behind
+  a confirmation; Join Another Circle; Leave Circle, red and last),
+  **Appearance**, **Quiet** (the two notices, with the reason there are so
+  few), **Privacy & Security** (Require Face ID, Export My Memories, and About
+  Your Account, a page with name, username and join date, then Sign Out and
+  Delete Account, one level down), and **About** (About Stanley, Terms of
+  Use, Privacy Policy, and the version, "Stanley 0.2.0 (18)", at the foot).
+- **Push** (build 18) — APNs directly, token auth (ES256 JWT, kept fifty
+  minutes) over HTTP/2 (`httpx[http2]`), `apns.py`. `Notifier` logs each
+  notice and hands it to the transport only **after the session commits**
+  (`after_commit` on the sessionmaker), so a pass that rolls back sends
+  nothing. `PushDelivery` sends to every phone the person signed in on
+  (`push_tokens`, one row per token, `production` or `sandbox`) and deletes a
+  token Apple calls dead (410, `BadDeviceToken`, `DeviceTokenNotForTopic`). A
+  failed push is logged and missed, never retried into a second one. Without
+  `APNS_KEY`/`APNS_KEY_ID`/`APNS_TEAM_ID` the notifier only logs. The app
+  (`Push.swift`, an `AppDelegate` for the token) asks for permission **when a
+  notice is turned on**, not at first launch, since both are off by default;
+  if iOS refuses, the switch goes back off and a row opens iOS Settings. With
+  permission, every launch and sign-in registers and sends the token (`POST
+  /me/push-token`); sign-out removes it (`DELETE /me/push-token`), and a
+  token follows whoever signed in on that phone last. Alerts are words only:
+  no sound, no badge, priority 5. Checked on the simulator with `simctl push`
+  of the server's own payload.
+- **Terms and Privacy** (build 18) — final copy, public at `/terms` and
+  `/privacy` (plain HTML, no scripts; the privacy URL is the one App Store
+  Connect wants) and shown natively from Settings and from Welcome ("By
+  signing in, you agree to the Terms of Use and the Privacy Policy", both
+  links). One source, `server/stanley/legal.py`; the app's `Legal.swift`
+  carries the same words and `test_legal.py` fails if they drift. About
+  Stanley is the product story in three paragraphs.
 - **Errors in Stanley's voice** — no status code, server `detail` string or
   system description ever reaches the screen. `APIError` maps every server
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
@@ -395,10 +435,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   counting. Each edition is its source's own pick, shown newest first. A
   failed fetch keeps the last good set; a set older than 6h is not served,
   and an empty tab says "No stories right now."
-  **Reading in place** (build 15): a card shows the headline, outlet and
-  time; a tap opens it where it is, with the full headline, the summary, and
-  a small "Read full article ↗" that opens `SFSafariViewController`. Several
-  can be open at once. A local story opens to its headline and the link.
+  **Reading in place** (build 15; build 18 for the two styles): a story with
+  a summary (PBS, the BBC) shows the headline, outlet and time, the summary
+  beneath, and a small "Read full article ↗" that opens
+  `SFSafariViewController`. A headline-only story (Google's local feed) is
+  the bold headline, the source line and "Read more ↗", the whole card a link,
+  with no empty space where a summary would be.
   Safari is presented by UIKit over whatever is on top (`StoryReader`): as a
   SwiftUI sheet, its Close forced a second dismissal that closed what was
   beneath it too. A quiet card at the top asks once for location ("News from
@@ -430,8 +472,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 17** (0.2.0) is committed but not archived; the archive below is
-  build 13's.
+- **Build 18** (0.2.0) is committed but not archived; the archive below is
+  build 13's. Build 18 adds the `aps-environment` entitlement, so the App ID
+  needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
+  if the archive complains).
 - **TestFlight build.** Build 13 (0.2.0) is archived and exported from
   `163ec6d` (it includes the gate sign-out), **not yet uploaded**. An earlier
   build 13 archive from `4a616da` was moved to the Trash. The archive is in Xcode's Organizer (`~/Library/Developer/Xcode/
@@ -467,12 +511,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   with real data (18 photos, 6 holds, nothing dangling) and in tests. Take a
   manual backup of the Fly volume's `stanley.db` before that deploy. Build
   17's app against an older server still works with one circle: `GET
-  /circles` 404s and it falls back to `/circles/mine`.
+  /circles` 404s and it falls back to `/circles/mine`. **Build 18's server**
+  adds `users.digest_enabled` (off for everyone, so nobody who didn't ask
+  gets a digest), the `push_tokens` table, `PATCH /circles/{id}`, `/terms`
+  and `/privacy`, and needs `h2` (in `pyproject.toml`, so the image build
+  picks it up). Against an older server, build 18's Quiet switches save
+  nothing new (the digest switch and token calls fail quietly) and the
+  organizer can't rename a circle.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
-- **APNs transport.** `Notifier` records every send to `NotificationLog` but the
-  transport hook is unset — the last-light notice and digest are logged, not
-  actually pushed. Wire APNs before the pilot relies on either.
+- **APNs key.** Push is built (build 18) but nothing is pushed until Fly has
+  `APNS_KEY`, `APNS_KEY_ID` and `APNS_TEAM_ID` from an APNs key made in the
+  Apple Developer portal. Steps in DEPLOY.md, "Setting up push". Not yet
+  sent to a real phone: the simulator shows the banner from the server's
+  payload, but Apple's side is untested until the key is in place.
 - **Off-box backups.** Daily local SQLite snapshots exist (keep 7); copying them
   off the box (cron + rclone/scp) is still manual.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
@@ -536,13 +588,19 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**270 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**296 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming,
-`new_account` on the first sign-in only (dev and Apple), multiple circles
+`new_account` on the first sign-in only (dev and Apple), push (both notices
+off until asked for, tokens registered, refused, moved between accounts and
+removed on sign-out and deletion, delivery only after commit, a failed
+delivery never failing the sweep, dead tokens dropped, the exact APNs
+request and signed provider token, logging only without a key), renaming a
+circle (organizer only), the Terms and Privacy pages (public, plain, and the
+same words as the app's), multiple circles
 (the day, the gap and the redo per circle, the per-circle UNIQUE, Today and
 capture follow the header and default to the first circle, a circle you're
 not in refused rather than swapped, five and no more, gestures across your
@@ -570,6 +628,7 @@ live APNs, concurrency under real load.
 - Config / secrets: `config.py`; clock abstraction: `clock.py`
 - Response shaping (payloads, mosaic, note, faces): `serialize.py`
 - Returned logic: `returned.py`; milestones: `milestones.py`; The World Today: `news.py`
+- Notifications policy: `notifications.py`; APNs: `apns.py`; Terms and Privacy copy: `legal.py`
 - Auth: `auth.py` (JWT), `apple.py` (SIWA verify)
 - Storage + signed URLs: `storage.py`; image pipeline: `images.py`; backups: `backup.py`
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,
@@ -592,7 +651,10 @@ live APNs, concurrency under real load.
   from Apple's geocoder), `WorldTodayView.swift` (the World tab, stories
   that open in place, Safari),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
-  milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`
+  milestones), `SettingsView.swift` (the five groups, invite code, circle
+  name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
+  Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`
+  (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share,
   `WideButton`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
