@@ -12,11 +12,14 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .. import physics
-from ..decay import TOMBSTONE, enqueue_purge, scrub
+from ..decay import TOMBSTONE, delete_comments, enqueue_purge, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
 from ..images import BadImage, process_avatar
 from ..milestones import milestone_payload, surface_due
-from ..models import Anchor, Block, Comment, Like, Membership, Milestone, Photo, PhotoTag, PushToken, Rest, User
+from ..models import (
+    Anchor, Block, Comment, CommunityNote, Like, Membership, Milestone, NotificationLog, Photo, PhotoTag,
+    PushToken, Rest, ReturnedLog, User,
+)
 from ..serialize import avatar_url, blocked_ids, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
@@ -340,8 +343,7 @@ def delete_account(
             if remaining == 0:
                 enqueue_purge(db, photo, now + TOMBSTONE)
 
-    for comment in db.scalars(select(Comment).where(Comment.author_id == user.id)).all():
-        db.delete(comment)
+    delete_comments(db, db.scalars(select(Comment).where(Comment.author_id == user.id)).all())
     # Likes the user gave on others' photos are withdrawn — their face must not
     # linger on anyone's owner-view once they're gone (it's ephemeral anyway).
     db.execute(delete(Like).where(Like.user_id == user.id))
@@ -360,10 +362,21 @@ def delete_account(
         db.delete(membership)
     # Nothing reaches their phones again.
     db.execute(delete(PushToken).where(PushToken.user_id == user.id))
+    # The note they left, what Stanley sent them and what it handed back.
+    db.execute(delete(CommunityNote).where(CommunityNote.author_id == user.id))
+    db.execute(delete(NotificationLog).where(NotificationLog.user_id == user.id))
+    db.execute(delete(ReturnedLog).where(ReturnedLog.user_id == user.id))
 
     if user.avatar_key:
         storage.delete(user.avatar_key)
+    # What's left is a bare row for tombstones and reports to point at:
+    # nothing that says who it was (the Privacy Policy, build 18).
     user.display_name = None
+    user.username = None
+    user.bio = None
     user.apple_sub = None
     user.avatar_key = None
+    user.tz_last_seen = None
+    user.last_light_notice_enabled = False
+    user.digest_enabled = False
     user.deleted_at = now

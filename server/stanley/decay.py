@@ -9,12 +9,12 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from . import physics
 from .clock import Clock
-from .models import Anchor, Comment, DecayAudit, Like, Photo, PhotoTag, PurgeQueueItem
+from .models import Anchor, Comment, DecayAudit, Like, Photo, PhotoTag, PurgeQueueItem, Report
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
 
@@ -82,6 +82,21 @@ def owner_hash_for(user_id: str) -> str:
     return hashlib.sha256(user_id.encode()).hexdigest()
 
 
+def delete_comments(session: Session, comments) -> None:
+    """Delete stories. A report about one outlives it, so it can still be
+    reviewed, but it points at the photo instead of at words that are gone.
+    (It used to keep pointing at the story, which foreign keys refused: a
+    reported story stopped its photo, its purge and its author's account
+    from ever being deleted.)"""
+    for comment in comments:
+        session.execute(
+            update(Report)
+            .where(Report.comment_id == comment.id)
+            .values(comment_id=None, photo_id=func.coalesce(Report.photo_id, comment.photo_id))
+        )
+        session.delete(comment)
+
+
 def scrub(
     session: Session,
     storage: BlobStore,
@@ -117,17 +132,14 @@ def scrub(
         anchorer_ids = set(
             session.scalars(select(Anchor.user_id).where(Anchor.photo_id == photo.id)).all()
         )
-        for comment in session.scalars(
-            select(Comment).where(Comment.photo_id == photo.id)
-        ).all():
-            if comment.author_id not in anchorer_ids:
-                session.delete(comment)
+        delete_comments(session, [
+            comment
+            for comment in session.scalars(select(Comment).where(Comment.photo_id == photo.id)).all()
+            if comment.author_id not in anchorer_ids
+        ])
         photo.deleted_at = now
     else:
-        for comment in session.scalars(
-            select(Comment).where(Comment.photo_id == photo.id)
-        ).all():
-            session.delete(comment)
+        delete_comments(session, session.scalars(select(Comment).where(Comment.photo_id == photo.id)).all())
         if photo.owner_id is not None:
             photo.owner_hash = owner_hash_for(photo.owner_id)
             photo.owner_id = None
