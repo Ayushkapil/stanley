@@ -240,7 +240,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   since build 17) is *your own* state only (filled if you
   liked it), never a signal to anyone else and never a number. Since build 12
   it is also a button, because real users reached for it, and a tap does what
-  a double-tap does.
+  a double-tap does. A double-tap that likes plays a white heart in the
+  middle of the photo, 0.8 → 1.2 → 1 in half a second and then faded out,
+  like Instagram's (build 18; Reduce Motion drops the scale). It used to wash
+  the whole photo pink, which pilot users found strange; the photo is never
+  tinted now. A tap on the corner heart only fills it, and a double-tap on a
+  photo already liked unlikes it without the pop.
 - **Gesture icon size** — the heart and the bookmark share one size,
   `GestureIcon`: a 22pt glyph (about 24pt tall, roughly 40% up from build 11)
   inside a 44pt target, through `@ScaledMetric` so it follows Dynamic Type.

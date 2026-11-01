@@ -402,13 +402,19 @@ enum GestureIcon {
     static let target: CGFloat = 44
 }
 
+/// Where the double-tap heart is in its pop. At rest it's unseen.
+private struct HeartPop {
+    var scale: CGFloat = 0.8
+    var opacity: Double = 0
+}
+
 /// A photo as a print on the page: `PhotoShape`, rounded alike at every
 /// corner, the photo the whole of it. The poster's name and the time are
 /// written small in its bottom-left corner, and the heart and the bookmark
 /// sit in the bottom-right. Its gestures: double-tap to like (ephemeral, a
-/// heart), press-and-hold to hold (permanent, a bookmark). Color deepens
-/// under the thumb while held, with a soft settle on commit — never
-/// applause. Reused by standalone photos, the prints in a shared moment and
+/// white heart that pops in the middle and is gone), press-and-hold to hold
+/// (permanent, a bookmark). Color deepens under the thumb while held, with a
+/// soft settle on commit — never applause. Reused by standalone photos, the prints in a shared moment and
 /// a photo's stories.
 struct PhotoImageView: View {
     @Environment(AppState.self) private var state
@@ -422,7 +428,9 @@ struct PhotoImageView: View {
 
     @State private var holdProgress: Double = 0
     @State private var settleScale: CGFloat = 1
-    @State private var likeGlow: Double = 0
+    /// Bumped by a double-tap that likes, to play the heart once.
+    @State private var heartPops = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var glyph = GestureIcon.glyph
 
     private var fade: Double {
@@ -444,12 +452,7 @@ struct PhotoImageView: View {
                 .saturation(1.0 - 0.85 * fade)
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))
-                .overlay(
-                    shape
-                        .fill(Color.pink.opacity(0.40 * likeGlow))
-                        .blendMode(.plusLighter)
-                        .allowsHitTesting(false)
-                )
+                .overlay { likeHeart }
                 .overlay(alignment: .bottomLeading) {
                     if byline { name }
                 }
@@ -467,7 +470,7 @@ struct PhotoImageView: View {
                 }
                 .scaleEffect(settleScale)
                 .contentShape(Rectangle())
-                .onTapGesture(count: 2) { like() }
+                .onTapGesture(count: 2) { doubleTap() }
                 .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 30) {
                     hold()
                 } onPressingChanged: { pressing in
@@ -593,10 +596,42 @@ struct PhotoImageView: View {
         Task { await state.hold(photo) }
     }
 
+    /// A double-tap that likes plays the heart. On a photo already liked it
+    /// unlikes, as the corner heart does, and only the corner heart says so.
+    private func doubleTap() {
+        if !photo.likedByMe { heartPops += 1 }
+        like()
+    }
+
     private func like() {
-        withAnimation(.easeOut(duration: 0.18)) { likeGlow = 1 }
-        withAnimation(.easeIn(duration: 0.5).delay(0.18)) { likeGlow = 0 }
         Task { await state.toggleLike(photo) }
+    }
+
+    /// The double-tap heart: white, in the middle of the photo, up from 0.8
+    /// to 1.2 and back to 1 in half a second, then faded out. The photo
+    /// itself is never tinted. Still, without the scale, under Reduce Motion.
+    private var likeHeart: some View {
+        Image(systemName: "heart.fill")
+            .font(.system(size: 80))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.25), radius: 8)
+            .keyframeAnimator(
+                initialValue: HeartPop(scale: reduceMotion ? 1 : 0.8), trigger: heartPops
+            ) { heart, pop in
+                heart.scaleEffect(pop.scale).opacity(pop.opacity)
+            } keyframes: { _ in
+                KeyframeTrack(\.scale) {
+                    CubicKeyframe(reduceMotion ? 1 : 1.2, duration: 0.2)
+                    CubicKeyframe(1, duration: 0.3)
+                }
+                KeyframeTrack(\.opacity) {
+                    LinearKeyframe(1, duration: 0.08)
+                    LinearKeyframe(1, duration: 0.42)
+                    LinearKeyframe(0, duration: 0.2)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
