@@ -70,6 +70,11 @@ class Settings:
     def apns_configured(self) -> bool:
         return bool(self.apns_key and self.apns_key_id and self.apns_team_id and self.apns_topic)
 
+    # Reports (build 18): where to say "a report is waiting", for the person
+    # who runs Stanley. An ntfy.sh topic URL, or anything that takes a
+    # plain-text POST (`alerts.py`). Unset, a report is only logged.
+    report_webhook_url: str | None = field(default_factory=lambda: _env_opt("REPORT_WEBHOOK_URL"))
+
     # Blob storage backend (Part 3). "local" (disk) or "r2" (S3-compatible).
     blob_backend: str = field(default_factory=lambda: _env("BLOB_BACKEND", "local"))
     blob_r2_endpoint: str | None = field(default_factory=lambda: _env_opt("BLOB_R2_ENDPOINT"))

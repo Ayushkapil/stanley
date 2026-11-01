@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from stanley import decay, news
+from stanley import alerts, decay, news
 from stanley.auth import issue_token
 from stanley.clock import FakeClock
 from stanley.config import Settings
@@ -213,6 +213,21 @@ def no_news_feeds(monkeypatch):
     assert not tried, f"a test tried to fetch {tried}"
 
 
+@pytest.fixture(autouse=True)
+def no_report_webhook(monkeypatch):
+    """Nothing in the suite reaches ntfy. A test that turns the report
+    webhook on stands in its own sender; one that forgets fails here."""
+    tried = []
+
+    def refuse(url, body):
+        tried.append(url)
+        raise OSError("the tests don't reach the network")
+
+    monkeypatch.setattr(alerts, "_post", refuse)
+    yield
+    assert not tried, f"a test tried to reach {tried}"
+
+
 @pytest.fixture
 def app(tmp_path, clock):
     settings = Settings(
@@ -223,6 +238,7 @@ def app(tmp_path, clock):
         run_sweeper=False,
         # Off unless a test turns it on.
         news_enabled=False,
+        report_webhook_url=None,
     )
     return create_app(settings, clock=clock)
 

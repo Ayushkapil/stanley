@@ -59,6 +59,7 @@ pushed):
 | `APNS_KEY_ID` | The key's 10-character Key ID. |
 | `APNS_TEAM_ID` | The Apple Developer team id (Stanley's is `6P882KH9CZ`, the `DEVELOPMENT_TEAM` in `ios/project.yml`). |
 | `APNS_TOPIC` | Optional. The app's bundle id; defaults to `APPLE_BUNDLE_ID`. |
+| `REPORT_WEBHOOK_URL` | Optional. Where to say "A report is waiting for review" when someone files a report: an ntfy.sh topic URL (see "Report alerts" below). Unset, reports are only logged. |
 
 ### Setting up push (APNs) — required before notices reach phones
 
@@ -96,6 +97,37 @@ note when their circle has posted (at most one a day, no count, no names).
 Apple answers a dead token (app deleted, notifications turned off for good)
 with 410 or `BadDeviceToken`; the server deletes that token. Any other failure
 is logged and the notice is simply missed; nothing retries into a second push.
+
+### Report alerts (ntfy) — so the 24-hour promise isn't a daily chore
+
+The Terms promise every report is read within a day. Each report logs a
+warning (`A report is waiting for review: <id>`), and with
+`REPORT_WEBHOOK_URL` set it also POSTs that one line, and nothing else, to a
+URL (`stanley/alerts.py`): no reporter, no photo, no reason. ntfy.sh is free
+and needs no account.
+
+1. **Pick a topic name nobody could guess.** Anyone who knows an ntfy topic's
+   name can read it, so the name is the secret:
+
+   ```bash
+   python3 -c "import secrets; print('stanley-reports-' + secrets.token_hex(12))"
+   ```
+
+2. **Subscribe on your phone.** Install **ntfy** from the App Store, tap
+   **+**, and subscribe to that topic name on the default server (ntfy.sh).
+3. **Give the server the URL** (from `server/`):
+
+   ```bash
+   fly secrets set REPORT_WEBHOOK_URL=https://ntfy.sh/stanley-reports-<your suffix>
+   ```
+
+4. **Check it.** Report a photo from a test account; the phone shows
+   "Stanley: A report is waiting for review". Then read the report itself on
+   the machine (`fly ssh console`, the `reports` table).
+
+The alert goes out after the report is saved and the response sent; if ntfy
+is slow or down, the report is unaffected and the failure is logged (without
+the URL).
 
 Cloudflare R2 (optional — only when `BLOB_BACKEND=r2`):
 `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, `BLOB_R2_ACCESS_KEY`, `BLOB_R2_SECRET_KEY`.
@@ -188,6 +220,9 @@ so snapshots are consistent while the app runs.
 - [ ] Push: `APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID` set and Push Notifications
       enabled on the app id (see "Setting up push" above). Without them the two
       notices are logged and never reach a phone.
+- [ ] Reports reach you: `REPORT_WEBHOOK_URL` set to your ntfy topic and the
+      ntfy app subscribed to it (see "Report alerts" above). Without it, check
+      the logs or the `reports` table every day.
 - [ ] The Privacy Policy is public at `https://<host>/privacy` (and the Terms at
       `/terms`); that URL goes in App Store Connect → App Privacy.
 - [ ] News: after deploy, the logs show `news refreshed: 12 stories for

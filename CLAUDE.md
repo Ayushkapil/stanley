@@ -551,15 +551,21 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   rather than by a missing log line. **Not yet deployed:** the full Terms
   and Privacy Policy, the deletion fixes, and what the app's Report, Block
   and Delete need (`GET /blocks`, `retake_on_delete`, the report log line
-  and scope); against v11 the Blocked list fails quietly and Delete's alert
-  leaves out the day. Delete the pre-build-18
+  and scope, the ntfy alert); against v11 the Blocked list fails quietly
+  and Delete's alert leaves out the day. Delete the pre-build-18
   snapshot (both copies) by 2026-11-08, or the policy's "gone from our
   backups within seven days" stops being true.
-- **Reports alert nobody but the logs.** Each report is a WARNING line in
-  `fly logs`; nothing reaches a phone or an inbox. The Terms promise review
-  within 24 hours, so until something tells you, read the `reports` table
-  (or the logs) every day. Not yet seen on a device: Remove Me from This
-  Photo (no dev photo tags the dev account; the server path is tested).
+- **Report alerts need the topic on Fly.** Each report is a WARNING line in
+  `fly logs` and, with `REPORT_WEBHOOK_URL` set, one POST of "A report is
+  waiting for review" to an ntfy.sh topic the operator's phone subscribes to
+  (`alerts.py`, build 18; DEPLOY.md, "Report alerts"). The line is fixed: no
+  reporter, photo or reason, so ntfy receives no one's data and the Privacy
+  Policy has nothing to add. It's sent as a background task after the commit
+  and the response; a failure is logged without the URL (the topic name is
+  the secret) and never touches the report. Not set on Fly yet, and not yet
+  sent to the real ntfy.sh (checked against a local server). Not yet seen on
+  a device: Remove Me from This Photo (no dev photo tags the dev account;
+  the server path is tested).
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs.** Configured on Fly (v11): `APNS_KEY` (the `.p8`, key ID
@@ -633,7 +639,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**304 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**309 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -650,7 +656,10 @@ same words as the app's, every numbered section present), account deletion
 deletion, its purge nor its author's account deletion), the app's safety
 controls (your own blocks listed and never who blocked you, the owner alone
 told whether deleting gives the day back, no reporting a story you couldn't
-have read), multiple circles
+have read), report alerts (one fixed line after the commit, nothing without a
+URL or for a refused report, a failing webhook never costing the report, the
+URL never logged, and an autouse guard failing any test that would reach
+ntfy), multiple circles
 (the day, the gap and the redo per circle, the per-circle UNIQUE, Today and
 capture follow the header and default to the first circle, a circle you're
 not in refused rather than swapped, five and no more, gestures across your
@@ -678,7 +687,7 @@ live APNs, concurrency under real load.
 - Config / secrets: `config.py`; clock abstraction: `clock.py`
 - Response shaping (payloads, mosaic, note, faces): `serialize.py`
 - Returned logic: `returned.py`; milestones: `milestones.py`; The World Today: `news.py`
-- Notifications policy: `notifications.py`; APNs: `apns.py`; Terms and Privacy copy: `legal.py`
+- Notifications policy: `notifications.py`; APNs: `apns.py`; report alerts (ntfy): `alerts.py`; Terms and Privacy copy: `legal.py`
 - Auth: `auth.py` (JWT), `apple.py` (SIWA verify)
 - Storage + signed URLs: `storage.py`; image pipeline: `images.py`; backups: `backup.py`
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,

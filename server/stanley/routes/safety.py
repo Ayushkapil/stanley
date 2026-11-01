@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import alerts
 from ..deps import (
     get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
 )
@@ -31,9 +32,11 @@ class BlockBody(BaseModel):
 @router.post("/reports", status_code=201)
 def report(
     body: ReportBody,
+    background: BackgroundTasks,
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
+    settings=Depends(get_settings),
 ):
     """§15: report with a 24h human-review takedown commitment (App Review
     Guideline 1.2). Pilot-stage review is manual."""
@@ -62,6 +65,10 @@ def report(
     # A warning, so it shows in the host's logs (the app's INFO lines don't):
     # the 24-hour promise starts now. Nothing about who or what.
     log.warning("A report is waiting for review: %s", row.id)
+    # And to a phone, if there's somewhere to say it: after the commit and
+    # the response, with nothing in it but that one line (`alerts.py`).
+    if settings.report_webhook_url:
+        background.add_task(alerts.report_waiting, settings.report_webhook_url)
     return {"id": row.id, "review_within_hours": 24}
 
 
