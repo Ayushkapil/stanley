@@ -490,41 +490,29 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   simulator camera stand-in. `STANLEY_SENTRY_DSN` is empty, so this build
   has no crash reporting. To ship, use Organizer → Distribute App → TestFlight
   & App Store, or Transporter with the IPA.
-- **Fly deploys.** Release v7 (2026-10-30 21:43 UTC) runs the server as of
-  `0f07d54`: filters, commit-before-response, `UNNAMED`, the digest wording,
-  and the NewsAPI version of the World Today, which never fetched because
-  `NEWS_API_KEY` was never set. The news changes of builds 14 and 15 need
-  `fly deploy` from `server/`. No secret. On startup `ensure_schema` drops
-  `news_cache` and `create_all` adds `news_editions`; PBS then fills within
-  seconds (`news refreshed: 12 stories for national:us` in the logs). Fly's
-  outbound HTTPS to news.google.com was checked from the machine (200);
-  pbs.org and feeds.bbci.co.uk were checked from this Mac only. Build 15's
-  app also calls `/news/nearby`, which v7 doesn't have: against v7 the World
-  tab shows nothing at all, so deploy before testers get build 15. Build
-  16's server change is one field, `new_account` on sign-in; without it a
-  new account that Apple gave a name skips setup and goes straight to the
-  circle gate, as before. **Build 17's server** is multiple circles, and on
-  first startup `ensure_schema` **rebuilds the photos table** to make the
-  day's slot per circle (`_rebuild_photos`: SQLite's documented rebuild in
-  one transaction, foreign keys checked before it commits; on failure
-  nothing changes and the slot stays per person). Run on the dev database
-  with real data (18 photos, 6 holds, nothing dangling) and in tests. Take a
-  manual backup of the Fly volume's `stanley.db` before that deploy. Build
-  17's app against an older server still works with one circle: `GET
-  /circles` 404s and it falls back to `/circles/mine`. **Build 18's server**
-  adds `users.digest_enabled` (off for everyone, so nobody who didn't ask
-  gets a digest), the `push_tokens` table, `PATCH /circles/{id}`, `/terms`
-  and `/privacy`, and needs `h2` (in `pyproject.toml`, so the image build
-  picks it up). Against an older server, build 18's Quiet switches save
-  nothing new (the digest switch and token calls fail quietly) and the
-  organizer can't rename a circle.
+- **Fly deploys.** Release **v11** (2026-11-01 16:27 UTC) runs the server as
+  of `fd6a50b`, build 18: everything above, including multiple circles,
+  push, `/terms` and `/privacy`. Before it, v10 was a build 16-or-earlier
+  server (`/terms` 404, `GET /circles` 405). On v11's first startup
+  `ensure_schema` rebuilt the photos table, making the day's slot per
+  circle (`_rebuild_photos`). Afterwards it was checked on the machine:
+  the slot per circle, `push_tokens`, `users.digest_enabled`, integrity
+  ok, no foreign-key problems, 4 photos and 3 users intact. The snapshot
+  taken just before is `/data/pre-build18.db` on the volume and
+  `server/var/fly-backups/pre-build18-20261101.db` here (gitignored). The
+  app's own INFO lines (news, APNs) don't appear in `fly logs` under
+  uvicorn's logging, so check state on the machine (`fly ssh console`)
+  rather than by a missing log line.
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
-- **APNs key.** Push is built (build 18) but nothing is pushed until Fly has
-  `APNS_KEY`, `APNS_KEY_ID` and `APNS_TEAM_ID` from an APNs key made in the
-  Apple Developer portal. Steps in DEPLOY.md, "Setting up push". Not yet
-  sent to a real phone: the simulator shows the banner from the server's
-  payload, but Apple's side is untested until the key is in place.
+- **APNs.** Configured on Fly (v11): `APNS_KEY` (the `.p8`, key ID
+  `YBN4J996KV`, kept at `~/Documents/AuthKey_YBN4J996KV.p8`),
+  `APNS_KEY_ID`, `APNS_TEAM_ID` (`6P882KH9CZ`); the topic falls back to
+  `APPLE_BUNDLE_ID`. Checked from the machine with a made-up device token:
+  Apple answers `400 BadDeviceToken` over HTTP/2 in **both production and
+  sandbox**, so the key is accepted for TestFlight and for Xcode builds
+  alike (a bad key would get `403 InvalidProviderToken`). Not yet delivered
+  to a real phone.
 - **Off-box backups.** Daily local SQLite snapshots exist (keep 7); copying them
   off the box (cron + rclone/scp) is still manual.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
