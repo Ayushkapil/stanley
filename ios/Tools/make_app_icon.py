@@ -1,70 +1,124 @@
 #!/usr/bin/env python
 """Generate Stanley's app icon into Assets.xcassets/AppIcon.appiconset.
 
-The icon is the sun that the Today tab already uses, in the warm end of the
-seasonal palette from `Atmosphere.swift`: one light, drawn as an outline so it
-reads as a mark rather than a blob. Everything is drawn once at 4x and
-downsampled, so the stroke stays even at 20pt.
+The icon is a bookmark drawn in ink on paper (build 23): the classic ribbon
+with a V cut from its foot, the mark of the hold gesture, sketched as one
+thin pen line on the journal's cream (#F6F0E4, Auto's light floor) in a
+dark brown ink (#3B2F25). It is an outline, never a fill, drawn a little
+off true the way a hand draws, with a lighter crease across the top where
+the ribbon folds over the page. Everything is drawn once at 4x and
+downsampled, so the line stays even at 20pt. The wobble comes from a fixed
+seed, so running this again writes the same bytes.
 
-Usage (any Python with Pillow):
-    python ios/Tools/make_app_icon.py
+Usage (any Python with Pillow; the server's venv has it):
+    server/.venv/bin/python ios/Tools/make_app_icon.py
 """
 from __future__ import annotations
 
 import json
 import math
 import os
+import random
 
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "Stanley", "Assets.xcassets", "AppIcon.appiconset")
 
-# Atmosphere.swift, warm → fall: the amber the app already tints itself with.
-TOP = (242, 178, 74)
-BOTTOM = (191, 92, 44)
+PAPER = (246, 240, 228)   # #F6F0E4, the journal's cream
+INK = (59, 47, 37)        # #3B2F25, a dark brown pen
 
-SS = 4096           # supersampled canvas; the master is 1024
+SS = 4096                 # supersampled canvas; the master is 1024
 MASTER = 1024
+K = SS // MASTER
 # Exactly the sizes Contents.json references — no orphans for the asset
 # compiler to warn about.
 SIZES = [1024, 180, 120, 87, 80, 60, 58, 40]
 
+# The ribbon, in 1024 units: a band 360 wide from y=206 to 838 with a notch
+# 106 deep, set a touch below centre so the notch's missing weight doesn't
+# leave it sitting high. Well inside the corners iOS rounds off.
+LEFT, RIGHT = 332, 692
+TOP, BOTTOM = 206, 838
+NOTCH = (512, 732)
+STROKE = 24               # a fineliner: 4px on a 60pt icon at 3x, under 1px at 20pt
+CREASE_Y = TOP + 84
 
-def gradient(size: int) -> Image.Image:
-    """A soft corner-to-corner wash. Built tiny and scaled up — a gradient is
-    exactly the thing that survives interpolation perfectly, and 16M per-pixel
-    Python operations is exactly the thing that does not."""
-    small = Image.new("RGB", (64, 64))
-    px = small.load()
-    for y in range(64):
-        for x in range(64):
-            t = (x + y) / 126.0
-            px[x, y] = tuple(round(TOP[i] + (BOTTOM[i] - TOP[i]) * t) for i in range(3))
-    return small.resize((size, size), Image.BICUBIC)
+# One seed, so the hand draws the same lines every time.
+rng = random.Random(7)
 
 
-def draw_sun(img: Image.Image) -> None:
-    d = ImageDraw.Draw(img)
-    c = SS / 2
-    stroke = 176          # 44pt at 1024 — heavy enough to hold at 20pt
-    radius = 760
-    ray_in, ray_out = 1060, 1470
-    white = (255, 255, 255)
+def wander(amp: float):
+    """A smooth, small sideways drift along a stroke: two slow sines with
+    seeded phases, so no two edges wander the same way."""
+    f1, f2 = rng.uniform(0.6, 1.3), rng.uniform(2.0, 3.4)
+    p1, p2 = rng.uniform(0, math.tau), rng.uniform(0, math.tau)
+    a2 = amp * rng.uniform(0.2, 0.35)
+    return lambda t: (amp * math.sin(math.tau * f1 * t + p1)
+                      + a2 * math.sin(math.tau * f2 * t + p2))
 
-    d.ellipse([c - radius, c - radius, c + radius, c + radius],
-              outline=white, width=stroke)
 
-    cap = stroke / 2
-    for i in range(8):
-        a = math.radians(i * 45)
-        dx, dy = math.cos(a), math.sin(a)
-        x0, y0 = c + dx * ray_in, c + dy * ray_in
-        x1, y1 = c + dx * ray_out, c + dy * ray_out
-        d.line([x0, y0, x1, y1], fill=white, width=stroke)
-        # Pillow has no round line caps; add them.
-        for x, y in ((x0, y0), (x1, y1)):
-            d.ellipse([x - cap, y - cap, x + cap, y + cap], fill=white)
+def stroke(d: ImageDraw.ImageDraw, p0, p1, width: float, color,
+           amp: float = 1.8, overshoot=(3.5, 3.5)) -> None:
+    """One pen stroke from p0 to p1 (1024 units), drawn at SS. It runs a
+    little past each end as a hand's does, thinning as the pen lifts, drifts
+    sideways by up to `amp`, and thickens and thins by about a tenth along
+    the way. Round joints make it one line."""
+    (x0, y0), (x1, y1) = p0, p1
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    ux, uy = dx / length, dy / length      # along the stroke
+    nx, ny = -uy, ux                       # across it
+    o0 = rng.uniform(0.4, 1.0) * overshoot[0]
+    o1 = rng.uniform(0.4, 1.0) * overshoot[1]
+    drift = wander(amp)
+    wf, wp = rng.uniform(0.8, 1.6), rng.uniform(0, math.tau)
+
+    steps = max(24, int(length / 4))
+    pts = []
+    for i in range(steps + 1):
+        t = i / steps
+        s = -o0 + t * (length + o0 + o1)   # distance along, past both ends
+        w = drift(t)
+        x = (x0 + ux * s + nx * w) * K
+        y = (y0 + uy * s + ny * w) * K
+        thick = width * (1 + 0.1 * math.sin(math.tau * wf * t + wp)) * K
+        # The pen lands and lifts: half width at the very ends, full by 6%.
+        edge = min(t, 1 - t)
+        if edge < 0.06:
+            thick *= 0.5 + 0.5 * (edge / 0.06)
+        pts.append((x, y, thick))
+
+    for (xa, ya, wa), (xb, yb, wb) in zip(pts, pts[1:]):
+        d.line([xa, ya, xb, yb], fill=color, width=int(round((wa + wb) / 2)))
+    for x, y, w in pts:
+        # Pillow has no round joints; add them.
+        r = w / 2
+        d.ellipse([x - r, y - r, x + r, y + r], fill=color)
+
+
+def draw_bookmark(img: Image.Image) -> None:
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+
+    # The crease first, lighter and thinner, a touch off level; the outline
+    # goes over it, since drawing replaces pixels rather than blending.
+    crease = INK + (104,)
+    stroke(d, (LEFT, CREASE_Y + 3), (RIGHT, CREASE_Y - 3), STROKE * 0.5, crease,
+           amp=1.2, overshoot=(0, 0))
+
+    # Around the ribbon, one edge per stroke, the pen lifting at each corner.
+    # The two edges that meet at the notch barely run past it, so the apex
+    # stays a point rather than a little cross.
+    ink = INK + (236,)
+    tl, tr, br, bl = (LEFT, TOP), (RIGHT, TOP), (RIGHT, BOTTOM), (LEFT, BOTTOM)
+    stroke(d, tl, tr, STROKE, ink)
+    stroke(d, tr, br, STROKE, ink)
+    stroke(d, br, NOTCH, STROKE, ink, overshoot=(3.5, 1.0))
+    stroke(d, NOTCH, bl, STROKE, ink, overshoot=(1.0, 3.5))
+    stroke(d, bl, tl, STROKE, ink)
+
+    img.alpha_composite(layer)
 
 
 def contents_json() -> dict:
@@ -88,8 +142,8 @@ def contents_json() -> dict:
 
 def main() -> None:
     os.makedirs(OUT, exist_ok=True)
-    big = gradient(SS)
-    draw_sun(big)
+    big = Image.new("RGBA", (SS, SS), PAPER + (255,))
+    draw_bookmark(big)
     master = big.resize((MASTER, MASTER), Image.LANCZOS).convert("RGB")
 
     for size in SIZES:

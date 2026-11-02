@@ -920,6 +920,13 @@ live APNs, concurrency under real load.
   link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
 - Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
+- App icon: `ios/Tools/make_app_icon.py` draws it and writes every size into
+  the asset catalog (run with the server's venv, which has Pillow). Since
+  build 23 it's a bookmark, the hold's own mark, sketched as one thin pen
+  line in dark brown ink (#3B2F25) on the journal's cream (#F6F0E4): an
+  outline, never a fill, a little off true as a hand draws, with a lighter
+  crease across the top. The wobble is seeded, so a rerun writes the same
+  bytes. It was a white sun on amber.
 
 ## Working with this repo
 
