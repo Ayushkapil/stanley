@@ -14,7 +14,11 @@ import UIKit
 /// Laid out like composing a memory rather than filling in a form: the photo
 /// first and largest, where it was right under it, its looks beneath that,
 /// then the words and who was there, and one wide button at the foot of the
-/// sheet that is always within reach.
+/// sheet that is always within reach. Since build 21 it's a page of the
+/// journal like the rest: the photo a print on photo paper, and the place and
+/// the words written by hand on ruled lines rather than typed into boxes.
+/// With today's photo already posted in this circle, the sheet says so, warmly,
+/// instead of offering a camera whose photo would be refused.
 struct CaptureView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
@@ -52,18 +56,23 @@ struct CaptureView: View {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
     }
 
-    private static let corner: CGFloat = 20
+    /// The print's border of photo paper around the frame.
+    private static let border: CGFloat = 8
 
-    /// The photo's frame in the sheet, before the shutter and after it:
-    /// `PhotoShape`, the shape of every photo in Today, as wide as the sheet
-    /// allows and no taller than `capturePhotoMaxHeight`, so the place and
-    /// the looks beneath it are in view without scrolling, even on the Duo's
-    /// cover. Centered when the height is what limits it.
+    /// The photo's frame in the sheet, before the shutter and after it: a
+    /// print, `PhotoShape` inside its paper border, the shape of every photo
+    /// in Today, as wide as the sheet allows and no taller than
+    /// `capturePhotoMaxHeight`, so the place and the looks beneath it are in
+    /// view without scrolling, even on the Duo's cover. Centered when the
+    /// height is what limits it. The border is outside the frame, so the
+    /// frame, which is the crop, stays exactly 3:4. Never tilted: it's being
+    /// framed by hand.
     private func photoFrame<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         let maxHeight = density.capturePhotoMaxHeight
         return content()
             .aspectRatio(PhotoShape.aspect, contentMode: .fit)
-            .frame(maxWidth: maxHeight * PhotoShape.aspect)
+            .asPrint(border: Self.border)
+            .frame(maxWidth: maxHeight * PhotoShape.aspect + 2 * Self.border)
             .frame(maxWidth: .infinity)
     }
 
@@ -74,11 +83,13 @@ struct CaptureView: View {
                     if let shot {
                         preview(shot)
                         placeLine
-                            .padding(.top, 12)
-                        FilterPills(selection: $filter)
                             .padding(.top, 14)
+                        FilterPills(selection: $filter)
+                            .padding(.top, 16)
                         details
-                            .padding(.top, 22)
+                            .padding(.top, 24)
+                    } else if let mine = state.sharedToday {
+                        sharedPage(mine)
                     } else {
                         waiting
                     }
@@ -97,7 +108,7 @@ struct CaptureView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Not now") { dismiss() }
+                    Button(spent ? "Done" : "Not now") { dismiss() }
                 }
                 // Each circle has its own day, so with more than one, the
                 // sheet says whose day this photo is.
@@ -140,11 +151,13 @@ struct CaptureView: View {
     /// the day's prompt, and the rule in a line beneath. Tapping the frame
     /// opens the camera, the same as the button.
     private var waiting: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 22) {
             Button(action: openCamera) {
                 photoFrame {
-                    Color.clear
-                        .cardSurface(corner: Self.corner)
+                    // A print not yet developed: the paper, a shade deeper.
+                    Rectangle()
+                        .fill(.primary.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
                         .overlay {
                             VStack(spacing: 16) {
                                 if opening {
@@ -156,21 +169,20 @@ struct CaptureView: View {
                                 }
                                 // The day's prompt — a whisper, not an instruction (Part 1).
                                 Text(DailyPrompt.forToday())
-                                    .font(.callout)
-                                    .italic()
+                                    .font(.hand(20, relativeTo: .callout))
                                     .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 24)
                             }
                         }
-                        .contentShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+                        .contentShape(Rectangle())
                 }
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open the camera")
             VStack(spacing: 6) {
                 Text("One photo. This is today's.")
-                    .font(.headline)
+                    .font(.hand(24, bold: true, relativeTo: .title3))
                 Text("From the camera or your library. It fades in six days unless someone keeps it.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -178,6 +190,43 @@ struct CaptureView: View {
             }
         }
     }
+
+    /// Today's photo is already posted in this circle. The day is doing what
+    /// it does, so it's said warmly, with the photo itself, rather than
+    /// refused after a new one has been framed and written up.
+    private func sharedPage(_ photo: Photo) -> some View {
+        VStack(spacing: 26) {
+            Color.clear
+                .aspectRatio(PhotoShape.aspect, contentMode: .fit)
+                .frame(width: 150)
+                .overlay {
+                    if let urls = photo.urls, let url = state.api.absoluteURL(urls.thumb) {
+                        SignedImage(url: url) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(.quaternary)
+                        }
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
+                .asPrint(border: 6, tilt: -2.5)
+                .padding(.top, 30)
+                .accessibilityLabel("Today's photo")
+            VStack(spacing: 10) {
+                Text("Today's moment is out there.")
+                    .font(.hand(30, bold: true, relativeTo: .title2))
+                    .multilineTextAlignment(.center)
+                Text("Come back tomorrow.")
+                    .font(.hand(22, relativeTo: .title3))
+                    .foregroundStyle(.secondary)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Today's photo is posted here and nothing new is being framed.
+    private var spent: Bool { shot == nil && state.sharedToday != nil }
 
     /// Where it was, right under the photo, where pilot users looked for it
     /// (on the card below the looks it was out of sight on the Duo's cover).
@@ -195,8 +244,10 @@ struct CaptureView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.accentColor)
                         .frame(width: 22)
+                    // Written under the print, the way a place is on an
+                    // album page.
                     Text(location.isEmpty ? "Add a place" : location)
-                        .font(.subheadline.weight(location.isEmpty ? .regular : .semibold))
+                        .font(.hand(21, bold: !location.isEmpty, relativeTo: .body))
                         .foregroundStyle(location.isEmpty ? .secondary : .primary)
                         .lineLimit(1)
                     if !location.isEmpty {
@@ -230,22 +281,30 @@ struct CaptureView: View {
                 .accessibilityLabel("Clear the place")
             }
         }
-        .padding(.leading, 14)
-        .padding(.trailing, location.isEmpty ? 14 : 4)
+        .padding(.leading, 4)
+        .padding(.trailing, location.isEmpty ? 4 : 0)
         .frame(height: 48)
-        .cardSurface(corner: 14)
+        // A ruled line to write on, not a box to fill in.
+        .overlay(alignment: .bottom) { Rule(weight: 0.5) }
     }
 
     /// The words and who was there.
+    /// The words, written by hand on a ruled line, and who was there.
     private var details: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            ComposeRow(icon: "text.quote") {
+        VStack(alignment: .leading, spacing: 26) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("In your words").smallCaps()
                 TextField(
-                    "", text: $caption, prompt: .fieldPrompt("A few words, if you like"), axis: .vertical
+                    "", text: $caption,
+                    prompt: Text("A few words, if you like").font(.hand(21, relativeTo: .body)).foregroundColor(.secondary),
+                    axis: .vertical
                 )
+                .font(.hand(21, relativeTo: .body))
                 .lineLimit(1...5)
+                .padding(.vertical, 4)
+                Rule(weight: 0.5)
             }
-            .cardSurface(corner: 16)
+            .padding(.horizontal, 4)
             if !members.isEmpty {
                 WhoWasThere(members: members, selected: $tagged)
                     .padding(.horizontal, 4)
@@ -257,7 +316,12 @@ struct CaptureView: View {
     /// on the sheet's own floor so the content scrolls away beneath it.
     /// Before the photo, two ways to it: the camera, and under it the
     /// library. After, Post.
+    @ViewBuilder
     private var footer: some View {
+        if !spent { actions }
+    }
+
+    private var actions: some View {
         Group {
             if let shot {
                 WideButton(title: "Post", busy: uploading) { post(shot) }
@@ -328,7 +392,7 @@ struct CaptureView: View {
                             .transition(.opacity)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
                     window = size
                     framing = framing.clamped(photo, size)
@@ -505,28 +569,6 @@ private struct DevelopKey: Equatable {
     let filter: PhotoFilter
 }
 
-/// A row on the compose card: a quiet glyph, then the field. The glyph sits
-/// on the field's first line, however many lines the caption grows to. (A
-/// baseline alignment would do it in principle, but a multi-line field
-/// reports its baseline lower than its first line.)
-private struct ComposeRow<Content: View>: View {
-    let icon: String
-    @ViewBuilder let content: Content
-    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 22
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .frame(width: 20, height: line)
-            content
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-    }
-}
-
 /// The four filters, and none, as a row of pills under the preview. A tap
 /// shows the look at once; there is nothing to adjust. The pills are the
 /// atmosphere's, like the picker in Settings.
@@ -566,8 +608,7 @@ struct WhoWasThere: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Who was there?")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .smallCaps()
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(members) { member in
@@ -583,7 +624,7 @@ struct WhoWasThere: View {
                                     )
                                     .opacity(on ? 1 : 0.7)
                                 Text(member.displayName ?? "—")
-                                    .font(.caption2)
+                                    .font(.hand(15, relativeTo: .caption))
                                     .foregroundStyle(on ? Color.accentColor : .secondary)
                                     .lineLimit(1)
                             }

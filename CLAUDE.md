@@ -157,9 +157,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   hidden, while a queued capture holds the day. It hides while the keyboard
   is up: a safe-area inset rides above the keyboard and would sit on the
   story field's Add button. The sheet (build 15) is laid out like composing
-  a memory: before the photo, an empty rounded frame holding the day's
+  a memory: before the photo, an empty print holding the day's
   prompt (tapping it opens the camera) and the rule in a line beneath;
-  after it, the photo with 20pt corners. Both are `PhotoShape` (3:4, the
+  after it, the photo as a print (build 21; it had 20pt corners). Both are `PhotoShape` (3:4, the
   camera's own 4:3 held upright; build 17), as wide as the sheet allows and
   no taller than 55% of the screen, so the place and the pills show on the
   Duo's cover. **The frame is the crop** (build 17): a photo of another
@@ -172,7 +172,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   camera's own JPEG untouched. With more than one circle the sheet says whose
   day it is ("for Climbing Club"). **Where it was** sits right under the photo (build 16; on the card
   below the pills it was out of sight on the Duo's cover), then the filter
-  pills, then the caption card, then who-was-there. The foot of the sheet
+  pills, then the caption line, then who-was-there. The foot of the sheet
   is **Take photo**, a full-width accent button (`WideButton`, 52pt, the
   palette's ink, shared with setup), with **Choose from library** under it;
   after the photo it's **Post**, which holds a spinner while posting. A
@@ -450,7 +450,35 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   names, day marks, captions, bios, notes. Photos are prints on paper
   (`asPrint`, `PrintStock`), never cards. Only the look changed: every
   action, gesture and menu is where it was, Edit and Rested having moved
-  into their mastheads.
+  into their mastheads. **Build 21 carried it to the edges:**
+  - **Empty Today** (`TodayEmptyPage`): a sheet tucked into the page, "Nothing
+    here yet." and "Your circle's first moment is waiting." in a hand, a
+    rule, "Photos live for six days, then they're gone." in small capitals,
+    then the camera at 78pt with "Take today's photo" beneath. Only once
+    Today has answered (`todayLoaded`), so it never flashes up while photos
+    load, and not while a capture waits to go up.
+  - **Empty Held**: a sheet with four photo corners around nothing and
+    "Nothing held yet. When you press and hold someone's moment, it lives
+    here, long after it fades." The brief said "forever"; the subject wins
+    on deletion, so it doesn't promise that. Shown only once Held has
+    answered (`memoriesLoaded`); offline before that it says "Not here yet."
+  - **Onboarding** (`OnboardingView`): the three pages, same words, on
+    grained paper: "Stanley" in small capitals, a thing laid on the page (one
+    print; three prints fading; four faces in watercolor tones), the
+    headline in a hand on one line over the paper's double rule, the words
+    beneath, ink dots for the page, and `WideButton` for Get started. The
+    prints are an evening sky drawn in code, not photos.
+  - **Today's photo already shared**: the capture sheet opens on the photo
+    itself, a crooked print, and "Today's moment is out there. Come back
+    tomorrow." with Done and no camera (`AppState.sharedToday`: your photo
+    taken today still in Today in this circle). `slot_used` from the server
+    says the same words (`APIError.sharedToday`); it used to say "You've
+    already shared today's moment."
+  - **Capture**: the frame is a print (photo paper, a hairline corner) before
+    the shutter and after; the day's prompt and "One photo. This is today's."
+    are in a hand; the place is written in a hand on a ruled line, and the
+    caption is "In your words" in small capitals over a hand-written line,
+    not boxed cards; "Who was there?" in small capitals with names in a hand.
 - **Settings** (build 18), grouped the way iOS groups its own, every row in a
   group: **Circle** (Name, editable by the organizer through `PATCH
   /circles/{id}`; Members; **Invite Code**, one row opening its own page with

@@ -22,7 +22,7 @@ enum APIError: LocalizedError {
             // The product never shouts. Error copy stays gentle, and no code
             // or status number ever reaches the screen.
             switch code {
-            case "slot_used": return "You've already shared today's moment."
+            case "slot_used": return APIError.sharedToday
             case "too_soon": return "A little too soon — the day needs room to breathe."
             case "circle_full": return "This circle has reached its limit."
             case "already_in_circle": return "You're already in that circle."
@@ -63,6 +63,9 @@ enum APIError: LocalizedError {
     static let photoNotPosted = "That photo couldn't be posted. Try again."
     static let appleSignInFailed = "Sign in with Apple didn't go through. Try again."
     static let unreachable = "Couldn't reach Stanley. Check your connection."
+    /// The day's photo is already posted in this circle. Said warmly: it
+    /// isn't a mistake, it's the day doing what it does.
+    static let sharedToday = "Today's moment is out there. Come back tomorrow."
 
     /// What a bare status means to the person holding the phone.
     static func words(forStatus status: Int) -> String {

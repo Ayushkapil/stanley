@@ -70,17 +70,14 @@ struct TodayFeedView: View {
                             .padding(.bottom, density.entrySpacing)
                             .id("pending")
                     }
-                    if state.feedItems.isEmpty {
-                        VStack(spacing: 6) {
-                            Text("Nothing here right now.")
-                                .font(.hand(20, relativeTo: .body))
-                                .foregroundStyle(.secondary)
-                            Text("Photos live for six days, then they're gone.")
-                                .smallCaps()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 60)
-                        .id("empty")
+                    // Nothing posted in this circle in six days, or ever: a
+                    // note tucked into the page and the camera under it. Only
+                    // once Today has answered, so it doesn't flash up while
+                    // the photos are on their way, and not while a capture
+                    // waits to go up, which has its own card.
+                    if state.todayLoaded && state.feedItems.isEmpty && state.pendingHere == nil {
+                        TodayEmptyPage { capturing = true }
+                            .id("empty")
                     }
                     ForEach(Array(JournalDay.group(state.feedItems).enumerated()), id: \.element.id) { index, day in
                         DayMark(date: day.date)
@@ -165,6 +162,55 @@ struct TodayFeedView: View {
                 await state.flushPendingCapture()
             }
         }
+    }
+}
+
+/// Today with nothing on it: a note tucked into the journal, written by hand,
+/// and the camera large beneath it, because the day's photo is the one thing
+/// to do here. The floating camera stays where it always is.
+struct TodayEmptyPage: View {
+    @Environment(AppState.self) private var state
+    let onCapture: () -> Void
+
+    var body: some View {
+        VStack(spacing: 34) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Nothing here yet.")
+                    .font(.hand(32, bold: true, relativeTo: .title))
+                Text("Your circle's first moment is waiting.")
+                    .font(.hand(22, relativeTo: .title3))
+                    .foregroundStyle(.secondary)
+                Rule(weight: 0.5)
+                    .padding(.top, 10)
+                Text("Photos live for six days, then they're gone.")
+                    .smallCaps()
+                    .padding(.top, 2)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .paperInsert(tilt: -0.8)
+            .accessibilityElement(children: .combine)
+            VStack(spacing: 12) {
+                CaptureButton(disabled: state.holdsTheDay, diameter: 78, action: onCapture)
+                Button(action: onCapture) {
+                    Text("Take today's photo")
+                        .font(.hand(20, relativeTo: .body))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(state.holdsTheDay)
+                // The camera above already says it.
+                .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.top, 6)
+        .padding(.bottom, 24)
     }
 }
 
@@ -391,15 +437,17 @@ struct CaptureButton: View {
     static let size: CGFloat = 56
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let disabled: Bool
+    /// Larger where it's the page's one thing to do (an empty Today).
+    var diameter: CGFloat = CaptureButton.size
     let action: () -> Void
 
     var body: some View {
         let palette = Atmosphere.resolve(raw).palette
         Button(action: action) {
             Image(systemName: "camera.fill")
-                .font(.system(size: 21, weight: .semibold))
+                .font(.system(size: 21 * diameter / Self.size, weight: .semibold))
                 .foregroundStyle(palette.ink)
-                .frame(width: Self.size, height: Self.size)
+                .frame(width: diameter, height: diameter)
                 .background {
                     Circle()
                         .fill(palette.accent)

@@ -40,15 +40,47 @@ struct MemoriesView: View {
         }
     }
 
-    @ViewBuilder
+    /// Held has answered and holds nothing, or can't answer yet. Before the
+    /// first answer an empty album would only be one still loading.
+    private var showsEmpty: Bool {
+        state.threads.isEmpty && (state.memoriesLoaded || state.offline)
+    }
+
+    /// An empty album: a page with four photo corners waiting for the first
+    /// print, and what goes in them, in a hand. Offline, an empty album may
+    /// only be one that hasn't loaded yet, so it says that instead.
     private var emptyNote: some View {
-        // Offline, an empty album may only be one that hasn't loaded yet.
-        Text(state.offline
-             ? "What you've held comes back with the connection."
-             : "Nothing held yet. Press and hold a moment to keep it here — this is the one place nothing fades.")
-            .font(.hand(19, relativeTo: .body))
-            .foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 20) {
+            Color.clear
+                .aspectRatio(PhotoShape.aspect, contentMode: .fit)
+                .frame(width: 78)
+                .overlay { PhotoCorners(size: 13) }
+                .padding(.top, 6)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 8) {
+                if state.offline && !state.memoriesLoaded {
+                    Text("Not here yet.")
+                        .font(.hand(28, bold: true, relativeTo: .title2))
+                    Text("What you've held comes back with the connection.")
+                        .font(.hand(20, relativeTo: .body))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Nothing held yet.")
+                        .font(.hand(28, bold: true, relativeTo: .title2))
+                    // Not "forever": the person in a photo can still take it
+                    // back (the subject wins on deletion). Fading can't.
+                    Text("When you press and hold someone's moment, it lives here, long after it fades.")
+                        .font(.hand(20, relativeTo: .body))
+                        .foregroundStyle(.secondary)
+                }
+            }
             .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 26)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .paperInsert(tilt: 0.7)
+        .accessibilityElement(children: .combine)
     }
 
     /// A friend's page in the album: whose, in a hand, with their face.
@@ -66,9 +98,9 @@ struct MemoriesView: View {
             Group {
                 masthead
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 8, trailing: 20))
-                if state.threads.isEmpty {
+                if showsEmpty {
                     emptyNote
-                        .listRowInsets(EdgeInsets(top: 20, leading: 20, bottom: 0, trailing: 20))
+                        .listRowInsets(EdgeInsets(top: 22, leading: 22, bottom: 0, trailing: 22))
                 }
                 ForEach(state.threads) { thread in
                     pageHead(thread)
@@ -105,7 +137,7 @@ struct MemoriesView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 34) {
                 masthead
-                if state.threads.isEmpty {
+                if showsEmpty {
                     emptyNote.padding(.top, 10)
                 }
                 ForEach(state.threads) { thread in

@@ -27,6 +27,10 @@ final class AppState {
     /// (build 17); Today shows one at a time.
     var circles: [CircleSummary] = []
     var feedItems: [FeedItem] = []
+    /// Today has been fetched for the circle on screen. Until then an empty
+    /// feed means "not here yet", not "nothing posted", so the empty page
+    /// doesn't flash up at every launch and circle switch.
+    var todayLoaded = false
     var communityNote: CommunityNote?
     var mosaic: Mosaic?
     var returned: ReturnedItem?
@@ -36,6 +40,8 @@ final class AppState {
     var nearby: [NewsArticle] = []
     var nearbyTown: String?
     var threads: [MemoryThread] = []
+    /// Held has been fetched once, so an empty album is really empty.
+    var memoriesLoaded = false
     var profile: MyProfile?
     var myId: String?
     var errorMessage: String?
@@ -303,6 +309,7 @@ final class AppState {
         circles = []
         checkedCircle = false
         feedItems = []
+        todayLoaded = false
         communityNote = nil
         mosaic = nil
         returned = nil
@@ -310,6 +317,7 @@ final class AppState {
         nearby = []
         nearbyTown = nil
         threads = []
+        memoriesLoaded = false
         profile = nil
         myId = nil
     }
@@ -388,6 +396,7 @@ final class AppState {
         guard id != circle?.id else { return }
         api.circleId = id
         feedItems = []
+        todayLoaded = false
         communityNote = nil
         mosaic = nil
         await loadCircle()
@@ -399,6 +408,7 @@ final class AppState {
     private func lostCircle() async {
         if let myId { UserDefaults.standard.removeObject(forKey: Self.circleKey(myId)) }
         feedItems = []
+        todayLoaded = false
         communityNote = nil
         mosaic = nil
         await loadCircle()
@@ -450,6 +460,7 @@ final class AppState {
             // Switched circles while this was on its way: it's the old one's.
             guard api.circleId == asked else { return }
             feedItems = response.items
+            todayLoaded = true
             communityNote = response.note
             mosaic = response.mosaic
             let returnedResponse: ReturnedResponse = try await api.send(
@@ -530,6 +541,7 @@ final class AppState {
         do {
             let response: MemoriesResponse = try await api.send("GET", "/me/anchored")
             threads = response.threads
+            memoriesLoaded = true
         } catch {
             missed(error)
         }
@@ -608,6 +620,18 @@ final class AppState {
 
     /// The circle on screen has a capture waiting: its day is spoken for.
     var holdsTheDay: Bool { pendingHere != nil }
+
+    /// Today's photo in the circle on screen, when it's already posted: the
+    /// day is spent, and the capture sheet says so before anyone frames a
+    /// photo the server would refuse. Only a photo still in Today counts, so
+    /// one deleted with its redo unspent leaves the day open, as it is. (A
+    /// redo already spent can't be seen from here; the server's refusal
+    /// says the same words.)
+    var sharedToday: Photo? {
+        guard let myId else { return nil }
+        let photos = feedItems.flatMap { item in item.photo.map { [$0] } ?? item.photos ?? [] }
+        return photos.first { $0.owner.id == myId && Calendar.current.isDateInToday($0.takenAt) }
+    }
 
     /// Who the people a story mentions are, in the circle on screen, and
     /// their tones (`Mentions.swift`).
