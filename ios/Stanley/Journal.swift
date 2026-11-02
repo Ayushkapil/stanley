@@ -103,9 +103,36 @@ struct JournalMasthead<Trailing: View>: View {
                 .smallCaps()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+            OfflineLine()
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
+    }
+}
+
+/// Said under a masthead's dateline while Stanley can't be reached, in the
+/// dateline's own small capitals: the page shows what it last had, and
+/// catches up by itself (`AppState.checkConnection`). Nothing to tap, and no
+/// alert: being offline isn't something anyone has to dismiss.
+struct OfflineLine: View {
+    @Environment(AppState.self) private var state
+
+    var body: some View {
+        Group {
+            if state.offline {
+                HStack(spacing: 6) {
+                    Image(systemName: "wifi.slash")
+                    Text("Offline · it all catches up when you're back")
+                }
+                .smallCaps()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Offline. Stanley catches up by itself when you're back online.")
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: state.offline)
     }
 }
 

@@ -372,12 +372,14 @@ struct BlockedView: View {
         .atmosphereWash()
         .navigationTitle("Blocked")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        .task(id: state.reloads) {
             do {
                 people = try await state.blockedPeople()
             } catch {
-                state.surface(error)
-                people = []
+                // Offline, "No one" would be a guess: keep waiting instead,
+                // and load when Stanley answers.
+                state.missed(error)
+                if !isOffline(error) { people = [] }
             }
         }
     }

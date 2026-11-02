@@ -50,7 +50,7 @@ struct AvatarView: View {
     var body: some View {
         Group {
             if let url, let resolved = state.api.absoluteURL(url) {
-                AsyncImage(url: resolved) { image in
+                SignedImage(url: resolved) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     placeholder

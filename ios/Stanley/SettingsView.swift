@@ -223,9 +223,11 @@ private struct QuietSection: View {
         Section {
             Toggle("When My Photo Is Fading", isOn: $lastLight)
                 .tint(toggleTint)
+                .disabled(!loaded)
                 .onChange(of: lastLight) { _, on in save("last_light_notice_enabled", on) { lastLight = $0 } }
             Toggle("When My Circle Has Posted", isOn: $digest)
                 .tint(toggleTint)
+                .disabled(!loaded)
                 .onChange(of: digest) { _, on in save("digest_enabled", on) { digest = $0 } }
             if blocked {
                 Button("Allow Notifications in Settings") {
@@ -241,7 +243,7 @@ private struct QuietSection: View {
                 ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."
                 : "Stanley is quiet on purpose. Two notices exist, both off unless you ask: one when your own photo reaches its last day, and one in the evening when someone in your circle has posted. No streaks, no nudges, nothing about likes or holds, and never a number.")
         }
-        .task { await load() }
+        .task(id: state.reloads) { await load() }
         .onChange(of: scenePhase) { _, phase in
             // Back from iOS Settings: see whether notifications are allowed now.
             if phase == .active { Task { await checkBlocked() } }
@@ -250,12 +252,19 @@ private struct QuietSection: View {
 
     private func load() async {
         guard !loaded else { return }
+        // Offline, the switches can't say what's set: they'd show off for
+        // a notice that's on. They wait, dimmed, and load once Stanley
+        // answers (`AppState.reloads`). `loaded` turns on only after the
+        // await below, so setting them here never reads as the person
+        // flipping them.
+        var answered = false
         if let me: MeSettings = try? await state.api.send("GET", "/me") {
             lastLight = me.lastLightNoticeEnabled
             digest = me.digestEnabled ?? false
+            answered = true
         }
         await checkBlocked()
-        loaded = true
+        if answered { loaded = true }
     }
 
     private func checkBlocked() async {

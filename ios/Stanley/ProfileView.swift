@@ -165,6 +165,11 @@ struct ProfileView: View {
                 await state.refreshMemories()
                 milestones = await state.loadMilestones()
             }
+            // The profile and Held are fetched again by `AppState`; the
+            // milestones are this page's own.
+            .onChange(of: state.reloads) {
+                Task { milestones = await state.loadMilestones() }
+            }
         }
     }
 }
@@ -273,7 +278,7 @@ struct MilestoneCard: View {
                             .aspectRatio(1, contentMode: .fit)
                             .overlay {
                                 if let url = state.api.absoluteURL(thumb) {
-                                    AsyncImage(url: url) { image in
+                                    SignedImage(url: url) { image in
                                         image.resizable().scaledToFill()
                                     } placeholder: {
                                         Rectangle().fill(.quaternary)
@@ -323,7 +328,7 @@ struct HeldTile: View {
                     .aspectRatio(PhotoShape.aspect, contentMode: .fit)
                     .overlay {
                         if let urls = memory.urls, let url = state.api.absoluteURL(urls.thumb) {
-                            AsyncImage(url: url) { image in
+                            SignedImage(url: url) { image in
                                 image.resizable().scaledToFill()
                             } placeholder: {
                                 Rectangle().fill(.quaternary)
@@ -505,8 +510,11 @@ struct MemberProfileView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 14) {
+                    ProgressView()
+                    OfflineLine()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .paperPage()
@@ -514,11 +522,17 @@ struct MemberProfileView: View {
         .sheet(item: $opened) { photo in
             PhotoStoriesView(photo: photo)
         }
-        .task {
+        // Again when Stanley answers after it couldn't, or when the links
+        // to their photos ran out; a photo open from here gets the fresh one.
+        .task(id: state.reloads) {
             do {
-                member = try await state.loadMember(memberId)
+                let loaded = try await state.loadMember(memberId)
+                member = loaded
+                if let open = opened, let fresh = loaded.photos?.first(where: { $0.id == open.id }) {
+                    opened = fresh
+                }
             } catch {
-                state.surface(error)
+                state.missed(error)
             }
         }
     }
@@ -587,7 +601,7 @@ private struct PrintThumb: View {
         Color.clear
             .aspectRatio(PhotoShape.aspect, contentMode: .fit)
             .overlay {
-                AsyncImage(url: photo.urls.flatMap { state.api.absoluteURL($0.thumb) }) { image in
+                SignedImage(url: photo.urls.flatMap { state.api.absoluteURL($0.thumb) }) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Rectangle().fill(.quaternary)

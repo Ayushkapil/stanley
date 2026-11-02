@@ -42,7 +42,10 @@ struct MemoriesView: View {
 
     @ViewBuilder
     private var emptyNote: some View {
-        Text("Nothing held yet. Press and hold a moment to keep it here — this is the one place nothing fades.")
+        // Offline, an empty album may only be one that hasn't loaded yet.
+        Text(state.offline
+             ? "What you've held comes back with the connection."
+             : "Nothing held yet. Press and hold a moment to keep it here — this is the one place nothing fades.")
             .font(.hand(19, relativeTo: .body))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -176,7 +179,7 @@ struct RestedView: View {
         .atmosphereWash()
         .navigationTitle("Rested")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await reload() }
+        .task(id: state.reloads) { await reload() }
     }
 
     private func reload() async {
@@ -240,7 +243,7 @@ struct MemoryCard: View {
                     Color.clear
                         .frame(height: density.heldPhotoHeight)
                         .overlay {
-                            AsyncImage(url: url) { image in
+                            SignedImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
                                 Rectangle().fill(.quaternary)
@@ -341,7 +344,7 @@ struct MemoryRow: View {
                 }
             } else {
                 if let urls = memory.urls, let url = state.api.absoluteURL(urls.thumb) {
-                    AsyncImage(url: url) { image in
+                    SignedImage(url: url) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(.quaternary)

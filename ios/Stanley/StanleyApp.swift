@@ -42,6 +42,7 @@ struct StanleyApp: App {
 
 struct RootView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.hasSeenOnboarding") private var hasSeenOnboarding = false
@@ -69,13 +70,21 @@ struct RootView: View {
                     WelcomeView()
                         .transition(.opacity)
                 } else if !state.checkedCircle {
-                    ProgressView()
-                        .task {
-                            // The profile first: whether we know this person's
-                            // name decides whether setup comes next.
-                            await state.loadProfile()
-                            await state.loadCircle()
-                        }
+                    if state.offline {
+                        // Nothing has said whether this person has a circle,
+                        // so they aren't sent to join one. It opens by itself
+                        // when Stanley answers, and this pass runs again.
+                        OfflineCover()
+                            .transition(.opacity)
+                    } else {
+                        ProgressView()
+                            .task {
+                                // The profile first: whether we know this
+                                // person's name decides whether setup comes next.
+                                await state.loadProfile()
+                                await state.loadCircle()
+                            }
+                    }
                 } else if state.needsSetup {
                     // A new account, or one we have no name for: a name, a
                     // username, a few words and a face, one to a screen,
@@ -132,6 +141,11 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: state.flash)
+        // Back to the front: if Stanley was out of reach, see whether it
+        // answers now rather than wait for the next try.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await state.checkConnection() } }
+        }
         .preferredColorScheme(colorScheme)
         // Ambient seasonal tint — accents, tab bar, card edges (Part 5).
         .tint(Atmosphere.resolve(atmosphere).palette.accent)
@@ -204,5 +218,53 @@ private struct QuietTabBar: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// The launch, when Stanley can't be reached. Without an answer nobody knows
+/// whether this person has a circle, so instead of the circle gate (which it
+/// used to fall through to, as if they had none) it says so and waits. It
+/// opens by itself as soon as Stanley answers; Try Again only asks sooner.
+private struct OfflineCover: View {
+    @Environment(AppState.self) private var state
+    @State private var trying = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.slash")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 4)
+            Text("Stanley can't be reached right now.")
+                .font(.hand(26, bold: true, relativeTo: .title2))
+                .multilineTextAlignment(.center)
+            Text("It opens by itself when you're back online.")
+                .smallCaps(11)
+                .multilineTextAlignment(.center)
+            Button {
+                Task {
+                    trying = true
+                    await state.checkConnection()
+                    trying = false
+                }
+            } label: {
+                Group {
+                    if trying {
+                        ProgressView()
+                    } else {
+                        Text("Try again")
+                    }
+                }
+                .font(.hand(20, relativeTo: .body))
+                .frame(minWidth: 120, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+            .disabled(trying)
+            .padding(.top, 10)
+        }
+        .padding(32)
+        .frame(maxWidth: 420)
     }
 }

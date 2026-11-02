@@ -62,7 +62,7 @@ struct WorldTodayView: View {
                         NewsColumns(articles: state.nearby)
                     }
                     if asked && state.news.isEmpty && state.nearby.isEmpty {
-                        Text("No stories right now.")
+                        Text(state.offline ? "The paper comes when you're back online." : "No stories right now.")
                             .font(.system(.body, design: .serif).italic())
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
@@ -125,6 +125,8 @@ private struct Masthead: View {
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .foregroundStyle(.secondary)
+            OfflineLine()
+                .frame(maxWidth: .infinity, alignment: .leading)
             Rule(weight: 0.5)
         }
         .padding(.top, 8)

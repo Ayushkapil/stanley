@@ -96,7 +96,17 @@ The authoritative source for the physics constants is
   **HMAC-signed URLs** — no public URLs ever. An `R2BlobStore` (S3-compatible,
   presigned URLs) is wired behind `BLOB_BACKEND=r2`; switching is config-only.
   Image pipeline strips all EXIF except the capture timestamp (**GPS removal is a
-  hard rule**) and bakes in orientation.
+  hard rule**) and bakes in orientation. On the phone every photo and face is
+  a `SignedImage` (build 21; it was `AsyncImage`). A page left open past 15
+  minutes held links that had run out, so a photo first scrolled to then was
+  refused (403) and stayed gray for good (seen on the simulator: seven 403s
+  after 16 minutes). Now a 403 asks for fresh links
+  (`AppState.linksExpired`: Today, the circle, Held and the profile fetched
+  again, at most once every 30 seconds, and `reloads` bumped for views that
+  keep their own copy), and the photo loads from the new one. Photos once
+  loaded are kept in memory by blob path, not link (`PhotoMemory`), so
+  renewed links don't send every photo back to gray; faces aren't, since an
+  avatar's path stays the same when it changes.
 - **Auth:** **Sign in with Apple** (RS256 verify against Apple's JWKS, checks
   iss/aud/exp, trusts `sub`). Stanley issues its own HS256 JWT (30-day). A dev-only
   `/auth/dev` exists and returns 404 unless `STANLEY_DEV_AUTH=1`. The server
@@ -382,7 +392,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Memory milestones** — private, ≤1/week, dismissable cards in the You tab
   (circle age, held counts, oldest kept, "[name] kept N of yours", first day).
 - **Offline capture queue** (client) — no signal means the moment is kept
-  locally and sent when the network returns, with a quiet "waiting to upload"
+  locally and sent when the network returns (when Stanley answers again,
+  `AppState.checkConnection`, or on Today's next pass; one send at a time),
+  with a quiet "waiting to upload"
   card where it will land. The day law is claimed **locally** at the shutter,
   so a queued capture closes the camera exactly as a posted one does. A
   server refusal (another device used the slot) strands it honestly: the owner
@@ -502,6 +514,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sign-in. It says why once (`APIError.signedOut`), and every other failure
   from the same cause stays quiet. It used to say "Sign out in Settings",
   which the name and circle gates can't reach.
+  **Offline** (build 21) is a state, not an alert. A page that can't load for
+  want of a connection (`AppState.missed`, every passive load) sets
+  `AppState.offline`: each masthead says "Offline · it all catches up when
+  you're back" under its dateline (`OfflineLine`), what was showing stays, and
+  Held and World say they're waiting rather than empty. Something the person
+  did (a story, a like) still says it didn't go through. While offline the app
+  asks `GET /health` every 8 seconds, and when the network path or the app
+  comes back to the front; once it answers, Today, the circle, Held and the
+  profile load again, the paper if it's empty, anything queued goes up, and
+  `reloads` tells the rest (member pages, Rested, milestones, Blocked, the
+  Quiet switches, failed photos). Launched offline, it shows "Stanley can't be
+  reached right now" and opens by itself: it used to fall through to the
+  circle gate, as if the person had no circle, and stay there, and every tab
+  raised the same alert, once per failed request.
 - **The World Today** — the news in a **World** tab of its own (globe), the
   fourth of five: Today, Held, You, World, Settings. A morning paper on the
   counter, not a feed. Today is the circle's photos and nothing else. Since
@@ -820,7 +846,8 @@ live APNs, concurrency under real load.
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`
   (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share,
-  `WideButton`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
+  `WideButton`), `SignedImage.swift` (every photo and face behind a signed
+  link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
 - Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
 

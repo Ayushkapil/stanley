@@ -243,6 +243,7 @@ struct TodayMasthead: View {
                 .smallCaps()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+            OfflineLine()
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
@@ -573,7 +574,7 @@ struct PhotoImageView: View {
             .aspectRatio(PhotoShape.aspect, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .overlay {
-                AsyncImage(url: url) { image in
+                SignedImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Rectangle().fill(.quaternary)
@@ -1143,7 +1144,7 @@ struct MosaicCard: View {
         Color.clear
             .overlay {
                 if let url = state.api.absoluteURL(tile.image ?? tile.thumb) {
-                    AsyncImage(url: url) { image in
+                    SignedImage(url: url) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Rectangle().fill(.quaternary)
@@ -1219,7 +1220,7 @@ struct ReturnedCard: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: density.returnedPhotoHeight)
                     .overlay {
-                        AsyncImage(url: url) { image in
+                        SignedImage(url: url) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle().fill(.quaternary)

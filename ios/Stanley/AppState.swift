@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Foundation
+import Network
 import Observation
 
 /// Everything the screens show. Main-actor isolated: every observed
@@ -45,12 +46,43 @@ final class AppState {
     /// This account hasn't been through setup yet (`SetupView`). Kept on the
     /// phone per account, so someone who quits halfway is brought back to it.
     var setupPending = false
+    /// Stanley can't be reached: no signal, or no answer. Said once, quietly,
+    /// under each page's masthead (`OfflineLine`), never as an alert for
+    /// something the person didn't ask for. What was on screen stays.
+    var offline = false
+    /// Bumped whenever what's on screen should be fetched again without
+    /// anyone pulling: Stanley answers again after it couldn't be reached,
+    /// or a photo's signed link ran out before it was shown. Views that keep
+    /// their own copy of something (a member's page, Rested, milestones)
+    /// load again on it; what this state holds is loaded here.
+    var reloads = 0
+
+    private let path = NWPathMonitor()
+    /// Asks whether Stanley answers again, every few seconds, only while it
+    /// doesn't.
+    private var retrying: Task<Void, Never>?
+    /// When signed links last ran out, so a screenful of failed photos asks
+    /// for fresh ones once, not once each.
+    private var lastRenewal = Date.distantPast
+    /// A queued capture is on its way up. Reconnecting and Today's own pass
+    /// both send what's waiting; two sends at once would post one and then
+    /// strand the other as "already posted".
+    private var flushing = false
 
     init() {
         signedIn = api.token != nil
         api.onTokenRejected { [weak self] token in
             Task { @MainActor in self?.tokenRejected(token) }
         }
+        // No network at all is known before any request fails, and its
+        // return is the moment to try again.
+        path.pathUpdateHandler = { [weak self] path in
+            let up = path.status == .satisfied
+            Task { @MainActor in
+                if up { await self?.checkConnection() } else { self?.lostConnection() }
+            }
+        }
+        path.start(queue: DispatchQueue(label: "stanley.path"))
     }
 
     /// The server turned down our sign-in, so nothing will work until the
@@ -78,7 +110,83 @@ final class AppState {
         // neither does one that left after the sign-out with no token at all.
         if case APIError.signedOut = error { return }
         if case APIError.status(401) = error, !signedIn { return }
+        if isOffline(error) { lostConnection() }
         errorMessage = AppState.words(for: error)
+    }
+
+    /// A page couldn't load. Without a connection that isn't news to tell
+    /// anyone in an alert, once per request, on every tab: it's said under
+    /// the masthead, what was showing stays, and it all loads again by itself
+    /// when Stanley answers (`checkConnection`). Anything else is said as
+    /// usual. Something the person did (a story, a like) still says it
+    /// didn't go through, through `surface`.
+    func missed(_ error: Error) {
+        if isOffline(error) {
+            lostConnection()
+        } else {
+            surface(error)
+        }
+    }
+
+    /// Stanley is out of reach. Ask again every few seconds until it
+    /// answers; that also covers a network that's up while the server
+    /// isn't, which no path change would announce.
+    func lostConnection() {
+        guard !offline else { return }
+        offline = true
+        guard retrying == nil else { return }
+        // Never cancelled from outside: the pass that finds Stanley again
+        // runs inside this task, and cancelling it would cancel the very
+        // requests that reload the page. It ends by itself once answered.
+        retrying = Task { [weak self] in
+            repeat {
+                try? await Task.sleep(for: .seconds(8))
+                await self?.checkConnection()
+            } while self?.offline == true
+            self?.retrying = nil
+        }
+    }
+
+    /// Does Stanley answer? If it does after it didn't, everything on
+    /// screen loads again and anything waiting goes up, with nothing to
+    /// pull or tap. Also asked when the network comes back and when the app
+    /// comes to the front.
+    func checkConnection() async {
+        guard offline else { return }
+        do {
+            let _: Empty = try await api.send("GET", "/health")
+        } catch {
+            return
+        }
+        guard offline else { return }
+        offline = false
+        // Before the circle is known, the launch's own pass does it all
+        // (`RootView`), as soon as this is false.
+        guard signedIn, checkedCircle else { return }
+        await reloadEverything()
+        if news.isEmpty { await loadNews() }
+        await flushPendingCapture()
+    }
+
+    /// A photo's signed link ran out before the photo was shown: links last
+    /// fifteen minutes (§9), and a page left open longer still holds the
+    /// old ones. Fetch everything this state holds again, which signs every
+    /// link afresh, at most once every half minute however many photos ask.
+    func linksExpired() {
+        guard signedIn, checkedCircle, !offline,
+              Date.now.timeIntervalSince(lastRenewal) > 30 else { return }
+        lastRenewal = .now
+        Task { await reloadEverything() }
+    }
+
+    /// Today, the circle's faces, Held and the profile, fetched again; then
+    /// everything that keeps its own copy is told to.
+    private func reloadEverything() async {
+        await loadCircle()
+        await refreshToday()
+        await refreshMemories()
+        await loadProfile()
+        reloads += 1
     }
 
     /// Every error in Stanley's voice. The system's own descriptions ("The
@@ -210,7 +318,11 @@ final class AppState {
     /// one on screen is the one they last chose, while they're still in it,
     /// else the first they joined.
     func loadCircle() async {
-        defer { checkedCircle = true }
+        // Unanswered isn't answered: without a connection, nobody has been
+        // told they have no circle, and the gate is for people who don't.
+        // Launched offline, the app waits for Stanley instead (`RootView`).
+        var answered = true
+        defer { if answered { checkedCircle = true } }
         do {
             let list: CirclesResponse
             do {
@@ -237,6 +349,11 @@ final class AppState {
             circle = nil
             circles = []
             api.circleId = nil
+        } catch let error where isOffline(error) || AppState.isCancellation(error) {
+            // A launch pass cut short (its view gave way to the offline
+            // page) hasn't heard either.
+            answered = false
+            if isOffline(error) { lostConnection() }
         } catch {
             surface(error)
         }
@@ -343,7 +460,7 @@ final class AppState {
             await lostCircle()
             if circle != nil { await refreshToday() }
         } catch {
-            surface(error)
+            missed(error)
         }
     }
 
@@ -414,7 +531,7 @@ final class AppState {
             let response: MemoriesResponse = try await api.send("GET", "/me/anchored")
             threads = response.threads
         } catch {
-            surface(error)
+            missed(error)
         }
     }
 
@@ -428,7 +545,7 @@ final class AppState {
                 setupPending = UserDefaults.standard.bool(forKey: Self.setupKey(myId))
             }
         } catch {
-            surface(error)
+            missed(error)
         }
     }
 
@@ -539,6 +656,9 @@ final class AppState {
     /// Safe to call often — it no-ops unless something is actually pending
     /// and still sendable.
     func flushPendingCapture() async {
+        guard !flushing else { return }
+        flushing = true
+        defer { flushing = false }
         var sent = false
         for item in queue.items where item.rejection == nil {
             guard let jpeg = queue.jpeg(item) else { continue }
@@ -580,7 +700,7 @@ final class AppState {
         do {
             return (try await api.send("GET", "/me/milestones") as MilestonesResponse).milestones
         } catch {
-            surface(error)
+            missed(error)
             return []
         }
     }
@@ -641,7 +761,7 @@ final class AppState {
         do {
             return (try await api.send("GET", "/photos/\(photoId)/likes") as LikesResponse).faces
         } catch {
-            surface(error)
+            missed(error)
             return []
         }
     }
@@ -651,7 +771,7 @@ final class AppState {
         do {
             return (try await api.send("GET", "/photos/\(photoId)/anchors") as HeldByResponse).anchors
         } catch {
-            surface(error)
+            missed(error)
             return []
         }
     }
@@ -782,7 +902,7 @@ final class AppState {
         do {
             return (try await api.send("GET", "/memories/rested") as RestedResponse).memories
         } catch {
-            surface(error)
+            missed(error)
             return []
         }
     }
