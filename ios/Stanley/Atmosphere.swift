@@ -63,27 +63,30 @@ enum Atmosphere: String, CaseIterable, Identifiable {
             return .neutral
         // Light mode is the system's white with the tone blended in. Dark
         // mode is black with about 5% of the tone, and the accent carries
-        // the mood.
-        case .spring:   // light: soft sage, fresh mint · dark: emerald on black
+        // the mood. The hues are shifted slightly off the obvious choice
+        // (warm sits in honey not amber, spring in moss not mint, fall in
+        // terracotta not pumpkin, cool in slate not sky) so neighbours
+        // don't blur into one and no mood reads as a stock color.
+        case .spring:   // light: moss on linen · dark: new growth over black
             return .make(
-                light: .init(accent: 0x8CB87B, ink: 0x16291A, tone: 0x8CB87B, floor: 0.14, card: 0.09),
-                dark: .init(accent: 0x6CC48E, ink: 0x0A2414, tone: 0x6CC48E, floor: 0.05, card: 0.06))
-        case .warm:     // light: golden amber, summer · dark: candlelight
+                light: .init(accent: 0x7CA368, ink: 0x1E2E17, tone: 0xA6C294, floor: 0.14, card: 0.09),
+                dark: .init(accent: 0x86C892, ink: 0x0A2414, tone: 0x86C892, floor: 0.05, card: 0.06))
+        case .warm:     // light: honey, late afternoon · dark: candlelight
             return .make(
-                light: .init(accent: 0xF2B24A, ink: 0x3A2808, tone: 0xF0BE50, floor: 0.16, card: 0.10),
-                dark: .init(accent: 0xFFB53D, ink: 0x2E1C02, tone: 0xFFB53D, floor: 0.05, card: 0.06))
-        case .fall:     // light: deep copper, burnt orange · dark: ember
+                light: .init(accent: 0xC98A2E, ink: 0x3A2608, tone: 0xE2B069, floor: 0.18, card: 0.11),
+                dark: .init(accent: 0xE8A94B, ink: 0x2E1C02, tone: 0xE8A94B, floor: 0.06, card: 0.07))
+        case .fall:     // light: wet brick, terracotta · dark: ember on black
             return .make(
-                light: .init(accent: 0xB85C2C, ink: 0xFFF4EA, tone: 0xC45A30, floor: 0.13, card: 0.09),
-                dark: .init(accent: 0xE8773D, ink: 0x2B0F03, tone: 0xE8773D, floor: 0.05, card: 0.06))
-        case .cool:     // light: slate blue, icy silver · dark: ice
+                light: .init(accent: 0xAC4521, ink: 0xFBF0E2, tone: 0xC96234, floor: 0.10, card: 0.08),
+                dark: .init(accent: 0xE27A3D, ink: 0x2B0F03, tone: 0xE27A3D, floor: 0.05, card: 0.06))
+        case .cool:     // light: slate, winter sky at dusk · dark: starlight
             return .make(
-                light: .init(accent: 0x7B9EB8, ink: 0x0F1E2C, tone: 0x6D9BC4, floor: 0.16, card: 0.09),
-                dark: .init(accent: 0x96D0F6, ink: 0x08203A, tone: 0x96D0F6, floor: 0.05, card: 0.06))
-        case .rain:     // light: blue-gray fog · dark: fog, barely there
+                light: .init(accent: 0x4F7A9F, ink: 0x0C1D2E, tone: 0x6E96BD, floor: 0.13, card: 0.09),
+                dark: .init(accent: 0x91C8EF, ink: 0x08203A, tone: 0x91C8EF, floor: 0.05, card: 0.06))
+        case .rain:     // light: fog on a window · dark: petrichor
             return .make(
-                light: .init(accent: 0x8899AA, ink: 0x1B2229, tone: 0x949CA4, floor: 0.24, card: 0.05),
-                dark: .init(accent: 0xA2B5C8, ink: 0x141B23, tone: 0xA2B5C8, floor: 0.03, card: 0.04))
+                light: .init(accent: 0x627284, ink: 0x1A2028, tone: 0x8291A1, floor: 0.20, card: 0.06),
+                dark: .init(accent: 0xAAB8C9, ink: 0x141B23, tone: 0xAAB8C9, floor: 0.03, card: 0.04))
         }
     }
 
@@ -141,12 +144,12 @@ extension Atmosphere.Palette {
     static let neutral: Self = {
         let card = adaptive(light: .white, dark: darkCard)
         return Self(
-            accent: adaptive(light: UIColor(hex: 0x2A2724), dark: UIColor(hex: 0xF2EFEA)),
-            ink: adaptive(light: UIColor(hex: 0xFAF8F4), dark: UIColor(hex: 0x141414)),
-            floor: adaptive(light: UIColor(hex: 0xF8F6F1), dark: darkFloor),
+            accent: adaptive(light: UIColor(hex: 0x2A2621), dark: UIColor(hex: 0xEFE6D4)),
+            ink: adaptive(light: UIColor(hex: 0xFAF6EB), dark: UIColor(hex: 0x141414)),
+            floor: adaptive(light: UIColor(hex: 0xF6F0E4), dark: darkFloor),
             card: card,
             row: card,
-            toggle: adaptive(light: UIColor(hex: 0x2A2724), dark: .systemGreen)
+            toggle: adaptive(light: UIColor(hex: 0x2A2621), dark: .systemGreen)
         )
     }()
 

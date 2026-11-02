@@ -381,7 +381,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the app is on.
 - **Atmosphere** — neutral by default, personality by choice (build 16).
   **Auto** is Stanley's own quiet look, no longer the season: warm paper
-  (#F8F6F1) and white cards in light mode, true black and a #1A1A1A card in
+  (#F6F0E4 since build 20; it was #F8F6F1) and white cards in light mode, true black and a #1A1A1A card in
   dark, with a warm-charcoal / warm-white accent, so tabs and buttons are
   black and white with a little warmth. The five moods (Spring, Warm, Fall,
   Cool, Rain) are picked from a **menu** in Settings (a `Picker` with
@@ -395,7 +395,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the system white. **Dark mode** is black with about 5% of the tone in the
   floor and 6% in the card (Rain 3% and 4%: fog, barely there); the mood
   lives in the accent. Pilot users called build 10–15's colored dark floors
-  "terrible" and "artificial". Ambient only; never affects function.
+  "terrible" and "artificial". Build 20 redrew the moods from real palette
+  sources, each shifted off the obvious color so neighbors don't blur and
+  none reads as a stock one: Spring is moss, not mint; Warm is honey, not
+  amber; Fall is terracotta, not pumpkin; Cool is slate, not sky; Rain is
+  fog on a window. Auto's accent and floor are a little warmer. Ambient
+  only; never affects function.
 - **Settings** (build 18), grouped the way iOS groups its own, every row in a
   group: **Circle** (Name, editable by the organizer through `PATCH
   /circles/{id}`; Members; **Invite Code**, one row opening its own page with
@@ -405,7 +410,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   few), **Privacy & Security** (Require Face ID, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out and
   Delete Account, one level down), and **About** (About Stanley, Terms of
-  Use, Privacy Policy, and the version, "Stanley 0.2.0 (18)", at the foot).
+  Use, Privacy Policy, and the version, "Stanley 0.2.0 (20)", at the foot).
 - **Push** (build 18) — APNs directly, token auth (ES256 JWT, kept fifty
   minutes) over HTTP/2 (`httpx[http2]`), `apns.py`. `Notifier` logs each
   notice and hands it to the transport only **after the session commits**
@@ -570,7 +575,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 19** (0.2.0) is committed but not archived; the archive below is
+- **Build 20** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
