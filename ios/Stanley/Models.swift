@@ -258,6 +258,9 @@ struct MyProfile: Codable {
     let avatarUrl: String?
     let createdAt: Date?
     let lastLightNoticeEnabled: Bool?
+    /// How many moments you've shared, ever (build 19). Yours alone: only
+    /// `/me` carries it, for one quiet line on your own You tab.
+    let momentsShared: Int?
 }
 
 /// Another circle member's profile: their face, name and words, nothing else.
@@ -267,6 +270,12 @@ struct MemberProfile: Codable {
     let username: String?
     let bio: String?
     let avatarUrl: String?
+    /// Since build 19: when they joined the circle on screen (or the first
+    /// one you share), whether they started it, and their own photos still
+    /// in the light. Nil from an older server. Never a count of anything.
+    let memberSince: Date?
+    let isOrganizer: Bool?
+    let photos: [Photo]?
 }
 
 struct AvatarResponse: Codable {

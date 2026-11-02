@@ -40,6 +40,11 @@ guarded by tests; treat a change to any of them as a spec change.
   DB, the API, or any screen. People are shown as **faces, never numbers**. Owner-
   only "who held / who liked" lists show avatars, never a tally. (Invariant **A2**:
   hold/like identities are owner-only; the photo payload has no field for them.)
+  **One exception, a product decision (build 19):** how many moments *you*
+  have shared, shown only to you on your own You tab ("You've shared 12
+  moments. Only you see this."). It's only ever on `/me`, never on a member
+  profile, a photo or anything someone else sees, so it can't be compared or
+  become a score. Every other count is still forbidden.
 - **The like is on Stanley's physics, not Instagram's.** Double-tap (or a tap on
   the heart, since build 12), a cosmetic heart, owner-only faces, decays *with the photo* (gone forever when it leaves
   Today). Never archived, never recountable.
@@ -258,7 +263,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   color, two spaces, the words in the secondary color, so two people's lines
   never run together. The empty field asks "What do you remember?"
   (`StoryLine.prompt`; it used to say "Add to the story…", which read like
-  Instagram Stories).
+  Instagram Stories). **Mentions** (build 19, `Mentions.swift`): typing @ in
+  a story offers the circle's people in a bar right above the keyboard
+  (`MentionBar`, fed by `AppState.mentionOffer`; a keyboard `ToolbarItem`
+  declared inside Today's lazy list never appeared). A pick shows "@Name" in
+  the field and is sent as `@[<user id>]`, which the server stores as plain
+  text, untouched. Every phone draws it back as the person's name, bold, in
+  their own watercolor tone (ten: coral, sage, dusty blue, clay, gold,
+  lavender, rose, slate teal, olive, plum, each with a deeper light-mode
+  ink and a paler dark-mode one), as a link that opens their profile.
+  Tones are assigned per circle on the phone (`MentionTones`, UserDefaults),
+  everyone in the roster in join order, so the first ten never share one.
+  Someone no longer in the circle reads as "someone". **Being mentioned
+  sends nothing**: no push, no badge, nothing new on the server. A mention
+  isn't a who-was-there tag.
 - **Returned + rest-a-memory** — one quiet card atop Today; priority **rescue >
   anniversary > near-forgotten**; Keep / Rest (never again) / Dismiss (not now);
   a Rested view with "let it return"; tombstoned photos never resurface.
@@ -272,7 +290,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   one on screen is remembered per account; leaving it brings up another, or
   the gate if none is left. A sixth is `too_many_circles`, said in words.
 - **Profiles** — display name, username, multi-line bio, avatar (soft-square,
-  crop), member profiles (A2-safe: name + words + face only). The You tab's
+  crop), member profiles (A2-safe: no holds, likes or counts). Since build 19
+  a member's profile is **a page of the shared journal** (`MemberProfileView`):
+  the atmosphere's card color with a paper grain (`Paper.swift`), the name
+  large in SF Rounded, "Member since October 2026" (of the circle on screen,
+  else the first one you share), a quiet "organizer" mark, their words or
+  "Still writing this part…" in italic, then "Still in the light": up to
+  twelve of their own photos still public in circles you share, newest first,
+  as small prints that fade as they do in Today, each opening with its
+  stories. All from `GET /members/{id}` (`member_since`, `is_organizer`,
+  `photos`). **Type** (build 19): every personal name and page title
+  (`Font.keepsake`) is SF Rounded; it was a serif, and serif now belongs to
+  the World tab alone. The You tab's
   circle, under "Your circle" and its name, is a scrolling row of small cards
   (`CircleCards`, build 17): face or initial, name, a quiet "organizer" mark
   on whoever started it, on the atmosphere's card surface. Each opens that
@@ -305,8 +334,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   only a genuinely deleted account.
 - **Community note** — one shared line atop Today, last-writer-wins, clears at end
   of the setter's local day. Not a chat. Drawn as a sticky note (build 17):
-  yellow paper, a strip of tape, a slight tilt, the words in a hand; a lamplit
-  yellow in dark mode. Empty, it's a slip asking for a note.
+  yellow paper, a slight tilt, the words in a hand; a lamplit yellow in dark
+  mode. Empty, it's a slip asking for a note. Build 19: a red pushpin (with
+  its shadow on the paper) replaced the tape, the paper has grain, the tilt is
+  1–2° and differs by note (from its words), and when the words change while
+  it's on screen it lifts off the board and settles back (`keyframeAnimator`;
+  not on first load, not under Reduce Motion).
 - **Shared moments** — photos with the same location label on the same local day by
   2+ people group into one view-only card; each photo keeps its own decay/like/hold.
 - **Daily prompt** (client only) — a deterministic-by-date whisper in the capture
@@ -453,19 +486,30 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   counting. Each edition is its source's own pick, shown newest first. A
   failed fetch keeps the last good set; a set older than 6h is not served,
   and an empty tab says "No stories right now."
+  **A morning paper** (build 19): no cards, no navigation bar, just a page.
+  "The World Today" as a black serif masthead between a heavy and a hairline
+  rule, the dateline ("SUNDAY, 1 NOVEMBER 2026 · PBS NEWS HOUR") in small
+  caps, then the lead story across the full width (title-size bold serif,
+  byline, summary), a rule, and the rest in columns (two on a phone, three on
+  the Duo's inner display) split where the page is about half full, with
+  hairline rules between stories and between columns. Nearby is a section
+  under an italic "Near Bloomington" between rules. New York (the system
+  serif) throughout, the only serif in Stanley; bylines in small caps.
+  The page is the floor with paper grain, and a strip of floor sits under
+  the status bar so the paper slides beneath the clock.
   **Reading in place** (build 15; build 18 for the two styles): a story with
   a summary (PBS, the BBC) shows the headline, outlet and time, the summary
-  beneath, and a small "Read full article ↗" that opens
+  beneath, and a small italic "Read full article ↗"; the whole story opens
   `SFSafariViewController`. A headline-only story (Google's local feed) is
-  the bold headline, the source line and "Read more ↗", the whole card a link,
-  with no empty space where a summary would be.
+  the bold headline, the source line and "Read more ↗", with no empty space
+  where a summary would be.
   Safari is presented by UIKit over whatever is on top (`StoryReader`): as a
   SwiftUI sheet, its Close forced a second dismissal that closed what was
-  beneath it too. A quiet card at the top asks once for location ("News from
-  near you", Allow location / Not now) before the system sheet; "Not now"
-  puts it away for good. Subtitles use the real count ("12 stories from PBS
-  News Hour, refreshed every half hour"), the edition's size, not a tally of
-  anyone. No likes, saves, shares, comments or notifications. News never
+  beneath it too. A notice boxed in a rule, under the masthead, asks once
+  for location ("News from near you", Allow location / Not now) before the
+  system sheet; "Not now" puts it away for good. The page names its outlet
+  in the dateline and counts nothing. No likes, saves, shares, comments or
+  notifications. News never
   appears in Today, Held, Returned, the export or any memory surface. It
   loads when the tab appears and on pull, never on a timer, and the pull
   runs as a separate `Task` because SwiftUI cancels a `.refreshable` task the
@@ -518,8 +562,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 18** (0.2.0) is committed but not archived; the archive below is
-  build 13's. Build 18 adds the `aps-environment` entitlement, so the App ID
+- **Build 19** (0.2.0) is committed but not archived; the archive below is
+  build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
 - **TestFlight build.** Build 13 (0.2.0) is archived and exported from
@@ -551,8 +595,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   rather than by a missing log line. **Not yet deployed:** the full Terms
   and Privacy Policy, the deletion fixes, and what the app's Report, Block
   and Delete need (`GET /blocks`, `retake_on_delete`, the report log line
-  and scope, the ntfy alert); against v11 the Blocked list fails quietly
-  and Delete's alert leaves out the day. Delete the pre-build-18
+  and scope, the ntfy alert), and build 19's member profile fields and
+  `moments_shared`; against v11 the Blocked list fails quietly, Delete's
+  alert leaves out the day, member profiles show only name and words, and
+  the You tab has no moments line. Mentions need no server change. Delete the pre-build-18
   snapshot (both copies) by 2026-11-08, or the policy's "gone from our
   backups within seven days" stops being true.
 - **Report alerts need the topic on Fly.** Each report is a WARNING line in
@@ -639,7 +685,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**309 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**313 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -710,7 +756,9 @@ live APNs, concurrency under real load.
   from Apple's geocoder), `WorldTodayView.swift` (the World tab, stories
   that open in place, Safari),
   `SafetyViews.swift` (photo and story menus, report sheet, Block,
-  Blocked), `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
+  Blocked), `Mentions.swift` (@mentions: parsing, tones, `StoryComposer`,
+  `MentionBar`), `Paper.swift` (the paper grain, `.paperPage()`),
+  `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`

@@ -17,12 +17,14 @@ from ..deps import (
     get_settings,
     member_count,
     membership_in,
+    my_circle_ids,
     require_membership,
     shares_a_circle,
 )
-from ..models import Circle, CommunityNote, Membership, User, new_id, new_invite_code
+from .. import physics
+from ..models import Circle, CommunityNote, Membership, Photo, User, new_id, new_invite_code
 from ..physics import CIRCLES_PER_PERSON
-from ..serialize import avatar_url, blocked_ids, community_note_payload
+from ..serialize import avatar_url, blocked_ids, community_note_payload, iso, photo_payload
 
 # Said once, in words rather than a number: the cap is a guardrail, not a goal.
 CIRCLE_FULL_MESSAGE = "Stanley works best with people you actually know."
@@ -315,21 +317,51 @@ def member_profile(
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
+    active: str | None = Depends(active_circle_id),
 ):
-    """A circle member's profile: their face, name and words, nothing else.
+    """A circle member's profile, a page in the shared journal (build 19):
+    their face, name and words, since when they've been in the circle, a
+    quiet mark if they started it, and their photos still in the light.
     Invariant A2 extends to identity surfaces — keepings are owner-private, so
-    this payload structurally has no field for anchors, kept grids, or counts.
-    Anyone you share a circle with, whichever circle is on screen."""
-    require_membership(db, user)
+    this payload structurally has no field for anchors, kept grids, or counts
+    (not even how many moments they've shared: that number is theirs alone,
+    on `/me`). The photos are their own posts in circles you share, which Today
+    already shows you. Anyone you share a circle with, whichever circle is on
+    screen."""
+    _, circle = require_membership(db, user, active)
     if not shares_a_circle(db, user.id, user_id) or user_id in blocked_ids(db, user.id):
         raise HTTPException(404, "not found")
     target = db.get(User, user_id)
     if target is None or target.deleted_at is not None:
         raise HTTPException(404, "not found")
+    now = clock.now()
+    shared = my_circle_ids(db, user.id) & my_circle_ids(db, target.id)
+    # "Member since": of the circle on screen when they're in it, else of the
+    # first circle you share.
+    here = db.get(Membership, (circle.id, target.id))
+    since = here or db.scalars(
+        select(Membership)
+        .where(Membership.user_id == target.id, Membership.circle_id.in_(shared))
+        .order_by(Membership.joined_at)
+    ).first()
+    live = db.scalars(
+        select(Photo)
+        .where(
+            Photo.owner_id == target.id,
+            Photo.circle_id.in_(shared),
+            Photo.state.in_(physics.PUBLIC_STATES),
+            Photo.deleted_at.is_(None),
+        )
+        .order_by(Photo.taken_at.desc())  # newest first, and nothing else
+        .limit(12)
+    ).all()
     return {
         "id": target.id,
         "display_name": target.display_name,
         "username": target.username,
         "bio": target.bio,
-        "avatar_url": avatar_url(settings, target.avatar_key, clock.now()),
+        "avatar_url": avatar_url(settings, target.avatar_key, now),
+        "member_since": iso(since.joined_at) if since else None,
+        "is_organizer": here is not None and circle.created_by == target.id,
+        "photos": [photo_payload(db, settings, now, p, user) for p in live],
     }

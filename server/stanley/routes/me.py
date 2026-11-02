@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .. import physics
-from ..decay import TOMBSTONE, delete_comments, enqueue_purge, scrub
+from ..decay import TOMBSTONE, delete_comments, enqueue_purge, owner_hash_for, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
 from ..images import BadImage, process_avatar
 from ..milestones import milestone_payload, surface_due
@@ -63,6 +63,7 @@ def _profile_payload(user: User) -> dict:
 
 @router.get("/me")
 def me(
+    db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
@@ -74,7 +75,25 @@ def me(
         "created_at": iso(user.created_at),
         "last_light_notice_enabled": user.last_light_notice_enabled,
         "digest_enabled": user.digest_enabled,
+        "moments_shared": moments_shared(db, user.id),
     }
+
+
+def moments_shared(db: Session, user_id: str) -> int:
+    """How many moments this person has shared, ever (build 19): faded and
+    purged ones too, not the ones they deleted. Theirs alone, for the quiet
+    line on their own You tab. It is only ever on `/me`: never on a member
+    profile, a photo or any surface someone else sees, so it can't become a
+    score. A purged photo keeps its owner only as a hash (decay §13), and so
+    does a released redo, which `deleted_at` leaves out."""
+    return db.scalar(
+        select(func.count())
+        .select_from(Photo)
+        .where(
+            (Photo.owner_id == user_id) | (Photo.owner_hash == owner_hash_for(user_id)),
+            Photo.deleted_at.is_(None),
+        )
+    ) or 0
 
 
 @router.post("/me/avatar")

@@ -2,14 +2,13 @@ import SwiftUI
 import UIKit
 
 extension Font {
-    /// The profile's keepsake serif. Drop CormorantGaramond-Medium.ttf into the
-    /// bundle (and UIAppFonts) and it's used automatically; until then this
-    /// falls back to the system serif, which reads the same way.
-    static func keepsake(_ size: CGFloat) -> Font {
-        if UIFont(name: "CormorantGaramond-Medium", size: size) != nil {
-            return .custom("CormorantGaramond-Medium", size: size)
-        }
-        return .system(size: size, design: .serif)
+    /// Stanley's own voice for names and page titles: SF Rounded, warm and
+    /// a little informal, the way a name is written on a page someone keeps.
+    /// It was a serif until build 19; serif now belongs to the World tab
+    /// alone (the morning paper), so personal pages and the paper never read
+    /// as the same thing.
+    static func keepsake(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        .system(size: size, weight: weight, design: .rounded)
     }
 
     /// Handwriting, for the words that are a person's own hand on the page:
@@ -24,16 +23,10 @@ extension Font {
         return .system(style, design: .rounded).weight(bold ? .semibold : .regular)
     }
 
-    /// A decorative editorial display face for the weekly-mosaic captions —
-    /// Instagram-deco in spirit. Prefers Didot, then Bodoni 72, then Georgia
-    /// (all built into iOS — nothing bundled), finally the system serif.
+    /// The weekly mosaic's captions: rounded like every other personal word
+    /// in Stanley (build 19; they were Didot, the one other serif).
     static func mosaicDeco(_ size: CGFloat) -> Font {
-        for name in ["Didot", "BodoniSvtyTwoITCTT-Book", "Georgia"] {
-            if UIFont(name: name, size: size) != nil {
-                return .custom(name, size: size)
-            }
-        }
-        return .system(size: size, design: .serif)
+        .system(size: size, weight: .regular, design: .rounded)
     }
 }
 

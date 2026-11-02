@@ -81,16 +81,26 @@ def test_member_profile_shows_words_only(circle):
     r = circle.ben.client.get(f"/members/{circle.ana.id}", headers=circle.ben.h)
     assert r.status_code == 200
     payload = r.json()
-    # A face, a name, and words — and avatar_url is the only addition allowed.
+    # A face, a name, and words; since build 19 also since when, whether she
+    # started the circle, and her own photos still in the light.
+    photos = payload.pop("photos")
+    assert payload.pop("member_since")
     assert payload == {
         "id": circle.ana.id,
         "display_name": "ana",
         "username": None,
         "bio": "I keep doors.",
         "avatar_url": None,
+        "is_organizer": True,
     }
+    # Her photo is there, but her keeping of it isn't: the gestures on it are
+    # the viewer's own, as on every photo payload.
+    assert [p["id"] for p in photos] == [pid]
+    assert photos[0]["anchored_by_me"] is False and photos[0]["my_anchor_note"] is None
     # …and none of them leak: no anchors, no memories, no numbers
-    assert not any("anchor" in k or "count" in k or "memor" in k for k in payload)
+    assert not any(
+        "anchor" in k or "count" in k or "memor" in k or "moments" in k for k in payload
+    )
 
 
 def test_member_profile_is_circle_scoped_and_block_aware(client, circle):

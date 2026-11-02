@@ -492,6 +492,13 @@ final class AppState {
     /// The circle on screen has a capture waiting: its day is spoken for.
     var holdsTheDay: Bool { pendingHere != nil }
 
+    /// Who the people a story mentions are, in the circle on screen, and
+    /// their tones (`Mentions.swift`).
+    var mentions: MentionDirectory { MentionDirectory(circle: circle) }
+    /// The people a story being written could mention, shown above the
+    /// keyboard by whatever screen holds the story's field.
+    let mentionOffer = MentionOffer()
+
     func capture(
         jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
     ) async throws {

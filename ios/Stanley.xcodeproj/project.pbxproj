@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		013DEF24EEADEF7753533AA7 /* Mentions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7076D62BCAF8F97CC12051C7 /* Mentions.swift */; };
 		085A358993C019819E3E1743 /* CircleGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */; };
 		0CC4F7FA34CA0186377FD125 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31AD660F2C25D0127589383 /* SetupView.swift */; };
 		118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB8427334A459A620854705 /* AvatarPicker.swift */; };
 		1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B371E63EBC11AC20695ED507 /* StanleyApp.swift */; };
+		1AB59097E40753A2F49C5072 /* Paper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7BB8FE1360D8DF6E8FC8074 /* Paper.swift */; };
 		1DF6169DEAC8035205C69065 /* SafetyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73E1722ECC586EAD8BAA1DB /* SafetyViews.swift */; };
 		26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */; };
 		2D6A2BE15AF99D9A87A677C8 /* WorldTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E137B196869A47ACE289A041 /* WorldTodayView.swift */; };
@@ -56,6 +58,7 @@
 		59A4482F0EEC4500194DB4B1 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		643284CE27799EBF5CE62A06 /* PhotoFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoFilters.swift; sourceTree = "<group>"; };
 		65E5AD82A467F941E84D908A /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
+		7076D62BCAF8F97CC12051C7 /* Mentions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mentions.swift; sourceTree = "<group>"; };
 		7B910D5D0535C57C080D6460 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		830E153D6B3273810AD97B6E /* Stanley.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Stanley.entitlements; sourceTree = "<group>"; };
 		894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayFeedView.swift; sourceTree = "<group>"; };
@@ -77,6 +80,7 @@
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
 		E73E1722ECC586EAD8BAA1DB /* SafetyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyViews.swift; sourceTree = "<group>"; };
+		E7BB8FE1360D8DF6E8FC8074 /* Paper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Paper.swift; sourceTree = "<group>"; };
 		FEBB1E80695B05BAB1F4CFC4 /* Push.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Push.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -119,9 +123,11 @@
 				65E5AD82A467F941E84D908A /* Legal.swift */,
 				2EA2B6537E9B17BD17EB16A5 /* LibraryPhoto.swift */,
 				8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */,
+				7076D62BCAF8F97CC12051C7 /* Mentions.swift */,
 				0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */,
 				D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */,
 				A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */,
+				E7BB8FE1360D8DF6E8FC8074 /* Paper.swift */,
 				643284CE27799EBF5CE62A06 /* PhotoFilters.swift */,
 				43DA9DBBFC78AE87EE56D899 /* Places.swift */,
 				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
@@ -238,9 +244,11 @@
 				FCC537D2E099C14871723492 /* Legal.swift in Sources */,
 				4417A0D50E18CC231F775453 /* LibraryPhoto.swift in Sources */,
 				26EE7C0AECB59262832B1036 /* MemoriesView.swift in Sources */,
+				013DEF24EEADEF7753533AA7 /* Mentions.swift in Sources */,
 				EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */,
 				59CE1167E20B3C2CA615946E /* OfflineQueue.swift in Sources */,
 				A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */,
+				1AB59097E40753A2F49C5072 /* Paper.swift in Sources */,
 				DC1E92CA63D8409753C579A8 /* PhotoFilters.swift in Sources */,
 				6A8050442F9E778834687E15 /* Places.swift in Sources */,
 				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,

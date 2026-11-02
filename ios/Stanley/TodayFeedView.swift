@@ -33,6 +33,13 @@ struct TodayFeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                  // Each entry is its own scroll target, full width, with the
+                  // page's margins inside it (the Group gives every child the
+                  // same padding and column). With the margins outside,
+                  // restoring the place (keyboard up for a story, Today
+                  // refreshing under a sheet) lined an entry's leading edge up
+                  // with the screen's and slid the page 20pt sideways.
+                  Group {
                     // The note is the circle talking to itself, so it goes
                     // first, above even the mosaic: one sticky note on the
                     // first page.
@@ -88,12 +95,13 @@ struct TodayFeedView: View {
                             .padding(.bottom, density.entrySpacing)
                         }
                     }
+                  }
+                  .padding(.horizontal, 20)
+                  .frame(maxWidth: density.journalWidth)
+                  .frame(maxWidth: .infinity)
                 }
                 .scrollTargetLayout()
-                .padding(.horizontal, 20)
                 .padding(.bottom, 8)
-                .frame(maxWidth: density.journalWidth)
-                .frame(maxWidth: .infinity)
                 .foldAnimated(hSizeClass)
             }
             .scrollPosition(id: $anchor)
@@ -116,6 +124,9 @@ struct TodayFeedView: View {
                         .transition(.opacity)
                 }
             }
+            // While a story's @ is being typed: who it could be, right above
+            // the keyboard.
+            .safeAreaInset(edge: .bottom) { MentionBar() }
             .animation(.easeOut(duration: 0.15), value: typing)
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                 typing = true
@@ -377,11 +388,36 @@ struct CaptureButton: View {
 enum StoryLine {
     /// Who, then what they remember: the name in bold at full strength, the
     /// words a step quieter in the secondary color. Two people's lines never
-    /// run together into one white run of text.
-    static func text(_ comment: Comment) -> Text {
-        Text(comment.author.displayName).bold().foregroundStyle(.primary)
-            + Text("  ")
-            + Text(comment.body).foregroundStyle(.secondary)
+    /// run together into one white run of text. A person the story mentions
+    /// (build 19, `Mentions.swift`) is their name in bold, in their own tone,
+    /// and a link to their profile, which the view showing the line opens.
+    @MainActor
+    static func text(_ comment: Comment, people: MentionDirectory) -> Text {
+        var line = AttributedString(comment.author.displayName)
+        line.inlinePresentationIntent = .stronglyEmphasized
+        line.swiftUI.foregroundColor = .primary
+        line += AttributedString("  ")
+        for part in Mentions.parts(comment.body) {
+            switch part {
+            case .words(let words):
+                var run = AttributedString(words)
+                run.swiftUI.foregroundColor = .secondary
+                line += run
+            case .person(let id):
+                if let name = people.name(id) {
+                    var run = AttributedString(name)
+                    run.inlinePresentationIntent = .stronglyEmphasized
+                    run.swiftUI.foregroundColor = people.color(id)
+                    run.link = Mentions.link(id)
+                    line += run
+                } else {
+                    var run = AttributedString("someone")
+                    run.swiftUI.foregroundColor = .secondary
+                    line += run
+                }
+            }
+        }
+        return Text(line)
     }
 
     /// The empty field under a photo. A question about the moment, because a
@@ -435,9 +471,14 @@ struct PhotoImageView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var glyph = GestureIcon.glyph
 
-    private var fade: Double {
+    private var fade: Double { Self.fade(photo.decayProgress) }
+
+    /// How far a photo has faded, from its decay progress: nothing for its
+    /// first third, then a smooth fall. Shared with the small prints on a
+    /// member's page, so a photo fades the same wherever it's seen.
+    static func fade(_ progress: Double) -> Double {
         let fadingStart = 1.0 / 3.0
-        let t = min(1.0, max(0.0, (photo.decayProgress - fadingStart) / (1.0 - fadingStart)))
+        let t = min(1.0, max(0.0, (progress - fadingStart) / (1.0 - fadingStart)))
         return t * t * (3.0 - 2.0 * t)
     }
 
@@ -659,7 +700,6 @@ struct PhotoCard: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let photo: Photo
-    @State private var newComment = ""
     @State private var viewedMember: ViewedMember?
     @State private var showFaces = false
     @State private var showStories = false
@@ -691,6 +731,12 @@ struct PhotoCard: View {
             PhotoStoriesView(photo: photo)
         }
         .photoActions(photo, $action)
+        // A name a story mentions opens that person's profile.
+        .environment(\.openURL, OpenURLAction { url in
+            guard let id = Mentions.person(in: url) else { return .systemAction }
+            viewedMember = ViewedMember(id: id)
+            return .handled
+        })
     }
 
     /// Caption, place and who was there, with the owner's faces button and
@@ -734,8 +780,9 @@ struct PhotoCard: View {
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Who liked and held this")
             }
+            // No negative padding to pull it to the edge: a row wider than
+            // its frame let the keyboard nudge all of Today sideways.
             PhotoMenuButton(photo: photo, action: $action)
-                .padding(.trailing, -10)
         }
         .padding(.horizontal, 2)
     }
@@ -746,7 +793,7 @@ struct PhotoCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Co-remembering, visible without digging: one line, the way
                 // you'd overhear it.
-                StoryLine.text(first)
+                StoryLine.text(first, people: state.mentions)
                     .font(.callout)
                     .lineLimit(density.storyLineLimit)
                     .storyMenu(first, on: photo)
@@ -763,21 +810,9 @@ struct PhotoCard: View {
     }
 
     private var commentField: some View {
-        HStack {
-            TextField("", text: $newComment, prompt: .fieldPrompt(StoryLine.prompt))
-                .font(.callout)
-                .storyField()
-            if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
-                Button("Add") {
-                    let body = newComment.trimmingCharacters(in: .whitespaces)
-                    newComment = ""
-                    Task { await state.comment(on: photo, body: body) }
-                }
-                .font(.callout)
-            }
-        }
-        .padding(.horizontal, 2)
-        .creaseSafe(density)
+        StoryComposer(photo: photo)
+            .padding(.horizontal, 2)
+            .creaseSafe(density)
     }
 }
 
@@ -846,8 +881,14 @@ struct MomentCard: View {
 /// Not a chat — tapping it just lets you write a new one over it.
 struct NoteBar: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let note: CommunityNote?
     let onTap: () -> Void
+    /// Bumped when the note's words change while it's on screen, to lift it
+    /// off the board and settle it again.
+    @State private var lifts = 0
+    /// Not on the first load: the note arriving isn't someone changing it.
+    @State private var settled = false
 
     /// Sticky-note yellow, always, because that's what makes it a sticky
     /// note: bright in the light, and in the dark a step down, as if under a
@@ -858,6 +899,15 @@ struct NoteBar: View {
     }
 
     private var ink: Color { Color(red: 0.22, green: 0.18, blue: 0.10) }
+
+    /// Stuck on a little crooked, between one and two degrees, and not the
+    /// same way every time: each note's angle comes from its words (build 19).
+    private var tilt: Double {
+        guard let text = note?.text else { return -1.4 }
+        let h = text.unicodeScalars.reduce(UInt32(7)) { $0 &* 31 &+ $1.value }
+        let angle = 1.0 + Double(h % 11) / 10.0
+        return h % 3 == 0 ? angle : -angle
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -877,7 +927,7 @@ struct NoteBar: View {
             }
             .foregroundStyle(ink)
             .padding(.horizontal, 18)
-            .padding(.top, 22)
+            .padding(.top, 24)
             .padding(.bottom, 16)
             // A written note is a square-ish sticky; an empty one is a slip,
             // so it doesn't take the first page for an invitation.
@@ -887,22 +937,32 @@ struct NoteBar: View {
                     .fill(paper)
                     .overlay(
                         // Paper isn't flat: a little lighter where the light
-                        // falls, a little deeper at the curl.
+                        // falls, a little deeper at the curl, and a grain.
                         LinearGradient(
                             colors: [.white.opacity(0.10), .clear, .black.opacity(0.05)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                     )
+                    .overlay(PaperGrainView(strength: 0.55).clipped())
                     .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.16), radius: 6, x: 1, y: 3)
             }
+            // Pinned to the board, near the top, the way a note hangs.
             .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(.white.opacity(colorScheme == .dark ? 0.32 : 0.5))
-                    .frame(width: 64, height: 18)
-                    .rotationEffect(.degrees(3))
-                    .offset(y: -9)
+                Pushpin().offset(y: -4)
             }
-            .rotationEffect(.degrees(-1.6))
+            .keyframeAnimator(initialValue: 0.0, trigger: lifts) { content, lift in
+                content
+                    .scaleEffect(1 + 0.035 * lift, anchor: .top)
+                    .rotationEffect(.degrees(tilt * (1 - 0.6 * lift)), anchor: .top)
+                    .offset(y: -5 * lift)
+                    .shadow(color: .black.opacity(0.16 * lift), radius: 14 * lift, y: 10 * lift)
+            } keyframes: { _ in
+                // Up off the board, then back down with a little give.
+                KeyframeTrack {
+                    CubicKeyframe(1, duration: 0.22)
+                    SpringKeyframe(0, duration: 0.7, spring: .init(duration: 0.6, bounce: 0.35))
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -910,6 +970,40 @@ struct NoteBar: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel(note.map { "Note from \($0.author.displayName): \($0.text)" } ?? "Leave a note for the circle")
         .accessibilityHint("Write the circle's note")
+        .onChange(of: note?.text) { _, words in
+            if settled, words != nil, !reduceMotion { lifts += 1 }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(1.5))
+            settled = true
+        }
+    }
+}
+
+/// A pushpin through the top of the note: a muted red head with a glint,
+/// and its shadow on the paper, down and to the right.
+private struct Pushpin: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.black.opacity(0.28))
+                .frame(width: 12, height: 12)
+                .blur(radius: 1.5)
+                .offset(x: 3, y: 4)
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(red: 0.93, green: 0.56, blue: 0.48), Color(red: 0.66, green: 0.26, blue: 0.22)],
+                        center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: 9
+                    )
+                )
+                .frame(width: 15, height: 15)
+            Circle()
+                .fill(.white.opacity(0.7))
+                .frame(width: 4, height: 4)
+                .offset(x: -3, y: -3)
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -1182,8 +1276,8 @@ struct PhotoStoriesView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let photo: Photo
-    @State private var newComment = ""
     @State private var action: PhotoAction?
+    @State private var viewedMember: ViewedMember?
 
     var body: some View {
         NavigationStack {
@@ -1194,28 +1288,17 @@ struct PhotoStoriesView: View {
                         Text(caption).font(.body)
                     }
                     ForEach(photo.comments) { comment in
-                        StoryLine.text(comment)
+                        StoryLine.text(comment, people: state.mentions)
                             .font(.callout)
                             .storyMenu(comment, on: photo)
                     }
-                    HStack {
-                        TextField("", text: $newComment, prompt: .fieldPrompt(StoryLine.prompt))
-                            .font(.callout)
-                            .storyField()
-                        if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
-                            Button("Add") {
-                                let body = newComment.trimmingCharacters(in: .whitespaces)
-                                newComment = ""
-                                Task { await state.comment(on: photo, body: body) }
-                            }
-                            .font(.callout)
-                        }
-                    }
-                    .padding(.top, 2)
-                    .creaseSafe(density)
+                    StoryComposer(photo: photo)
+                        .padding(.top, 2)
+                        .creaseSafe(density)
                 }
                 .padding()
             }
+            .safeAreaInset(edge: .bottom) { MentionBar() }
             .atmosphereWash()
             .navigationTitle(photo.owner.displayName)
             .navigationBarTitleDisplayMode(.inline)
@@ -1233,6 +1316,15 @@ struct PhotoStoriesView: View {
                 }
             }
             .photoActions(photo, $action)
+            .environment(\.openURL, OpenURLAction { url in
+                guard let id = Mentions.person(in: url) else { return .systemAction }
+                viewedMember = ViewedMember(id: id)
+                return .handled
+            })
+            .sheet(item: $viewedMember) { member in
+                MemberProfileView(memberId: member.id)
+                    .presentationDetents([.medium, .large])
+            }
         }
     }
 }

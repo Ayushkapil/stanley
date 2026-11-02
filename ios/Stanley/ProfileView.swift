@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Your own profile: a name, your words, and the grid of what you've kept.
 /// The grid is a private self-view (A2) — no other member can ever see it.
-/// Deliberately absent: follower counts, post counts, numbers of any kind.
+/// Deliberately absent: follower counts, and numbers about anyone else. The
+/// one number here (build 19) is how many moments you've shared, quiet and
+/// yours alone: it's only on `/me`, never on the page others see of you.
 struct ProfileView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -61,6 +63,11 @@ struct ProfileView: View {
                     }
                     if !density.profileIsHorizontal {
                         bioView
+                    }
+                    if let shared = state.profile?.momentsShared, shared > 0 {
+                        Text("You've shared \(shared == 1 ? "one moment" : "\(shared) moments"). Only you see this.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                     if let circle = state.circle, !others.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
@@ -413,30 +420,32 @@ struct MemberProfileView: View {
     @Environment(AppState.self) private var state
     let memberId: String
     @State private var member: MemberProfile?
+    /// One of their photos, opened from the page with its stories.
+    @State private var opened: Photo?
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 3)
 
     var body: some View {
         Group {
             if let member {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        AvatarView(url: member.avatarUrl, name: member.displayName, size: 72)
-                            .padding(.bottom, 4)
+                    VStack(alignment: .leading, spacing: 0) {
+                        AvatarView(url: member.avatarUrl, name: member.displayName, size: 84)
                         Text(member.displayName ?? "New member")
-                            .font(.keepsake(28))
+                            .font(.keepsake(34, weight: .semibold))
+                            .padding(.top, 14)
                         if let username = member.username {
                             Text("@\(username)")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        if let bio = member.bio, !bio.isEmpty {
-                            Text(bio)
-                                .font(.callout)
-                                .padding(.top, 10)
-                        } else {
-                            Text("No bio yet.")
-                                .font(.callout)
-                                .foregroundStyle(.tertiary)
-                                .padding(.top, 10)
+                        since(member)
+                            .padding(.top, 8)
+                        words(member)
+                            .padding(.top, 20)
+                        if let photos = member.photos, !photos.isEmpty {
+                            inTheLight(photos)
+                                .padding(.top, 26)
                         }
                         if member.id != state.myId {
                             BlockButton(person: UserBrief(
@@ -444,7 +453,7 @@ struct MemberProfileView: View {
                                 displayName: member.displayName ?? "New member",
                                 avatarUrl: member.avatarUrl
                             ))
-                            .padding(.top, 36)
+                            .padding(.top, 40)
                         }
                     }
                     .padding(24)
@@ -455,8 +464,11 @@ struct MemberProfileView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .atmosphereWash()
+        .paperPage()
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $opened) { photo in
+            PhotoStoriesView(photo: photo)
+        }
         .task {
             do {
                 member = try await state.loadMember(memberId)
@@ -464,5 +476,87 @@ struct MemberProfileView: View {
                 state.surface(error)
             }
         }
+    }
+
+    /// "Member since October 2026", and a quiet mark on whoever started the
+    /// circle. A date and a role, never a number.
+    @ViewBuilder
+    private func since(_ member: MemberProfile) -> some View {
+        HStack(spacing: 8) {
+            if let since = member.memberSince {
+                Text("Member since \(since.formatted(.dateTime.month(.wide).year()))")
+            }
+            if member.isOrganizer == true {
+                Text("organizer")
+                    .font(.caption2.weight(.medium))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .overlay(Capsule().strokeBorder(.secondary.opacity(0.5), lineWidth: 0.5))
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+    }
+
+    /// Their words, or a kind line where they haven't written any yet.
+    @ViewBuilder
+    private func words(_ member: MemberProfile) -> some View {
+        if let bio = member.bio, !bio.isEmpty {
+            Text(bio)
+                .font(.callout)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text("Still writing this part…")
+                .font(.callout)
+                .italic()
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Their photos you can still see, newest first, as small prints that
+    /// fade as they do in Today: a reason to come by. Each opens with its
+    /// stories. What they've held is theirs alone and never here.
+    private func inTheLight(_ photos: [Photo]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Rectangle()
+                .fill(.secondary.opacity(0.35))
+                .frame(height: 0.5)
+            Text("Still in the light")
+                .font(.keepsake(20))
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(photos) { photo in
+                    Button { opened = photo } label: { PrintThumb(photo: photo) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(photo.caption ?? "A photo")
+                }
+            }
+        }
+    }
+}
+
+/// A small print: the photo's own shape, rounded, a little off square, and
+/// faded as far as it has faded in Today.
+private struct PrintThumb: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.colorScheme) private var colorScheme
+    let photo: Photo
+
+    var body: some View {
+        let fade = PhotoImageView.fade(photo.decayProgress)
+        Color.clear
+            .aspectRatio(PhotoShape.aspect, contentMode: .fit)
+            .overlay {
+                AsyncImage(url: photo.urls.flatMap { state.api.absoluteURL($0.thumb) }) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(.quaternary)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .saturation(1 - 0.85 * fade)
+            .opacity(1 - (colorScheme == .dark ? 0.62 : 0.82) * fade)
+            .shadow(color: .black.opacity(0.14), radius: 4, y: 2)
+            .rotationEffect(.degrees(PrintTilt.degrees(photo.id)))
     }
 }
