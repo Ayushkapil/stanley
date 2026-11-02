@@ -524,7 +524,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   few), **Privacy & Security** (Require Face ID, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
-  Terms of Use, Privacy Policy, and the version, "Stanley 0.2.0 (22)", at the
+  Terms of Use, Privacy Policy, and the version, "Stanley 0.2.0 (23)", at the
   foot).
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
@@ -710,7 +710,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 22** (0.2.0) is committed but not archived; the archive below is
+- **Build 23** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
