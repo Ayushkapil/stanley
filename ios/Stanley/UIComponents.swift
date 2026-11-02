@@ -22,12 +22,6 @@ extension Font {
         }
         return .system(style, design: .rounded).weight(bold ? .semibold : .regular)
     }
-
-    /// The weekly mosaic's captions: rounded like every other personal word
-    /// in Stanley (build 19; they were Didot, the one other serif).
-    static func mosaicDeco(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .regular, design: .rounded)
-    }
 }
 
 /// A soft-cornered square face (Part 6) — avatars echo the memory tiles, never

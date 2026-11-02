@@ -40,11 +40,16 @@ struct TodayFeedView: View {
                   // refreshing under a sheet) lined an entry's leading edge up
                   // with the screen's and slid the page 20pt sideways.
                   Group {
+                    // The journal's cover line, the way the paper opens: the
+                    // circle's name (which opens the others), a double rule
+                    // and the day in small capitals.
+                    TodayMasthead { joiningAnother = true }
+                        .padding(.bottom, 22)
+                        .id("masthead")
                     // The note is the circle talking to itself, so it goes
                     // first, above even the mosaic: one sticky note on the
                     // first page.
                     NoteBar(note: state.communityNote) { editingNote = true }
-                        .padding(.top, 10)
                         .padding(.bottom, 28)
                         .id("note")
                     // The weekly mosaic sits above the days themselves
@@ -66,12 +71,12 @@ struct TodayFeedView: View {
                             .id("pending")
                     }
                     if state.feedItems.isEmpty {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 6) {
                             Text("Nothing here right now.")
+                                .font(.hand(20, relativeTo: .body))
                                 .foregroundStyle(.secondary)
                             Text("Photos live for six days, then they're gone.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                                .smallCaps()
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 60)
@@ -80,19 +85,24 @@ struct TodayFeedView: View {
                     ForEach(Array(JournalDay.group(state.feedItems).enumerated()), id: \.element.id) { index, day in
                         DayMark(date: day.date)
                             .padding(.top, index == 0 ? 0 : density.daySpacing)
-                            .padding(.bottom, 16)
+                            .padding(.bottom, 18)
                             .id("day:\(day.id.timeIntervalSince1970)")
                         // Entries carry their FeedItem id (a String, like the
                         // ids above), so one binding anchors to any of them.
-                        ForEach(day.items) { item in
-                            Group {
+                        // A day's entries are divided by a thin rule, the
+                        // way the paper divides its stories, not by a gap.
+                        ForEach(Array(day.items.enumerated()), id: \.element.id) { position, item in
+                            VStack(alignment: .leading, spacing: 0) {
+                                if position > 0 {
+                                    Rule(weight: 0.5)
+                                        .padding(.vertical, density.entrySpacing * 0.8)
+                                }
                                 if item.isMoment {
                                     MomentCard(item: item)
                                 } else if let photo = item.photo {
                                     PhotoCard(photo: photo)
                                 }
                             }
-                            .padding(.bottom, density.entrySpacing)
                         }
                     }
                   }
@@ -134,16 +144,9 @@ struct TodayFeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
                 typing = false
             }
-            .atmosphereWash()
+            // Paper, no navigation bar: the masthead is the page's own.
+            .journalPage()
             .navigationTitle("Today")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // The journal's name: the circle on screen, which opens the
-                // others and the way to join another.
-                ToolbarItem(placement: .principal) {
-                    CircleSwitcher { joiningAnother = true }
-                }
-            }
             .sheet(isPresented: $capturing) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
@@ -201,25 +204,48 @@ struct DayMark: View {
         return date.formatted(.dateTime.weekday(.wide))
     }
 
+    /// Written at the head of the page in a hand, the day and then its date,
+    /// with the rest of the line ruled off in ink.
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(title)
-                .font(.keepsake(26))
+                .font(.hand(30, bold: true, relativeTo: .title))
                 .lineLimit(1)
                 .fixedSize()
-            Text(date, format: .dateTime.month(.abbreviated).day())
-                .font(.footnote)
+            Text(date, format: .dateTime.day().month(.wide))
+                .font(.hand(17, relativeTo: .subheadline))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
-            Rectangle()
-                .fill(.separator)
-                .frame(height: 0.5)
+            Rule(weight: 0.5)
                 .frame(maxWidth: .infinity)
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Today's masthead: the circle on screen as the journal's name, written in
+/// a hand and opening the others, then the paper's double rule, the day in
+/// small capitals and a hairline. It scrolls away with the page.
+struct TodayMasthead: View {
+    let onJoinAnother: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            CircleSwitcher(onJoinAnother: onJoinAnother)
+            VStack(spacing: 2) {
+                Rule(weight: 1.5)
+                Rule(weight: 0.5)
+            }
+            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
+                .smallCaps()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Rule(weight: 0.5)
+        }
+        .padding(.top, 8)
     }
 }
 
@@ -246,19 +272,23 @@ struct CircleSwitcher: View {
                 Label("Join another circle", systemImage: "plus")
             }
         } label: {
-            HStack(spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                // The journal's name, written on its cover.
                 Text(name)
-                    .font(.headline)
+                    .font(.hand(40, bold: true, relativeTo: .largeTitle))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.bold))
+                    .font(.footnote.weight(.bold))
                     .foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .contentShape(Capsule())
+            .contentShape(Rectangle())
         }
+        // In ink, like the paper's masthead: a menu's label otherwise takes
+        // the mood's accent.
+        .tint(.primary)
+        .accessibilityAddTraits(.isHeader)
         .accessibilityLabel("Circle: \(name)")
         .accessibilityHint("Switch circles, or join another")
     }
@@ -444,10 +474,10 @@ private struct HeartPop {
     var opacity: Double = 0
 }
 
-/// A photo as a print on the page: `PhotoShape`, rounded alike at every
-/// corner, the photo the whole of it. The poster's name and the time are
-/// written small in its bottom-left corner, and the heart and the bookmark
-/// sit in the bottom-right. Its gestures: double-tap to like (ephemeral, a
+/// The photo of a print: `PhotoShape`, cut nearly square, to sit inside the
+/// print's paper border (`asPrint`). The heart and the bookmark sit in its
+/// bottom-right; the poster's name and the time are written beneath the
+/// print, on the page (`PrintByline`). Its gestures: double-tap to like (ephemeral, a
 /// white heart that pops in the middle and is gone), press-and-hold to hold
 /// (permanent, a bookmark). Color deepens under the thumb while held, with a
 /// soft settle on commit — never applause. Reused by standalone photos, the prints in a shared moment and
@@ -456,11 +486,8 @@ struct PhotoImageView: View {
     @Environment(AppState.self) private var state
     @Environment(\.colorScheme) private var colorScheme
     let photo: Photo
-    var cornerRadius: CGFloat = PhotoShape.corner
-    /// The name and time in the corner. Off where the name is already said.
-    var byline = true
-    /// A tap on the name.
-    var onOwner: (() -> Void)?
+    /// A print's photo is cut nearly square inside its border (`asPrint`).
+    var cornerRadius: CGFloat = PrintStock.photoCorner
 
     @State private var holdProgress: Double = 0
     @State private var settleScale: CGFloat = 1
@@ -496,9 +523,6 @@ struct PhotoImageView: View {
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))
                 .overlay { likeHeart }
-                .overlay(alignment: .bottomLeading) {
-                    if byline { name }
-                }
                 .overlay(alignment: .bottomTrailing) { gestures }
                 .clipShape(shape)
                 // Its final day: a warm edge, like candlelight. No text, no
@@ -556,35 +580,6 @@ struct PhotoImageView: View {
                 }
             }
             .clipped()
-    }
-
-    /// Who, and when: written small in the corner, the way you'd sign the
-    /// back of a print, on a soft dark wash so it reads over any photo. A
-    /// first name, because everyone here knows everyone. A tap opens their
-    /// profile.
-    private var name: some View {
-        let full = photo.owner.displayName
-        let first = full.split(separator: " ").first.map(String.init) ?? full
-        return Button { onOwner?() } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(first)
-                    .font(.hand(15, bold: true, relativeTo: .subheadline))
-                    .lineLimit(1)
-                Text(photo.takenAt, format: .dateTime.hour().minute())
-                    .font(.hand(13, relativeTo: .caption))
-                    .opacity(0.85)
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 3)
-            .background(.black.opacity(0.34), in: Capsule())
-            .padding(10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(onOwner == nil)
-        .accessibilityLabel("\(full), \(photo.takenAt.formatted(date: .omitted, time: .shortened))")
-        .accessibilityHint(onOwner == nil ? "" : "Opens their profile")
     }
 
     /// The bookmark and the heart, on the photo itself. Personal state, never
@@ -683,7 +678,7 @@ struct PhotoImageView: View {
 
 /// A print laid on the page by hand is never quite square to it: a degree
 /// or less either way, decided by the photo itself so it lies the same way
-/// every time it's drawn.
+/// every time it's drawn. The album page lays its prints a little looser.
 enum PrintTilt {
     static func degrees(_ id: String) -> Double {
         let seed = id.unicodeScalars.reduce(UInt32(7)) { $0 &* 31 &+ $1.value }
@@ -691,10 +686,10 @@ enum PrintTilt {
     }
 }
 
-/// One entry in the journal: the print, then its words beneath it with no
-/// frame around them — the caption, the place, who was there, the first
-/// story and the line that asks for the next. No header bar: the name and
-/// time are on the photo.
+/// One entry in the journal: the print laid on the page, then beneath it in
+/// ink, with no frame around any of it: who and when in a hand, the
+/// caption, the place, who was there, the stories and the line that asks
+/// for the next.
 struct PhotoCard: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -709,12 +704,9 @@ struct PhotoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            PhotoImageView(photo: photo) {
-                if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
-            }
-            .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
-            .rotationEffect(.degrees(PrintTilt.degrees(photo.id)))
-            .padding(.bottom, 2)
+            PhotoImageView(photo: photo)
+                .asPrint(border: density.isRoom ? 9 : 7, tilt: PrintTilt.degrees(photo.id))
+                .padding(.bottom, 6)
             words
             comments
             commentField
@@ -739,14 +731,19 @@ struct PhotoCard: View {
         })
     }
 
-    /// Caption, place and who was there, with the owner's faces button and
-    /// the photo's "…" menu at the end. Always drawn, so the menu (report,
-    /// delete, untag) is there on every print, not only behind a long press.
+    /// Who and when in a hand, then the caption, place and who was there,
+    /// with the owner's faces button and the photo's "…" menu at the end of
+    /// the first line. Always drawn, so the menu (report, delete, untag) is
+    /// there on every print, not only behind a long press.
     private var words: some View {
         let caption = photo.caption.flatMap { $0.isEmpty ? nil : $0 }
         let place = photo.location.flatMap { $0.isEmpty ? nil : $0 }
         return HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
+                PrintByline(owner: photo.owner, time: photo.takenAt) {
+                    if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
+                }
+                .padding(.bottom, 2)
                 if let caption {
                     Text(caption).font(.body)
                 }
@@ -839,16 +836,12 @@ struct MomentCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(item.location ?? "Shared moment")
-                        .font(.hand(18, bold: true))
+            HStack(alignment: .bottom, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("together, from your circle")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .smallCaps()
+                    Text(item.location ?? "Shared moment")
+                        .font(.hand(22, bold: true, relativeTo: .title3))
                 }
                 Spacer()
                 if let members = item.members {
@@ -863,13 +856,16 @@ struct MomentCard: View {
             // at, with a sliver of the third so it's clear there is more.
             // Outer display: the same run, narrowed to fit.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+                HStack(alignment: .top, spacing: 16) {
                     ForEach(item.photos ?? []) { photo in
-                        PhotoImageView(photo: photo) {
-                            if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
+                        VStack(alignment: .leading, spacing: 10) {
+                            PhotoImageView(photo: photo)
+                                .asPrint(border: 6, tilt: PrintTilt.degrees(photo.id))
+                            PrintByline(owner: photo.owner, time: photo.takenAt, size: 16) {
+                                if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
+                            }
+                            .padding(.horizontal, 4)
                         }
-                        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
-                        .rotationEffect(.degrees(PrintTilt.degrees(photo.id)))
                         .containerRelativeFrame(.horizontal) { length, _ in
                             density.momentTileWidth(container: length)
                         }
@@ -1080,17 +1076,13 @@ struct MosaicCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header stays above the carousel.
-            HStack(spacing: 8) {
-                Image(systemName: "square.grid.2x2")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Your week").font(.subheadline.weight(.medium))
-                    Text("Your week, all at once.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                Spacer()
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Your week")
+                    .font(.hand(24, bold: true, relativeTo: .title3))
+                Text("Your week, all at once.")
+                    .smallCaps()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             // It arrives rather than appears: a slow fade on first sight.
             .opacity(headerShown ? 1 : 0)
             .task {
@@ -1112,14 +1104,14 @@ struct MosaicCard: View {
                 let tile = mosaic.tiles[selection]
                 HStack(spacing: 8) {
                     AvatarView(url: tile.owner.avatarUrl, name: tile.owner.displayName, size: 26, circular: true)
-                    VStack(alignment: .leading, spacing: 3) {
-                        // Decorative editorial face (Didot) — a photo-book byline,
-                        // not the app's standard type. Header/subtitle stay system.
+                    VStack(alignment: .leading, spacing: 1) {
+                        // Written under the photo, the way a photo book is
+                        // annotated: who took it, then what they said.
                         Text(tile.owner.displayName)
-                            .font(.mosaicDeco(20))
+                            .font(.hand(19, bold: true, relativeTo: .headline))
                         if let caption = tile.caption, !caption.isEmpty {
                             Text(caption)
-                                .font(.mosaicDeco(16))
+                                .font(.hand(16, relativeTo: .subheadline))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
                         }
@@ -1142,8 +1134,9 @@ struct MosaicCard: View {
                 .animation(.easeInOut(duration: 0.2), value: selection)
             }
         }
-        .padding(density.cardPadding)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: density.cardCorner))
+        .padding(density.cardPadding + 4)
+        // A sheet of its own tucked into the journal, not a card on it.
+        .paperInsert()
     }
 
     private func tilePhoto(_ tile: MosaicTile) -> some View {
@@ -1157,9 +1150,10 @@ struct MosaicCard: View {
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .padding(.horizontal, 2)
-            .padding(.bottom, 4)
+            .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
+            .asPrint(border: 6)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
     }
 }
 
@@ -1211,18 +1205,14 @@ struct ReturnedCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let heading {
-                HStack(spacing: 8) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(heading).font(.subheadline.weight(.medium))
-                        if !subheading.isEmpty {
-                            Text(subheading).font(.caption2).foregroundStyle(.secondary)
-                        }
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(heading)
+                        .font(.hand(22, bold: true, relativeTo: .title3))
+                    if !subheading.isEmpty {
+                        Text(subheading).smallCaps()
                     }
-                    Spacer()
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             if let urls = item.photo.urls, let url = state.api.absoluteURL(urls.thumb) {
                 Color.clear
@@ -1235,7 +1225,9 @@ struct ReturnedCard: View {
                             Rectangle().fill(.quaternary)
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
+                    .asPrint(border: 6, tilt: PrintTilt.degrees(item.photo.id))
+                    .padding(.vertical, 4)
             }
             if let caption = item.photo.caption, !caption.isEmpty {
                 Text(caption).font(.callout)
@@ -1268,13 +1260,10 @@ struct ReturnedCard: View {
             .foregroundStyle(.secondary)
             .padding(.top, 2)
         }
-        .padding(density.cardPadding)
-        // Softer, distinct from circle cards: a thin material with an accent edge.
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: density.cardCorner))
-        .overlay(
-            RoundedRectangle(cornerRadius: density.cardCorner)
-                .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 1)
-        )
+        .padding(density.cardPadding + 4)
+        // Set apart from the circle's own pages: a slip of paper tucked in
+        // among them, lying a little crooked.
+        .paperInsert(tilt: -0.5)
     }
 }
 
@@ -1302,7 +1291,9 @@ struct PhotoStoriesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    PhotoImageView(photo: photo, byline: false)
+                    PhotoImageView(photo: photo)
+                        .asPrint(border: density.isRoom ? 9 : 7)
+                        .padding(.bottom, 4)
                     if let caption = photo.caption, !caption.isEmpty {
                         Text(caption).font(.body)
                     }
@@ -1373,9 +1364,11 @@ struct PendingCaptureCard: View {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: PhotoShape.corner, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
                     // Held back a little until it's real for everyone else.
                     .opacity(pending.rejection == nil ? 0.72 : 0.5)
+                    .asPrint(border: density.isRoom ? 9 : 7)
+                    .padding(.bottom, 6)
             }
             if let caption = pending.caption, !caption.isEmpty {
                 Text(caption).font(.body)
@@ -1396,7 +1389,7 @@ struct PendingCaptureCard: View {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.mini)
                     Text("Waiting to upload")
-                        .font(.caption)
+                        .font(.hand(16, relativeTo: .subheadline))
                         .foregroundStyle(.secondary)
                 }
             }

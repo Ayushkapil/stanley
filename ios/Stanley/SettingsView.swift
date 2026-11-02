@@ -28,6 +28,14 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // The page's masthead, on the paper rather than in a row.
+                Section {
+                    JournalMasthead(title: "Settings", line: "Stanley, and how it's kept")
+                        .padding(.bottom, 4)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 6, bottom: 0, trailing: 6))
+                }
                 Group {
                     circleSection
                     appearanceSection
@@ -39,7 +47,7 @@ struct SettingsView: View {
             }
             .readableWidth(density)
             .foldAnimated(hSizeClass)
-            .atmosphereWash()
+            .journalPage()
             .navigationTitle("Settings")
             .alert("Leave \(state.circle?.name ?? "this circle")?", isPresented: $confirmLeave) {
                 Button("Leave", role: .destructive) { Task { await state.leaveCircle() } }
@@ -101,7 +109,7 @@ struct SettingsView: View {
                     .foregroundStyle(.primary)
                 Button("Leave Circle", role: .destructive) { confirmLeave = true }
             } header: {
-                Text("Circle")
+                Text("Circle").smallCaps(11)
             } footer: {
                 Text("Stanley works best with people you actually know. Each circle keeps its own day: one photo a day in each.")
             }
@@ -125,7 +133,7 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
         } header: {
-            Text("Appearance")
+            Text("Appearance").smallCaps(11)
         } footer: {
             Text("Auto is Stanley's own quiet look: warm white in light mode, black in dark. The others are moods, and Rain is the quiet one. It's only color — nothing about how Stanley works changes.")
         }
@@ -165,7 +173,7 @@ struct SettingsView: View {
                 Text("About Your Account")
             }
         } header: {
-            Text("Privacy & Security")
+            Text("Privacy & Security").smallCaps(11)
         } footer: {
             Text("With Face ID on, Stanley asks for it each time it opens. The export bundles the photos you've held, with their captions; there's no archive of everything you've ever posted.")
         }
@@ -181,9 +189,10 @@ struct SettingsView: View {
                 LegalDocumentView(title: "Privacy Policy", sections: Legal.privacy)
             }
         } header: {
-            Text("About")
+            Text("About").smallCaps(11)
         } footer: {
             Text(Self.versionLine)
+                .smallCaps()
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 18)
         }
@@ -226,7 +235,7 @@ private struct QuietSection: View {
                 }
             }
         } header: {
-            Text("Quiet")
+            Text("Quiet").smallCaps(11)
         } footer: {
             Text(blocked
                 ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."

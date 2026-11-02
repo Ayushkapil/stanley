@@ -31,7 +31,6 @@ struct WorldTodayView: View {
     /// before the stories arrive.
     @State private var asked = false
     @AppStorage("stanley.nearbyNews.notNow") private var notNow = false
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
 
     var body: some View {
         NavigationStack {
@@ -75,18 +74,9 @@ struct WorldTodayView: View {
                 .padding(.bottom, 40)
                 .readableWidth(density)
             }
-            .paperPage(card: false)
-            .toolbar(.hidden, for: .navigationBar)
-            // With no navigation bar, the page would scroll straight through
-            // the clock. A strip of the page's own floor sits under the
-            // status bar instead, the paper sliding beneath it.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear
-                    .frame(height: 0)
-                    .background(alignment: .bottom) {
-                        Atmosphere.resolve(raw).palette.floor.ignoresSafeArea(edges: .top)
-                    }
-            }
+            // The paper, no navigation bar, and a strip of the page under the
+            // status bar so the paper slides beneath the clock (`Journal.swift`).
+            .journalPage()
             .refreshable {
                 // Its own task: SwiftUI cancels a refresh's task as soon as
                 // the state it refreshes changes.
@@ -138,18 +128,6 @@ private struct Masthead: View {
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
-    }
-}
-
-/// A newspaper rule: ink, thin, edge to edge.
-private struct Rule: View {
-    var weight: CGFloat = 0.5
-
-    var body: some View {
-        Rectangle()
-            .fill(.primary.opacity(weight > 1 ? 0.75 : 0.3))
-            .frame(height: weight)
-            .accessibilityHidden(true)
     }
 }
 

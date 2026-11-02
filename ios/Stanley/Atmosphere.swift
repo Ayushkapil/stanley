@@ -186,13 +186,22 @@ private extension UIColor {
     }
 }
 
-/// Paint the atmosphere's floor behind a scrolling surface.
+/// Paint the atmosphere's floor behind a scrolling surface, as paper: the
+/// floor with the paper's grain over it (build 20), so every page of the
+/// journal is the same stock as the morning paper's.
 struct AtmosphereWash: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
+    @Environment(\.colorScheme) private var colorScheme
     func body(content: Content) -> some View {
         content
             .scrollContentBackground(.hidden)
-            .background(Atmosphere.resolve(raw).palette.floor.ignoresSafeArea())
+            .background {
+                ZStack {
+                    Atmosphere.resolve(raw).palette.floor
+                    PaperGrainView(strength: colorScheme == .dark ? 0.28 : 0.45)
+                }
+                .ignoresSafeArea()
+            }
     }
 }
 

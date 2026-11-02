@@ -217,19 +217,26 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Today feed** — reverse-chronological, ambient fade rendered client-side from
   `decay_progress` (smoothstep, dark-mode-aware floor). Since build 17 it's a
   **shared journal, not a card feed** (pilot users said it was "just
-  Instagram"). The circle's name is the page's title (`CircleSwitcher`). The
-  community note is a sticky note on the first page. Each day has a mark,
-  "Today", "Yesterday", then the weekday, with the date (`JournalDay`,
-  `DayMark`). Each photo is a **print**: the photo is the whole card,
-  `PhotoShape` 3:4, filled and clipped, never letterboxed, with 14pt corners
-  alike all round and no frame or header bar. It lies up to 0.9° off square,
-  decided by its id (`PrintTilt`). The poster's first name and the time are
-  written in Noteworthy (`Font.hand`) on a soft dark capsule in its
-  bottom-left corner; a tap opens their profile. The bookmark and the heart
-  sit in its bottom-right corner. Caption, place, who was there, the first
-  story and "What do you remember?" sit beneath with no chrome. A shared
-  moment is a run of prints under its place, written by hand. The mosaic and
-  Returned keep their cards; they're artifacts, not entries. On an ordinary
+  Instagram"). Since build 20 it opens like the morning paper, with no
+  navigation bar: a **masthead** (`TodayMasthead`), the circle's name written
+  large in a hand (`CircleSwitcher`, still the menu of circles, in ink not
+  the accent), the paper's double rule, the date in small capitals and a
+  hairline. The community note is a sticky note on the first page. Each day
+  has a mark written in a hand, "Today", "Yesterday", then the weekday, with
+  the date beside it and the line ruled off (`JournalDay`, `DayMark`). Each
+  photo is a **print laid on paper**: `PhotoShape` 3:4, filled and clipped,
+  never letterboxed, inside a border of photo paper (`asPrint`, warm white;
+  in dark mode a lamplit gray), cut nearly square, with a soft shadow. It
+  lies up to 0.9° off square, decided by its id (`PrintTilt`). The bookmark
+  and the heart sit in its bottom-right corner. Beneath it, in ink on the
+  page: the poster's first name and the time in Noteworthy (`PrintByline`,
+  `Font.hand`; a tap opens their profile; it was on a dark capsule on the
+  photo until build 20), then caption, place, who was there, the stories and
+  "What do you remember?", with no chrome. A day's entries are divided by a
+  thin rule, the paper's, not by a gap. A shared moment is a run of signed
+  prints under its place, written by hand. The mosaic and Returned are
+  sheets of their own tucked into the journal (`paperInsert`, grained paper
+  edged in a hairline), with their photos as prints. On an ordinary
   iPhone the tab bar folds to the current tab while Today scrolls down
   (`tabBarMinimizeBehavior(.onScrollDown)`, iOS 26+; not on the Duo's side
   dock, which the camera is placed against).
@@ -239,7 +246,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   faces, full-saturation archive, tombstones, "Held" tab + per-friend threads.
   Held gathers every circle a person is in; each memory carries its
   `circle_name`, shown as a small tag (`CircleTag`) once there's more than
-  one circle to tell apart.
+  one circle to tell apart. Since build 20 the Held tab is **a photo album**:
+  a masthead ("Held", "The one place nothing fades", Rested as a moon at its
+  end), a section head per friend ("Kept from", their name in a hand, their
+  face), and each memory a print slipped into four photo corners
+  (`PhotoCorners`, black on a light page, card gray on a dark one), laid
+  twice as crooked as Today's and staggered left and right, with its caption
+  written beneath in a hand and the place and "held" date in small capitals.
+  A tombstone is the empty corners around "A memory was here". The phone
+  keeps swipe to rest; the Duo's inner display, two prints to a line, keeps
+  the long press.
 - **Likes** — double-tap heart, owner-only faces, decays with the photo. The
   heart bottom-right of each photo (the bookmark beside it, on the photo too,
   since build 17) is *your own* state only (filled if you
@@ -301,19 +317,26 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   crop), member profiles (A2-safe: no holds, likes or counts). Since build 19
   a member's profile is **a page of the shared journal** (`MemberProfileView`):
   the atmosphere's card color with a paper grain (`Paper.swift`), the name
-  large in SF Rounded, "Member since October 2026" (of the circle on screen,
-  else the first one you share), a quiet "organizer" mark, their words or
-  "Still writing this part…" in italic, then "Still in the light": up to
+  large in a hand (SF Rounded in build 19), "Member since October 2026" (of
+  the circle on screen, else the first one you share) between hairlines in
+  small capitals with "· organizer" on whoever started it, their words or
+  "Still writing this part…" in a hand, then "Still in the light": up to
   twelve of their own photos still public in circles you share, newest first,
   as small prints that fade as they do in Today, each opening with its
   stories. All from `GET /members/{id}` (`member_since`, `is_organizer`,
   `photos`). **Type** (build 19): every personal name and page title
   (`Font.keepsake`) is SF Rounded; it was a serif, and serif now belongs to
-  the World tab alone. The You tab's
-  circle, under "Your circle" and its name, is a scrolling row of small cards
-  (`CircleCards`, build 17): face or initial, name, a quiet "organizer" mark
-  on whoever started it, on the atmosphere's card surface. Each opens that
-  person's profile. **Setup**
+  the World tab alone. **The You tab** (build 20) is the inside cover of the
+  journal: a masthead ("You", "Kept since July 2026", Edit at its end), then
+  a bookplate in a double rule ("This journal belongs to", your photo pasted
+  in a little crooked, your name written on a line, @username in small
+  capitals, your words in a hand), the moments line, the circle under a
+  section head ("Kept with" and its name) as a scrolling row of small
+  portraits (`CircleCards`): a face on photo paper (only when there's a
+  photo; an initial stays bare), a name in a hand, "organizer" in small
+  capitals on whoever started it. Each opens that person's profile.
+  Milestones are slips tucked in (`paperInsert`), and what you've held is a
+  page of small prints under "Only you see this · Held". **Setup**
   (`SetupView`, build 16) walks a new account through four screens between
   sign-in and the circle gate: "What should we call you?" (required, no
   Skip), "Pick a username" (live check, Skip), "Write a little about
@@ -401,6 +424,21 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   amber; Fall is terracotta, not pumpkin; Cool is slate, not sky; Rain is
   fog on a window. Auto's accent and floor are a little warmer. Ambient
   only; never affects function.
+- **The journal's visual language** (build 20, `Journal.swift`): the World
+  tab's morning paper set the bar and every main page now matches it. Every
+  page is paper (`atmosphereWash` lays the paper grain over the floor, so
+  sheets, Settings' pages and the capture sheet are grained too). Main pages
+  have a masthead (`JournalMasthead`) instead of a navigation bar
+  (`journalPage()`, with a strip of the page under the status bar); pages
+  pushed from them keep theirs. Thin rules (`Rule`) where other apps draw
+  boxes; sections headed between a heavy rule and a hairline
+  (`JournalSectionHead`); datelines and labels in small capitals
+  (`smallCaps`). The paper keeps the serif; the journal writes in a hand
+  (`Font.hand`, Noteworthy) for anything a person would write themselves:
+  names, day marks, captions, bios, notes. Photos are prints on paper
+  (`asPrint`, `PrintStock`), never cards. Only the look changed: every
+  action, gesture and menu is where it was, Edit and Rested having moved
+  into their mastheads.
 - **Settings** (build 18), grouped the way iOS groups its own, every row in a
   group: **Circle** (Name, editable by the organizer through `PATCH
   /circles/{id}`; Members; **Invite Code**, one row opening its own page with
@@ -410,7 +448,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   few), **Privacy & Security** (Require Face ID, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out and
   Delete Account, one level down), and **About** (About Stanley, Terms of
-  Use, Privacy Policy, and the version, "Stanley 0.2.0 (20)", at the foot).
+  Use, Privacy Policy, and the version, "Stanley 0.2.0 (21)", at the foot).
+  Since build 20 it sits on the journal's paper under its own masthead
+  ("Settings", "Stanley, and how it's kept"), with section heads in small
+  capitals; the rows themselves are unchanged.
 - **Push** (build 18) — APNs directly, token auth (ES256 JWT, kept fifty
   minutes) over HTTP/2 (`httpx[http2]`), `apns.py`. `Notifier` logs each
   notice and hands it to the transport only **after the session commits**
@@ -575,7 +616,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 20** (0.2.0) is committed but not archived; the archive below is
+- **Build 21** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -771,6 +812,8 @@ live APNs, concurrency under real load.
   `SafetyViews.swift` (photo and story menus, report sheet, Block,
   Blocked), `Mentions.swift` (@mentions: parsing, tones, `StoryComposer`,
   `MentionBar`), `Paper.swift` (the paper grain, `.paperPage()`),
+  `Journal.swift` (the journal's look: masthead, rules, small capitals,
+  prints, photo corners, paper inserts),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
