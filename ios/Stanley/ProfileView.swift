@@ -99,6 +99,7 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
+          ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     JournalMasthead(title: "You", line: begun) {
@@ -106,6 +107,7 @@ struct ProfileView: View {
                             .font(.hand(20, bold: true, relativeTo: .body))
                             .frame(minHeight: 44)
                     }
+                    .id("masthead")
                     bookplate
                         .padding(.top, 26)
                     if let shared = state.profile?.momentsShared, shared > 0 {
@@ -152,6 +154,13 @@ struct ProfileView: View {
                 .readableWidth(density)
                 .foldAnimated(hSizeClass)
             }
+            // A tap on the You tab: back to the top, or at the top the
+            // pull's own refresh (`TabTaps`).
+            .onTabTap(state.tabTaps.you, scroll: proxy, to: "masthead") {
+                await state.loadProfile()
+                await state.refreshMemories()
+                milestones = await state.loadMilestones()
+            }
             .journalPage()
             .navigationTitle("You")
             .sheet(isPresented: $showEdit) { EditProfileSheet() }
@@ -171,6 +180,7 @@ struct ProfileView: View {
             .onChange(of: state.reloads) {
                 Task { milestones = await state.loadMilestones() }
             }
+          }
         }
     }
 }

@@ -161,8 +161,30 @@ struct HomeView: View {
     @State private var sideDock: CGRect?
     @State private var typing = false
 
+    /// Which tab; and a tap on the one already showing, which its page
+    /// answers by scrolling to its top, or refreshing (`TabTaps`).
+    private var selection: Binding<Tab> {
+        Binding(
+            get: { tab },
+            set: { chosen in
+                if chosen == tab, let page = Self.page(chosen) { state.tabTaps.tap(page) }
+                tab = chosen
+            }
+        )
+    }
+
+    private static func page(_ tab: Tab) -> TabTaps.Page? {
+        switch tab {
+        case .today: .today
+        case .held: .held
+        case .you: .you
+        case .world: .world
+        case .settings: nil
+        }
+    }
+
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: selection) {
             TodayFeedView(capturing: $capturing, sideDock: $sideDock, typing: $typing)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
                 .tag(Tab.today)

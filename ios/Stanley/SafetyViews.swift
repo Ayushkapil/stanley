@@ -333,7 +333,8 @@ struct BlockButton: View {
     }
 }
 
-/// Settings → Privacy & Security → Blocked: the people you've blocked, as
+/// Settings → Privacy & Security → About Your Account → Blocked (build 22;
+/// it was a row of Privacy & Security): the people you've blocked, as
 /// faces and names, each with Unblock. Never a number, and never who has
 /// blocked you.
 struct BlockedView: View {

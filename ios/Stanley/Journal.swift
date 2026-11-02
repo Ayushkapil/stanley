@@ -107,6 +107,8 @@ struct JournalMasthead<Trailing: View>: View {
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
+        // Room under the rule before the page begins (build 22).
+        .padding(.bottom, 10)
     }
 }
 

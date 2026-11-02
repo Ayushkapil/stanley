@@ -34,9 +34,11 @@ struct WorldTodayView: View {
 
     var body: some View {
         NavigationStack {
+          ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Masthead(edition: edition)
+                        .id("masthead")
                     if state.whereabouts.undecided && !notNow {
                         NearbyInvitation(notNow: $notNow) {
                             Task {
@@ -74,6 +76,11 @@ struct WorldTodayView: View {
                 .padding(.bottom, 40)
                 .readableWidth(density)
             }
+            // A tap on the World tab: back to the top, or at the top the
+            // pull's own refresh (`TabTaps`).
+            .onTabTap(state.tabTaps.world, scroll: proxy, to: "masthead") {
+                await state.loadNews()
+            }
             // The paper, no navigation bar, and a strip of the page under the
             // status bar so the paper slides beneath the clock (`Journal.swift`).
             .journalPage()
@@ -87,6 +94,7 @@ struct WorldTodayView: View {
                 await state.loadNews()
                 asked = true
             }
+          }
         }
     }
 
@@ -98,8 +106,9 @@ struct WorldTodayView: View {
     }
 }
 
-/// "The World Today" in a heavy serif, the day's date and the outlet in small
-/// capitals between rules, the way a front page opens.
+/// "The World Today" in a heavy serif, its publisher's line in small italic
+/// under it ("By Stanley", build 22), then the day's date and the outlet in
+/// small capitals between rules, the way a front page opens.
 private struct Masthead: View {
     let edition: String
 
@@ -111,6 +120,10 @@ private struct Masthead: View {
                 .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
                 .accessibilityAddTraits(.isHeader)
+            Text("By Stanley")
+                .font(.system(size: 12, design: .serif).italic())
+                .foregroundStyle(.secondary)
+                .padding(.top, -3)
             VStack(spacing: 2) {
                 Rule(weight: 1.5)
                 Rule(weight: 0.5)
@@ -131,6 +144,8 @@ private struct Masthead: View {
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
+        // Room under the rule before the page begins (build 22).
+        .padding(.bottom, 10)
     }
 }
 

@@ -643,6 +643,9 @@ final class AppState {
     /// The people a story being written could mention, shown above the
     /// keyboard by whatever screen holds the story's field.
     let mentionOffer = MentionOffer()
+    /// Taps on the tab already showing, for its page to scroll to its top or
+    /// refresh (`TabTaps.swift`).
+    let tabTaps = TabTaps()
 
     /// Post today's photo. True when it's up; false when there was no signal
     /// and it's kept on the phone to go up later.

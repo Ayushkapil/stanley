@@ -31,6 +31,7 @@ struct TodayFeedView: View {
 
     var body: some View {
         NavigationStack {
+          ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                   // Each entry is its own scroll target, full width, with the
@@ -112,6 +113,12 @@ struct TodayFeedView: View {
                 .foldAnimated(hSizeClass)
             }
             .scrollPosition(id: $anchor)
+            // A tap on the Today tab: back to the top, or at the top the
+            // pull's own refresh (`TabTaps`).
+            .onTabTap(state.tabTaps.today, scroll: proxy, to: "masthead") {
+                await state.refreshToday()
+                await state.flushPendingCapture()
+            }
             .background(SideDockReader(dock: $sideDock))
             // The camera floats where a thumb already is, instead of in the
             // top bar, which it can't reach on a tall phone. On an ordinary
@@ -162,6 +169,7 @@ struct TodayFeedView: View {
                 await state.refreshToday()
                 await state.flushPendingCapture()
             }
+          }
         }
     }
 }
@@ -294,6 +302,8 @@ struct TodayMasthead: View {
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
+        // Room under the rule before the page begins (build 22).
+        .padding(.bottom, 10)
     }
 }
 
@@ -1017,9 +1027,10 @@ struct NoteBar: View {
                     .overlay(PaperGrainView(strength: 0.55).clipped())
                     .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.16), radius: 6, x: 1, y: 3)
             }
-            // Pinned to the board, near the top, the way a note hangs.
+            // Taped to the page across its top edge, the way a note is
+            // stuck in a journal: half the tape on the note, half on the page.
             .overlay(alignment: .top) {
-                Pushpin().offset(y: -4)
+                Tape().offset(y: -10)
             }
             .keyframeAnimator(initialValue: 0.0, trigger: lifts) { content, lift in
                 content
@@ -1051,30 +1062,29 @@ struct NoteBar: View {
     }
 }
 
-/// A pushpin through the top of the note: a muted red head with a glint,
-/// and its shadow on the paper, down and to the right.
-private struct Pushpin: View {
+/// A strip of tape over the top edge of the note, holding it to the page
+/// (build 22; a red pushpin from build 19 to 21): translucent cream, so the
+/// note's yellow and the page both show through, a little crooked, catching
+/// the light along its length, with the faintest shadow at its edges.
+private struct Tape: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.black.opacity(0.28))
-                .frame(width: 12, height: 12)
-                .blur(radius: 1.5)
-                .offset(x: 3, y: 4)
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(red: 0.93, green: 0.56, blue: 0.48), Color(red: 0.66, green: 0.26, blue: 0.22)],
-                        center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: 9
-                    )
+        let shape = RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+        shape
+            .fill(Color(red: 0.98, green: 0.96, blue: 0.90).opacity(colorScheme == .dark ? 0.55 : 0.62))
+            .overlay(
+                LinearGradient(
+                    colors: [.white.opacity(0.35), .clear, .white.opacity(0.15)],
+                    startPoint: .leading, endPoint: .trailing
                 )
-                .frame(width: 15, height: 15)
-            Circle()
-                .fill(.white.opacity(0.7))
-                .frame(width: 4, height: 4)
-                .offset(x: -3, y: -3)
-        }
-        .accessibilityHidden(true)
+                .clipShape(shape)
+            )
+            .overlay(shape.strokeBorder(.white.opacity(0.4), lineWidth: 0.5))
+            .frame(width: 66, height: 22)
+            .shadow(color: .black.opacity(0.14), radius: 2, y: 1)
+            .rotationEffect(.degrees(-6))
+            .accessibilityHidden(true)
     }
 }
 

@@ -34,8 +34,10 @@ struct AboutStanleyView: View {
 
 /// About your account: your name, your username, and when you joined, and
 /// nothing else (no post count, no activity; there's nothing to total up).
-/// Signing out and deleting the account live here, one level down from
-/// Settings, the way iOS keeps its own serious actions.
+/// Signing out, the people you've blocked (build 22; it was a row of Privacy
+/// & Security, more visible than it's needed) and deleting the account live
+/// here, one level down from Settings, the way iOS keeps its own serious
+/// actions.
 struct AccountView: View {
     @Environment(AppState.self) private var state
     @State private var confirmDelete = false
@@ -69,6 +71,11 @@ struct AccountView: View {
                 Section {
                     Button("Sign Out") { state.signOut() }
                         .foregroundStyle(.primary)
+                }
+                Section {
+                    NavigationLink("Blocked") { BlockedView() }
+                } footer: {
+                    Text("The people you've blocked. Neither of you sees the other's photos or stories.")
                 }
                 Section {
                     Button("Delete Account", role: .destructive) { confirmDelete = true }

@@ -297,6 +297,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (a second click after Use Photo would be seconds late); only the
   simulator's stand-in frame, which Stanley takes itself, plays it. A
   library photo is chosen, not taken: no sound.
+- **A tap on the tab you're on** (build 22, `TabTaps.swift`) — Today, Held,
+  You and World scroll back to their top, animated; already at the top, the
+  tap runs the pull's own refresh (and feels like one: the same light
+  impact). `HomeView`'s selection binding counts a re-tap into
+  `AppState.tabTaps`, and each page watches its count (`onTabTap`, on the
+  scroll view itself, with a `ScrollViewReader` scrolling to the masthead's
+  id). Whether a page is at its top is read with `onScrollGeometryChange`,
+  iOS 18 and up; on iOS 17 it's never known, so a tap only ever scrolls.
+  Settings has nowhere to go. There's no way to show the pull's spinner
+  from code, so the refresh is quiet. Checked on the Duo: Today scrolled
+  back to its masthead on a tap with no haptic, and at the top a tap fetched
+  the feed with the refresh haptic; Held the same.
 - **Gesture icon size** — the heart and the bookmark share one size,
   `GestureIcon`: a 22pt glyph (about 24pt tall, roughly 40% up from build 11)
   inside a 44pt target, through `@ScaledMetric` so it follows Dynamic Type.
@@ -396,11 +408,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Community note** — one shared line atop Today, last-writer-wins, clears at end
   of the setter's local day. Not a chat. Drawn as a sticky note (build 17):
   yellow paper, a slight tilt, the words in a hand; a lamplit yellow in dark
-  mode. Empty, it's a slip asking for a note. Build 19: a red pushpin (with
-  its shadow on the paper) replaced the tape, the paper has grain, the tilt is
-  1–2° and differs by note (from its words), and when the words change while
-  it's on screen it lifts off the board and settles back (`keyframeAnimator`;
-  not on first load, not under Reduce Motion).
+  mode. Empty, it's a slip asking for a note. Build 19: the paper has grain,
+  the tilt is 1–2° and differs by note (from its words), and when the words
+  change while it's on screen it lifts off the board and settles back
+  (`keyframeAnimator`; not on first load, not under Reduce Motion). It's
+  held by a strip of tape over its top edge (`Tape`, build 22: translucent
+  cream, half on the note and half on the page, 6° off, with the yellow and
+  the page showing through); builds 19 to 21 had a red pushpin there.
 - **Shared moments** — photos with the same location label on the same local day by
   2+ people group into one view-only card; each photo keeps its own decay/like/hold.
 - **Daily prompt** (client only) — a deterministic-by-date whisper in the capture
@@ -462,7 +476,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sheets, Settings' pages and the capture sheet are grained too). Main pages
   have a masthead (`JournalMasthead`) instead of a navigation bar
   (`journalPage()`, with a strip of the page under the status bar); pages
-  pushed from them keep theirs. Thin rules (`Rule`) where other apps draw
+  pushed from them keep theirs. Every masthead (Today's, World's and the
+  shared one) ends with 10pt of room under its hairline (build 22; pilot
+  users wanted the title to breathe before the page begins). Thin rules (`Rule`) where other apps draw
   boxes; sections headed between a heavy rule and a hairline
   (`JournalSectionHead`); datelines and labels in small capitals
   (`smallCaps`). The paper keeps the serif; the journal writes in a hand
@@ -506,9 +522,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a confirmation; Join Another Circle; Leave Circle, red and last),
   **Appearance**, **Quiet** (the two notices, with the reason there are so
   few), **Privacy & Security** (Require Face ID, Export My Memories, and About
-  Your Account, a page with name, username and join date, then Sign Out and
-  Delete Account, one level down), and **About** (About Stanley, Terms of
-  Use, Privacy Policy, and the version, "Stanley 0.2.0 (21)", at the foot).
+  Your Account, a page with name, username and join date, then Sign Out,
+  Blocked and Delete Account, one level down), and **About** (About Stanley,
+  Terms of Use, Privacy Policy, and the version, "Stanley 0.2.0 (22)", at the
+  foot).
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
   capitals; the rows themselves are unchanged.
@@ -615,9 +632,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   failed fetch keeps the last good set; a set older than 6h is not served,
   and an empty tab says "No stories right now."
   **A morning paper** (build 19): no cards, no navigation bar, just a page.
-  "The World Today" as a black serif masthead between a heavy and a hairline
-  rule, the dateline ("SUNDAY, 1 NOVEMBER 2026 · PBS NEWS HOUR") in small
-  caps, then the lead story across the full width (title-size bold serif,
+  "The World Today" as a black serif masthead, "By Stanley" under it in
+  small italic serif the way a paper names its publisher (build 22), then
+  the heavy and hairline rules, the dateline ("SUNDAY, 1 NOVEMBER 2026 · PBS
+  NEWS HOUR") in small caps, then the lead story across the full width (title-size bold serif,
   byline, summary), a rule, and the rest in columns (two on a phone, three on
   the Duo's inner display) split where the page is about half full, with
   hairline rules between stories and between columns. Nearby is a section
@@ -662,9 +680,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   read within a day, then offers to block them. A long press opens the menu
   without holding the photo (checked). **Block** sits at the foot of every
   member profile, behind an alert that says neither sees the other's photos
-  or stories and they aren't told; **Settings → Privacy & Security →
-  Blocked** lists the people you blocked (`GET /blocks`, faces and names,
-  never who blocked you) with Unblock. Blocking refreshes Today only after
+  or stories and they aren't told; **Settings → Privacy & Security → About
+  Your Account → Blocked** (build 22; it was a row of Privacy & Security
+  itself, more visible than something so rarely needed) lists the people you
+  blocked (`GET /blocks`, faces and names, never who blocked you) with
+  Unblock, next to Delete Account. Blocking refreshes Today only after
   its sheet has closed: refreshing under it removed the card that presented
   it and tore the sheet down. Delete's alert says whether it gives the day
   back, from `retake_on_delete` (owner-only, in the photo payload: today's
@@ -690,7 +710,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 21** (0.2.0) is committed but not archived; the archive below is
+- **Build 22** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -895,6 +915,7 @@ live APNs, concurrency under real load.
   (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share,
   `WideButton`), `Haptics.swift` (the five gestures' haptics, the shutter),
+  `TabTaps.swift` (a tap on the current tab: to the top, or refresh),
   `SignedImage.swift` (every photo and face behind a signed
   link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`

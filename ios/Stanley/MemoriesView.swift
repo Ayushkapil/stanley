@@ -13,8 +13,9 @@ struct MemoriesView: View {
 
     var body: some View {
         NavigationStack {
+          ScrollViewReader { proxy in
             Group {
-                if density.isRoom { magazine } else { column }
+                if density.isRoom { magazine(proxy) } else { column(proxy) }
             }
             .foldAnimated(hSizeClass)
             .journalPage()
@@ -25,6 +26,7 @@ struct MemoriesView: View {
                 await state.refreshMemories()
             }
             .task { await state.refreshMemories() }
+          }
         }
     }
 
@@ -41,6 +43,7 @@ struct MemoriesView: View {
             .buttonStyle(.borderless)
             .accessibilityLabel("Rested")
         }
+        .id("masthead")
     }
 
     /// Held has answered and holds nothing, or can't answer yet. Before the
@@ -96,7 +99,7 @@ struct MemoriesView: View {
     /// The outer display (and every ordinary iPhone): one print to a line,
     /// laid alternately toward the left and the right of the page the way
     /// an album is filled by hand. Swipe a print to rest it.
-    private var column: some View {
+    private func column(_ proxy: ScrollViewProxy) -> some View {
         List {
             Group {
                 masthead
@@ -130,13 +133,18 @@ struct MemoriesView: View {
             .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
+        // A tap on the Held tab: back to the top, or at the top the pull's
+        // own refresh (`TabTaps`).
+        .onTabTap(state.tabTaps.held, scroll: proxy, to: "masthead") {
+            await state.refreshMemories()
+        }
     }
 
     /// The inner display: an open album, two prints to a line with room
     /// between them, the second set a little lower, as if pasted in by hand.
     /// Resting is a long press, because a print in a spread has no edge to
     /// swipe — the action itself is unchanged.
-    private var magazine: some View {
+    private func magazine(_ proxy: ScrollViewProxy) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 34) {
                 masthead
@@ -165,6 +173,9 @@ struct MemoriesView: View {
             }
             .padding(.horizontal, 28)
             .padding(.bottom, 30)
+        }
+        .onTabTap(state.tabTaps.held, scroll: proxy, to: "masthead") {
+            await state.refreshMemories()
         }
     }
 
