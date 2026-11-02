@@ -192,10 +192,12 @@ struct MentionBar: View {
 /// Writing a story, with @ to mention someone: the field, an Add button once
 /// there are words, and, while an @ is being typed, the circle's people on
 /// offer in the `MentionBar` above the keyboard. The field shows "@Name";
-/// what's sent is `@[id]`.
+/// what's sent is `@[id]`. Return sends too, as Add does.
 struct StoryComposer: View {
     @Environment(AppState.self) private var state
     let photo: Photo
+    /// The story once it's in, for a thread that shows it straight away.
+    var onPosted: (Comment) -> Void = { _ in }
     @State private var text = ""
     @FocusState private var focused: Bool
     @State private var me = UUID()
@@ -233,6 +235,11 @@ struct StoryComposer: View {
                 .font(.callout)
                 .textFieldStyle(.plain)
                 .focused($focused)
+                // Return used to close the keyboard and leave the words
+                // sitting there unsent, which read as a story that wouldn't
+                // post. It sends now, the way Add does.
+                .submitLabel(.send)
+                .onSubmit(send)
                 .frame(minHeight: 32)
                 .contentShape(Rectangle())
                 .onTapGesture { focused = true }
@@ -268,15 +275,26 @@ struct StoryComposer: View {
     }
 
     /// Each "@Name" that was picked (and not since edited) goes as `@[id]`.
+    /// The field clears at once; if the story doesn't go, the words come
+    /// back (unless something new has been typed), so nothing is lost.
     private func send() {
-        var body = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        for (shown, id) in picked.sorted(by: { $0.key.count > $1.key.count }) {
+        let typed = text, mentions = picked
+        var body = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        for (shown, id) in mentions.sorted(by: { $0.key.count > $1.key.count }) {
             let pattern = NSRegularExpression.escapedPattern(for: shown) + "(?![\\p{L}\\p{N}])"
             body = body.replacingOccurrences(of: pattern, with: Mentions.token(id), options: .regularExpression)
         }
         text = ""
         picked = [:]
-        Task { await state.comment(on: photo, body: body) }
+        Task {
+            if let story = await state.comment(on: photo, body: body) {
+                onPosted(story)
+            } else if text.isEmpty {
+                text = typed
+                picked = mentions
+            }
+        }
     }
 }
 

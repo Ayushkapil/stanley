@@ -656,14 +656,24 @@ final class AppState {
         }
     }
 
-    func comment(on photo: Photo, body: String) async {
+    /// Add a story to a photo. Returns the story as posted, so a thread can
+    /// show it even when it's drawn from a copy of the photo that Today's
+    /// refresh never reaches (a profile's prints). Nil if it didn't go, with
+    /// the reason already said.
+    func comment(on photo: Photo, body: String) async -> Comment? {
+        struct Posted: Decodable { let id: String }
         do {
-            let _: Empty = try await api.send(
+            let posted: Posted = try await api.send(
                 "POST", "/photos/\(photo.id)/comments", json: ["body": body]
             )
             await refreshToday()
+            let me = UserBrief(
+                id: myId, displayName: profile?.displayName ?? "New member", avatarUrl: profile?.avatarUrl
+            )
+            return Comment(id: posted.id, author: me, body: body, createdAt: .now)
         } catch {
             surface(error)
+            return nil
         }
     }
 

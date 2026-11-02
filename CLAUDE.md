@@ -257,8 +257,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   It applies on Today's prints, shared-moment prints, the story sheet, and
   Returned's "Keep this". Each marker's whole 44pt square takes a tap.
 - **Story-comments** — flat, chronological, part of the artifact. Today shows
-  the first one on the card; the rest sit behind "More stories" (never "2
-  more" — a tally is still a count) which opens the photo with the thread.
+  the first one on the card and the newest beneath it; any between sit
+  behind "More stories" (never "2 more" — a tally is still a count) which
+  opens the photo with the thread. The newest is there so a story just added
+  appears right above the field it was written in: with only the first
+  shown, a second story vanished behind "More stories" the moment it posted
+  and read as a story that wouldn't post. Return sends a story as Add does
+  (it used to close the keyboard and leave the words unsent). A story that
+  fails to send comes back into the field. The stories sheet shows what was
+  just added even when it was opened from a profile's prints, whose copy of
+  the photo Today's refresh never reaches.
   Every story line is `StoryLine.text`: the name **bold** in the primary
   color, two spaces, the words in the secondary color, so two people's lines
   never run together. The empty field asks "What do you remember?"

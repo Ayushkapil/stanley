@@ -787,26 +787,37 @@ struct PhotoCard: View {
         .padding(.horizontal, 2)
     }
 
+    /// Co-remembering, visible without digging, the way you'd overhear it:
+    /// the first story and the newest, with any between them behind "More
+    /// stories". The newest is there so a story just added shows up right
+    /// above the field it was written in. With only the first shown, a
+    /// second story vanished behind "More stories" the moment it posted,
+    /// and looked as if it hadn't.
     @ViewBuilder
     private var comments: some View {
         if let first = photo.comments.first {
             VStack(alignment: .leading, spacing: 4) {
-                // Co-remembering, visible without digging: one line, the way
-                // you'd overhear it.
-                StoryLine.text(first, people: state.mentions)
-                    .font(.callout)
-                    .lineLimit(density.storyLineLimit)
-                    .storyMenu(first, on: photo)
-                if photo.comments.count > 1 {
+                storyLine(first)
+                if photo.comments.count > 2 {
                     // "More", never "2 more" — the no-counts rule holds here too.
                     Button("More stories") { showStories = true }
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .buttonStyle(.plain)
                 }
+                if let newest = photo.comments.last, newest.id != first.id {
+                    storyLine(newest)
+                }
             }
             .padding(.horizontal, 2)
         }
+    }
+
+    private func storyLine(_ comment: Comment) -> some View {
+        StoryLine.text(comment, people: state.mentions)
+            .font(.callout)
+            .lineLimit(density.storyLineLimit)
+            .storyMenu(comment, on: photo)
     }
 
     private var commentField: some View {
@@ -1278,6 +1289,14 @@ struct PhotoStoriesView: View {
     let photo: Photo
     @State private var action: PhotoAction?
     @State private var viewedMember: ViewedMember?
+    /// Stories added here. Opened from Today, the refreshed photo brings
+    /// them too; opened from a profile's prints, nothing refreshes this
+    /// copy of the photo, so without these a new story never appeared.
+    @State private var added: [Comment] = []
+
+    private var thread: [Comment] {
+        photo.comments + added.filter { story in !photo.comments.contains { $0.id == story.id } }
+    }
 
     var body: some View {
         NavigationStack {
@@ -1287,12 +1306,12 @@ struct PhotoStoriesView: View {
                     if let caption = photo.caption, !caption.isEmpty {
                         Text(caption).font(.body)
                     }
-                    ForEach(photo.comments) { comment in
+                    ForEach(thread) { comment in
                         StoryLine.text(comment, people: state.mentions)
                             .font(.callout)
                             .storyMenu(comment, on: photo)
                     }
-                    StoryComposer(photo: photo)
+                    StoryComposer(photo: photo) { added.append($0) }
                         .padding(.top, 2)
                         .creaseSafe(density)
                 }
