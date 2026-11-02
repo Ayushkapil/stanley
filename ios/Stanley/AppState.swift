@@ -525,15 +525,19 @@ final class AppState {
         }
     }
 
-    func setNote(_ text: String) async {
-        guard let circle else { return }
+    /// Set the circle's note. True once it's on the board.
+    @discardableResult
+    func setNote(_ text: String) async -> Bool {
+        guard let circle else { return false }
         do {
             let _: CommunityNote = try await api.send(
                 "PUT", "/circles/\(circle.id)/note", json: ["text": text]
             )
             await refreshToday()
+            return true
         } catch {
             surface(error)
+            return false
         }
     }
 
@@ -640,9 +644,12 @@ final class AppState {
     /// keyboard by whatever screen holds the story's field.
     let mentionOffer = MentionOffer()
 
+    /// Post today's photo. True when it's up; false when there was no signal
+    /// and it's kept on the phone to go up later.
+    @discardableResult
     func capture(
         jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
-    ) async throws {
+    ) async throws -> Bool {
         let circleId = circle?.id
         // The day is already spoken for by something waiting to go up. The
         // law holds offline too, so this is refused here, not at the server.
@@ -655,6 +662,7 @@ final class AppState {
                 circleId: circleId
             )
             await refreshToday()
+            return true
         } catch APIError.server(code: "not_in_circle", status: let status) {
             await lostCircle()
             throw APIError.server(code: "not_in_circle", status: status)
@@ -673,6 +681,7 @@ final class AppState {
                 circleId: circleId
             )
             flash = "Saved. It'll go up when you're back online."
+            return false
         }
     }
 

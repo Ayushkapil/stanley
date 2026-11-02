@@ -20,7 +20,10 @@ struct MemoriesView: View {
             .journalPage()
             .navigationTitle("Held")
             .navigationDestination(isPresented: $showRested) { RestedView() }
-            .refreshable { await state.refreshMemories() }
+            .refreshable {
+                Haptics.refreshed()
+                await state.refreshMemories()
+            }
             .task { await state.refreshMemories() }
         }
     }

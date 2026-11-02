@@ -161,6 +161,7 @@ struct ProfileView: View {
                 milestones = await state.loadMilestones()
             }
             .refreshable {
+                Haptics.refreshed()
                 await state.loadProfile()
                 await state.refreshMemories()
                 milestones = await state.loadMilestones()

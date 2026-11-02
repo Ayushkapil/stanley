@@ -148,6 +148,7 @@ struct TodayFeedView: View {
             .sheet(isPresented: $editingNote) { NoteEditor() }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
             .refreshable {
+                Haptics.refreshed()
                 // SwiftUI cancels a pull's own task as soon as the state it is
                 // refreshing changes, which cut the pass short after the first
                 // response: Returned and the queued upload never ran. The
@@ -598,7 +599,9 @@ struct PhotoImageView: View {
                     Button { Task { await state.toggleLike(photo) } } label: {
                         Label(photo.likedByMe ? "Unlike" : "Like", systemImage: "heart")
                     }
-                    Button { Task { await state.toggleAnchor(photo) } } label: {
+                    // A long press lands here: the menu takes the press before
+                    // the hold gesture can, so this is how most holds happen.
+                    Button { toggleHold() } label: {
                         Label(photo.anchoredByMe ? "Let go" : "Hold", systemImage: "bookmark")
                     }
                     Divider()
@@ -638,7 +641,7 @@ struct PhotoImageView: View {
     /// the same.
     private var gestures: some View {
         HStack(spacing: -6) {
-            Button { Task { await state.toggleAnchor(photo) } } label: {
+            Button { toggleHold() } label: {
                 marker(photo.anchoredByMe ? "bookmark.fill" : "bookmark",
                        photo.anchoredByMe ? .accentColor : .white)
             }
@@ -680,16 +683,28 @@ struct PhotoImageView: View {
 
     private func hold() {
         guard !photo.anchoredByMe else { return }
+        // Felt as the bookmark fills, with the settle: a memory kept.
+        Haptics.held()
         withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { settleScale = 0.97 }
         withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.12)) { settleScale = 1 }
         Task { await state.hold(photo) }
     }
 
+    /// Hold or let go, from the bookmark or the menu. Holding is felt as the
+    /// bookmark fills; letting go is quiet.
+    private func toggleHold() {
+        if !photo.anchoredByMe { Haptics.held() }
+        Task { await state.toggleAnchor(photo) }
+    }
+
     /// A double-tap that likes plays the heart. On a photo already liked it
     /// unlikes, as the corner heart does, and only the corner heart says so.
     private func doubleTap() {
-        if !photo.likedByMe { heartPops += 1 }
+        if !photo.likedByMe {
+            heartPops += 1
+            Haptics.liked()
+        }
         like()
     }
 
@@ -1092,7 +1107,9 @@ struct NoteEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set") {
                         let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        Task { await state.setNote(line) }
+                        // Sealed when it's on the board, not before: a note
+                        // that didn't save gets no tap.
+                        Task { if await state.setNote(line) { Haptics.noteSealed() } }
                         dismiss()
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1283,6 +1300,8 @@ struct ReturnedCard: View {
             }
             if isRescue {
                 Button {
+                    // Keeping it is holding it: the bookmark fills.
+                    Haptics.held()
                     Task { await state.keepReturned(photoId: item.photo.id) }
                 } label: {
                     Label {

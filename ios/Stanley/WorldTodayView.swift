@@ -78,6 +78,7 @@ struct WorldTodayView: View {
             // status bar so the paper slides beneath the clock (`Journal.swift`).
             .journalPage()
             .refreshable {
+                Haptics.refreshed()
                 // Its own task: SwiftUI cancels a refresh's task as soon as
                 // the state it refreshes changes.
                 await Task { await state.loadNews() }.value

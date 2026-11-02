@@ -348,6 +348,9 @@ struct CaptureView: View {
 
     private func openCamera() {
         #if targetEnvironment(simulator)
+        // Stanley takes this frame itself, so it plays the shutter itself.
+        // The real camera plays its own (`Shutter`).
+        Shutter.play()
         took(Self.simulatorFrame())
         #else
         showCamera = true
@@ -499,7 +502,7 @@ struct CaptureView: View {
 
     private func send(jpeg: Data, filter: PhotoFilter) async {
         do {
-            try await state.capture(
+            let posted = try await state.capture(
                 jpeg: jpeg,
                 caption: caption.trimmingCharacters(in: .whitespaces),
                 location: location.trimmingCharacters(in: .whitespaces),
@@ -509,6 +512,8 @@ struct CaptureView: View {
             // Posted, or kept to post later: either way the place was used,
             // so it's the first thing the picker offers next time.
             PlaceBook(userId: state.myId).remember(location)
+            // Up for everyone: success. Kept for later isn't that yet.
+            if posted { Haptics.posted() }
             dismiss()
         } catch {
             state.surface(error)

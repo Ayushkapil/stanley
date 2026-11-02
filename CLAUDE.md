@@ -277,6 +277,26 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the whole photo pink, which pilot users found strange; the photo is never
   tinted now. A tap on the corner heart only fills it, and a double-tap on a
   photo already liked unlikes it without the pop.
+- **Haptics** (build 21, `Haptics.swift`) — only the deliberate social
+  gestures, never scrolling, tab switches or navigation: a light impact when
+  the double-tap heart appears (not the corner heart's tap, nor an unlike); a
+  medium one when a photo is held, however it's held (the long-press menu's
+  Hold, the bookmark, Returned's Keep this; letting go is quiet); the
+  system's success when today's photo is up (not when it's only queued); a
+  light impact as a pull to refresh lets go (Today, Held, You, World); and a
+  light tap when the circle's note is on the board (after the server says
+  so, so a note that didn't save gets none). With System Haptics off, iOS
+  keeps them silent. Each logs `haptic: …` at debug level (subsystem
+  `com.ayushkapileshwar.stanley`, category `haptics`), which is how they're
+  checked on a simulator, which has no haptic engine. **Long press is the
+  menu:** on a print the context menu takes the press before the
+  press-and-hold gesture can, so holding by long press means long press →
+  Hold (checked: no anchor request without it). **The shutter** (`Shutter`,
+  system sound 1108, silenced by the ring switch): the system camera plays
+  its own at the moment of capture, so Stanley adds none to a camera photo
+  (a second click after Use Photo would be seconds late); only the
+  simulator's stand-in frame, which Stanley takes itself, plays it. A
+  library photo is chosen, not taken: no sound.
 - **Gesture icon size** — the heart and the bookmark share one size,
   `GestureIcon`: a 22pt glyph (about 24pt tall, roughly 40% up from build 11)
   inside a 44pt target, through `@ScaledMetric` so it follows Dynamic Type.
@@ -874,7 +894,8 @@ live APNs, concurrency under real load.
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`
   (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share,
-  `WideButton`), `SignedImage.swift` (every photo and face behind a signed
+  `WideButton`), `Haptics.swift` (the five gestures' haptics, the shutter),
+  `SignedImage.swift` (every photo and face behind a signed
   link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`
 - Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
