@@ -259,13 +259,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   one circle to tell apart. Since build 20 the Held tab is **a photo album**:
   a masthead ("Held", "The one place nothing fades", Rested as a moon at its
   end), a section head per friend ("Kept from", their name in a hand, their
-  face), and each memory a print slipped into four photo corners
-  (`PhotoCorners`, black on a light page, card gray on a dark one), laid
-  twice as crooked as Today's and staggered left and right, with its caption
-  written beneath in a hand and the place and "held" date in small capitals.
-  A tombstone is the empty corners around "A memory was here". The phone
-  keeps swipe to rest; the Duo's inner display, two prints to a line, keeps
-  the long press.
+  face), and each memory a print on its photo paper exactly as in Today
+  (`asPrint`: barely rounded, a soft shadow), staggered left and right and
+  leaning with its side, left, right, left, by a Today print's slight
+  amount, with its caption written beneath in a hand and the place and
+  "held" date in small capitals. A tombstone is a blank print with "A memory
+  was here" written on it. Builds 20 to 23 slipped each print into four
+  black photo corners (`PhotoCorners`, since removed); pilot users called
+  them cringe. The phone keeps swipe to rest; the Duo's inner display, two
+  prints to a line, keeps the long press.
 - **Likes** — double-tap heart, owner-only faces, decays with the photo. The
   heart bottom-right of each photo (the bookmark beside it, on the photo too,
   since build 17) is *your own* state only (filled if you
@@ -317,7 +319,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Story-comments** — flat, chronological, part of the artifact. Today shows
   the first one on the card and the newest beneath it; any between sit
   behind "More stories" (never "2 more" — a tally is still a count) which
-  opens the photo with the thread. The newest is there so a story just added
+  opens the photo with the thread. **A tap on a story line's words opens
+  the same sheet** (build 24; people tapped them expecting the thread): in
+  Today each line's name and words carry a `stanley-stories://<photo id>`
+  link (`StoryLine.link`), beside the mentions' own, and the card's
+  `openURL` opens the sheet for one and a profile for the other. The
+  colors are set on every run, so no word turns link-blue. The sheet's own
+  lines and a profile's carry no such link. The newest is there so a story just added
   appears right above the field it was written in: with only the first
   shown, a second story vanished behind "More stories" the moment it posted
   and read as a story that wouldn't post. Return sends a story as Add does
@@ -493,9 +501,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     then the camera at 78pt with "Take today's photo" beneath. Only once
     Today has answered (`todayLoaded`), so it never flashes up while photos
     load, and not while a capture waits to go up.
-  - **Empty Held**: a sheet with four photo corners around nothing and
-    "Nothing held yet. When you press and hold someone's moment, it lives
-    here, long after it fades." The brief said "forever"; the subject wins
+  - **Empty Held**: a sheet with a blank print (since build 24; four photo
+    corners around nothing before) and "Nothing held yet. When you press
+    and hold someone's moment, it lives here, long after it fades." The
+    brief said "forever"; the subject wins
     on deletion, so it doesn't promise that. Shown only once Held has
     answered (`memoriesLoaded`); offline before that it says "Not here yet."
   - **Onboarding** (`OnboardingView`): the three pages, same words, on
@@ -907,7 +916,7 @@ live APNs, concurrency under real load.
   Blocked), `Mentions.swift` (@mentions: parsing, tones, `StoryComposer`,
   `MentionBar`), `Paper.swift` (the paper grain, `.paperPage()`),
   `Journal.swift` (the journal's look: masthead, rules, small capitals,
-  prints, photo corners, paper inserts),
+  prints, paper inserts),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your

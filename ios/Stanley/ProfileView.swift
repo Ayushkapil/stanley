@@ -310,8 +310,8 @@ struct MilestoneCard: View {
 
 /// A held print on the You page (Part 6): full saturation — Held is the one
 /// place nothing fades — on its paper, a little crooked, with "held · date"
-/// in small capitals beneath. A tombstone is its empty corners. Reads well
-/// at three or thirty.
+/// in small capitals beneath. A tombstone is a blank print with the words
+/// on it. Reads well at three or thirty.
 struct HeldTile: View {
     @Environment(AppState.self) private var state
     let memory: Memory
@@ -326,7 +326,6 @@ struct HeldTile: View {
             if memory.isTombstone {
                 Color.clear
                     .aspectRatio(PhotoShape.aspect, contentMode: .fit)
-                    .overlay { PhotoCorners(size: 10) }
                     .overlay {
                         Text("a memory was here")
                             .font(.hand(12, relativeTo: .caption2))
@@ -334,6 +333,7 @@ struct HeldTile: View {
                             .multilineTextAlignment(.center)
                             .padding(6)
                     }
+                    .asPrint(border: 4, tilt: PrintTilt.degrees(memory.id) * 2)
             } else {
                 Color.clear
                     .aspectRatio(PhotoShape.aspect, contentMode: .fit)

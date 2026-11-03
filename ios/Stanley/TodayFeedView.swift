@@ -481,17 +481,22 @@ enum StoryLine {
     /// run together into one white run of text. A person the story mentions
     /// (build 19, `Mentions.swift`) is their name in bold, in their own tone,
     /// and a link to their profile, which the view showing the line opens.
+    /// With `opening`, every other word (the name too) carries that link
+    /// instead, so a tap anywhere on the line opens the photo's stories
+    /// (build 24); the colors are set on each run, so none turns link-blue.
     @MainActor
-    static func text(_ comment: Comment, people: MentionDirectory) -> Text {
+    static func text(_ comment: Comment, people: MentionDirectory, opening stories: URL? = nil) -> Text {
         var line = AttributedString(comment.author.displayName)
         line.inlinePresentationIntent = .stronglyEmphasized
         line.swiftUI.foregroundColor = .primary
+        line.link = stories
         line += AttributedString("  ")
         for part in Mentions.parts(comment.body) {
             switch part {
             case .words(let words):
                 var run = AttributedString(words)
                 run.swiftUI.foregroundColor = .secondary
+                run.link = stories
                 line += run
             case .person(let id):
                 if let name = people.name(id) {
@@ -503,11 +508,24 @@ enum StoryLine {
                 } else {
                     var run = AttributedString("someone")
                     run.swiftUI.foregroundColor = .secondary
+                    run.link = stories
                     line += run
                 }
             }
         }
         return Text(line)
+    }
+
+    /// The link a story line's words carry in Today: a tap on them opens
+    /// the photo's stories sheet, as "More stories" does. Its own scheme,
+    /// beside the mentions', so the card's `openURL` can tell the two apart.
+    /// Never leaves the app.
+    static func link(_ photoId: String) -> URL? { URL(string: "stanley-stories://\(photoId)") }
+
+    /// The photo whose stories a tapped line asks for, if that's what the
+    /// URL is.
+    static func photo(in url: URL) -> String? {
+        url.scheme == "stanley-stories" ? url.host() : nil
     }
 
     /// The empty field under a photo. A question about the moment, because a
@@ -797,8 +815,13 @@ struct PhotoCard: View {
             PhotoStoriesView(photo: photo)
         }
         .photoActions(photo, $action)
-        // A name a story mentions opens that person's profile.
+        // A tap on a story's words opens the stories; a name a story
+        // mentions opens that person's profile.
         .environment(\.openURL, OpenURLAction { url in
+            if StoryLine.photo(in: url) != nil {
+                showStories = true
+                return .handled
+            }
             guard let id = Mentions.person(in: url) else { return .systemAction }
             viewedMember = ViewedMember(id: id)
             return .handled
@@ -863,7 +886,8 @@ struct PhotoCard: View {
     /// stories". The newest is there so a story just added shows up right
     /// above the field it was written in. With only the first shown, a
     /// second story vanished behind "More stories" the moment it posted,
-    /// and looked as if it hadn't.
+    /// and looked as if it hadn't. A tap on either line's words opens the
+    /// stories too (build 24): people tapped them expecting the thread.
     @ViewBuilder
     private var comments: some View {
         if let first = photo.comments.first {
@@ -885,7 +909,7 @@ struct PhotoCard: View {
     }
 
     private func storyLine(_ comment: Comment) -> some View {
-        StoryLine.text(comment, people: state.mentions)
+        StoryLine.text(comment, people: state.mentions, opening: StoryLine.link(photo.id))
             .font(.callout)
             .lineLimit(density.storyLineLimit)
             .storyMenu(comment, on: photo)

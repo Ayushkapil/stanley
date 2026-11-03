@@ -52,16 +52,18 @@ struct MemoriesView: View {
         state.threads.isEmpty && (state.memoriesLoaded || state.offline)
     }
 
-    /// An empty album: a page with four photo corners waiting for the first
-    /// print, and what goes in them, in a hand. Offline, an empty album may
+    /// An empty album: a page with a blank print waiting for its first
+    /// picture, and what it's for, in a hand. Offline, an empty album may
     /// only be one that hasn't loaded yet, so it says that instead.
     private var emptyNote: some View {
         HStack(alignment: .top, spacing: 20) {
             Color.clear
                 .aspectRatio(PhotoShape.aspect, contentMode: .fit)
-                .frame(width: 78)
-                .overlay { PhotoCorners(size: 13) }
-                .padding(.top, 6)
+                .frame(width: 72)
+                .overlay(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous).fill(.quaternary))
+                .asPrint(border: 6, tilt: -1.4)
+                .padding(.top, 8)
+                .padding(.leading, 4)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 8) {
                 if state.offline && !state.memoriesLoaded {
@@ -112,7 +114,7 @@ struct MemoriesView: View {
                     pageHead(thread)
                         .listRowInsets(EdgeInsets(top: 26, leading: 20, bottom: 14, trailing: 20))
                     ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
-                        MemoryCard(memory: memory)
+                        MemoryCard(memory: memory, place: position)
                             .padding(.leading, position.isMultiple(of: 2) ? 0 : 44)
                             .padding(.trailing, position.isMultiple(of: 2) ? 44 : 0)
                             .listRowInsets(EdgeInsets(top: 12, leading: 26, bottom: 18, trailing: 26))
@@ -163,7 +165,7 @@ struct MemoriesView: View {
                             spacing: 30
                         ) {
                             ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
-                                MemoryCard(memory: memory)
+                                MemoryCard(memory: memory, place: position)
                                     .padding(.top, position % density.heldColumns == 1 ? 24 : 0)
                                     .contextMenu { restMenu(memory) }
                             }
@@ -235,14 +237,19 @@ struct RestedView: View {
 }
 
 /// A kept memory on the album page (Held tab): the print at full saturation,
-/// slipped into four photo corners and laid a little crooked, with its
-/// words written beneath it. A tombstone keeps only the corners, around
-/// where the print was.
+/// on its photo paper as in Today, laid a little crooked, with its words
+/// written beneath it. A tombstone is a blank print with the words on it,
+/// where the picture was. (Builds 20 to 23 slipped each print into four
+/// photo corners; pilot users called them cringe.)
 struct MemoryCard: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let memory: Memory
+    /// Where it comes on its page, counting from 0: the album lays prints
+    /// alternately toward the left and the right, and each leans with its
+    /// side.
+    var place: Int = 0
 
     /// Held gathers every circle. Which one a memory is from is worth saying
     /// once there's more than one to tell apart.
@@ -255,8 +262,13 @@ struct MemoryCard: View {
         return "held · \(taken.formatted(date: .abbreviated, time: .omitted))"
     }
 
-    /// Laid by hand: twice a Today print's lean, the way an album is filled.
-    private var tilt: Double { PrintTilt.degrees(memory.id) * 2 }
+    /// Laid by hand: a Today print's slight lean, by its own amount, and
+    /// alternating with the side it's laid toward, so the page reads as
+    /// filled left, right, left.
+    private var tilt: Double {
+        let lean = max(0.35, abs(PrintTilt.degrees(memory.id)))
+        return place.isMultiple(of: 2) ? -lean : lean
+    }
 
     /// "Collins · held · 20 Jul 2026": where, then when it was kept.
     private var whereAndWhen: String? {
@@ -267,10 +279,10 @@ struct MemoryCard: View {
 
     var body: some View {
         if memory.isTombstone {
-            // An honest absence: the corners are still on the page where the
-            // print was, and the words say what was there. A marker, not a
+            // An honest absence: a blank print still on the page where the
+            // picture was, with the words written on it. A marker, not a
             // monument, so it's smaller than a print.
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(spacing: 4) {
                 Text("A memory was here")
                     .font(.hand(18, relativeTo: .body))
                     .foregroundStyle(.secondary)
@@ -279,9 +291,8 @@ struct MemoryCard: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 92)
-            .overlay { PhotoCorners(size: 14) }
-            .padding(10)
-            .rotationEffect(.degrees(tilt))
+            .asPrint(border: 8, tilt: tilt)
+            .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
         } else {
             VStack(alignment: .leading, spacing: 10) {
@@ -313,9 +324,7 @@ struct MemoryCard: View {
                             .allowsHitTesting(false)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                        .asPrint(border: 8)
-                        .overlay { PhotoCorners() }
-                        .rotationEffect(.degrees(tilt))
+                        .asPrint(border: 8, tilt: tilt)
                         .padding(.vertical, 4)
                 }
                 // Written on the page beneath the print, the way an album is
@@ -378,8 +387,8 @@ struct MemoryRow: View {
         HStack(spacing: 14) {
             if memory.isTombstone {
                 Color.clear
-                    .frame(width: 52, height: 60)
-                    .overlay { PhotoCorners(size: 9) }
+                    .frame(width: 48, height: 56)
+                    .asPrint(border: 3, tilt: PrintTilt.degrees(memory.id) * 2)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("A memory was here")
                         .font(.hand(17, relativeTo: .callout))

@@ -230,50 +230,6 @@ private struct PaperInsert: ViewModifier {
     }
 }
 
-/// Album corners: four little paper mounts, the kind a print is slipped
-/// into, each just over a corner of what it holds. Laid over a print as an
-/// overlay; with nothing under them, they mark where one was. Black on a
-/// light page; on a dark page, the gray of old card, or they'd vanish.
-struct PhotoCorners: View {
-    var size: CGFloat = 16
-
-    private static let mountColor = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(white: 0.52, alpha: 1) : UIColor(white: 0.13, alpha: 1)
-    })
-
-    var body: some View {
-        Color.clear
-            .overlay(alignment: .topLeading) { mount(0) }
-            .overlay(alignment: .topTrailing) { mount(90) }
-            .overlay(alignment: .bottomTrailing) { mount(180) }
-            .overlay(alignment: .bottomLeading) { mount(270) }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-
-    private func mount(_ degrees: Double) -> some View {
-        Mount()
-            .fill(Self.mountColor)
-            .overlay(Mount().stroke(.white.opacity(0.12), lineWidth: 0.5))
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(degrees))
-            .shadow(color: .black.opacity(0.25), radius: 1, x: 0.5, y: 0.5)
-            .padding(-size * 0.22)
-    }
-
-    /// The right angle at the top leading corner, the long side across it.
-    private struct Mount: Shape {
-        func path(in rect: CGRect) -> Path {
-            Path { p in
-                p.move(to: rect.origin)
-                p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-                p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-                p.closeSubpath()
-            }
-        }
-    }
-}
-
 /// Who and when, written in ink beneath a print the way you'd write on an
 /// album page: a first name and the time, in a hand. A tap on it opens their
 /// profile.
