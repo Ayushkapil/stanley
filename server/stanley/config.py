@@ -43,7 +43,26 @@ class Settings:
     signed_url_ttl_seconds: int = 900  # §9: short-TTL signed URLs (15 min)
     digest_hour: int = 20              # §10 N1: the single evening digest slot (local time)
     max_upload_bytes: int = 15 * 1024 * 1024
+    # Daily snapshots, kept seven days: the Privacy Policy promises anything
+    # deleted is gone from the backups within seven days (`backup.py`).
     backups_keep: int = 7
+
+    # Rate limits (`ratelimit.py`), on unless STANLEY_RATE_LIMITS=0. Sign-in is
+    # counted per IP address, the rest per person. Each number can be raised
+    # for an evening without a deploy (fly secrets set ...), e.g. a pilot
+    # kickoff where a whole floor signs in from one dorm network at once.
+    rate_limits: bool = field(default_factory=lambda: _env("STANLEY_RATE_LIMITS", "1") != "0")
+    rate_auth_per_minute: int = field(default_factory=lambda: int(_env("STANLEY_RATE_AUTH_PER_MINUTE", "10")))
+    # Ten, not five: five circles each with a day's photo and its one redo is
+    # ten honest posts, and a limit must never cost someone their day.
+    rate_uploads_per_hour: int = field(default_factory=lambda: int(_env("STANLEY_RATE_UPLOADS_PER_HOUR", "10")))
+    rate_avatars_per_hour: int = field(default_factory=lambda: int(_env("STANLEY_RATE_AVATARS_PER_HOUR", "10")))
+    rate_stories_per_hour: int = field(default_factory=lambda: int(_env("STANLEY_RATE_STORIES_PER_HOUR", "30")))
+    rate_reports_per_hour: int = field(default_factory=lambda: int(_env("STANLEY_RATE_REPORTS_PER_HOUR", "20")))
+    # Fly's proxy names the real client in Fly-Client-IP. Trusted only on Fly
+    # (FLY_APP_NAME is set on every Fly machine), so nothing else can claim
+    # an address by sending the header.
+    trust_fly_client_ip: bool = field(default_factory=lambda: bool(_env_opt("FLY_APP_NAME")))
 
     # The World Today: keyless RSS (PBS, BBC World, Google News's local
     # pages), on unless STANLEY_NEWS=0. Off means nothing is fetched and the

@@ -1,15 +1,35 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import auth
+from . import auth, wordfilter
 from .models import Circle, Membership, Photo, User
 from .serialize import blocked_ids
 
 _bearer = HTTPBearer(auto_error=False)
+log = logging.getLogger("stanley")
+
+
+def event(name: str, **fields: str | None) -> None:
+    """One structured line for the operator (`fly logs`): what happened, and
+    the opaque ids it happened to, never a name, a caption or anything
+    someone wrote. `event=photo_posted photo=... circle=... user=...`"""
+    parts = [f"event={name}"] + [f"{k}={v}" for k, v in fields.items() if v is not None]
+    log.info(" ".join(parts))
+
+
+def refuse_objectionable(*texts: str | None) -> None:
+    """The word filter (`wordfilter.py`): text carrying a slur is refused
+    before anything is stored, and the app says so in words. Called after
+    `text.clean`, so what's checked is what would have been kept."""
+    if wordfilter.is_objectionable(*texts):
+        event("words_refused")
+        raise HTTPException(400, {"code": "words_not_allowed"})
 
 
 def get_settings(request: Request):

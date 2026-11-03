@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from .. import physics
@@ -34,8 +35,11 @@ def rest(
     gentle and unexplaining — no confirmation, no reason prompt, so neither is
     modeled here."""
     photo = _related_photo(db, user, photo_id)
-    if db.get(Rest, (user.id, photo.id)) is None:
-        db.add(Rest(user_id=user.id, photo_id=photo.id, rested_at=clock.now()))
+    db.execute(
+        sqlite_insert(Rest)
+        .values(user_id=user.id, photo_id=photo.id, rested_at=clock.now())
+        .on_conflict_do_nothing(index_elements=["user_id", "photo_id"])
+    )
     return {"rested": True}
 
 

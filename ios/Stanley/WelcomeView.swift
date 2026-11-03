@@ -46,7 +46,7 @@ struct WelcomeView: View {
         .padding()
         .sheet(item: $reading) { doc in
             NavigationStack {
-                LegalDocumentView(title: doc.title, sections: doc.sections)
+                LegalDocumentView(title: doc.title, sections: doc.sections, effective: doc.effective)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") { reading = nil }
@@ -80,6 +80,7 @@ private enum LegalDoc: String, Identifiable {
     var id: String { rawValue }
     var title: String { self == .terms ? "Terms of Use" : "Privacy Policy" }
     var sections: [Legal.Section] { self == .terms ? Legal.terms : Legal.privacy }
+    var effective: String { self == .terms ? Legal.effective : Legal.privacyEffective }
 }
 
 #if DEBUG

@@ -8,7 +8,13 @@ user to Sentry, re-derive this document first.
 **Two builds, two labels.** The label depends on one build-time value:
 `STANLEY_SENTRY_DSN` in Info.plist. Empty → the Sentry SDK never starts and
 Stanley collects **no diagnostics at all**. Set (TestFlight/release) → add
-Crash Data as described below. Everything else is identical.
+Crash Data, and Product Interaction for the crash report's short trail, as
+described below. Everything else is identical.
+
+Checked against the code in the production audit (November 3, 2026): every
+answer below still matches. One thing changed: a crash report now carries a
+short trail of fixed words (`Trail.swift`), and the Privacy Policy says so
+(section 2, effective November 3, 2026).
 
 ---
 
@@ -120,6 +126,14 @@ Personalization, never Other.
     could contain someone's photo — never shipped).
   - `tracesSampleRate = 0` (no performance telemetry → Performance Data stays
     *Not Collected*).
+  - `enableAutoBreadcrumbTracking = false`, `enableNetworkBreadcrumbs =
+    false` and `enableCaptureFailedRequests = false` (production audit):
+    Sentry's own trail would record taps, screens and every request's URL,
+    and a URL can carry a username (`/me/username_check?u=`) or a member's
+    id. The only trail is Stanley's (`Trail.swift`): up to 30 fixed phrases
+    from a closed list ("opened Held", "posted a photo", "added a story"),
+    never an id, a name, a caption, a place, a URL or anything typed. It
+    stays on the phone and leaves only inside a crash report.
   - `sendDefaultPii` is left at its default (`false`) — no IP address is
     attached client-side.
   - **Action required in the Sentry project settings:** enable
@@ -127,12 +141,24 @@ Personalization, never Other.
     server discards the connection IP too. Do this before shipping the DSN.
 - [ ] Performance Data / Other Diagnostic Data — **not collected.**
 
+### Usage Data — depends on the build
+
+- [ ] **Product Interaction — dev builds: NOT COLLECTED. TestFlight/release
+  builds (DSN set): COLLECTED · NOT linked to identity · Not used for
+  tracking · purpose App Functionality.** The crash trail is a record of
+  what the app did ("opened Held", "posted a photo"), which is Apple's
+  definition of product interaction even though it only ever travels inside
+  a crash report and is used for nothing but fixing the crash. Declaring it
+  is the conservative answer, like the push token under Device ID. Purpose:
+  App Functionality (Apple lists "minimize app crashes" there), never
+  Analytics.
+- [ ] Advertising Data / Other Usage Data — **not collected.**
+
 ### Everything else — Not Collected
 
 Health & Fitness, Financial Info, Sensitive Info, Contacts, Browsing History, Search
-History, Purchases, **Usage Data (no analytics, no product-interaction
-telemetry, no advertising data — nothing in the app records taps, views, or
-launches)**, Surroundings, Body, Other Data.
+History, Purchases, Surroundings, Body, Other Data. (Usage Data is above: only
+the crash trail, only in a build with a DSN; no analytics, no advertising.)
 
 ---
 
@@ -168,6 +194,44 @@ launches)**, Surroundings, Body, Other Data.
   anything but the two notices → revisit Device ID's purpose, and §10.
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no
   counts, no engagement signals" product rules deserve a second look anyway.
-- `SentrySDK.setUser` or custom Sentry events/breadcrumbs with user data are
-  added → Crash Data flips to **Linked to identity**.
+- `SentrySDK.setUser` or custom Sentry events, or a `Trail` step carrying an
+  id, a name or anything typed, is added → Crash Data and Product
+  Interaction flip to **Linked to identity**. Sentry's automatic
+  breadcrumbs are turned back on → re-read what they record (URLs) first.
 - `tracesSampleRate` becomes non-zero → add Performance Data.
+
+## App Store Connect, click by click
+
+App Store Connect → the app → **App Privacy** → Get Started (or Edit). For the
+TestFlight/release build, which carries a Sentry DSN:
+
+1. **Do you or your third-party partners collect data from this app?** Yes.
+2. Select these data types, and nothing else:
+   - Contact Info → **Name**
+   - User Content → **Photos or Videos**, **Other User Content**
+   - Identifiers → **User ID**, **Device ID**
+   - Location → **Coarse Location**
+   - Usage Data → **Product Interaction**
+   - Diagnostics → **Crash Data**
+3. For each type, answer:
+
+| Data type | Purposes | Linked to the user's identity? | Used for tracking? |
+|---|---|---|---|
+| Name | App Functionality | Yes | No |
+| Photos or Videos | App Functionality | Yes | No |
+| Other User Content | App Functionality | Yes | No |
+| User ID | App Functionality | Yes | No |
+| Device ID | App Functionality | Yes | No |
+| Coarse Location | App Functionality | No | No |
+| Product Interaction | App Functionality | No | No |
+| Crash Data | App Functionality | No | No |
+
+4. **Privacy Policy URL** (App Information → Privacy Policy URL):
+   `https://server-earnest-stream-9793.fly.dev/privacy`. Live since release
+   v15 (November 2, 2026); the November 3 wording (the crash trail) reaches it
+   with the next `fly deploy`.
+5. Publish. The label shows on the product page once the version is
+   submitted.
+
+A build without a DSN collects less (no Crash Data, no Product Interaction),
+but the App Store shows one label per app, so answer for the build you ship.

@@ -20,6 +20,16 @@ struct StanleyApp: App {
                 options.attachScreenshot = false           // never ship a user's photo
                 options.attachViewHierarchy = false
                 options.tracesSampleRate = 0               // no performance telemetry
+                // The production audit: the only trail is Stanley's own
+                // (`Trail`), fixed words with nothing personal in them.
+                // Sentry's automatic one records taps, screens and every
+                // request's URL, and a URL can carry a username or an id.
+                options.enableAutoBreadcrumbTracking = false
+                options.enableNetworkBreadcrumbs = false
+                // A server's 5xx is a server problem, logged on the server;
+                // reporting it from phones would send request URLs too.
+                options.enableCaptureFailedRequests = false
+                options.maxBreadcrumbs = 30
             }
         }
     }
@@ -56,6 +66,14 @@ private struct DarkRoomInk: ViewModifier {
 
 extension View {
     func darkRoomInk() -> some View { modifier(DarkRoomInk()) }
+
+    /// A destructive button's red, said outright. The ink above is set at
+    /// the root, and an inherited foreground style outranks a button's role,
+    /// so from build 24 Leave Circle, Reset Code, Delete Account and Block
+    /// came out in ink instead of red (found in the production audit's
+    /// screenshots). Alerts, menus and swipe actions are drawn by UIKit and
+    /// keep their own red; this is for buttons laid in a page or a form.
+    func destructiveInk() -> some View { foregroundStyle(.red) }
 }
 
 struct RootView: View {
@@ -101,6 +119,8 @@ struct RootView: View {
                                 // person's name decides whether setup comes next.
                                 await state.loadProfile()
                                 await state.loadCircle()
+                                // A fresh thirty days, at most once a day.
+                                await state.refreshSignInIfDue()
                             }
                     }
                 } else if state.needsSetup {
@@ -165,7 +185,12 @@ struct RootView: View {
         // Back to the front: if Stanley was out of reach, see whether it
         // answers now rather than wait for the next try.
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await state.checkConnection() } }
+            if phase == .active {
+                Task {
+                    await state.checkConnection()
+                    await state.refreshSignInIfDue()
+                }
+            }
         }
         .preferredColorScheme(colorScheme)
         // Ambient seasonal tint — accents, tab bar, card edges (Part 5).
@@ -189,9 +214,20 @@ struct HomeView: View {
             get: { tab },
             set: { chosen in
                 if chosen == tab, let page = Self.page(chosen) { state.tabTaps.tap(page) }
+                if chosen != tab { Trail.note(Self.step(chosen)) }
                 tab = chosen
             }
         )
+    }
+
+    private static func step(_ tab: Tab) -> Trail.Step {
+        switch tab {
+        case .today: .openedToday
+        case .held: .openedHeld
+        case .you: .openedYou
+        case .world: .openedWorld
+        case .settings: .openedSettings
+        }
     }
 
     private static func page(_ tab: Tab) -> TabTaps.Page? {

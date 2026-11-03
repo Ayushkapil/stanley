@@ -6,15 +6,18 @@ import re
 import zipfile
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from .. import physics
+from .. import physics, wordfilter
 from ..decay import TOMBSTONE, delete_comments, enqueue_purge, owner_hash_for, scrub
-from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
+from ..deps import event, get_clock, get_current_user, get_db, get_settings, get_storage, refuse_objectionable
 from ..images import BadImage, process_avatar
+from ..ratelimit import per_person
+from ..text import clean
 from ..milestones import milestone_payload, surface_due
 from ..models import (
     Anchor, Block, Comment, CommunityNote, Like, Membership, Milestone, NotificationLog, Photo, PhotoTag,
@@ -40,13 +43,13 @@ PUSH_TOKEN_RE = re.compile(r"^[0-9a-f]{64,200}$")
 
 
 class PushTokenBody(BaseModel):
-    token: str
-    environment: str = "production"
+    token: str = Field(max_length=300)
+    environment: str = Field(default="production", max_length=16)
 
 
 class ProfilePatch(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
-    username: str | None = None
+    username: str | None = Field(default=None, max_length=64)
     # A real bio: multi-line free text, room to write about yourself.
     bio: str | None = Field(default=None, max_length=1000)
 
@@ -96,7 +99,7 @@ def moments_shared(db: Session, user_id: str) -> int:
     ) or 0
 
 
-@router.post("/me/avatar")
+@router.post("/me/avatar", dependencies=[per_person("avatar")])
 def upload_avatar(
     file: UploadFile = File(...),
     db: Session = Depends(get_db, scope="function"),
@@ -127,14 +130,16 @@ def patch_profile(
     user: User = Depends(get_current_user),
 ):
     if body.display_name is not None:
-        name = body.display_name.strip()
+        name = clean(body.display_name)
         if not name:
             raise HTTPException(400, {"code": "bad_display_name"})
+        refuse_objectionable(name)
         user.display_name = name
     if body.username is not None:
-        username = body.username.strip().lower()
+        username = clean(body.username).lower()
         if not USERNAME_RE.match(username):
             raise HTTPException(400, {"code": "bad_username"})
+        refuse_objectionable(username)
         taken = db.scalars(
             select(User).where(User.username == username, User.id != user.id)
         ).first()
@@ -142,21 +147,23 @@ def patch_profile(
             raise HTTPException(409, {"code": "username_taken"})
         user.username = username
     if body.bio is not None:
-        user.bio = body.bio  # newlines preserved verbatim
+        bio = clean(body.bio, multiline=True)  # newlines kept
+        refuse_objectionable(bio)
+        user.bio = bio
     return _profile_payload(user)
 
 
 @router.get("/me/username_check")
 def username_check(
-    u: str,
+    u: str = Query(max_length=64),
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
     """Real-time availability for the edit-profile sheet. Mirrors the PATCH
     validation exactly (same regex, same taken-check) so the answer here is
     the answer there. Your own current username reads as available."""
-    candidate = u.strip().lower()
-    if not USERNAME_RE.match(candidate):
+    candidate = clean(u).lower()
+    if not USERNAME_RE.match(candidate) or wordfilter.is_objectionable(candidate):
         return {"valid": False, "available": False}
     taken = db.scalars(
         select(User).where(User.username == candidate, User.id != user.id)
@@ -199,13 +206,17 @@ def register_push_token(
     on the phone, it becomes theirs, so a notice never reaches a phone its
     owner has signed out of."""
     token = _push_token(body)
-    row = db.get(PushToken, token)
-    if row is None:
-        db.add(PushToken(token=token, user_id=user.id, environment=body.environment, updated_at=clock.now()))
-    else:
-        row.user_id = user.id
-        row.environment = body.environment
-        row.updated_at = clock.now()
+    now = clock.now()
+    # One statement: two launches registering the same token at once can't
+    # collide.
+    db.execute(
+        sqlite_insert(PushToken)
+        .values(token=token, user_id=user.id, environment=body.environment, updated_at=now)
+        .on_conflict_do_update(
+            index_elements=["token"],
+            set_={"user_id": user.id, "environment": body.environment, "updated_at": now},
+        )
+    )
 
 
 @router.delete("/me/push-token", status_code=204)
@@ -247,7 +258,10 @@ def my_memories(
         anchor.last_viewed_at = now
         key = photo.owner_id or f"tombstone:{photo.owner_hash}"
         if key not in threads:
-            threads[key] = {"friend": user_brief(db, photo.owner_id), "memories": []}
+            # With a signed link to their face: the album heads each friend's
+            # page with it (it was left unsigned, so Held only ever showed
+            # initials).
+            threads[key] = {"friend": user_brief(db, photo.owner_id, settings, now), "memories": []}
         threads[key]["memories"].append(
             memory_payload(db, settings, now, photo, anchor, user)
         )
@@ -346,6 +360,7 @@ def delete_account(
     """§15: account deletion cascades, including anchored copies of my photos
     (tombstones excepted). My own gestures on others' content are withdrawn."""
     now = clock.now()
+    event("account_deleted", user=user.id)
 
     for photo in db.scalars(select(Photo).where(Photo.owner_id == user.id)).all():
         if photo.state != physics.PURGED:

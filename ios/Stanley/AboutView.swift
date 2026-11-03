@@ -79,6 +79,7 @@ struct AccountView: View {
                 }
                 Section {
                     Button("Delete Account", role: .destructive) { confirmDelete = true }
+                        .destructiveInk()
                 } footer: {
                     Text("Deletes your account and everything you've posted. People who kept your photos keep only a note that a memory was there.")
                 }

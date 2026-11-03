@@ -12,6 +12,9 @@ enum Legal {
     }
 
     static let effective = "November 1, 2026"
+    /// The Privacy Policy's own date since it last changed (the crash
+    /// report's trail, November 3, 2026). `legal.py` keeps the same two.
+    static let privacyEffective = "November 3, 2026"
 
     static let terms: [Section] = [
         Section(heading: "1. Introduction and acceptance", lines: [
@@ -146,7 +149,7 @@ enum Legal {
         Section(heading: "1. Introduction", lines: [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 1, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 3, 2026.",
         ]),
         Section(heading: "2. What we collect", lines: [
             "## Account data",
@@ -170,7 +173,7 @@ enum Legal {
             "- Your time zone, so your day starts at your midnight and an evening notice arrives in your evening",
             "- Your town and country, only if you allow location, sent when you open the World tab to choose which headlines to show you. We don't store them with your account",
             "- A notification token for your phone, only if you turn on a notification. Apple gives it to your phone so we can send it the notices you asked for",
-            "- Crash reports, through Sentry, when crash reporting is on in your version of the app: what went wrong in the code, your iPhone model, and the iOS and app versions. They're anonymous, with no account, name, photo or location attached",
+            "- Crash reports, through Sentry, when crash reporting is on in your version of the app: what went wrong in the code, your iPhone model, the iOS and app versions, and a short trail of what the app did just before, such as opening Held or posting a photo. They're anonymous, with no account, name, photo or location attached, and the trail never says what you wrote, whose photo it was or who you are",
             "- Your phone's IP address, which our host receives with each request in order to answer it, as every internet service does. We don't keep it with your account or use it to identify you",
             "## About location",
             "If you allow location, your phone uses it to suggest a place name for a new photo, by asking Apple's maps service what's there. Those coordinates stay between your phone and Apple: Stanley's servers never receive GPS coordinates. Only the place name you keep on a photo reaches us, and you can change or clear it. For a photo from your library, the suggestion comes from the location saved in that photo, worked out on your phone the same way.",
@@ -180,7 +183,7 @@ enum Legal {
             "- Your contacts or address book",
             "- Precise location or GPS coordinates",
             "- Your photo library. The system's photo picker gives Stanley only the one photo you choose, and your phone removes its metadata before it's sent",
-            "- Browsing, usage or analytics data. Nothing in Stanley records what you tap, view or open",
+            "- Browsing, usage or analytics data. Nothing in Stanley records what you tap, view or open, except that short trail, which stays on your phone and is sent only with a crash report",
             "- Advertising identifiers",
             "- Biometric data. If you lock Stanley with Face ID, your iPhone checks your face; Stanley only learns whether it matched",
         ]),
@@ -267,11 +270,12 @@ enum Legal {
 struct LegalDocumentView: View {
     let title: String
     let sections: [Legal.Section]
+    var effective: String = Legal.effective
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("Effective \(Legal.effective)")
+                Text("Effective \(effective)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 ForEach(sections, id: \.self) { section in

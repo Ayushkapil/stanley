@@ -179,6 +179,9 @@ struct ReportSheet: View {
     static let reasons = [
         "It's hurtful, bullying or harassing",
         "It's sexual or explicit",
+        // Its own reason (the production audit), so the operator reads it
+        // first and follows the CSAM steps in PRODUCTION_CHECKLIST.md.
+        "It sexualizes or endangers a child",
         "It's violent or threatening",
         "It's hateful",
         "It shows someone who didn't want it shared",
@@ -265,6 +268,7 @@ struct ReportSheet: View {
                     Button("Block \(name)", role: .destructive) {
                         Task { blocked = await state.block(target.author) }
                     }
+                    .destructiveInk()
                     .padding(.top, 18)
                     Text("You won't see each other's photos or stories. They aren't told.")
                         .font(.footnote)
@@ -307,6 +311,7 @@ struct BlockButton: View {
 
     var body: some View {
         Button("Block \(name)", role: .destructive) { confirming = true }
+            .destructiveInk()
             .font(.callout)
             .alert("Block \(name)?", isPresented: $confirming) {
                 Button("Block", role: .destructive) {

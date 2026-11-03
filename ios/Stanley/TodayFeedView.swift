@@ -105,6 +105,16 @@ struct TodayFeedView: View {
                             .entrance()
                         }
                     }
+                    // The end of what's here, with more to come: the next
+                    // page is asked for as this comes into view, and again
+                    // whenever the page it brought ends on screen too.
+                    if state.todayCursor != nil {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                            .task(id: state.todayCursor) { await state.loadMoreToday() }
+                            .id("more")
+                    }
                   }
                   .padding(.horizontal, 20)
                   .frame(maxWidth: density.journalWidth)

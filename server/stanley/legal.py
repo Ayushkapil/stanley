@@ -17,7 +17,10 @@ from __future__ import annotations
 from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
+# The Terms' date. The Privacy Policy has its own since it last changed
+# (November 3, 2026: the crash report's short trail of what the app did).
 EFFECTIVE = "November 1, 2026"
+PRIVACY_EFFECTIVE = "November 3, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
     (
@@ -25,7 +28,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 1, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 3, 2026.",
         ],
     ),
     (
@@ -52,7 +55,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Your time zone, so your day starts at your midnight and an evening notice arrives in your evening",
             "- Your town and country, only if you allow location, sent when you open the World tab to choose which headlines to show you. We don't store them with your account",
             "- A notification token for your phone, only if you turn on a notification. Apple gives it to your phone so we can send it the notices you asked for",
-            "- Crash reports, through Sentry, when crash reporting is on in your version of the app: what went wrong in the code, your iPhone model, and the iOS and app versions. They're anonymous, with no account, name, photo or location attached",
+            "- Crash reports, through Sentry, when crash reporting is on in your version of the app: what went wrong in the code, your iPhone model, the iOS and app versions, and a short trail of what the app did just before, such as opening Held or posting a photo. They're anonymous, with no account, name, photo or location attached, and the trail never says what you wrote, whose photo it was or who you are",
             "- Your phone's IP address, which our host receives with each request in order to answer it, as every internet service does. We don't keep it with your account or use it to identify you",
             "## About location",
             "If you allow location, your phone uses it to suggest a place name for a new photo, by asking Apple's maps service what's there. Those coordinates stay between your phone and Apple: Stanley's servers never receive GPS coordinates. Only the place name you keep on a photo reaches us, and you can change or clear it. For a photo from your library, the suggestion comes from the location saved in that photo, worked out on your phone the same way.",
@@ -62,7 +65,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Your contacts or address book",
             "- Precise location or GPS coordinates",
             "- Your photo library. The system's photo picker gives Stanley only the one photo you choose, and your phone removes its metadata before it's sent",
-            "- Browsing, usage or analytics data. Nothing in Stanley records what you tap, view or open",
+            "- Browsing, usage or analytics data. Nothing in Stanley records what you tap, view or open, except that short trail, which stays on your phone and is sent only with a crash report",
             "- Advertising identifiers",
             "- Biometric data. If you lock Stanley with Face ID, your iPhone checks your face; Stanley only learns whether it matched",
         ],
@@ -355,7 +358,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
 ]
 
 
-def page(title: str, sections: list[tuple[str | None, list[str]]]) -> str:
+def page(title: str, sections: list[tuple[str | None, list[str]]], effective: str = EFFECTIVE) -> str:
     """A plain, readable page: no scripts, no trackers, no external assets."""
     parts: list[str] = []
     for heading, lines in sections:
@@ -387,6 +390,6 @@ h1 {{ font-weight: 600; margin-bottom: 4px; }} h2 {{ font-size: 19px; margin-top
 h3 {{ font-size: 16px; margin: 20px 0 6px; }}
 .effective {{ opacity: .6; font-size: 14px; }} li {{ margin: 6px 0; }}
 </style></head>
-<body><h1>{escape(title)}</h1><p class="effective">Stanley · Effective {EFFECTIVE}</p>
+<body><h1>{escape(title)}</h1><p class="effective">Stanley · Effective {escape(effective)}</p>
 {body}
 </body></html>"""

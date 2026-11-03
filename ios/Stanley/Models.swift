@@ -94,6 +94,9 @@ struct TodayResponse: Codable {
     let mosaic: Mosaic?
     let note: CommunityNote?
     let items: [FeedItem]
+    /// Where the next page starts, or nil at the end (and from a server
+    /// before paging, which sends everything at once).
+    let nextCursor: String?
 }
 
 /// One headline in The World Today. Text only, and there is nothing to do to

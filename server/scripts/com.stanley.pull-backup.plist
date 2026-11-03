@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs pull_backup.sh every day at 10:00 (after the server's own snapshot,
+  which it takes at its first pass of each UTC day), and at the next wake
+  if the Mac was asleep then. The script is copied out of the repo first:
+  a launch agent can't read ~/Documents without a privacy prompt nobody is
+  there to answer. Install, from the repo root (DEPLOY.md, "Backups"):
+
+    mkdir -p ~/Library/Application\ Support/Stanley
+    cp server/scripts/pull_backup.sh ~/Library/Application\ Support/Stanley/
+    sed "s#HOMEDIR#$HOME#g" server/scripts/com.stanley.pull-backup.plist > ~/Library/LaunchAgents/com.stanley.pull-backup.plist
+    launchctl load ~/Library/LaunchAgents/com.stanley.pull-backup.plist
+
+  Its output goes to ~/Library/Logs/stanley-pull-backup.log.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.stanley.pull-backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>HOMEDIR/Library/Application Support/Stanley/pull_backup.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>10</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>HOMEDIR/Library/Logs/stanley-pull-backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>HOMEDIR/Library/Logs/stanley-pull-backup.log</string>
+</dict>
+</plist>

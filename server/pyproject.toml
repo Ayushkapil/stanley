@@ -31,3 +31,7 @@ include = ["stanley*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.setuptools.package-data]
+# The word filter's list of digests (wordfilter.py).
+stanley = ["blocklist.txt"]

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,15 +21,19 @@ from .. import physics
 from ..decay import TOMBSTONE, enqueue_purge, owner_hash_for, scrub
 from ..deps import (
     active_circle_id,
+    event,
     get_circle_photo,
     get_clock,
     get_current_user,
     get_db,
     get_settings,
     get_storage,
+    refuse_objectionable,
     require_membership,
 )
 from ..images import BadImage, PreparedUpload, prepare_upload
+from ..ratelimit import per_person
+from ..text import clean_optional
 from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
 from ..serialize import photo_payload, user_brief
 
@@ -65,6 +70,20 @@ class CommentBody(BaseModel):
     body: str = Field(min_length=1, max_length=2000)
 
 
+def valid_timezone(tz: str | None) -> bool:
+    """An IANA zone this server knows ("America/New_York"). Everything that
+    stores a zone checks it first: one bad zone kept as `tz_last_seen` would
+    make every pass that reads it (the evening digest, the note's end of
+    day, the weekly mosaic) fail for that person."""
+    if not tz or len(tz) > 64:
+        return False
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        return False
+    return True
+
+
 def _parse_claim(raw: str | None) -> datetime | None:
     if not raw:
         return None
@@ -75,7 +94,7 @@ def _parse_claim(raw: str | None) -> datetime | None:
     return claim if claim.tzinfo is not None else None
 
 
-@router.post("/photos", status_code=201)
+@router.post("/photos", status_code=201, dependencies=[per_person("upload")])
 def capture(
     background: BackgroundTasks,
     file: UploadFile = File(...),
@@ -95,19 +114,20 @@ def capture(
     # The circle on screen when the shutter closed. A circle the person has
     # since left is refused (not_in_circle) rather than posted somewhere else.
     membership, _ = require_membership(db, user, circle_id)
-    try:
-        ZoneInfo(tz)
-    except (ZoneInfoNotFoundError, ValueError):
+    if not valid_timezone(tz):
         raise HTTPException(400, {"code": "bad_timezone"})
 
     # Location is a human-written place label, never device metadata (§9).
-    location = (location or "").strip() or None
+    location = clean_optional(location)
     if location is not None and len(location) > 120:
         raise HTTPException(400, {"code": "location_too_long"})
 
     # I4: caption is bounded like every other text field.
+    caption = clean_optional(caption, multiline=True)
     if caption is not None and len(caption) > CAPTION_MAX:
         raise HTTPException(422, {"code": "caption_too_long"})
+    # Refused before the slot is claimed, so the words cost nobody the day.
+    refuse_objectionable(caption, location)
 
     # A label for a look that's already in the pixels. An unknown name is
     # dropped, not refused: a label must never cost someone their day.
@@ -206,8 +226,9 @@ def capture(
     )
 
     # 'Who was there' (Part 3): tag only real members of this circle, deduped.
-    # A bad/non-member id is ignored, not an error.
-    wanted = {t for t in tagged if t}
+    # A bad/non-member id is ignored, not an error. No circle has more than
+    # its cap in it, so a longer list is cut there, before it reaches SQL.
+    wanted = {t for t in tagged[: physics.CIRCLE_CAP] if t and len(t) <= 64}
     if wanted:
         members = set(
             db.scalars(
@@ -222,6 +243,7 @@ def capture(
 
     user.tz_last_seen = tz
     db.flush()
+    event("photo_posted", photo=photo.id, circle=membership.circle_id, user=user.id)
     return photo_payload(db, settings, now, photo, user)
 
 
@@ -254,6 +276,7 @@ def delete_photo(
 
         # 8.2 deletion override: privacy wins, everywhere, immediately.
         scrub(db, storage, photo, now, owner_requested=True)
+        event("photo_deleted", photo=photo.id, user=user.id)
 
         if is_today and redone_today < physics.REDOS_PER_DAY:
             # Release the row from the owner's (owner_id, circle_id,
@@ -280,12 +303,21 @@ def anchor(
 ):
     photo = get_circle_photo(db, user, photo_id)
     _require_public(photo)
-    existing = db.get(Anchor, (photo.id, user.id))
-    if existing is not None:
-        existing.note = body.note if body.note is not None else existing.note
-        return {"anchored": True}
+    # A hold note is read only by the person who wrote it: cleaned, never
+    # filtered.
+    note = clean_optional(body.note, multiline=True)
     # Self-anchor uses the identical mechanic — one law for everyone (§8.2).
-    db.add(Anchor(photo_id=photo.id, user_id=user.id, created_at=clock.now(), note=body.note))
+    # One statement, so two holds at once (a double tap, a retry) can't both
+    # insert and turn the second into a 500: holding a held photo keeps it
+    # held, and replaces the note only when one is sent.
+    hold = sqlite_insert(Anchor).values(
+        photo_id=photo.id, user_id=user.id, created_at=clock.now(), note=note
+    )
+    if body.note is not None:
+        hold = hold.on_conflict_do_update(index_elements=["photo_id", "user_id"], set_={"note": note})
+    else:
+        hold = hold.on_conflict_do_nothing(index_elements=["photo_id", "user_id"])
+    db.execute(hold)
     return {"anchored": True}
 
 
@@ -355,8 +387,12 @@ def like(
     (one law for everyone), idempotent. There is no count, anywhere."""
     photo = get_circle_photo(db, user, photo_id)
     _require_public(photo)
-    if db.get(Like, (photo.id, user.id)) is None:
-        db.add(Like(photo_id=photo.id, user_id=user.id, created_at=clock.now()))
+    # Atomic, like the hold: a double-tap sent twice is one like, never a 500.
+    db.execute(
+        sqlite_insert(Like)
+        .values(photo_id=photo.id, user_id=user.id, created_at=clock.now())
+        .on_conflict_do_nothing(index_elements=["photo_id", "user_id"])
+    )
     return {"liked": True}
 
 
@@ -408,7 +444,7 @@ def untag_me(
         db.delete(existing)
 
 
-@router.post("/photos/{photo_id}/comments", status_code=201)
+@router.post("/photos/{photo_id}/comments", status_code=201, dependencies=[per_person("story")])
 def add_comment(
     photo_id: str,
     body: CommentBody,
@@ -418,8 +454,13 @@ def add_comment(
 ):
     photo = get_circle_photo(db, user, photo_id)
     _require_public(photo)
+    words = clean_optional(body.body, multiline=True)
+    if words is None:
+        # Spaces aren't a story.
+        raise HTTPException(400, {"code": "empty_story"})
+    refuse_objectionable(words)
     comment = Comment(
-        photo_id=photo.id, author_id=user.id, body=body.body, created_at=clock.now()
+        photo_id=photo.id, author_id=user.id, body=words, created_at=clock.now()
     )
     db.add(comment)
     db.flush()

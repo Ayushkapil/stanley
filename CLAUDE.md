@@ -78,7 +78,8 @@ The authoritative source for the physics constants is
 - **Backend:** FastAPI monolith (Python 3.11), sync endpoints. Single process; an
   in-process asyncio loop runs the decay/purge/digest **sweep every 15 minutes**
   and a daily SQLite backup. `GET /health` is the unauthenticated readiness
-  probe hosts poll; all persistent state lives under `STANLEY_DATA_DIR`
+  probe hosts poll; it reads the database and answers 503 when it can't
+  (the production audit). All persistent state lives under `STANLEY_DATA_DIR`
   (default `var/`), created at startup. (`server/stanley/worker.py` is the same logic as a
   standalone process if ever needed. Do **not** run multiple uvicorn workers — each
   would run its own sweeper.)
@@ -133,6 +134,41 @@ The authoritative source for the physics constants is
   from `STANLEY_API_BASE` (Info.plist) / env, localhost in debug. Sentry captures
   crashes only, and only when `STANLEY_SENTRY_DSN` is set (never in dev builds);
   no user is attached, so crash data stays anonymous — see `PRIVACY_LABEL.md`.
+  Since the production audit a crash carries a short trail of fixed words
+  (`Trail.swift`: "opened Held", "posted a photo"), and Sentry's automatic
+  trail (taps, screens, request URLs) and failed-request capture are off.
+- **The production audit** (November 3, 2026; `PRODUCTION_CHECKLIST.md` has
+  every item, its state, and the steps left by hand). On the server: rate
+  limits in memory (`ratelimit.py`: sign-in 10/minute per IP, from
+  `Fly-Client-IP` only on Fly; per person 10 posts, 10 avatars, 30 stories,
+  20 reports an hour; 429 `slow_down`; env-tunable; off in the test fixture);
+  every free-text field cleaned (`text.py`: control and bidi-override
+  characters out, NFC); a slur filter on what a circle reads (`wordfilter.py`,
+  salted hashes in `blocklist.txt`, whole words after folding the usual
+  dodges; 400 `words_not_allowed`; never on reports or hold notes); uploads
+  judged by their first bytes (JPEG, PNG, HEIF) and refused over 50
+  megapixels before decoding; security headers on every response (HSTS, CSP,
+  nosniff, DENY); `/docs` and `/openapi.json` only with dev sign-in; a JSON
+  500 (`server_error`) for anything unexpected, never a traceback; the
+  app's own log lines reaching `fly logs`, with `event=` lines for sign-ups,
+  posts, circles, deletions, reports, blocks and refusals (opaque ids only);
+  thirteen more indexes; like, hold, block, rest, push token and milestone
+  writes as one `INSERT … ON CONFLICT` (a double tap was a 500); the sweep
+  committing before the digest (one bad time zone, which `/feed/returned`
+  used to store unchecked, would have stopped all decay); backups pruned by
+  age as well as count; `PRAGMA optimize` daily and `VACUUM` on Sundays; a
+  daily `event=disk_low` warning; the pool sized to the thread pool.
+  Operator tools: `python -m stanley.moderation` (list, show, take a photo or
+  story down with evidence preserved, resolve, end an account),
+  `scripts/integrity_check.py` (read-only), `scripts/pull_backup.sh` (a copy
+  off Fly, launchd plist beside it). Screenshots: `scripts/seed_screenshots.py`
+  and `scripts/scenes.py` (photos drawn in code). Fixed on the way: Held's
+  friend faces never loaded (`/me/anchored` left the avatar link unsigned),
+  and build 24's root ink outranked `role: .destructive`, turning Leave
+  Circle, Reset Code, Delete Account and Block black (`destructiveInk()`).
+  The Privacy Policy changed (the crash trail) and has its own date,
+  November 3, 2026 (`PRIVACY_EFFECTIVE`, `Legal.privacyEffective`); the
+  Terms keep November 1.
 
 ## Implemented and working
 
@@ -224,6 +260,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   yet. On the simulator, a `SampleCapture.jpg` or `.heic` in the app's
   Documents folder stands in for the camera, so the filters can be tried on a
   real photo. The simulators' own `DCIM/100APPLE/IMG_0006.HEIC` works.
+- **Today in pages** (the production audit) — `GET /feed/today?limit=20`
+  answers twenty entries and a `next_cursor` (base64 of the last entry's time
+  and id); the app asks for the next page when a spinner at the end comes
+  into view (`AppState.loadMoreToday`), and a refresh asks for everything
+  already showing in one request (`limit` = what's loaded, at most 200), so a
+  like deep in the page never folds Today back to twenty. Moments are
+  grouped before the page is cut. No `limit` is everything, as builds before
+  this expect; the note and mosaic come with the first page only. Checked on
+  the simulator with 33 entries.
+- **Silent sign-in refresh** (the production audit) — `POST /auth/refresh`
+  trades a working token for a fresh thirty days; the app asks at most once
+  a day, at launch and on coming to the front (`refreshSignInIfDue`).
 - **Today feed** — reverse-chronological, ambient fade rendered client-side from
   `decay_progress` (smoothstep, dark-mode-aware floor). Since build 17 it's a
   **shared journal, not a card feed** (pilot users said it was "just
@@ -558,7 +606,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   few), **Privacy & Security** (Require Face ID, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
-  Terms of Use, Privacy Policy, and the version, "Stanley 0.2.0 (24)", at the
+  Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
+  production audit), and the version, "Stanley 0.2.0 (24)", at the
   foot).
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
@@ -709,7 +758,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   toolbar carry the same rows: **Report Photo** on anyone else's, **Delete
   Photo** on yours, **Remove Me from This Photo** when you're tagged. A
   story's long-press menu has **Report Story** (not on your own). Reporting
-  is one tap on a reason (six, plus Something else with your own words); the
+  is one tap on a reason (seven since the production audit, which added "It
+  sexualizes or endangers a child", plus Something else with your own
+  words); the
   sheet says it goes to the person who runs Stanley, not the poster, and is
   read within a day, then offers to block them. A long press opens the menu
   without holding the photo (checked). **Block** sits at the foot of every
@@ -762,6 +813,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   simulator camera stand-in. `STANLEY_SENTRY_DSN` is empty, so this build
   has no crash reporting. To ship, use Organizer → Distribute App → TestFlight
   & App Store, or Transporter with the IPA.
+- **Fly now** (checked read-only on 2026-11-03): release **v15**
+  (2026-11-02 04:54 UTC) runs the server as of `de71bc9`, the last server
+  change before the production audit: `/terms` and `/privacy` are
+  byte-identical to `legal.py` then, and `REPORT_WEBHOOK_URL` is set among
+  the secrets. The paragraphs below about v11 are history. **Not yet
+  deployed: everything from the production audit** (rate limits, headers,
+  the word filter, paging, refresh, moderation tool, the November 3 privacy
+  wording). The volume is **1 GB** (26 MB used): about ten days of a
+  30-person circle's photos, so extend it before the pilot
+  (`PRODUCTION_CHECKLIST.md`, step 1). The integrity check passed on the
+  live database.
 - **Fly deploys.** Release **v11** (2026-11-01 16:27 UTC) runs the server as
   of `fd6a50b`, build 18: everything above, including multiple circles,
   push, `/terms` and `/privacy`. Before it, v10 was a build 16-or-earlier
@@ -790,8 +852,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   reporter, photo or reason, so ntfy receives no one's data and the Privacy
   Policy has nothing to add. It's sent as a background task after the commit
   and the response; a failure is logged without the URL (the topic name is
-  the secret) and never touches the report. Not set on Fly yet, and not yet
-  sent to the real ntfy.sh (checked against a local server). Not yet seen on
+  the secret) and never touches the report. Set on Fly by v15 (`fly secrets
+  list`); whether a real report reaches the operator's phone hasn't been
+  seen yet. Not yet seen on
   a device: Remove Me from This Photo (no dev photo tags the dev account;
   the server path is tested).
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
@@ -804,8 +867,23 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sandbox**, so the key is accepted for TestFlight and for Xcode builds
   alike (a bad key would get `403 InvalidProviderToken`). Not yet delivered
   to a real phone.
-- **Off-box backups.** Daily local SQLite snapshots exist (keep 7); copying them
-  off the box (cron + rclone/scp) is still manual.
+- **Off-box backups.** Written, not yet scheduled: `server/scripts/
+  pull_backup.sh` copies the newest snapshot to this Mac and keeps six days
+  (DEPLOY.md, "Backups", for the launchd install). Fly's own daily volume
+  snapshots (five days) are a second layer already running.
+- **From the production audit, by hand** (`PRODUCTION_CHECKLIST.md`):
+  extend the volume, `fly deploy`, a Sentry DSN (no build has ever reported a
+  crash), an uptime monitor on `/health`, the App Store Connect privacy and
+  age-rating forms (answers written: 13+), telling the pilot about the
+  Privacy Policy change before a DSN build ships (§10 promises an in-app
+  notice; none exists), and the CSAM launch items (hash matching,
+  SensitiveContentAnalysis). There's no lasting ban: an ended account can
+  sign in with Apple again as a new one.
+- **Seen in the audit's screenshots, not fixed:** on iOS 26 the glass tab
+  bar darkens over a dark photo and the selected tab's warm-charcoal ink
+  vanishes into it (Auto, light mode); on a 6.1" phone the capture sheet's
+  subtitle is cut after one line. The World screenshot carries PBS's real
+  election-day headlines.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
   pilot.
 - **Offline queue across midnight.** The server refuses retroactive uploads, so
@@ -867,7 +945,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**313 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**359 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -900,8 +978,19 @@ failure, stale silence, fetch-when-due on request, the town cap and
 forgetting, keyed by town not person, summaries kept or dropped per feed,
 normalization, no key sent, a hostile or oversized feed refused), capture filters (the name kept, an
 unknown one dropped without refusing the photo, purged on delete, exported),
-and commit-before-response (capture commits before the background original
-store; every route's session is function-scoped).
+commit-before-response (capture commits before the background original
+store; every route's session is function-scoped), and the production audit
+(`test_production.py`: rate limits per address and per person, Fly-Client-IP
+trusted only on Fly, security headers everywhere, no CORS, docs hidden, a
+bare 500, `/health` failing with the database, token refresh, control and
+bidi characters dropped, blank stories refused, oversized fields refused,
+bad time zones never kept, files judged by their bytes, decompression
+bombs, the word filter on every field a circle reads and never on reports,
+ordinary words passing, Today's pages adding up to the whole feed with
+moments unsplit, a failing digest not undoing the sweep, an unknown zone not
+stopping digests, the disk warning, VACUUM, each hot query's index, event
+lines without anyone's words, Held's faces, the moderation tool, and 240
+concurrent requests on a file database).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
@@ -916,12 +1005,19 @@ live APNs, concurrency under real load.
 - Response shaping (payloads, mosaic, note, faces): `serialize.py`
 - Returned logic: `returned.py`; milestones: `milestones.py`; The World Today: `news.py`
 - Notifications policy: `notifications.py`; APNs: `apns.py`; report alerts (ntfy): `alerts.py`; Terms and Privacy copy: `legal.py`
+- The production audit: rate limits `ratelimit.py`; text cleaning `text.py`;
+  word filter `wordfilter.py` + `blocklist.txt`; the operator's moderation
+  tool `moderation.py` (`python -m stanley.moderation`)
 - Auth: `auth.py` (JWT), `apple.py` (SIWA verify)
 - Storage + signed URLs: `storage.py`; image pipeline: `images.py`; backups: `backup.py`
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,
   `feed.py`, `me.py`, `memories.py`, `safety.py`, `blobs.py`, `news.py`
 - Tests: `server/tests/`; deploy notes: `server/DEPLOY.md`; seed/dev tools:
-  `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`
+  `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`;
+  App Store screenshots `server/scripts/seed_screenshots.py` + `scenes.py`
+  (output in `ios/AppStore/Screenshots/`); ops `server/scripts/
+  integrity_check.py`, `pull_backup.sh` + `com.stanley.pull-backup.plist`
+- Production status of every audit item: `PRODUCTION_CHECKLIST.md` (repo root)
 
 **iOS** (`ios/Stanley/`)
 - App entry / root / tabs / flash / atmosphere tint: `StanleyApp.swift`
@@ -952,7 +1048,8 @@ live APNs, concurrency under real load.
   `TabTaps.swift` (a tap on the current tab: to the top, or refresh),
   `SignedImage.swift` (every photo and face behind a signed
   link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
-  `Keychain.swift`
+  `Keychain.swift`, `Trail.swift` (the crash report's fixed-word trail),
+  `Acknowledgements.swift` (open-source notices)
 - Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
 - App icon: since build 23 a bookmark, the hold's own mark, sketched as one
   thin pen line in dark brown ink (#3B2F25) on the journal's cream

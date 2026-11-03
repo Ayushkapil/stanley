@@ -40,7 +40,7 @@ Storage and tuning:
 | `STANLEY_DATA_DIR` | `var` | **The one storage knob.** All three paths below default inside it, so on a hosted box you set only this — e.g. `/data/var` on a mounted volume. Created at startup if missing. |
 | `STANLEY_DATABASE_URL` | `sqlite:///$STANLEY_DATA_DIR/stanley.db` | Override only to move the DB off the data dir. |
 | `STANLEY_BLOB_DIR` | `$STANLEY_DATA_DIR/blobs` | Local blob store. |
-| `STANLEY_BACKUPS_DIR` | `$STANLEY_DATA_DIR/backups` | Daily SQLite snapshots (last 7 kept). |
+| `STANLEY_BACKUPS_DIR` | `$STANLEY_DATA_DIR/backups` | Daily SQLite snapshots, none older than seven days (see "Backups"). |
 | `STANLEY_RUN_SWEEPER` | `1` | In-process decay/purge/digest/backup loop. Keep on with a **single** process. |
 | `BLOB_BACKEND` | `local` | Set `r2` to use Cloudflare R2 (below). |
 
@@ -49,6 +49,24 @@ Optional features:
 | Var | Notes |
 |-----|-------|
 | `STANLEY_NEWS` | The World Today, on by default, keyless RSS. National edition: PBS News Hour (`https://www.pbs.org/newshour/feeds/rss/headlines`) for the US and for phones that haven't been located, BBC World (`https://feeds.bbci.co.uk/news/world/rss.xml`) elsewhere. Nearby edition: Google News's local feed for a town (`https://news.google.com/rss/headlines/section/geo/<town>`), only for phones with location permission. The US edition is fetched at startup and every 30 minutes; the others when someone asks. Set `STANLEY_NEWS=0` to turn it off: nothing is fetched and `GET /news/today` and `GET /news/nearby` return `[]`. The host needs outbound HTTPS to www.pbs.org, feeds.bbci.co.uk and news.google.com. **Terms:** Google's feed says it is for "a personal feed reader for personal, non-commercial use"; PBS's and the BBC's haven't been checked. A judgement call for a private pilot; revisit the sources before any wider release. |
+
+Rate limits (the production audit, `ratelimit.py`; all optional, these are
+the defaults). Each can be raised for an evening with `fly secrets set`, no
+code change: a pilot kickoff where a whole dorm floor signs in from one Wi-Fi
+address at once will want `STANLEY_RATE_AUTH_PER_MINUTE` at 60 or so.
+
+| Var | Default | Notes |
+|-----|---------|-------|
+| `STANLEY_RATE_LIMITS` | `1` | `0` turns every limit off. |
+| `STANLEY_RATE_AUTH_PER_MINUTE` | `10` | Sign-ins per IP address. On Fly the address is `Fly-Client-IP`. |
+| `STANLEY_RATE_UPLOADS_PER_HOUR` | `10` | Photo posts per person (five circles, a photo and a redo in each, is ten honest posts). |
+| `STANLEY_RATE_AVATARS_PER_HOUR` | `10` | Profile photo uploads per person. |
+| `STANLEY_RATE_STORIES_PER_HOUR` | `30` | Stories per person. |
+| `STANLEY_RATE_REPORTS_PER_HOUR` | `20` | Reports per person, so nobody can flood the operator's phone. |
+
+Over a limit is a 429 with `{"code": "slow_down"}` and `Retry-After`; the app
+says "That's a lot at once" and a queued photo waits for its next try. Each
+refusal logs `event=rate_limited bucket=<name>` (never who).
 
 Push notifications (build 18; without these, notices are logged and nothing is
 pushed):
@@ -206,10 +224,107 @@ sweeper against the same database.
 
 ## Backups
 
-The app writes a daily SQLite snapshot to `STANLEY_BACKUPS_DIR` (last 7 kept).
-That protects against corruption but lives on the same box — copy those
-snapshots off-box (cron + `rclone`/`scp`) for real durability. WAL mode is on,
-so snapshots are consistent while the app runs.
+Three copies, each kept no longer than the Privacy Policy allows ("anything
+deleted is gone from our backups within seven days"):
+
+1. **On the volume** (automatic). The server's first pass each UTC day writes
+   a consistent snapshot of the database (SQLite's online backup API, safe
+   while the app runs) to `STANLEY_BACKUPS_DIR`, then deletes any snapshot
+   older than seven days and keeps at most seven. A deploy or restart writes
+   one too. It also runs `PRAGMA optimize` daily and `VACUUM` on Sundays. This
+   protects against a corrupted database, not against losing the volume.
+2. **Fly volume snapshots** (automatic, off the machine). Fly snapshots the
+   whole volume (database and photos) once a day and keeps each for five days:
+   `fly volumes snapshots list vol_v8eygoljqj2j02kv`. Restore by creating a new
+   volume from a snapshot (`fly volumes create stanley_data --snapshot-id
+   <id> ...`) and attaching it. Don't raise the retention past seven days.
+3. **Off Fly, on the operator's Mac** (set up once, then automatic).
+   `scripts/pull_backup.sh` copies the newest snapshot down with `fly ssh
+   sftp`, checks it with `PRAGMA integrity_check`, keeps it in
+   `~/Library/Application Support/Stanley/backups` (not iCloud-synced), and
+   deletes copies older than six days. It covers losing the Fly app itself.
+   Database only: photos are on the volume (and in layer 2).
+
+   ```bash
+   server/scripts/pull_backup.sh --dry-run    # which snapshot it would fetch
+   mkdir -p ~/Library/Application\ Support/Stanley
+   cp server/scripts/pull_backup.sh ~/Library/Application\ Support/Stanley/
+   sed "s#HOMEDIR#$HOME#g" server/scripts/com.stanley.pull-backup.plist > ~/Library/LaunchAgents/com.stanley.pull-backup.plist
+   launchctl load ~/Library/LaunchAgents/com.stanley.pull-backup.plist
+   ```
+
+   It runs daily at 10:00 and logs to `~/Library/Logs/stanley-pull-backup.log`.
+   Keep FileVault on: the snapshots hold names, captions and stories.
+
+**Restoring the database** from a snapshot, without replacing a file the
+running app has open: upload the snapshot beside it (`fly ssh sftp shell`,
+then `put <snapshot>.db /data/var/restore.db`), point the app at it with
+`fly secrets set STANLEY_DATABASE_URL=sqlite:////data/var/restore.db` (which
+restarts the machine onto the restored file), then run the integrity check
+below against `/data/var/restore.db`. Rows newer than the snapshot are lost;
+photo files newer than it become unreferenced (harmless, and the check lists
+them).
+
+## Disk
+
+Each photo keeps about 3 MB on the volume (a full-size original of about
+2.8 MB, a 1080px copy of about 260 KB and a thumbnail of about 26 KB, measured
+on Fly in November 2026). An unheld photo's files are deleted about thirteen
+days after it's posted; held ones stay. A 30-person circle posting daily
+therefore needs about 1.2 GB at steady state, plus every held photo, so **the
+1 GB volume the app started on fills in about ten days of real use**, after
+which every post fails. Extend it before the pilot (it can grow, never shrink;
+about $0.15 per GB per month):
+
+```bash
+fly volumes extend vol_v8eygoljqj2j02kv --size 10 --app server-earnest-stream-9793
+```
+
+The server logs `WARNING stanley: event=disk_low free_percent=<n>` once a day
+when the volume is more than three quarters full.
+
+## Integrity check
+
+`scripts/integrity_check.py` opens the database read-only and checks SQLite's
+integrity, foreign keys, orphaned rows (a photo, story, hold, like, tag,
+membership or report pointing at nothing), anything left of a deleted
+account, purged photos still holding words or files, and photo files with no
+row. Locally:
+
+```bash
+.venv/bin/python scripts/integrity_check.py var/stanley.db var/blobs
+```
+
+On Fly, without writing anything to the machine:
+
+```bash
+B64=$(base64 -i scripts/integrity_check.py | tr -d '\n')
+fly ssh console --app server-earnest-stream-9793 -C "sh -c 'echo $B64 | base64 -d | /app/.venv/bin/python - /data/var/stanley.db /data/var/blobs'"
+```
+
+## Monitoring
+
+- **Logs.** `fly logs --app server-earnest-stream-9793`, or the dashboard's
+  Monitoring tab. Since the production audit the app's own lines reach the
+  log (before, uvicorn's setup dropped everything below WARNING). One line
+  per event, with opaque ids and never a name or anything someone wrote:
+  `event=signup`, `photo_posted`, `photo_deleted`, `circle_created`,
+  `circle_joined`, `account_deleted`, `report_filed`, `block`,
+  `words_refused`, `rate_limited`, `server_error` (with the route template),
+  `disk_low`, `health_failed`. Fly keeps logs for a limited time; search them
+  in the dashboard (Monitoring → Logs).
+- **Metrics.** CPU, memory, network, disk and HTTP response codes and
+  latency for the machine: Fly dashboard → the app → Metrics (a hosted
+  Grafana at `fly-metrics.net`). `fly status` and `fly machine status` from a
+  terminal. Volume usage: `fly ssh console -C "df -h /data"`.
+- **Uptime.** `GET /health` answers `{"status": "ok"}` only when the database
+  answers a read, and 503 otherwise. Point a free monitor at it (see
+  `PRODUCTION_CHECKLIST.md` for UptimeRobot's steps): every 5 minutes, alert
+  on anything but 200.
+- **Crashes.** The iOS app reports crashes to Sentry only in a build with a
+  DSN in `ios/project.yml` (`STANLEY_SENTRY_DSN`); the server has no Sentry.
+  A server error is a `server_error` line in the log and a bare
+  `{"detail": {"code": "server_error"}}` to the client, never a traceback.
 
 ## Checklist before inviting the pilot
 
@@ -231,7 +346,10 @@ so snapshots are consistent while the app runs.
       `STANLEY_NEWS=0` to turn it off. A phone with location allowed adds a
       `nearby:US:<town>` line the first time its World tab opens.
 - [ ] HTTPS reachable; `STANLEY_API_BASE` in the iOS release build points at it.
-- [ ] Off-box backup copy scheduled.
+- [ ] Off-box backup copy scheduled (`pull_backup.sh` under launchd, "Backups" above).
+- [ ] The volume is big enough for a month of photos ("Disk" above).
+- [ ] An uptime monitor watches `/health` ("Monitoring" above).
+- [ ] The integrity check passes against the live database.
 - [ ] `PRAGMA journal_mode` reports `wal` — that one is stored in the file.
       `foreign_keys` is **per-connection**: the app's PRAGMA listener sets it on
       every connection it opens, so an external `sqlite3` shell will always

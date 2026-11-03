@@ -25,7 +25,10 @@ def test_the_policy_says_what_stanley_does_with_location_and_notifications(clien
     assert "never receive GPS coordinates" in text
     assert "notification token" in text
     assert "to train AI models" in text
-    assert "Effective November 1, 2026" in text
+    assert f"Effective {legal.PRIVACY_EFFECTIVE}" in text
+    # The crash report's trail is said, and what it never carries.
+    assert "a short trail of what the app did just before" in text
+    assert "Effective November 1, 2026" in client.get("/terms").text
     assert "<h3>What we don&#x27;t collect</h3>" in text  # subheadings render
 
 
@@ -42,6 +45,7 @@ def test_the_app_shows_the_same_words():
     every heading and line of legal.py, verbatim."""
     swift = SWIFT.read_text()
     assert f'"{legal.EFFECTIVE}"' in swift
+    assert f'"{legal.PRIVACY_EFFECTIVE}"' in swift
     for sections in (legal.TERMS, legal.PRIVACY):
         for heading, lines in sections:
             if heading:

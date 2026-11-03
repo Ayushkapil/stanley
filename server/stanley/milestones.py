@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from . import physics
@@ -130,7 +131,13 @@ def surface_due(session: Session, clock: Clock, user: User) -> None:
     if cand is None:
         return
     kind, mkey = cand
-    session.add(Milestone(user_id=user.id, kind=kind, mkey=mkey, created_at=clock.now()))
+    # Two first reads of the week at once both find the same candidate; the
+    # second is a no-op, not a 500 on uq_milestone_once.
+    session.execute(
+        sqlite_insert(Milestone)
+        .values(user_id=user.id, kind=kind, mkey=mkey, created_at=clock.now(), dismissed=False)
+        .on_conflict_do_nothing(index_elements=["user_id", "kind", "mkey"])
+    )
     session.flush()
 
 

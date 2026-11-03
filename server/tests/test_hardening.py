@@ -141,23 +141,49 @@ def test_backup_creates_snapshot_and_skips_memory(tmp_path):
 
 def test_backup_prunes_to_keep(tmp_path):
     import sqlite3
+    from datetime import datetime, timezone
 
     from stanley.backup import backup_database
 
     bdir = tmp_path / "backups"
     bdir.mkdir()
-    # eight older snapshots already present
-    for day in range(1, 9):
-        (bdir / f"202601{day:02d}T000000Z.db").write_bytes(b"old")
+    # eight snapshots already present, all within the last week (two a day,
+    # as a day of deploys makes)
+    for hour in range(8):
+        (bdir / f"20260109T{hour:02d}0000Z.db").write_bytes(b"old")
 
     db_path = tmp_path / "x.db"
     con = sqlite3.connect(str(db_path))
     con.execute("CREATE TABLE t (x INT)")
     con.commit()
     con.close()
-    backup_database(f"sqlite:///{db_path}", str(bdir), keep=7)
+    now = datetime(2026, 1, 10, 12, tzinfo=timezone.utc)
+    backup_database(f"sqlite:///{db_path}", str(bdir), keep=7, now=now)
 
     assert len(list(bdir.glob("*.db"))) == 7  # pruned to the 7 newest
+
+
+def test_no_backup_outlives_seven_days(tmp_path):
+    """The Privacy Policy: anything deleted is gone from the backups within
+    seven days. A server that was stopped for days comes back holding old
+    snapshots; a count alone would keep them, the age doesn't."""
+    import sqlite3
+    from datetime import datetime, timezone
+
+    from stanley.backup import backup_database
+
+    bdir = tmp_path / "backups"
+    bdir.mkdir()
+    for day in range(1, 8):  # Jan 1 to Jan 7, then nothing until Jan 12
+        (bdir / f"202601{day:02d}T000000Z.db").write_bytes(b"old")
+    db_path = tmp_path / "x.db"
+    sqlite3.connect(str(db_path)).close()
+    now = datetime(2026, 1, 12, 12, tzinfo=timezone.utc)
+    dest = backup_database(f"sqlite:///{db_path}", str(bdir), keep=7, now=now)
+
+    kept = sorted(p.name for p in bdir.glob("*.db"))
+    # Jan 5 12:00 is the cutoff: Jan 6 and 7 stay, the rest are gone.
+    assert kept == ["20260106T000000Z.db", "20260107T000000Z.db", dest.name]
 
 
 def test_community_note_upsert_no_duplicate(circle, db):

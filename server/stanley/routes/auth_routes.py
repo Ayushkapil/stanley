@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..apple import AppleAuthError
-from ..deps import get_apple_verifier, get_clock, get_db, get_settings
+from ..deps import event, get_apple_verifier, get_clock, get_current_user, get_db, get_settings
 from ..models import User
+from ..ratelimit import per_ip
+from ..text import clean_optional
 
 router = APIRouter(tags=["auth"])
 
@@ -18,13 +20,15 @@ class DevAuthBody(BaseModel):
 
 
 class AppleAuthBody(BaseModel):
-    identity_token: str
+    # An Apple identity token is a JWT of about a kilobyte; anything past
+    # eight is not one, and isn't worth decoding.
+    identity_token: str = Field(min_length=1, max_length=8192)
     # Apple includes the name only on the FIRST authorization, in the client
     # payload (not the token). Forwarded here so we can store it once.
     name: str | None = Field(default=None, max_length=80)
 
 
-@router.post("/auth/dev", status_code=201)
+@router.post("/auth/dev", status_code=201, dependencies=[per_ip("auth")])
 def dev_auth(body: DevAuthBody, db: Session = Depends(get_db, scope="function"), settings=Depends(get_settings), clock=Depends(get_clock)):
     """Pilot-stage auth. Returns 404 unless STANLEY_DEV_AUTH=1 — in a real
     deployment this endpoint does not exist."""
@@ -44,13 +48,14 @@ def dev_auth(body: DevAuthBody, db: Session = Depends(get_db, scope="function"),
     ).first()
     new_account = user is None
     if new_account:
-        user = User(display_name=body.display_name, created_at=now)
+        user = User(display_name=clean_optional(body.display_name), created_at=now)
         db.add(user)
         db.flush()
+        event("signup", user=user.id, via="dev")
     return _signed_in(settings, user, now, new_account)
 
 
-@router.post("/auth/apple", status_code=201)
+@router.post("/auth/apple", status_code=201, dependencies=[per_ip("auth")])
 def apple_auth(
     body: AppleAuthBody,
     db: Session = Depends(get_db, scope="function"),
@@ -76,11 +81,26 @@ def apple_auth(
     new_account = user is None
     if new_account:
         # First sign-in: this is the only time Apple gives us the name.
-        name = (body.name or "").strip() or None
+        name = clean_optional(body.name)
         user = User(apple_sub=sub, display_name=name, created_at=now)
         db.add(user)
         db.flush()
+        event("signup", user=user.id, via="apple")
     return _signed_in(settings, user, now, new_account)
+
+
+@router.post("/auth/refresh")
+def refresh(
+    user: User = Depends(get_current_user),
+    settings=Depends(get_settings),
+    clock=Depends(get_clock),
+):
+    """A fresh thirty-day token for a sign-in that still works (the
+    production audit). The app asks once a day while it's in use, so someone
+    who opens Stanley at least once a month is never signed out by the
+    clock; a phone left unopened for thirty days is, and signs in again.
+    An expired or refused token can't be refreshed: it's a 401, as anywhere."""
+    return {"token": auth.issue_token(settings.secret_key, user.id, clock.now())}
 
 
 def _signed_in(settings, user: User, now, new_account: bool) -> dict:

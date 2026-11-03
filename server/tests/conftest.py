@@ -239,6 +239,10 @@ def app(tmp_path, clock):
         # Off unless a test turns it on.
         news_enabled=False,
         report_webhook_url=None,
+        # The suite signs in hundreds of people from one address in one
+        # simulated minute; test_production.py turns limits on to test them.
+        rate_limits=False,
+        trust_fly_client_ip=False,
     )
     return create_app(settings, clock=clock)
 

@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..deps import (
     active_circle_id,
+    event,
     get_clock,
     get_current_user,
     get_db,
@@ -18,9 +20,11 @@ from ..deps import (
     member_count,
     membership_in,
     my_circle_ids,
+    refuse_objectionable,
     require_membership,
     shares_a_circle,
 )
+from ..text import clean
 from .. import physics
 from ..models import Circle, CommunityNote, Membership, Photo, User, new_id, new_invite_code
 from ..physics import CIRCLES_PER_PERSON
@@ -37,11 +41,11 @@ class CircleCreate(BaseModel):
 
 
 class JoinBody(BaseModel):
-    invite_token: str
+    invite_token: str = Field(max_length=64)
 
 
 class JoinCodeBody(BaseModel):
-    code: str  # short XXXX-XXXX code
+    code: str = Field(max_length=32)  # short XXXX-XXXX code
 
 
 class NoteBody(BaseModel):
@@ -74,6 +78,17 @@ def _members_payload(db: Session, circle: Circle, settings=None, now=None) -> li
     ]
 
 
+def _flush_join(db: Session) -> None:
+    """The join, written. Two taps on Join at once both pass the check
+    above; the second meets the primary key here and hears what it would
+    have heard a moment later, not a 500."""
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, {"code": "already_in_circle"})
+
+
 def _ensure_room_for_another(db: Session, user: User, circle: Circle | None = None) -> None:
     """A person can be in a few circles (build 17), each with its own day.
     Joining one you're already in is `already_in_circle`; past five, the
@@ -94,12 +109,17 @@ def create_circle(
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
+    name = clean(body.name)
+    if not name:
+        raise HTTPException(400, {"code": "empty_circle_name"})
+    refuse_objectionable(name)
     _ensure_room_for_another(db, user)
     now = clock.now()
-    circle = Circle(name=body.name, created_by=user.id, created_at=now)
+    circle = Circle(name=name, created_by=user.id, created_at=now)
     db.add(circle)
     db.flush()
     db.add(Membership(circle_id=circle.id, user_id=user.id, joined_at=now, role="creator"))
+    event("circle_created", circle=circle.id, user=user.id)
     # The invite token is the circle-first onboarding act (§4): one link or QR
     # at a table, and the feed is alive from the first session.
     return {"id": circle.id, "name": circle.name, "invite_token": circle.invite_token}
@@ -127,7 +147,8 @@ def join_by_code(
         raise HTTPException(409, {"code": "circle_full", "message": CIRCLE_FULL_MESSAGE})
     now = clock.now()
     db.add(Membership(circle_id=circle.id, user_id=user.id, joined_at=now))
-    db.flush()
+    _flush_join(db)
+    event("circle_joined", circle=circle.id, user=user.id)
     return {"id": circle.id, "name": circle.name, "members": _members_payload(db, circle, settings, now)}
 
 
@@ -150,7 +171,8 @@ def join_circle(
         raise HTTPException(409, {"code": "circle_full", "message": CIRCLE_FULL_MESSAGE})
     now = clock.now()
     db.add(Membership(circle_id=circle.id, user_id=user.id, joined_at=now))
-    db.flush()
+    _flush_join(db)
+    event("circle_joined", circle=circle.id, user=user.id)
     return {"id": circle.id, "name": circle.name, "members": _members_payload(db, circle, settings, now)}
 
 
@@ -207,9 +229,10 @@ def rename_circle(
     _, circle = membership_in(db, user, circle_id)
     if circle.created_by != user.id:
         raise HTTPException(403, {"code": "creator_only"})
-    name = body.name.strip()
+    name = clean(body.name)
     if not name:
         raise HTTPException(400, {"code": "empty_circle_name"})
+    refuse_objectionable(name)
     circle.name = name
     return {"id": circle.id, "name": circle.name}
 
@@ -286,9 +309,10 @@ def set_note(
     last-writer-wins. It expires at the end of the setter's local day. Not a
     chat — there is nowhere to reply, and nothing is notified."""
     membership, circle = membership_in(db, user, circle_id)
-    text = body.text.strip()
+    text = clean(body.text)
     if not text:
         raise HTTPException(400, {"code": "empty_note"})
+    refuse_objectionable(text)
 
     now = clock.now()
     tz = ZoneInfo(user.tz_last_seen or "UTC")

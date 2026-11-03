@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from io import BytesIO
 
@@ -21,9 +22,59 @@ THUMB_EDGE = 320
 AVATAR_EDGE = 512
 JPEG_QUALITY = 90
 
+# A 48-megapixel photo fits (8064 x 6048 is 48.8M); a "decompression bomb", a
+# small file that claims enormous dimensions, doesn't. It's refused from its
+# header, before a single pixel is decoded: 12000 x 12000 would be 432 MB of
+# RGB on a 1 GB machine.
+MAX_PIXELS = 50_000_000
+
+# HEIF brands an iPhone writes (`ftyp` box at byte 4).
+_HEIF_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"}
+
 
 class BadImage(ValueError):
     pass
+
+
+def sniff(data: bytes) -> str | None:
+    """What the file says it is, from its first bytes, never from its name
+    or its Content-Type: JPEG, PNG or HEIF, or None for anything else. The
+    phone sends JPEG; PNG and HEIF are what a person might reasonably hand
+    over. Everything Pillow could otherwise open (TIFF, BMP, PSD, EPS, ICO
+    and the rest) is refused before it reaches a decoder."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "JPEG"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "PNG"
+    if data[4:8] == b"ftyp" and data[8:12] in _HEIF_BRANDS:
+        return "HEIF"
+    return None
+
+
+def _open(data: bytes, what: str) -> Image.Image:
+    """Decode an upload that is what it claims to be, at a size that's a
+    photo. Every failure is a BadImage, never a 500."""
+    kind = sniff(data)
+    if kind is None:
+        raise BadImage(f"{what} isn't a JPEG, PNG or HEIF")
+    try:
+        with warnings.catch_warnings():
+            # Pillow's own bomb check, a second line behind MAX_PIXELS: as an
+            # error, not a warning in the logs.
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            img = Image.open(BytesIO(data), formats=[kind])
+            if img.width * img.height > MAX_PIXELS:
+                raise BadImage(f"{what} is {img.width}x{img.height}, more than a photo")
+            img.load()
+    except BadImage:
+        raise
+    except (
+        UnidentifiedImageError, OSError, ValueError, KeyError, SyntaxError,
+        Image.DecompressionBombError, Image.DecompressionBombWarning,
+    ) as exc:
+        # KeyError: a format this server can't decode (HEIF without pillow-heif).
+        raise BadImage(f"could not decode {what}: {exc}") from exc
+    return img
 
 
 @dataclass
@@ -52,11 +103,7 @@ class PreparedUpload:
 
 
 def prepare_upload(data: bytes) -> PreparedUpload:
-    try:
-        img = Image.open(BytesIO(data))
-        img.load()
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
-        raise BadImage(f"could not decode image: {exc}") from exc
+    img = _open(data, "image")
 
     # M1: bake the EXIF orientation into the pixels BEFORE stripping EXIF, or a
     # photo shot sideways would render rotated once the orientation tag is gone.
@@ -100,11 +147,7 @@ def process_avatar(data: bytes) -> bytes:
     """Center-crop to a square and downscale. Avatar is identity, not content,
     so all EXIF is dropped (no timestamp kept) and it never decays. The client
     crops too; this just guarantees a square regardless of what arrives."""
-    try:
-        img = Image.open(BytesIO(data))
-        img.load()
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
-        raise BadImage(f"could not decode avatar: {exc}") from exc
+    img = _open(data, "avatar")
 
     img = ImageOps.exif_transpose(img)  # M1: honor orientation before stripping
     rgb = img.convert("RGB")

@@ -59,6 +59,7 @@ class Circle(Base):
 
 class Membership(Base):
     __tablename__ = "memberships"
+    __table_args__ = (Index("ix_memberships_user", "user_id", "joined_at"),)
 
     circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
@@ -76,6 +77,8 @@ class Photo(Base):
     __table_args__ = (
         UniqueConstraint("owner_id", "circle_id", "local_date", name="uq_owner_circle_localdate"),
         Index("ix_photos_circle_state", "circle_id", "state"),  # feed query (M3)
+        Index("ix_photos_state_deadline", "state", "state_deadline"),  # the decay sweep
+        Index("ix_photos_owner_hash", "owner_hash", "circle_id", "local_date"),  # the day's redo
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
@@ -111,7 +114,7 @@ class Anchor(Base):
 
     __tablename__ = "anchors"
 
-    __table_args__ = (Index("ix_anchors_photo", "photo_id"),)
+    __table_args__ = (Index("ix_anchors_photo", "photo_id"), Index("ix_anchors_user", "user_id"))
 
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
@@ -130,7 +133,7 @@ class Like(Base):
     """
 
     __tablename__ = "likes"
-    __table_args__ = (Index("ix_likes_photo", "photo_id"),)
+    __table_args__ = (Index("ix_likes_photo", "photo_id"), Index("ix_likes_user", "user_id"))
 
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
@@ -157,7 +160,7 @@ class PhotoTag(Base):
     not a profile link. Decays/held/purged with the photo it belongs to."""
 
     __tablename__ = "photo_tags"
-    __table_args__ = (Index("ix_phototags_photo", "photo_id"),)
+    __table_args__ = (Index("ix_phototags_photo", "photo_id"), Index("ix_phototags_user", "tagged_user_id"))
 
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), primary_key=True)
     tagged_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
@@ -186,7 +189,7 @@ class Comment(Base):
     """Story additions (§8.3): flat, chronological, part of the artifact."""
 
     __tablename__ = "comments"
-    __table_args__ = (Index("ix_comments_photo", "photo_id"),)
+    __table_args__ = (Index("ix_comments_photo", "photo_id"), Index("ix_comments_author", "author_id"))
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"))
@@ -208,6 +211,7 @@ class Rest(Base):
 
 class Report(Base):
     __tablename__ = "reports"
+    __table_args__ = (Index("ix_reports_comment", "comment_id"), Index("ix_reports_photo", "photo_id"))
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     reporter_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
@@ -220,6 +224,7 @@ class Report(Base):
 
 class Block(Base):
     __tablename__ = "blocks"
+    __table_args__ = (Index("ix_blocks_blocked", "blocked_id"),)
 
     blocker_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     blocked_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
@@ -228,6 +233,7 @@ class Block(Base):
 
 class PurgeQueueItem(Base):
     __tablename__ = "purge_queue"
+    __table_args__ = (Index("ix_purge_queue_due", "done", "purge_after"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"))
@@ -268,6 +274,7 @@ class NotificationLog(Base):
     """Every push the system ever sends, for §10 policy enforcement and audit."""
 
     __tablename__ = "notification_log"
+    __table_args__ = (Index("ix_notification_log_user", "user_id", "kind", "sent_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))

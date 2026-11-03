@@ -65,7 +65,19 @@ def make_engine(url: str):
             _install_sqlite_pragmas(engine, wal=False)
             return engine
         Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-        engine = create_engine(url, connect_args={"check_same_thread": False})
+        # One connection per request thread. Sync routes run on AnyIO's pool
+        # of 40 threads, and SQLAlchemy's default pool holds 15 (5 + 10
+        # overflow), so a burst past 15 requests queued for a connection
+        # rather than for SQLite. In WAL mode any number of readers run at
+        # once and writers take turns (busy_timeout waits up to 5s), so the
+        # pool matches the threads. A SQLite connection costs a file handle.
+        engine = create_engine(
+            url,
+            connect_args={"check_same_thread": False},
+            pool_size=10,
+            max_overflow=30,
+            pool_timeout=10,
+        )
         _install_sqlite_pragmas(engine, wal=True)
         return engine
     return create_engine(url, pool_pre_ping=True)
@@ -90,6 +102,29 @@ _LATER_INDEXES = [
     ("ix_comments_photo", "comments", "photo_id"),
     ("ix_likes_photo", "likes", "photo_id"),
     ("ix_anchors_photo", "anchors", "photo_id"),
+    # The production audit: every query that runs on each request or each
+    # sweep, and had been reading a whole table to answer it.
+    # Which circles a person is in: nearly every request asks.
+    ("ix_memberships_user", "memberships", "user_id, joined_at"),
+    # Who blocked whom, from the blocked side: every photo payload asks.
+    ("ix_blocks_blocked", "blocks", "blocked_id"),
+    # Held, the export, milestones and Returned: a person's holds.
+    ("ix_anchors_user", "anchors", "user_id"),
+    # The decay sweep, every 15 minutes: what's overdue.
+    ("ix_photos_state_deadline", "photos", "state, state_deadline"),
+    # The day's redo, counted at every capture and delete.
+    ("ix_photos_owner_hash", "photos", "owner_hash, circle_id, local_date"),
+    # The purge queue, every sweep.
+    ("ix_purge_queue_due", "purge_queue", "done, purge_after"),
+    # One digest a day: has this person had today's?
+    ("ix_notification_log_user", "notification_log", "user_id, kind, sent_at"),
+    # Deleting an account: their stories, likes and tags elsewhere.
+    ("ix_comments_author", "comments", "author_id"),
+    ("ix_likes_user", "likes", "user_id"),
+    ("ix_phototags_user", "photo_tags", "tagged_user_id"),
+    # Deleting a story or photo detaches the reports about it.
+    ("ix_reports_comment", "reports", "comment_id"),
+    ("ix_reports_photo", "reports", "photo_id"),
 ]
 # Tables left behind by a rename. Their data was ephemeral by design, so a drop
 # is safe — "warmth" became "likes" (same mechanic, cosmetic heart), and

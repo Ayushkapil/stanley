@@ -144,6 +144,7 @@ struct CaptureView: View {
             .sheet(isPresented: $pickingPlace) {
                 PlacePicker(userId: state.myId, current: location) { location = $0 }
             }
+            .onAppear { Trail.note(.openedCamera) }
         }
     }
 

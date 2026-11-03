@@ -144,8 +144,10 @@ def visible_comments(
     viewer_id: str,
     settings: Settings | None = None,
     now: datetime | None = None,
+    hidden: set[str] | None = None,
 ) -> list[dict]:
-    hidden = blocked_ids(session, viewer_id)
+    if hidden is None:
+        hidden = blocked_ids(session, viewer_id)
     comments = session.scalars(
         select(Comment)
         .where(Comment.photo_id == photo_id, Comment.deleted_at.is_(None))
@@ -155,11 +157,17 @@ def visible_comments(
 
 
 def tagged_faces(
-    session: Session, photo_id: str, viewer_id: str, settings: Settings | None, now: datetime | None
+    session: Session,
+    photo_id: str,
+    viewer_id: str,
+    settings: Settings | None,
+    now: datetime | None,
+    hidden: set[str] | None = None,
 ) -> list[dict]:
     """'Who was there' faces (Part 3) — a memory detail. Blocked pairs are
     hidden, like everything else."""
-    hidden = blocked_ids(session, viewer_id)
+    if hidden is None:
+        hidden = blocked_ids(session, viewer_id)
     rows = session.scalars(
         select(PhotoTag).where(PhotoTag.photo_id == photo_id).order_by(PhotoTag.created_at)
     ).all()
@@ -176,7 +184,13 @@ def photo_payload(
     now: datetime,
     photo: Photo,
     viewer: User,
+    hidden: set[str] | None = None,
 ) -> dict:
+    """A photo as the viewer sees it. `hidden` is the viewer's blocked
+    pairs (`blocked_ids`); a page of photos passes it in so it's read once
+    for the page, not twice for every photo on it."""
+    if hidden is None:
+        hidden = blocked_ids(session, viewer.id)
     urls = None
     if photo.deriv_key and photo.thumb_key:
         urls = {
@@ -201,13 +215,13 @@ def photo_payload(
         # §13: clients interpolate the fade between syncs from this deadline.
         "state_deadline": iso(photo.state_deadline),
         "urls": urls,
-        "comments": visible_comments(session, photo.id, viewer.id, settings, now),
+        "comments": visible_comments(session, photo.id, viewer.id, settings, now, hidden),
         "anchored_by_me": my_anchor is not None,
         "my_anchor_note": my_anchor.note if my_anchor else None,
         # The caller's own like state only — never a count, never who else.
         "liked_by_me": my_like is not None,
         # 'Who was there' (Part 3): part of the artifact, not a mention.
-        "tagged": tagged_faces(session, photo.id, viewer.id, settings, now),
+        "tagged": tagged_faces(session, photo.id, viewer.id, settings, now, hidden),
         "retake_on_delete": retake_on_delete(session, photo, viewer, now),
     }
 

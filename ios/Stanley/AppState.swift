@@ -27,6 +27,9 @@ final class AppState {
     /// (build 17); Today shows one at a time.
     var circles: [CircleSummary] = []
     var feedItems: [FeedItem] = []
+    /// Where Today's next page starts, or nil when everything is here
+    /// (the production audit: twenty entries at a time, newest first).
+    var todayCursor: String?
     /// Today has been fetched for the circle on screen. Until then an empty
     /// feed means "not here yet", not "nothing posted", so the empty page
     /// doesn't flash up at every launch and circle switch.
@@ -74,6 +77,12 @@ final class AppState {
     /// both send what's waiting; two sends at once would post one and then
     /// strand the other as "already posted".
     private var flushing = false
+    /// The next page of Today is on its way.
+    private var loadingMoreToday = false
+    /// Today's first page, and each page after it.
+    static let todayPage = 20
+    /// When the sign-in was last renewed (`refreshSignInIfDue`).
+    private static let signInRenewedKey = "stanley.signInRenewedAt"
 
     init() {
         signedIn = api.token != nil
@@ -140,6 +149,7 @@ final class AppState {
     func lostConnection() {
         guard !offline else { return }
         offline = true
+        Trail.note(.wentOffline)
         guard retrying == nil else { return }
         // Never cancelled from outside: the pass that finds Stanley again
         // runs inside this task, and cancelling it would cancel the very
@@ -166,6 +176,7 @@ final class AppState {
         }
         guard offline else { return }
         offline = false
+        Trail.note(.cameBack)
         // Before the circle is known, the launch's own pass does it all
         // (`RootView`), as soon as this is false.
         guard signedIn, checkedCircle else { return }
@@ -182,6 +193,7 @@ final class AppState {
         guard signedIn, checkedCircle, !offline,
               Date.now.timeIntervalSince(lastRenewal) > 30 else { return }
         lastRenewal = .now
+        Trail.note(.renewedLinks)
         Task { await reloadEverything() }
     }
 
@@ -278,9 +290,11 @@ final class AppState {
             UserDefaults.standard.set(true, forKey: Self.setupKey(auth.user.id))
         }
         api.token = auth.token
+        UserDefaults.standard.set(Date.now, forKey: Self.signInRenewedKey)
         myId = auth.user.id
         setupPending = UserDefaults.standard.bool(forKey: Self.setupKey(auth.user.id))
         signedIn = true
+        Trail.note(.signedIn)
         await loadProfile()
         await loadCircle()
         // If this phone already allows notifications, its token now belongs
@@ -288,7 +302,32 @@ final class AppState {
         await Push.shared.refresh()
     }
 
+    /// Keep a sign-in that's in use from running out (the production audit).
+    /// A token lasts thirty days; once a day, while the app is open and
+    /// Stanley answers, it's traded for a fresh one, so someone who opens
+    /// Stanley at least once a month is never signed out by the calendar.
+    /// A phone left unopened for a month still is, and signs in again. A
+    /// token the server refuses signs out as any refused request does
+    /// (`tokenRejected`); any other failure waits for tomorrow.
+    func refreshSignInIfDue() async {
+        guard signedIn, !offline, api.token != nil else { return }
+        let last = UserDefaults.standard.object(forKey: Self.signInRenewedKey) as? Date ?? .distantPast
+        guard Date.now.timeIntervalSince(last) > 24 * 60 * 60 else { return }
+        struct Renewed: Decodable { let token: String }
+        do {
+            let renewed: Renewed = try await api.send("POST", "/auth/refresh")
+            guard signedIn else { return }
+            api.token = renewed.token
+            UserDefaults.standard.set(Date.now, forKey: Self.signInRenewedKey)
+            Trail.note(.refreshedSignIn)
+        } catch {
+            // Refused: already signed out by `tokenRejected`. Otherwise,
+            // tomorrow's open tries again.
+        }
+    }
+
     func signOut() {
+        Trail.note(.signedOut)
         // This phone stops hearing from this account: the token goes, under
         // the sign-in that registered it, before that sign-in is dropped.
         if let push = Push.shared.token, let auth = api.token {
@@ -309,6 +348,7 @@ final class AppState {
         circles = []
         checkedCircle = false
         feedItems = []
+        todayCursor = nil
         todayLoaded = false
         communityNote = nil
         mosaic = nil
@@ -395,7 +435,9 @@ final class AppState {
         if let myId { UserDefaults.standard.set(id, forKey: Self.circleKey(myId)) }
         guard id != circle?.id else { return }
         api.circleId = id
+        Trail.note(.switchedCircle)
         feedItems = []
+        todayCursor = nil
         todayLoaded = false
         communityNote = nil
         mosaic = nil
@@ -408,6 +450,7 @@ final class AppState {
     private func lostCircle() async {
         if let myId { UserDefaults.standard.removeObject(forKey: Self.circleKey(myId)) }
         feedItems = []
+        todayCursor = nil
         todayLoaded = false
         communityNote = nil
         mosaic = nil
@@ -418,6 +461,7 @@ final class AppState {
     func createCircle(name: String) async -> Bool {
         do {
             let made: CircleInfo = try await api.send("POST", "/circles", json: ["name": name])
+            Trail.note(.startedCircle)
             await switchCircle(to: made.id)
             return true
         } catch {
@@ -435,6 +479,7 @@ final class AppState {
         }
         do {
             let joined: CircleInfo = try await api.send("POST", "/circles/join", json: ["code": trimmed])
+            Trail.note(.joinedCircle)
             await switchCircle(to: joined.id)
             return true
         } catch APIError.status(404) {
@@ -453,13 +498,21 @@ final class AppState {
 
     // MARK: surfaces
 
+    /// Today, fetched again. Asks for everything already showing in one
+    /// request (at least a page, at most the server's 200), so a like or a
+    /// story deep in an evening's scrolling refreshes the page it's on
+    /// instead of folding Today back to its first twenty.
     func refreshToday() async {
         let asked = api.circleId
+        let wanted = min(max(Self.todayPage, feedItems.count), 200)
         do {
-            let response: TodayResponse = try await api.send("GET", "/feed/today")
+            let response: TodayResponse = try await api.send(
+                "GET", "/feed/today", query: ["limit": String(wanted)]
+            )
             // Switched circles while this was on its way: it's the old one's.
             guard api.circleId == asked else { return }
             feedItems = response.items
+            todayCursor = response.nextCursor
             todayLoaded = true
             communityNote = response.note
             mosaic = response.mosaic
@@ -470,6 +523,28 @@ final class AppState {
         } catch APIError.server(code: "not_in_circle", status: _) {
             await lostCircle()
             if circle != nil { await refreshToday() }
+        } catch {
+            missed(error)
+        }
+    }
+
+    /// The next page of Today, when the end of what's showing comes into
+    /// view. Only ever one on its way; an answer that arrives after a
+    /// refresh or a circle switch has replaced the pages is dropped.
+    func loadMoreToday() async {
+        guard let cursor = todayCursor, !loadingMoreToday else { return }
+        loadingMoreToday = true
+        defer { loadingMoreToday = false }
+        let asked = api.circleId
+        do {
+            let response: TodayResponse = try await api.send(
+                "GET", "/feed/today", query: ["limit": String(Self.todayPage), "cursor": cursor]
+            )
+            guard api.circleId == asked, todayCursor == cursor else { return }
+            let showing = Set(feedItems.map(\.id))
+            feedItems += response.items.filter { !showing.contains($0.id) }
+            todayCursor = response.nextCursor
+            Trail.note(.loadedMoreToday)
         } catch {
             missed(error)
         }
@@ -533,6 +608,7 @@ final class AppState {
             let _: CommunityNote = try await api.send(
                 "PUT", "/circles/\(circle.id)/note", json: ["text": text]
             )
+            Trail.note(.leftNote)
             await refreshToday()
             return true
         } catch {
@@ -664,6 +740,7 @@ final class AppState {
                 jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
                 circleId: circleId
             )
+            Trail.note(.postedPhoto)
             await refreshToday()
             return true
         } catch APIError.server(code: "not_in_circle", status: let status) {
@@ -683,6 +760,7 @@ final class AppState {
                 jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
                 circleId: circleId
             )
+            Trail.note(.keptPhotoForLater)
             flash = "Saved. It'll go up when you're back online."
             return false
         }
@@ -715,7 +793,12 @@ final class AppState {
                         queue.markRejected(item, "Today's photo was already posted from another device.")
                     case "not_in_circle":
                         queue.markRejected(item, "You're no longer in the circle this was for.")
+                    case "words_not_allowed":
+                        // Its caption or place won't ever go up as written.
+                        queue.markRejected(item, APIError.wordsNotAllowed)
                     default:
+                        // A pause (slow_down) or a passing failure: it
+                        // waits for the next try.
                         break
                     }
                 }
@@ -753,10 +836,12 @@ final class AppState {
         do {
             if photo.anchoredByMe {
                 let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/anchor")
+                Trail.note(.letGo)
             } else {
                 let _: Empty = try await api.send(
                     "POST", "/photos/\(photo.id)/anchor", json: ["note": nil]
                 )
+                Trail.note(.held)
             }
             await refreshToday()
         } catch {
@@ -772,6 +857,7 @@ final class AppState {
             let _: Empty = try await api.send(
                 "POST", "/photos/\(photo.id)/anchor", json: ["note": nil]
             )
+            Trail.note(.held)
             await refreshToday()
         } catch {
             surface(error)
@@ -783,8 +869,10 @@ final class AppState {
         do {
             if photo.likedByMe {
                 let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/like")
+                Trail.note(.unliked)
             } else {
                 let _: Empty = try await api.send("POST", "/photos/\(photo.id)/like")
+                Trail.note(.liked)
             }
             await refreshToday()
         } catch {
@@ -822,6 +910,7 @@ final class AppState {
             let posted: Posted = try await api.send(
                 "POST", "/photos/\(photo.id)/comments", json: ["body": body]
             )
+            Trail.note(.addedStory)
             await refreshToday()
             let me = UserBrief(
                 id: myId, displayName: profile?.displayName ?? "New member", avatarUrl: profile?.avatarUrl
@@ -847,6 +936,7 @@ final class AppState {
                 "POST", "/reports",
                 json: ["photo_id": photo?.id, "comment_id": comment?.id, "reason": reason]
             )
+            Trail.note(.reported)
             return true
         } catch {
             surface(error)
@@ -865,6 +955,7 @@ final class AppState {
         guard let id = person.id else { return false }
         do {
             let _: Empty = try await api.send("POST", "/blocks", json: ["user_id": id])
+            Trail.note(.blocked)
             return true
         } catch {
             surface(error)
@@ -894,6 +985,7 @@ final class AppState {
     func deletePhoto(_ photo: Photo) async {
         do {
             let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)")
+            Trail.note(.deletedPhoto)
             await refreshToday()
             flash = photo.retakeOnDelete == true
                 ? "Deleted. You can take today's photo again."
@@ -1003,6 +1095,7 @@ final class AppState {
         guard let circle else { return }
         do {
             let _: Empty = try await api.send("POST", "/circles/\(circle.id)/leave")
+            Trail.note(.leftCircle)
             await lostCircle()
             if self.circle != nil { await refreshToday() }
         } catch {

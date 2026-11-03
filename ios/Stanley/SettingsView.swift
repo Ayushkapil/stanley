@@ -108,6 +108,7 @@ struct SettingsView: View {
                 Button("Join Another Circle") { joiningAnother = true }
                     .foregroundStyle(.primary)
                 Button("Leave Circle", role: .destructive) { confirmLeave = true }
+                    .destructiveInk()
             } header: {
                 Text("Circle").smallCaps(11)
             } footer: {
@@ -185,8 +186,9 @@ struct SettingsView: View {
                 LegalDocumentView(title: "Terms of Use", sections: Legal.terms)
             }
             NavigationLink("Privacy Policy") {
-                LegalDocumentView(title: "Privacy Policy", sections: Legal.privacy)
+                LegalDocumentView(title: "Privacy Policy", sections: Legal.privacy, effective: Legal.privacyEffective)
             }
+            NavigationLink("Acknowledgements") { AcknowledgementsView() }
         } header: {
             Text("About").smallCaps(11)
         } footer: {
@@ -376,6 +378,7 @@ private struct InviteCodeView: View {
                 if state.circle?.isCreator == true {
                     Section {
                         Button("Reset Code", role: .destructive) { confirmReset = true }
+                            .destructiveInk()
                     } footer: {
                         Text("A new code replaces this one, and this one stops working.")
                     }

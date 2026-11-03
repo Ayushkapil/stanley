@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
@@ -115,7 +115,13 @@ def run_evening_digests(
         select(User).where(User.deleted_at.is_(None), User.digest_enabled.is_(True))
     ).all()
     for user in users:
-        tz = ZoneInfo(user.tz_last_seen or "UTC")
+        try:
+            tz = ZoneInfo(user.tz_last_seen or "UTC")
+        except (ZoneInfoNotFoundError, ValueError):
+            # A zone this server doesn't know (kept before zones were
+            # checked, or dropped from tzdata): this person's evening is
+            # UTC's, and nobody else's digest waits on it.
+            tz = ZoneInfo("UTC")
         local_now = now.astimezone(tz)
         if local_now.hour != digest_hour:
             continue
@@ -138,19 +144,17 @@ def run_evening_digests(
         ).first()
         if already is not None:
             continue
-        n = len(
-            session.scalars(
-                select(Photo.id).where(
-                    Photo.circle_id.in_(circle_ids),
-                    Photo.owner_id.is_not(None),
-                    Photo.owner_id != user.id,
-                    Photo.deleted_at.is_(None),
-                    Photo.taken_at >= day_start,
-                    Photo.taken_at <= now,
-                )
-            ).all()
-        )
-        if n == 0:
+        anyone = session.scalars(
+            select(Photo.id).where(
+                Photo.circle_id.in_(circle_ids),
+                Photo.owner_id.is_not(None),
+                Photo.owner_id != user.id,
+                Photo.deleted_at.is_(None),
+                Photo.taken_at >= day_start,
+                Photo.taken_at <= now,
+            ).limit(1)
+        ).first()
+        if anyone is None:
             continue
         # Whether anyone posted decides if there is a digest at all; how many
         # never reaches the words. A notification carries no count (N4).

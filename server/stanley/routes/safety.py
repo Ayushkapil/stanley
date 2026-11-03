@@ -5,14 +5,17 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from .. import alerts
 from ..deps import (
-    get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
+    event, get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
 )
 from ..models import Block, Comment, Photo, Report, User
+from ..ratelimit import per_person
 from ..serialize import user_brief
+from ..text import clean
 
 log = logging.getLogger("stanley")
 
@@ -20,16 +23,18 @@ router = APIRouter(tags=["safety"])
 
 
 class ReportBody(BaseModel):
-    photo_id: str | None = None
-    comment_id: str | None = None
+    photo_id: str | None = Field(default=None, max_length=64)
+    comment_id: str | None = Field(default=None, max_length=64)
+    # Never run through the word filter: a report may have to quote what
+    # it's about.
     reason: str = Field(min_length=1, max_length=2000)
 
 
 class BlockBody(BaseModel):
-    user_id: str
+    user_id: str = Field(max_length=64)
 
 
-@router.post("/reports", status_code=201)
+@router.post("/reports", status_code=201, dependencies=[per_person("report")])
 def report(
     body: ReportBody,
     background: BackgroundTasks,
@@ -57,14 +62,14 @@ def report(
         reporter_id=user.id,
         photo_id=body.photo_id,
         comment_id=body.comment_id,
-        reason=body.reason,
+        reason=clean(body.reason, multiline=True) or "(no reason given)",
         created_at=clock.now(),
     )
     db.add(row)
     db.flush()
     # A warning, so it shows in the host's logs (the app's INFO lines don't):
     # the 24-hour promise starts now. Nothing about who or what.
-    log.warning("A report is waiting for review: %s", row.id)
+    log.warning("A report is waiting for review: %s (event=report_filed report=%s)", row.id, row.id)
     # And to a phone, if there's somewhere to say it: after the commit and
     # the response, with nothing in it but that one line (`alerts.py`).
     if settings.report_webhook_url:
@@ -88,8 +93,13 @@ def block(
         raise HTTPException(400, "cannot block yourself")
     if not shares_a_circle(db, user.id, body.user_id):
         raise HTTPException(404, "not found")
-    if db.get(Block, (user.id, body.user_id)) is None:
-        db.add(Block(blocker_id=user.id, blocked_id=body.user_id, created_at=clock.now()))
+    added = db.execute(
+        sqlite_insert(Block)
+        .values(blocker_id=user.id, blocked_id=body.user_id, created_at=clock.now())
+        .on_conflict_do_nothing(index_elements=["blocker_id", "blocked_id"])
+    )
+    if added.rowcount:
+        event("block", user=user.id)
 
 
 @router.get("/blocks")

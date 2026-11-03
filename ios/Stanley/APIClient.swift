@@ -45,6 +45,12 @@ enum APIError: LocalizedError {
             case "empty_circle_name": return "A circle needs a name."
             case "bad_push_token": return "Notifications couldn't be set up on this phone. Try again later."
             case "apple_auth_unconfigured": return "Signing in isn't available right now. Try again a little later."
+            // The production audit (November 2026).
+            case "words_not_allowed": return Self.wordsNotAllowed
+            case "slow_down": return "That's a lot at once. Give it a minute, then try again."
+            case "empty_story": return "A story needs a few words."
+            case "bad_timezone": return "Your phone's time zone didn't come through. Try again in a moment."
+            case "server_error": return Self.words(forStatus: 500)
             default: return Self.words(forStatus: status)
             }
         case .status(let status):
@@ -63,6 +69,8 @@ enum APIError: LocalizedError {
     static let photoNotPosted = "That photo couldn't be posted. Try again."
     static let appleSignInFailed = "Sign in with Apple didn't go through. Try again."
     static let unreachable = "Couldn't reach Stanley. Check your connection."
+    /// The word filter turned it away (`wordfilter.py`). Nothing was kept.
+    static let wordsNotAllowed = "Stanley won't carry some of those words. Try saying it another way."
     /// The day's photo is already posted in this circle. Said warmly: it
     /// isn't a mistake, it's the day doing what it does.
     static let sharedToday = "Today's moment is out there. Come back tomorrow."
@@ -77,6 +85,7 @@ enum APIError: LocalizedError {
         case 404: return "That's no longer here."
         case 410: return "This moment has already faded."
         case 413: return "That's too large to send."
+        case 429: return "That's a lot at once. Give it a minute, then try again."
         case 400, 422: return "That didn't go through. Check what you wrote and try again."
         default: return "Stanley is having trouble right now. Try again in a moment."
         }
