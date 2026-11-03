@@ -101,6 +101,8 @@ struct TodayFeedView: View {
                                     PhotoCard(photo: photo)
                                 }
                             }
+                            // Each entry arrives as it's scrolled to (build 24).
+                            .entrance()
                         }
                     }
                   }
@@ -488,7 +490,7 @@ enum StoryLine {
     static func text(_ comment: Comment, people: MentionDirectory, opening stories: URL? = nil) -> Text {
         var line = AttributedString(comment.author.displayName)
         line.inlinePresentationIntent = .stronglyEmphasized
-        line.swiftUI.foregroundColor = .primary
+        line.swiftUI.foregroundColor = DarkRoom.ink
         line.link = stories
         line += AttributedString("  ")
         for part in Mentions.parts(comment.body) {
@@ -778,6 +780,30 @@ enum PrintTilt {
     }
 }
 
+/// An entry arriving on the page (build 24): as it scrolls into view it
+/// fades in and settles up by 20pt over 0.3s, so Today has some weight to
+/// it instead of everything simply being there (pilot users said the app
+/// felt light). Once per entry: a refresh keeps the entries it had, and they
+/// stay put; an entry scrolled far off and back arrives again, which is the
+/// point. Under Reduce Motion it only fades.
+private struct Entrance: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var arrived = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(arrived ? 1 : 0)
+            .offset(y: arrived || reduceMotion ? 0 : 20)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.3)) { arrived = true }
+            }
+    }
+}
+
+extension View {
+    func entrance() -> some View { modifier(Entrance()) }
+}
+
 /// One entry in the journal: the print laid on the page, then beneath it in
 /// ink, with no frame around any of it: who and when in a hand, the
 /// caption, the place, who was there, the stories and the line that asks
@@ -905,6 +931,16 @@ struct PhotoCard: View {
                 }
             }
             .padding(.horizontal, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // The rest of the comment area, beside and between the lines,
+            // opens the stories too. Behind the lines rather than over them,
+            // so the words' own links (the stories, a mention's profile) are
+            // still theirs.
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { showStories = true }
+            }
         }
     }
 

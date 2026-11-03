@@ -90,8 +90,8 @@ struct ProfileView: View {
         .padding(.vertical, 22)
         .overlay {
             ZStack {
-                Rectangle().strokeBorder(.primary.opacity(0.55), lineWidth: 1.2)
-                Rectangle().strokeBorder(.primary.opacity(0.3), lineWidth: 0.5).padding(4)
+                Rectangle().strokeBorder(DarkRoom.line(0.55), lineWidth: 1.2)
+                Rectangle().strokeBorder(DarkRoom.line(0.3), lineWidth: 0.5).padding(4)
             }
             .allowsHitTesting(false)
         }

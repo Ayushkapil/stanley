@@ -105,16 +105,18 @@ extension Atmosphere.Palette {
         let floor: CGFloat, card: CGFloat
     }
 
-    /// Dark mode: black with a hint of `tone`. `floor` and `card` say how
-    /// much of it goes over black and over the neutral card, a few percent
-    /// at most.
+    /// Dark mode: the accent, its ink, and the `tone` that goes into the row
+    /// color by `card`. Since build 24 the floor and the card are pure black
+    /// in every mood (the dark room; `floor` is kept but no longer used): the
+    /// mood lives in the accent and the tab bar, and everything else is
+    /// black.
     struct Dark {
         let accent: UInt32, ink: UInt32, tone: UInt32
         let floor: CGFloat, card: CGFloat
     }
 
-    /// Dark mode's neutral surfaces, before any tone: true black, and a card
-    /// one step up from it.
+    /// Dark mode's neutral surfaces, before any tone: true black, and one
+    /// step up from it for the rows of a grouped list.
     private static let darkFloor = UIColor(hex: 0x000000)
     private static let darkCard = UIColor(hex: 0x1A1A1A)
 
@@ -128,27 +130,27 @@ extension Atmosphere.Palette {
             ink: adaptive(light: UIColor(hex: light.ink), dark: UIColor(hex: dark.ink)),
             floor: adaptive(
                 light: UIColor.white.blended(toward: tone, by: light.floor),
-                dark: darkFloor.blended(toward: darkTone, by: dark.floor)
+                dark: darkFloor
             ),
-            card: adaptive(light: tone.withAlphaComponent(light.card), dark: card),
+            card: adaptive(light: tone.withAlphaComponent(light.card), dark: darkFloor),
             row: adaptive(light: .secondarySystemGroupedBackground, dark: card),
             toggle: accent
         )
     }
 
-    /// Auto: warm paper and white cards in light mode, true black and a card
-    /// one step up in dark. The accent is warm charcoal in light and warm
-    /// white in dark, so the tab bar and buttons are black and white with a
-    /// little warmth, and nothing else is tinted. A white accent would hide
-    /// a switch's white knob, so in dark mode switches keep the system green.
+    /// Auto: warm paper and white cards in light mode, true black through
+    /// and through in dark (rows one step up). The accent is warm charcoal in
+    /// light and warm white in dark, so the tab bar and buttons are black and
+    /// white with a little warmth, and nothing else is tinted. A white
+    /// accent would hide a switch's white knob, so in dark mode switches keep
+    /// the system green.
     static let neutral: Self = {
-        let card = adaptive(light: .white, dark: darkCard)
         return Self(
             accent: adaptive(light: UIColor(hex: 0x2A2621), dark: UIColor(hex: 0xEFE6D4)),
             ink: adaptive(light: UIColor(hex: 0xFAF6EB), dark: UIColor(hex: 0x141414)),
             floor: adaptive(light: UIColor(hex: 0xF6F0E4), dark: darkFloor),
-            card: card,
-            row: card,
+            card: adaptive(light: .white, dark: darkFloor),
+            row: adaptive(light: .white, dark: darkCard),
             toggle: adaptive(light: UIColor(hex: 0x2A2621), dark: .systemGreen)
         )
     }()
@@ -198,7 +200,7 @@ struct AtmosphereWash: ViewModifier {
             .background {
                 ZStack {
                     Atmosphere.resolve(raw).palette.floor
-                    PaperGrainView(strength: colorScheme == .dark ? 0.28 : 0.45)
+                    PaperGrainView(strength: 0.45)
                 }
                 .ignoresSafeArea()
             }

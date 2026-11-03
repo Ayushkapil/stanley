@@ -40,6 +40,24 @@ struct StanleyApp: App {
     }
 }
 
+/// Words in the dark room are a warm white, not a stark one (`DarkRoom.ink`).
+/// Set once at the root for everything that doesn't name its own color; in
+/// light mode it hands back `.foreground`, which is the default, so the
+/// journal's words don't move by a shade. One view either way, so flipping
+/// the appearance doesn't rebuild the app.
+private struct DarkRoomInk: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    func body(content: Content) -> some View {
+        content.foregroundStyle(
+            DarkRoom.isDark(colorScheme) ? AnyShapeStyle(DarkRoom.ink) : AnyShapeStyle(ForegroundStyle())
+        )
+    }
+}
+
+extension View {
+    func darkRoomInk() -> some View { modifier(DarkRoomInk()) }
+}
+
 struct RootView: View {
     @Environment(AppState.self) private var state
     @Environment(\.scenePhase) private var scenePhase
@@ -106,6 +124,9 @@ struct RootView: View {
             // and the Duo's dock strip showed the bare window as a black band.
             // Children keep their own layout, centered as before.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The dark room's ink (build 24): every word warm white on black.
+            // In light mode the foreground is left exactly as it was.
+            .darkRoomInk()
             // Under every safe-area inset there is — including whatever a
             // hinge or a cover-display dock reserves on a foldable. Each screen
             // paints the floor too, but only within the region it is given; the

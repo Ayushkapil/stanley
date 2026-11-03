@@ -7,13 +7,47 @@ import SwiftUI
 // write themselves, and photos as prints laid on the page rather than cards.
 // The paper keeps the serif; the journal keeps the hand.
 
-/// A rule: ink, thin, edge to edge. A heavy one under a masthead.
+/// The dark room (build 24). In dark mode Stanley stops being a journal at
+/// night, which pilot users kept calling bad, and is a photo gallery in a
+/// dark room: pure black, no paper and no grain; a photo is the card, with
+/// no frame, no print and no lean; the words in a warm white rather than a
+/// stark one; the rules a gray that is barely there. Only the tab bar and
+/// the accents keep the atmosphere. Light mode keeps the journal, untouched.
+enum DarkRoom {
+    /// The words: warm white in the dark; in daylight the label color, so
+    /// nothing in light mode moves.
+    static let ink = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1)   // #F0EBE3
+            : .label
+    })
+
+    /// A rule's gray in the dark: #2A2A2A, barely there.
+    private static let ruleGray = UIColor(red: 42 / 255, green: 42 / 255, blue: 42 / 255, alpha: 1)
+
+    /// A line of ink at `opacity` in daylight; in the dark, the rule gray at
+    /// whatever weight, since the dark room draws every rule the same.
+    static func line(_ opacity: CGFloat) -> Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? ruleGray : UIColor.label.withAlphaComponent(opacity)
+        })
+    }
+
+    /// A photo on black, cut with a small radius so it reads as a card.
+    static let photoCorner: CGFloat = 4
+
+    /// Whether the view is in the dark room: dark mode, as resolved for it.
+    static func isDark(_ scheme: ColorScheme) -> Bool { scheme == .dark }
+}
+
+/// A rule: ink, thin, edge to edge. A heavy one under a masthead. In the
+/// dark room, every rule is the same barely-there gray.
 struct Rule: View {
     var weight: CGFloat = 0.5
 
     var body: some View {
         Rectangle()
-            .fill(.primary.opacity(weight > 1 ? 0.75 : 0.3))
+            .fill(DarkRoom.line(weight > 1 ? 0.75 : 0.3))
             .frame(height: weight)
             .accessibilityHidden(true)
     }
@@ -36,7 +70,8 @@ extension View {
 
     /// A photo as a print laid on the page: a border of photo paper, corners
     /// barely rounded, a soft shadow where it lifts off the page, and a
-    /// little off square.
+    /// little off square. In the dark room (build 24) there is no print: the
+    /// photo itself, cut with a small radius, straight, on black.
     func asPrint(border: CGFloat = 7, tilt: Double = 0) -> some View {
         modifier(PrintPaper(border: border, tilt: tilt))
     }
@@ -181,8 +216,8 @@ extension JournalSectionHead where Trailing == EmptyView {
 }
 
 /// Photo paper: warm white in daylight; in the dark a step down, as if under
-/// a lamp, so a print doesn't glare off a black page (the sticky note does
-/// the same).
+/// a lamp (the sticky note does the same). Since build 24 the dark room
+/// hangs photos without paper, so the dark value is only seen on the note.
 enum PrintStock {
     static let paper = Color(UIColor { traits in
         traits.userInterfaceStyle == .dark
@@ -200,11 +235,14 @@ private struct PrintPaper: ViewModifier {
     let tilt: Double
 
     func body(content: Content) -> some View {
+        let dark = DarkRoom.isDark(colorScheme)
         content
-            .padding(border)
-            .background(PrintStock.paper, in: RoundedRectangle(cornerRadius: 2.5, style: .continuous))
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.55 : 0.16), radius: 5, x: 0.5, y: 2.5)
-            .rotationEffect(.degrees(tilt))
+            // The dark room hangs the photo itself: no paper, no lift, no lean.
+            .clipShape(RoundedRectangle(cornerRadius: dark ? DarkRoom.photoCorner : 0, style: .continuous))
+            .padding(dark ? 0 : border)
+            .background(dark ? .clear : PrintStock.paper, in: RoundedRectangle(cornerRadius: 2.5, style: .continuous))
+            .shadow(color: .black.opacity(dark ? 0 : 0.16), radius: 5, x: 0.5, y: 2.5)
+            .rotationEffect(.degrees(dark ? 0 : tilt))
     }
 }
 
@@ -215,18 +253,21 @@ private struct PaperInsert: ViewModifier {
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
+        let dark = DarkRoom.isDark(colorScheme)
         content
             .background {
+                // In the dark room there's no sheet of paper to tuck in: the
+                // same black, boxed in a rule, straight.
                 ZStack {
-                    shape.fill(Atmosphere.resolve(raw).palette.floor)
-                    shape.fill(Atmosphere.resolve(raw).palette.card)
-                    PaperGrainView(strength: colorScheme == .dark ? 0.28 : 0.45)
+                    shape.fill(dark ? .clear : Atmosphere.resolve(raw).palette.floor)
+                    shape.fill(dark ? .clear : Atmosphere.resolve(raw).palette.card)
+                    PaperGrainView(strength: 0.45)
                         .clipShape(shape)
                 }
-                .overlay(shape.strokeBorder(.primary.opacity(0.16), lineWidth: 0.5))
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 6, y: 2)
+                .overlay(shape.strokeBorder(dark ? DarkRoom.line(1) : DarkRoom.line(0.16), lineWidth: dark ? 1 : 0.5))
+                .shadow(color: .black.opacity(dark ? 0 : 0.1), radius: 6, y: 2)
             }
-            .rotationEffect(.degrees(tilt))
+            .rotationEffect(.degrees(dark ? 0 : tilt))
     }
 }
 

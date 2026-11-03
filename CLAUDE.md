@@ -249,7 +249,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   edged in a hairline), with their photos as prints. On an ordinary
   iPhone the tab bar folds to the current tab while Today scrolls down
   (`tabBarMinimizeBehavior(.onScrollDown)`, iOS 26+; not on the Duo's side
-  dock, which the camera is placed against).
+  dock, which the camera is placed against). **Each entry arrives as it's
+  scrolled to** (build 24, `Entrance`): it fades in and settles up by 20pt
+  over 0.3s, once per entry (a refresh keeps the entries it had, so they
+  stay put; one scrolled far off and back arrives again), only a fade
+  under Reduce Motion. Pilot users said the app felt light; this is weight
+  without a feature.
 - **Decay engine** — server-authoritative state machine, idempotent sweep,
   append-only audit log, 7-day tombstone, purge with blob deletion.
 - **Held (anchoring)** — press-and-hold to keep (bookmark), owner-only "held by"
@@ -324,7 +329,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Today each line's name and words carry a `stanley-stories://<photo id>`
   link (`StoryLine.link`), beside the mentions' own, and the card's
   `openURL` opens the sheet for one and a profile for the other. The
-  colors are set on every run, so no word turns link-blue. The sheet's own
+  colors are set on every run, so no word turns link-blue. The rest of the
+  comment area, beside and between the lines, opens the sheet too, from a
+  tap target laid behind the lines (never over them, so the words' own
+  links stay theirs). The sheet's own
   lines and a profile's carry no such link. The newest is there so a story just added
   appears right above the field it was written in: with only the first
   shown, a second story vanished behind "More stories" the moment it posted
@@ -478,7 +486,24 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   amber; Fall is terracotta, not pumpkin; Cool is slate, not sky; Rain is
   fog on a window. Auto's accent and floor are a little warmer. Ambient
   only; never affects function.
-- **The journal's visual language** (build 20, `Journal.swift`): the World
+  **The dark room** (build 24, `DarkRoom` in `Journal.swift`): pilot users
+  kept saying dark mode looked bad, so dark mode stopped being the journal
+  at night and is a photo gallery in a dark room. Pure black (#000000)
+  floor and card in every mood, no paper and no grain anywhere
+  (`PaperGrainView` draws nothing in dark); a photo is the card, bare on
+  black with 4pt corners and no paper, shadow or lean (`asPrint` and
+  `pastedFace` in dark); words in a warm white (#F0EBE3, `DarkRoom.ink`,
+  set once at the root by `darkRoomInk()` and the only foreground change,
+  so `.secondary` is that white at half strength); every rule, hairline and
+  box in #2A2A2A (`DarkRoom.line`), barely there; a paper insert (mosaic,
+  Returned, empty states, milestones) is the same black boxed in that rule;
+  the sticky note keeps its lamplit yellow, without grain; Settings rows
+  keep their step up from black. Only the tab bar and the accents carry the
+  atmosphere. Light mode is the journal exactly as before: in light,
+  `darkRoomInk()` hands back `.foreground` and every dark-room branch is
+  off.
+- **The journal's visual language** (build 20, `Journal.swift`; in light
+  mode since build 24, dark mode being the dark room above): the World
   tab's morning paper set the bar and every main page now matches it. Every
   page is paper (`atmosphereWash` lays the paper grain over the floor, so
   sheets, Settings' pages and the capture sheet are grained too). Main pages
@@ -916,7 +941,7 @@ live APNs, concurrency under real load.
   Blocked), `Mentions.swift` (@mentions: parsing, tones, `StoryComposer`,
   `MentionBar`), `Paper.swift` (the paper grain, `.paperPage()`),
   `Journal.swift` (the journal's look: masthead, rules, small capitals,
-  prints, paper inserts),
+  prints, paper inserts; `DarkRoom`, the dark mode's colors and rules),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your

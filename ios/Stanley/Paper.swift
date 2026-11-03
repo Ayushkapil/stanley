@@ -57,14 +57,17 @@ struct SplitMix64 {
     }
 }
 
-/// The grain itself, laid over a surface. `strength` is its opacity.
+/// The grain itself, laid over a surface. `strength` is its opacity. In the
+/// dark room (build 24) there is no paper, so in dark mode it draws nothing,
+/// wherever it's laid.
 struct PaperGrainView: View {
+    @Environment(\.colorScheme) private var colorScheme
     var strength: Double = 0.5
 
     var body: some View {
         Image(uiImage: PaperGrain.tile)
             .resizable(resizingMode: .tile)
-            .opacity(strength)
+            .opacity(DarkRoom.isDark(colorScheme) ? 0 : strength)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
@@ -89,7 +92,7 @@ private struct PaperPage: ViewModifier {
                 ZStack {
                     let palette = Atmosphere.resolve(raw).palette
                     card ? palette.card : palette.floor
-                    PaperGrainView(strength: colorScheme == .dark ? 0.28 : 0.45)
+                    PaperGrainView(strength: 0.45)
                 }
                 .ignoresSafeArea()
             }

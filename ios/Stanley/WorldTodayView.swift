@@ -221,7 +221,7 @@ private struct NewsColumns: View {
                 let width = (geo.size.width - Self.gutter * (n - 1)) / n
                 ForEach(1..<max(columns.count, 1), id: \.self) { i in
                     Rectangle()
-                        .fill(.primary.opacity(0.3))
+                        .fill(DarkRoom.line(0.3))
                         .frame(width: 0.5, height: geo.size.height)
                         .position(x: (width + Self.gutter) * CGFloat(i) - Self.gutter / 2, y: geo.size.height / 2)
                 }
@@ -380,7 +380,7 @@ private struct NearbyInvitation: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         // A notice to readers, boxed in a rule, not a card.
-        .overlay(Rectangle().strokeBorder(.primary.opacity(0.3), lineWidth: 0.5))
+        .overlay(Rectangle().strokeBorder(DarkRoom.line(0.3), lineWidth: 0.5))
     }
 }
 
