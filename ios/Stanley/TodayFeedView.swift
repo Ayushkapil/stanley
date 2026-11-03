@@ -20,6 +20,7 @@ struct TodayFeedView: View {
     @Binding var typing: Bool
     @State private var editingNote = false
     @State private var joiningAnother = false
+    @State private var readingCircleJournal = false
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     /// The entry at the top of the viewport, by id. Folding or unfolding
@@ -44,15 +45,24 @@ struct TodayFeedView: View {
                     // The journal's cover line, the way the paper opens: the
                     // circle's name (which opens the others), a double rule
                     // and the day in small capitals.
-                    TodayMasthead { joiningAnother = true }
-                        .padding(.bottom, 22)
-                        .id("masthead")
+                    TodayMasthead(onJoinAnother: { joiningAnother = true }) {
+                        readingCircleJournal = true
+                    }
+                    .padding(.bottom, 22)
+                    .id("masthead")
                     // The note is the circle talking to itself, so it goes
                     // first, above even the mosaic: one sticky note on the
                     // first page.
                     NoteBar(note: state.communityNote) { editingNote = true }
                         .padding(.bottom, 28)
                         .id("note")
+                    // The circle's question of the week (build 26): a slip
+                    // under the note, above the photos.
+                    if let question = state.question {
+                        QuestionSlip(question: question)
+                            .padding(.bottom, 28)
+                            .id("question")
+                    }
                     // The weekly mosaic sits above the days themselves
                     // (Part 2), Sun/Mon only.
                     if let mosaic = state.mosaic {
@@ -100,6 +110,12 @@ struct TodayFeedView: View {
                                 } else if let photo = item.photo {
                                     PhotoCard(photo: photo)
                                 }
+                                // Just posted: a quiet question under it,
+                                // for your eyes only (build 26).
+                                if let offered = journalOffered(in: item) {
+                                    JournalOfferSlip(photo: offered)
+                                        .padding(.top, 18)
+                                }
                             }
                             // Each entry arrives as it's scrolled to (build 24).
                             .entrance()
@@ -129,6 +145,7 @@ struct TodayFeedView: View {
             // pull's own refresh (`TabTaps`).
             .onTabTap(state.tabTaps.today, scroll: proxy, to: "masthead") {
                 await state.refreshToday()
+                await state.loadQuestion()
                 await state.flushPendingCapture()
             }
             .background(SideDockReader(dock: $sideDock))
@@ -166,6 +183,16 @@ struct TodayFeedView: View {
             .sheet(isPresented: $capturing) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
+            .sheet(isPresented: $readingCircleJournal) {
+                NavigationStack {
+                    CircleJournalView()
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { readingCircleJournal = false }
+                            }
+                        }
+                }
+            }
             .refreshable {
                 Haptics.refreshed()
                 // SwiftUI cancels a pull's own task as soon as the state it is
@@ -174,15 +201,25 @@ struct TodayFeedView: View {
                 // pass runs as its own task and the pull waits on it.
                 await Task {
                     await state.refreshToday()
+                    await state.loadQuestion()
                     await state.flushPendingCapture()
                 }.value
             }
             .task {
                 await state.refreshToday()
+                await state.loadQuestion()
                 await state.flushPendingCapture()
             }
           }
         }
+    }
+
+    /// Your photo in this entry, if it's the one just posted and nothing's
+    /// written on it yet.
+    private func journalOffered(in item: FeedItem) -> Photo? {
+        guard let offer = state.journalOffer else { return nil }
+        let photos = item.photo.map { [$0] } ?? item.photos ?? []
+        return photos.first { $0.id == offer && $0.hasJournal != true && $0.owner.id == state.myId }
     }
 }
 
@@ -298,10 +335,11 @@ struct DayMark: View {
 /// small capitals and a hairline. It scrolls away with the page.
 struct TodayMasthead: View {
     let onJoinAnother: () -> Void
+    var onCircleJournal: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            CircleSwitcher(onJoinAnother: onJoinAnother)
+            CircleSwitcher(onJoinAnother: onJoinAnother, onCircleJournal: onCircleJournal)
             VStack(spacing: 2) {
                 Rule(weight: 1.5)
                 Rule(weight: 0.5)
@@ -325,6 +363,8 @@ struct TodayMasthead: View {
 struct CircleSwitcher: View {
     @Environment(AppState.self) private var state
     let onJoinAnother: () -> Void
+    /// The circle journal: past weeks' questions and answers (build 26).
+    var onCircleJournal: () -> Void = {}
 
     var body: some View {
         let name = state.circle?.name ?? "Today"
@@ -338,6 +378,9 @@ struct CircleSwitcher: View {
                 }
             }
             Divider()
+            Button(action: onCircleJournal) {
+                Label("Circle Journal", systemImage: "book")
+            }
             Button(action: onJoinAnother) {
                 Label("Join another circle", systemImage: "plus")
             }
@@ -360,7 +403,7 @@ struct CircleSwitcher: View {
         .tint(.primary)
         .accessibilityAddTraits(.isHeader)
         .accessibilityLabel("Circle: \(name)")
-        .accessibilityHint("Switch circles, or join another")
+        .accessibilityHint("Switch circles, read the circle journal, or join another")
     }
 }
 
@@ -899,6 +942,18 @@ struct PhotoCard: View {
                 }
             }
             Spacer(minLength: 8)
+            // Your own photo with an entry written on it: a small book that
+            // opens it (build 26). Only you ever see it.
+            if isMine, photo.hasJournal == true {
+                Button { action = .journal } label: {
+                    Image(systemName: "book.closed")
+                        .frame(width: GestureIcon.target, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Your journal entry")
+            }
             // Your own photo: who liked and who held it, as faces.
             if isMine {
                 Button { showFaces = true } label: {

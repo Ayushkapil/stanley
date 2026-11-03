@@ -20,7 +20,7 @@ from .config import Settings, resolve_secret
 from .db import Base, ensure_schema, make_engine, make_sessionmaker
 from .notifications import make_notifier
 from .ratelimit import RateLimiter
-from .routes import auth_routes, blobs, circles, feed, me, memories, news as news_routes, photos, safety
+from .routes import auth_routes, blobs, circles, feed, journal as journal_routes, me, memories, news as news_routes, photos, safety
 from .storage import make_blob_store
 
 log = logging.getLogger("stanley")
@@ -242,7 +242,7 @@ def create_app(
         )
     app.state.apple_verifier = apple_verifier
 
-    for router in (auth_routes, circles, photos, feed, me, memories, safety, blobs, news_routes):
+    for router in (auth_routes, circles, photos, feed, me, journal_routes, memories, safety, blobs, news_routes):
         app.include_router(router.router)
 
     @app.exception_handler(Exception)

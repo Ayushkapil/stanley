@@ -48,6 +48,11 @@ struct Photo: Codable, Identifiable, Hashable {
     /// back — today's photo, with the day's one redo unspent. Nil on anyone
     /// else's photo, and from a server older than build 18.
     let retakeOnDelete: Bool?
+    /// Yours only (build 26): whether you've written a journal entry on it,
+    /// for the small book on your print. Never the words, which are fetched
+    /// only when you open it. Nil on anyone else's photo, and from an older
+    /// server.
+    let hasJournal: Bool?
 }
 
 /// One short shared line for the circle (Part 4). A sticky note the day erases
@@ -163,12 +168,15 @@ struct Memory: Codable, Identifiable, Hashable {
     /// Which circle it's from. Held gathers every circle (build 17). Absent
     /// from a server before that, and from Returned's rescue payload.
     let circleName: String?
+    /// The journal entry you wrote on your own held photo (build 26), there
+    /// beneath it in the album. Only ever on your own photos, for you.
+    let journal: String?
 
     var id: String { photoId ?? photoPayloadId ?? UUID().uuidString }
 
     enum CodingKeys: String, CodingKey {
         case tombstone, photoId, date, takenAt, caption, location, urls, comments, tagged, note, anchoredAt
-        case circleName
+        case circleName, journal
         case photoPayloadId = "id"
     }
 }
@@ -316,4 +324,103 @@ struct HeldByEntry: Codable, Identifiable, Hashable {
 
 struct HeldByResponse: Codable {
     let anchors: [HeldByEntry]
+}
+
+// MARK: - Writing things down (build 26)
+
+/// What you wrote about your own photo: "Anything else about today?" Yours
+/// alone. The server answers only your own request for it, never a feed.
+struct JournalEntry: Codable, Hashable {
+    let photoId: String
+    let body: String
+    let updatedAt: Date?
+}
+
+/// One of your own photos from a week, for its reflection: still in Today
+/// and fading as it does there, or held by you and at full light. The rest
+/// of the week has faded, and a reflection doesn't bring it back.
+struct WeekPhoto: Codable, Identifiable, Hashable {
+    let id: String
+    let takenAt: Date
+    let thumb: String
+    let image: String?
+    let caption: String?
+    let held: Bool
+    let decayProgress: Double
+}
+
+/// How your week was, in your words. Read by no one else, and it doesn't fade.
+struct Reflection: Codable, Identifiable, Hashable {
+    let id: String
+    /// The week's Monday and Sunday, as days ("2026-11-02").
+    let weekStart: String
+    let weekEnd: String
+    let body: String
+    let createdAt: Date
+    let photos: [WeekPhoto]
+}
+
+struct ReflectionsPage: Codable {
+    let reflections: [Reflection]
+    let nextCursor: String?
+}
+
+/// The week a reflection written now would be about: its days, your photos
+/// from it, and the reflection once it's written.
+struct ThisWeek: Codable, Hashable {
+    let weekStart: String
+    let weekEnd: String
+    let photos: [WeekPhoto]
+    let reflection: Reflection?
+}
+
+/// The circle's question of the week. Answers open together at `revealsAt`
+/// (Saturday, 00:00 UTC).
+struct Question: Codable, Identifiable, Hashable {
+    let id: String
+    let text: String
+    let weekStart: String
+    let weekEnd: String
+    let revealsAt: Date
+}
+
+/// Someone's answer to it: a face and a name, and their words. No count of
+/// anything goes with it.
+struct Answer: Codable, Identifiable, Hashable {
+    let id: String
+    let author: UserBrief
+    let body: String
+    let createdAt: Date
+}
+
+/// This week's question for the circle on screen, your own answer if you've
+/// given it, and whether everyone's are open yet.
+struct WeekQuestion: Codable, Hashable {
+    let prompt: Question
+    let response: Answer?
+    let revealed: Bool
+}
+
+struct QuestionAnswers: Codable {
+    let prompt: Question
+    let responses: [Answer]
+}
+
+/// A week in the circle journal: its question and what everyone said.
+struct PastQuestion: Codable, Identifiable, Hashable {
+    let id: String
+    let text: String
+    let weekStart: String
+    let weekEnd: String
+    let revealsAt: Date
+    let responses: [Answer]
+
+    var question: Question {
+        Question(id: id, text: text, weekStart: weekStart, weekEnd: weekEnd, revealsAt: revealsAt)
+    }
+}
+
+struct CircleJournalPage: Codable {
+    let prompts: [PastQuestion]
+    let nextCursor: String?
 }

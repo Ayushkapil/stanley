@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .clock import Clock
-from .models import Anchor, Comment, DecayAudit, Like, Photo, PhotoTag, PurgeQueueItem, Report
+from .models import Anchor, Comment, DecayAudit, JournalEntry, Like, Photo, PhotoTag, PurgeQueueItem, Report
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
 
@@ -65,6 +65,9 @@ def sweep(session: Session, clock: Clock, notifier: Notifier) -> int:
                 # §8.2 retention rule: blob survives purge iff ≥1 anchor at expiry.
                 if _anchor_count(session, photo.id) == 0:
                     enqueue_purge(session, photo, expiry + TOMBSTONE)
+                # The owner's private entry fades with the photo, unless the
+                # owner kept it (build 26). After expiry, like the line above.
+                fade_journal(session, photo)
             else:
                 photo.state = to_state
                 photo.state_deadline = physics.state_deadline(to_state, photo.taken_at)
@@ -73,6 +76,20 @@ def sweep(session: Session, clock: Clock, notifier: Notifier) -> int:
             advanced += 1
         session.flush()
     return advanced
+
+
+def forget_journal(session: Session, photo_id: str) -> None:
+    """The owner's private journal entry on a photo goes (build 26)."""
+    session.execute(delete(JournalEntry).where(JournalEntry.photo_id == photo_id))
+
+
+def fade_journal(session: Session, photo: Photo) -> None:
+    """A photo out of Today keeps its owner's journal entry only while the
+    owner holds it: at expiry, and when the owner lets go of it afterwards.
+    Someone else holding it keeps the photo, not the owner's words, which
+    the owner could no longer reach."""
+    if photo.owner_id is None or session.get(Anchor, (photo.id, photo.owner_id)) is None:
+        forget_journal(session, photo.id)
 
 
 def owner_hash_for(user_id: str) -> str:
@@ -127,6 +144,8 @@ def scrub(
     session.execute(delete(Like).where(Like.photo_id == photo.id))
     # 'Who was there' tags are part of the artifact — purged with it (Part 3).
     session.execute(delete(PhotoTag).where(PhotoTag.photo_id == photo.id))
+    # So is its owner's journal entry, held or not (build 26).
+    forget_journal(session, photo.id)
 
     if owner_requested:
         anchorer_ids = set(

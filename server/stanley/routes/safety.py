@@ -14,6 +14,7 @@ from ..deps import (
 )
 from ..models import Block, Comment, Photo, Report, User
 from ..ratelimit import per_person
+from .journal import readable_answer
 from ..serialize import user_brief
 from ..text import clean
 
@@ -25,6 +26,8 @@ router = APIRouter(tags=["safety"])
 class ReportBody(BaseModel):
     photo_id: str | None = Field(default=None, max_length=64)
     comment_id: str | None = Field(default=None, max_length=64)
+    # An answer to the circle's question of the week (build 26).
+    response_id: str | None = Field(default=None, max_length=64)
     # Never run through the word filter: a report may have to quote what
     # it's about.
     reason: str = Field(min_length=1, max_length=2000)
@@ -46,8 +49,8 @@ def report(
     """§15: report with a 24h human-review takedown commitment (App Review
     Guideline 1.2). Pilot-stage review is manual."""
     require_membership(db, user)
-    if not body.photo_id and not body.comment_id:
-        raise HTTPException(400, "photo_id or comment_id required")
+    if not body.photo_id and not body.comment_id and not body.response_id:
+        raise HTTPException(400, "photo_id, comment_id or response_id required")
     if body.photo_id:
         photo = db.get(Photo, body.photo_id)
         if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
@@ -58,10 +61,15 @@ def report(
         # Only a story you could have read: one on a photo in your circles.
         if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
             raise HTTPException(404, "not found")
+    if body.response_id and readable_answer(db, user, body.response_id, clock.now()) is None:
+        # Only an answer you could have read: open, in your circle, from a
+        # week you were there for.
+        raise HTTPException(404, "not found")
     row = Report(
         reporter_id=user.id,
         photo_id=body.photo_id,
         comment_id=body.comment_id,
+        response_id=body.response_id,
         reason=clean(body.reason, multiline=True) or "(no reason given)",
         created_at=clock.now(),
     )

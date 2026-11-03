@@ -14,6 +14,8 @@ import SwiftUI
 /// What someone asked to do to a photo from one of its menus.
 enum PhotoAction: Identifiable {
     case report, delete, untag
+    /// Your own journal entry on it (build 26).
+    case journal
     var id: Self { self }
 }
 
@@ -34,6 +36,12 @@ struct PhotoMenuItems: View {
             }
         }
         if isMine {
+            // A server before build 26 says nothing about entries.
+            if let written = photo.hasJournal {
+                Button { action = .journal } label: {
+                    Label(written ? "Your Journal Entry" : "Write in Your Journal", systemImage: "book.closed")
+                }
+            }
             Button(role: .destructive) { action = .delete } label: {
                 Label("Delete Photo", systemImage: "trash")
             }
@@ -92,6 +100,9 @@ private struct PhotoActions: ViewModifier {
             .sheet(isPresented: showing(.report)) {
                 ReportSheet(target: .photo(photo))
             }
+            .sheet(isPresented: showing(.journal)) {
+                JournalEntrySheet(photoId: photo.id, thumb: photo.urls?.thumb, takenAt: photo.takenAt)
+            }
             .alert("Delete this photo?", isPresented: showing(.delete)) {
                 Button("Delete", role: .destructive) { Task { await state.deletePhoto(photo) } }
                 Button("Cancel", role: .cancel) {}
@@ -147,11 +158,14 @@ private struct StoryMenu: ViewModifier {
 enum ReportTarget {
     case photo(Photo)
     case story(Comment, on: Photo)
+    /// An answer to the circle's question of the week (build 26).
+    case answer(Answer)
 
     var author: UserBrief {
         switch self {
         case .photo(let photo): photo.owner
         case .story(let comment, _): comment.author
+        case .answer(let answer): answer.author
         }
     }
 
@@ -159,6 +173,7 @@ enum ReportTarget {
         switch self {
         case .photo: "photo"
         case .story: "story"
+        case .answer: "answer"
         }
     }
 }
@@ -285,11 +300,12 @@ struct ReportSheet: View {
         guard !reason.isEmpty, !sending else { return }
         sending = true
         Task {
-            let (photo, comment): (Photo?, Comment?) = switch target {
-            case .photo(let p): (p, nil)
-            case .story(let c, _): (nil, c)
+            let (photo, comment, answer): (Photo?, Comment?, Answer?) = switch target {
+            case .photo(let p): (p, nil, nil)
+            case .story(let c, _): (nil, c, nil)
+            case .answer(let a): (nil, nil, a)
             }
-            let ok = await state.report(photo: photo, comment: comment, reason: reason)
+            let ok = await state.report(photo: photo, comment: comment, answer: answer, reason: reason)
             sending = false
             if ok { withAnimation { sent = true } }
         }

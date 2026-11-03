@@ -350,6 +350,12 @@ struct MemoryCard: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
+                    // Your own photo: what you wrote about the day, beneath
+                    // it, yours alone (build 26).
+                    if let journal = memory.journal, !journal.isEmpty {
+                        HeldJournalNote(memory: memory, words: journal)
+                            .padding(.top, 6)
+                    }
                 }
                 .padding(.horizontal, 4)
             }

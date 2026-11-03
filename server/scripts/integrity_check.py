@@ -43,8 +43,9 @@ CHECKS: list[tuple[str, str]] = [
      "SELECT count(*) FROM photo_tags WHERE photo_id NOT IN (SELECT id FROM photos)"),
     ("rests of a photo that doesn't exist",
      "SELECT count(*) FROM rests WHERE photo_id NOT IN (SELECT id FROM photos)"),
-    ("reports about nothing (no photo and no story)",
-     "SELECT count(*) FROM reports WHERE photo_id IS NULL AND comment_id IS NULL"),
+    ("open reports about nothing (no photo, story or answer)",
+     "SELECT count(*) FROM reports WHERE photo_id IS NULL AND comment_id IS NULL"
+     " AND response_id IS NULL AND resolved_at IS NULL"),
     ("purges queued for a photo that doesn't exist",
      "SELECT count(*) FROM purge_queue WHERE photo_id NOT IN (SELECT id FROM photos)"),
     ("circles started by someone who doesn't exist",
@@ -73,6 +74,17 @@ CHECKS: list[tuple[str, str]] = [
     ("expired photos nobody holds with no purge scheduled",
      "SELECT count(*) FROM photos p WHERE p.state = 'EXPIRED' AND p.purge_after IS NULL "
      "AND NOT EXISTS (SELECT 1 FROM anchors a WHERE a.photo_id = p.id)"),
+    # Build 26: a journal entry lives as long as its photo does for its
+    # owner, and what a deleted account wrote down is gone with it.
+    ("journal entries outliving their photo, or on someone else's",
+     "SELECT count(*) FROM journal_entries j LEFT JOIN photos p ON p.id = j.photo_id "
+     "WHERE p.id IS NULL OR p.state = 'PURGED' OR p.deleted_at IS NOT NULL OR p.owner_id IS NOT j.owner_id "
+     "OR (p.state = 'EXPIRED' AND NOT EXISTS "
+     "(SELECT 1 FROM anchors a WHERE a.photo_id = p.id AND a.user_id = j.owner_id))"),
+    ("deleted accounts' reflections, answers or journal entries",
+     "SELECT (SELECT count(*) FROM weekly_reflections r JOIN users u ON u.id = r.owner_id WHERE u.deleted_at IS NOT NULL)"
+     " + (SELECT count(*) FROM prompt_responses a JOIN users u ON u.id = a.user_id WHERE u.deleted_at IS NOT NULL)"
+     " + (SELECT count(*) FROM journal_entries j JOIN users u ON u.id = j.owner_id WHERE u.deleted_at IS NOT NULL)"),
 ]
 
 

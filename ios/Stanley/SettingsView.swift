@@ -96,6 +96,10 @@ struct SettingsView: View {
                         )
                     }
                 }
+                // Each week's question and what everyone said (build 26).
+                NavigationLink("Circle Journal") {
+                    CircleJournalView()
+                }
                 if let code = state.inviteCode {
                     NavigationLink {
                         InviteCodeView()

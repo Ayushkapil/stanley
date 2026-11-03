@@ -12,7 +12,8 @@ uvicorn worker); a restart forgets them, which costs nothing.
   can put a whole floor behind one address, so a pilot kickoff where
   everyone signs in at once may want `STANLEY_RATE_AUTH_PER_MINUTE` raised
   for the evening.
-- uploads, avatars, stories and reports: per person.
+- uploads, avatars, stories, reports and journal writing (entries,
+  reflections, answers; build 26, at the stories' pace): per person.
 
 Over the limit is a 429 with `{"code": "slow_down"}` and a Retry-After in
 seconds. The app says it in words, and a queued capture just waits for its
@@ -111,6 +112,9 @@ def _limits(request: Request) -> dict[str, Limit]:
         "upload": Limit("upload", s.rate_uploads_per_hour, 3600),
         "avatar": Limit("avatar", s.rate_avatars_per_hour, 3600),
         "story": Limit("story", s.rate_stories_per_hour, 3600),
+        # Journal entries, reflections and answers to the circle's question
+        # (build 26): writing, at the same pace as stories.
+        "journal": Limit("journal", s.rate_stories_per_hour, 3600),
         "report": Limit("report", s.rate_reports_per_hour, 3600),
     }
 

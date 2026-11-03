@@ -37,6 +37,19 @@ final class AppState {
     var communityNote: CommunityNote?
     var mosaic: Mosaic?
     var returned: ReturnedItem?
+    /// The circle on screen's question of the week, and your answer to it
+    /// (build 26). Nil before it's loaded, and from an older server.
+    var question: WeekQuestion?
+    /// Today's photo, just posted: the one the quiet "Anything else about
+    /// today?" slip sits under, until something's written or it's put away.
+    /// Doing nothing is skipping it, and it's gone at the next launch.
+    var journalOffer: String?
+    /// The week a reflection written now would be about, with your photos
+    /// from it: loaded on Sunday evenings, when the You tab asks.
+    var thisWeek: ThisWeek?
+    /// Your reflections, newest first, and where the next page starts.
+    var reflections: [Reflection] = []
+    var reflectionsCursor: String?
     var news: [NewsArticle] = []
     /// Headlines from the town the phone is in, and that town's name. Empty
     /// without location permission.
@@ -79,6 +92,8 @@ final class AppState {
     private var flushing = false
     /// The next page of Today is on its way.
     private var loadingMoreToday = false
+    /// The next page of reflections is on its way.
+    private var loadingMoreReflections = false
     /// Today's first page, and each page after it.
     static let todayPage = 20
     /// When the sign-in was last renewed (`refreshSignInIfDue`).
@@ -202,6 +217,7 @@ final class AppState {
     private func reloadEverything() async {
         await loadCircle()
         await refreshToday()
+        await loadQuestion()
         await refreshMemories()
         await loadProfile()
         reloads += 1
@@ -353,6 +369,11 @@ final class AppState {
         communityNote = nil
         mosaic = nil
         returned = nil
+        question = nil
+        journalOffer = nil
+        thisWeek = nil
+        reflections = []
+        reflectionsCursor = nil
         news = []
         nearby = []
         nearbyTown = nil
@@ -441,8 +462,11 @@ final class AppState {
         todayLoaded = false
         communityNote = nil
         mosaic = nil
+        question = nil
+        journalOffer = nil
         await loadCircle()
         await refreshToday()
+        await loadQuestion()
     }
 
     /// The circle on screen is gone (left, or removed, on another phone).
@@ -454,6 +478,8 @@ final class AppState {
         todayLoaded = false
         communityNote = nil
         mosaic = nil
+        question = nil
+        journalOffer = nil
         await loadCircle()
     }
 
@@ -736,11 +762,14 @@ final class AppState {
             throw APIError.message("Your photo for today is still waiting to upload.")
         }
         do {
-            _ = try await api.uploadPhoto(
+            let posted = try await api.uploadPhoto(
                 jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
                 circleId: circleId
             )
             Trail.note(.postedPhoto)
+            // Only a photo posted now, never one sent later from the queue:
+            // by then the moment to ask has passed.
+            journalOffer = posted.id
             await refreshToday()
             return true
         } catch APIError.server(code: "not_in_circle", status: let status) {
@@ -810,6 +839,183 @@ final class AppState {
         if sent {
             flash = "Your photo went up."
             await refreshToday()
+        }
+    }
+
+    // MARK: writing things down (build 26)
+    //
+    // Three kinds, none counted and none notified: a private entry on your
+    // own photo, your reflection on the week, and the circle's question of
+    // the week, sealed until Saturday and then read together.
+
+    /// The circle on screen's question this week. Loaded when Today is
+    /// (not on every refresh: it changes once a week, and opens once).
+    func loadQuestion() async {
+        guard let circleId = circle?.id else {
+            question = nil
+            return
+        }
+        do {
+            let loaded: WeekQuestion = try await api.send("GET", "/circles/\(circleId)/prompt")
+            guard circle?.id == circleId else { return }
+            question = loaded
+        } catch APIError.status(404) {
+            // A server from before the question existed.
+            question = nil
+        } catch {
+            // Keep what was showing; Today says if it's offline.
+        }
+    }
+
+    /// Answer this week's question, once. True when it's in; the words stay
+    /// in the field otherwise, with the reason said.
+    func answerQuestion(_ text: String) async -> Bool {
+        guard let circleId = circle?.id else { return false }
+        do {
+            let answered: WeekQuestion = try await api.send(
+                "POST", "/circles/\(circleId)/prompt/respond", json: ["body": text]
+            )
+            Trail.note(.answeredQuestion)
+            if circle?.id == circleId { question = answered }
+            return true
+        } catch {
+            surface(error)
+            // Already answered (on another phone), or closed: show it as it is.
+            if case APIError.server = error { await loadQuestion() }
+            return false
+        }
+    }
+
+    /// Everyone's answers to this week's question, once they're out.
+    func questionAnswers() async -> QuestionAnswers? {
+        guard let circleId = circle?.id else { return nil }
+        do {
+            return try await api.send("GET", "/circles/\(circleId)/prompt/responses")
+        } catch {
+            missed(error)
+            return nil
+        }
+    }
+
+    /// A page of the circle journal: past weeks' questions and answers.
+    func circleJournal(cursor: String?) async throws -> CircleJournalPage {
+        guard let circleId = circle?.id else { return CircleJournalPage(prompts: [], nextCursor: nil) }
+        var query: [String: String] = [:]
+        if let cursor { query["cursor"] = cursor }
+        return try await api.send("GET", "/circles/\(circleId)/prompts", query: query)
+    }
+
+    /// Your entry on your own photo, or nil when there isn't one.
+    func journalEntry(_ photoId: String) async throws -> JournalEntry? {
+        do {
+            return try await api.send("GET", "/photos/\(photoId)/journal")
+        } catch APIError.status(404) {
+            return nil
+        }
+    }
+
+    /// Write or rewrite your entry. True when it's kept; Today's book and
+    /// Held's words follow.
+    func writeJournal(_ photoId: String, _ body: String) async -> Bool {
+        do {
+            let _: JournalEntry = try await api.send("PUT", "/photos/\(photoId)/journal", json: ["body": body])
+            Trail.note(.wroteJournal)
+            if journalOffer == photoId { journalOffer = nil }
+            await refreshToday()
+            if memoriesLoaded { await refreshMemories() }
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    func deleteJournal(_ photoId: String) async -> Bool {
+        do {
+            let _: Empty = try await api.send("DELETE", "/photos/\(photoId)/journal")
+            await refreshToday()
+            if memoriesLoaded { await refreshMemories() }
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// The week a reflection would be about, asked for only while the
+    /// evening for writing one is open (`ReflectionWindow`).
+    func loadThisWeek() async {
+        guard ReflectionWindow.isOpen() else {
+            thisWeek = nil
+            return
+        }
+        do {
+            thisWeek = try await api.send(
+                "GET", "/me/reflections/this-week", query: ["tz": TimeZone.current.identifier]
+            )
+        } catch APIError.status(404) {
+            thisWeek = nil
+        } catch {
+            missed(error)
+        }
+    }
+
+    /// Your reflections, from the newest.
+    func loadReflections() async {
+        do {
+            let page: ReflectionsPage = try await api.send("GET", "/me/reflections")
+            reflections = page.reflections
+            reflectionsCursor = page.nextCursor
+        } catch APIError.status(404) {
+            reflections = []
+            reflectionsCursor = nil
+        } catch {
+            missed(error)
+        }
+    }
+
+    func loadMoreReflections() async {
+        guard let cursor = reflectionsCursor, !loadingMoreReflections else { return }
+        loadingMoreReflections = true
+        defer { loadingMoreReflections = false }
+        do {
+            let page: ReflectionsPage = try await api.send("GET", "/me/reflections", query: ["cursor": cursor])
+            guard reflectionsCursor == cursor else { return }
+            let showing = Set(reflections.map(\.id))
+            reflections += page.reflections.filter { !showing.contains($0.id) }
+            reflectionsCursor = page.nextCursor
+        } catch {
+            missed(error)
+        }
+    }
+
+    /// This week's reflection. True once it's in your journal.
+    func writeReflection(_ body: String) async -> Bool {
+        do {
+            let _: Reflection = try await api.send(
+                "POST", "/me/reflections", json: ["body": body, "tz": TimeZone.current.identifier]
+            )
+            Trail.note(.wroteReflection)
+            await loadThisWeek()
+            await loadReflections()
+            return true
+        } catch {
+            surface(error)
+            if case APIError.server(code: "already_reflected", status: _) = error {
+                await loadThisWeek()
+                await loadReflections()
+            }
+            return false
+        }
+    }
+
+    func deleteReflection(_ reflection: Reflection) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/me/reflections/\(reflection.id)")
+            reflections.removeAll { $0.id == reflection.id }
+            if thisWeek?.reflection?.id == reflection.id { await loadThisWeek() }
+        } catch {
+            surface(error)
         }
     }
 
@@ -930,11 +1136,14 @@ final class AppState {
 
     /// A report about a photo or a story, with the reason in words. Read by a
     /// person within a day (Terms §5). True once it's in.
-    func report(photo: Photo? = nil, comment: Comment? = nil, reason: String) async -> Bool {
+    func report(photo: Photo? = nil, comment: Comment? = nil, answer: Answer? = nil, reason: String) async -> Bool {
         do {
             let _: Empty = try await api.send(
                 "POST", "/reports",
-                json: ["photo_id": photo?.id, "comment_id": comment?.id, "reason": reason]
+                json: [
+                    "photo_id": photo?.id, "comment_id": comment?.id, "response_id": answer?.id,
+                    "reason": reason,
+                ]
             )
             Trail.note(.reported)
             return true

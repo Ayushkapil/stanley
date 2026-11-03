@@ -37,6 +37,12 @@ the fixes below are on Fly until the next `fly deploy`.
    cd server && fly deploy
    ```
 
+   The same deploy carries build 26's journal: its first start creates four
+   tables (`journal_entries`, `weekly_reflections`, `circle_prompts`,
+   `prompt_responses`) and adds `reports.response_id` (`ensure_schema`).
+   Against today's server, build 26's app quietly shows no question slip, no
+   Sunday card and no book on a print.
+
    Then check: `curl -sI https://server-earnest-stream-9793.fly.dev/health`
    shows `strict-transport-security` and `content-security-policy`;
    `/openapi.json` is a 404; `fly logs` shows `INFO stanley: backup: wrote …`
@@ -101,6 +107,14 @@ the fixes below are on Fly until the next `fly deploy`.
    decide the pilot's group chat is enough and accept that it isn't "in the
    app". The policy's effective date moved to November 3, 2026; the Terms
    didn't change.
+
+   **Build 26 adds to this** (the journal): the policy now also describes
+   private journal entries, weekly reflections and answers to the circle's
+   question of the week (what's kept, who reads it, for how long, and that
+   answers open to the whole circle on Saturday at midnight UTC), and the
+   Terms count them as Content, so the Terms are dated November 3 as well.
+   That's collecting something new, so section 10's promise applies to build
+   26 whether or not it has a Sentry DSN: tell the pilot before it ships.
 
 8. **Delete the pre-build-18 snapshot by November 8** (both copies), or the
    policy's "gone from our backups within seven days" stops being true:
@@ -288,7 +302,8 @@ the fixes below are on Fly until the next `fly deploy`.
     "Niger", "spicy", "spick-and-span" and "chink in the armor" pass (tested).
   - A **moderation tool** for the operator (`python -m stanley.moderation`):
     list open reports, show one with a 15-minute link to the photo, take a
-    photo or story down (it resolves the reports about it), preserve
+    photo, story or (build 26) answer to the circle's question down (it
+    resolves the reports about it), preserve
     evidence first, close a report, end an account. The Terms promised
     removal, but until now there was no way to do it short of editing the
     database. Run it on Fly with `fly ssh console -C "/app/.venv/bin/python

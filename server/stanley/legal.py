@@ -17,9 +17,10 @@ from __future__ import annotations
 from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
-# The Terms' date. The Privacy Policy has its own since it last changed
-# (November 3, 2026: the crash report's short trail of what the app did).
-EFFECTIVE = "November 1, 2026"
+# The Terms' date, and the Privacy Policy's own. Both last changed on
+# November 3, 2026: the crash report's short trail of what the app did, and
+# then the journal (build 26: entries, reflections, the circle's question).
+EFFECTIVE = "November 3, 2026"
 PRIVACY_EFFECTIVE = "November 3, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
@@ -48,6 +49,8 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Captions and the place names you put on your photos",
             "- Stories you add to photos, your answers to “What do you remember?”",
             "- Community notes you leave for your circle",
+            "- Journal entries you write on your own photos, and your reflections on your week. Only you ever see these",
+            "- Your answers to your circle's question of the week",
             "- Who was there: the people you tag on a photo",
             "- The photos you like and hold, and any private note you keep with a held photo",
             "- Reports you make and the people you block",
@@ -74,7 +77,8 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         "3. How we use your data",
         [
             "We use what we collect to run Stanley, and for nothing else:",
-            "- To show your photos, stories and profile to your circle, and theirs to you",
+            "- To show your photos, stories, answers and profile to your circle, and theirs to you",
+            "- To keep your journal entries and reflections, and show them to you alone",
             "- To keep Stanley's rules: one photo a day in each circle, the fading, and the keeping",
             "- To run your circles, their invite codes, and your blocks",
             "- To send the notices you've turned on, and only those",
@@ -95,7 +99,10 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- If no one held it, it then becomes a tombstone, and within seven days the photo, its caption, place, likes, tags and stories are permanently deleted from our servers",
             "- A photo someone held stays with them until they let go of it or delete their account, or until the person who posted it deletes it",
             "- When someone deletes a photo they posted, its image is removed everywhere at once, including from the collections of people who held it. They keep a note that a memory was there, and the stories they wrote themselves. The person who posted a photo always has the last word",
-            "- When you delete your account, we delete your data right away: your profile, your photos (including ones other people held), your stories, likes, holds, tags, notes, settings, notification tokens and circle memberships. What's left is a bare record with nothing about you in it, so that the people who held your photos see “a memory was here” instead of an error, and so that reports can still be reviewed",
+            "- A journal entry on your photo lasts as long as the photo does for you: while it's in Today, and after that only while you hold it. It's deleted when the photo fades without your hold, when you let go of it, when the photo is deleted, or when you delete the entry",
+            "- Reflections don't fade. Each is kept until you delete it or your account",
+            "- Your answers to your circle's weekly questions are kept in the circle's journal until you delete your account",
+            "- When you delete your account, we delete your data right away: your profile, your photos (including ones other people held), your stories, likes, holds, tags, notes, journal entries, reflections, answers, settings, notification tokens and circle memberships. What's left is a bare record with nothing about you in it, so that the people who held your photos see “a memory was here” instead of an error, and so that reports can still be reviewed",
             "- Our database is backed up once a day and each backup is kept for seven days, so anything deleted is gone from our backups within seven days",
             "- A notification token is deleted when you sign out on that phone, when you delete your account, or when Apple tells us it no longer works",
             "- Places you've used recently or starred are saved only on your phone, never on our servers, and are erased from your phone when you delete your account there",
@@ -107,6 +114,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         [
             "## Your circle",
             "Your photos, captions, places, stories and tags are seen by the members of the circle you post them to, and your profile by the people who share a circle with you. Likes and holds are different: only the person who posted a photo sees who liked or held it, as faces, never as a number.",
+            "Your journal entries and reflections are never shown to anyone but you. Your answer to your circle's question of the week is sealed until that week's answers open, on Saturday at midnight UTC (Friday afternoon or evening in the United States). Then everyone in the circle can read the answers together, whether they answered or not, including anyone who joined that week. People who join later don't see the weeks before they joined.",
             "People who hold your photo keep it, and can include it when they export their memories. A copy someone has exported is outside Stanley, where we can't delete it. And as with anything you show people, someone could take a screenshot.",
             "## Services that run Stanley",
             "Beyond your circle, we share data only with the services Stanley needs to work:",
@@ -141,9 +149,9 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
     (
         "8. Your rights and choices",
         [
-            "- Export: your held memories, with their captions and places, any time from Settings → Privacy & Security → Export My Memories",
+            "- Export: your held memories, with their captions and places and your journal entries on them, your reflections, and your answers to your circle's questions, any time from Settings → Privacy & Security → Export My Memories",
             "- Change: your name, username, bio and photo, any time, from the You tab",
-            "- Delete: your account, any time, from Settings → Privacy & Security → About Your Account → Delete Account",
+            "- Delete: a journal entry or a reflection, any time, from where you read it; your account, any time, from Settings → Privacy & Security → About Your Account → Delete Account",
             "- Notifications: both are off until you turn them on in Settings → Quiet, and you can turn them off there or in iOS Settings",
             "- Location: you can say no, or change your mind in iOS Settings. Stanley works without it; you type your own places and see national news",
             "- Ask us: for a copy of the data we hold about you, or to correct or delete something, write to us. We'll answer within 30 days",
@@ -181,7 +189,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
             "Welcome to Stanley. These Terms of Use are an agreement between you and Ayush Kapileshwar, who builds and runs Stanley (“Stanley”, “we”, “us”). They cover the Stanley app and the server it uses.",
             "By creating an account or using Stanley, you agree to these terms and to our Privacy Policy. If you don't agree, please don't use Stanley.",
             "You must be at least 13 years old to use Stanley. If you're under the age of majority where you live, you need a parent's or guardian's permission, and they agree to these terms for you.",
-            "These terms are effective November 1, 2026.",
+            "These terms are effective November 3, 2026.",
         ],
     ),
     (
@@ -197,7 +205,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
     (
         "3. Your content",
         [
-            "“Content” means the photos, captions, stories, place names, community notes, tags and profile information you create or share on Stanley.",
+            "“Content” means the photos, captions, stories, place names, community notes, tags, journal entries, reflections, answers to your circle's questions and profile information you create or share on Stanley.",
             "You own your content. Stanley does not claim ownership of anything you post.",
             "To run Stanley, we need your permission to handle it. So you give us a limited, non-exclusive, royalty-free, worldwide license to store your content on our servers, to process it as needed to provide the service (resizing it, cropping it to fit, removing its metadata, and serving it), and to show it to the people Stanley shows it to: the members of the circle you posted it to, the people who hold it, and you.",
             "This license is only for running Stanley. It ends when your content is deleted: when a photo fades and no one has held it, when you delete it, or when you delete your account. Copies that people in your circle exported before then are theirs, and outside our reach.",

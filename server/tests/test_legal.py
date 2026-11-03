@@ -28,7 +28,10 @@ def test_the_policy_says_what_stanley_does_with_location_and_notifications(clien
     assert f"Effective {legal.PRIVACY_EFFECTIVE}" in text
     # The crash report's trail is said, and what it never carries.
     assert "a short trail of what the app did just before" in text
-    assert "Effective November 1, 2026" in client.get("/terms").text
+    assert f"Effective {legal.EFFECTIVE}" in client.get("/terms").text
+    # What the journal keeps, and who reads it (build 26).
+    assert "Only you ever see these" in text
+    assert "sealed until that week&#x27;s answers open" in text
     assert "<h3>What we don&#x27;t collect</h3>" in text  # subheadings render
 
 

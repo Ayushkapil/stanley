@@ -71,7 +71,12 @@ Personalization, never Other.
   Captions, story-comments, bio, username, hold notes, the community note,
   location labels (a free-text string like "Dunn Meadow", typed, or offered
   from where the phone is and kept by the person; never coordinates),
-  who-was-there tags, and report text.
+  who-was-there tags, and report text. Since build 26, what a person writes
+  down: journal entries on their own photos and weekly reflections (both
+  read by no one but their writer), and answers to the circle's question of
+  the week (read by the circle once that week's answers open). The same
+  answers as before: collected, linked, used for App Functionality, not for
+  tracking.
 - [ ] Emails or Text Messages / Audio / Gameplay / Customer Support — **not collected.**
 
 ### Identifiers

@@ -211,12 +211,19 @@ class Rest(Base):
 
 class Report(Base):
     __tablename__ = "reports"
-    __table_args__ = (Index("ix_reports_comment", "comment_id"), Index("ix_reports_photo", "photo_id"))
+    __table_args__ = (
+        Index("ix_reports_comment", "comment_id"),
+        Index("ix_reports_photo", "photo_id"),
+        Index("ix_reports_response", "response_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     reporter_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     photo_id: Mapped[str | None] = mapped_column(ForeignKey("photos.id"), nullable=True)
     comment_id: Mapped[str | None] = mapped_column(ForeignKey("comments.id"), nullable=True)
+    # An answer to the circle's question of the week (build 26), which the
+    # whole circle reads once the answers open.
+    response_id: Mapped[str | None] = mapped_column(ForeignKey("prompt_responses.id"), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -315,3 +322,72 @@ class NewsEdition(Base):
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime)
     articles: Mapped[str] = mapped_column(Text)  # JSON list, already normalized
+
+
+class JournalEntry(Base):
+    """What happened today, in the photo's owner's own words (build 26): a
+    private entry on their own photo. Nobody else reads it, anywhere: the
+    feed never carries it, and only the owner's own requests reach it. It
+    lives as long as the photo does for its owner (`journal.py`): it goes
+    when the photo is deleted or purged, and when the photo fades unless its
+    owner held it, or later lets go of it. One per photo."""
+
+    __tablename__ = "journal_entries"
+    __table_args__ = (Index("ix_journal_entries_owner", "owner_id"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"), unique=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class WeeklyReflection(Base):
+    """How the week was (build 26), written on a Sunday evening and read by
+    no one but its writer. It doesn't fade: kept until they delete it or
+    their account. One per person per week, the week being the Monday it
+    began, in their own time zone."""
+
+    __tablename__ = "weekly_reflections"
+    __table_args__ = (UniqueConstraint("owner_id", "week_start", name="uq_reflection_week"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    week_start: Mapped[date] = mapped_column(Date)
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class CirclePrompt(Base):
+    """The circle's question of the week (build 26), one of forty, never the
+    same twice within forty weeks. Made the first time anyone in the circle
+    asks for this week's. The week is Monday to Monday in UTC."""
+
+    __tablename__ = "circle_prompts"
+    __table_args__ = (UniqueConstraint("circle_id", "week_start", name="uq_circle_prompt_week"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"))
+    prompt: Mapped[str] = mapped_column(Text)
+    week_start: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class PromptResponse(Base):
+    """One person's answer to their circle's question, sealed until the
+    answers open on Saturday and then read by the circle together. One each,
+    never edited, and kept as part of the circle's journal until its writer
+    deletes their account."""
+
+    __tablename__ = "prompt_responses"
+    __table_args__ = (
+        UniqueConstraint("prompt_id", "user_id", name="uq_prompt_response_once"),
+        Index("ix_prompt_responses_user", "user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    prompt_id: Mapped[str] = mapped_column(ForeignKey("circle_prompts.id"))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)

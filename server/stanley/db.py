@@ -93,6 +93,8 @@ _LATER_COLUMNS = {
     "users": {"username": "VARCHAR(30)", "bio": "TEXT", "digest_enabled": "BOOLEAN DEFAULT 0"},
     "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
+    # Build 26: a report about an answer to the circle's question.
+    "reports": {"response_id": "VARCHAR(32) REFERENCES prompt_responses(id)"},
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
 # Hot-path indexes (audit M3). Idempotent CREATE INDEX IF NOT EXISTS so existing
@@ -125,6 +127,7 @@ _LATER_INDEXES = [
     # Deleting a story or photo detaches the reports about it.
     ("ix_reports_comment", "reports", "comment_id"),
     ("ix_reports_photo", "reports", "photo_id"),
+    ("ix_reports_response", "reports", "response_id"),
 ]
 # Tables left behind by a rename. Their data was ephemeral by design, so a drop
 # is safe — "warmth" became "likes" (same mechanic, cosmetic heart), and

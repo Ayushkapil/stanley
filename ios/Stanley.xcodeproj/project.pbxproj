@@ -47,6 +47,7 @@
 		DC1E92CA63D8409753C579A8 /* PhotoFilters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 643284CE27799EBF5CE62A06 /* PhotoFilters.swift */; };
 		EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */; };
 		F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1401F690E1241EB4B8D190DC /* AppState.swift */; };
+		F7209C28237DF8A2588F6C12 /* Writing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6651E84FAC14531BCD5F1A6F /* Writing.swift */; };
 		FCC537D2E099C14871723492 /* Legal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E5AD82A467F941E84D908A /* Legal.swift */; };
 /* End PBXBuildFile section */
 
@@ -66,6 +67,7 @@
 		59A4482F0EEC4500194DB4B1 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		643284CE27799EBF5CE62A06 /* PhotoFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoFilters.swift; sourceTree = "<group>"; };
 		65E5AD82A467F941E84D908A /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
+		6651E84FAC14531BCD5F1A6F /* Writing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Writing.swift; sourceTree = "<group>"; };
 		7076D62BCAF8F97CC12051C7 /* Mentions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mentions.swift; sourceTree = "<group>"; };
 		74E3C2EDF7A9388B26E93DA4 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		7996693C098F3CB199D03DB5 /* TabTaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabTaps.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 				0C775715F391ED80D954D9ED /* WelcomeView.swift */,
 				AA186266B8710917748C184C /* Whereabouts.swift */,
 				E137B196869A47ACE289A041 /* WorldTodayView.swift */,
+				6651E84FAC14531BCD5F1A6F /* Writing.swift */,
 			);
 			path = Stanley;
 			sourceTree = "<group>";
@@ -287,6 +290,7 @@
 				34EEFDBCD545DEBF21F5DE22 /* WelcomeView.swift in Sources */,
 				6F9A60A9341F464C3A24AC5B /* Whereabouts.swift in Sources */,
 				2D6A2BE15AF99D9A87A677C8 /* WorldTodayView.swift in Sources */,
+				F7209C28237DF8A2588F6C12 /* Writing.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

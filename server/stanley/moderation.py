@@ -8,6 +8,7 @@ of editing the database by hand. This is that way, run on the server:
     ... show <report id>          the report, and a 15-minute link to the photo
     ... photo <photo id> [--preserve /data/evidence]   take a photo down
     ... story <story id>          take a story down
+    ... answer <answer id>        take down an answer to the circle's question
     ... resolve <report id>       close a report that needed nothing removed
     ... account <user id>         end an account (the Terms, section 6)
 
@@ -34,7 +35,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .decay import delete_comments, scrub
-from .models import Comment, Photo, Report, User
+from .models import CirclePrompt, Comment, Photo, PromptResponse, Report, User
 
 log = logging.getLogger("stanley")
 
@@ -46,12 +47,21 @@ def open_reports(session: Session) -> list[Report]:
     )
 
 
-def _resolve_about(session: Session, now: datetime, *, photo_id: str | None = None, comment_id: str | None = None) -> int:
+def _resolve_about(
+    session: Session,
+    now: datetime,
+    *,
+    photo_id: str | None = None,
+    comment_id: str | None = None,
+    response_id: str | None = None,
+) -> int:
     conditions = []
     if photo_id:
         conditions.append(Report.photo_id == photo_id)
     if comment_id:
         conditions.append(Report.comment_id == comment_id)
+    if response_id:
+        conditions.append(Report.response_id == response_id)
     reports = session.scalars(
         select(Report).where(Report.resolved_at.is_(None), or_(*conditions))
     ).all()
@@ -129,6 +139,29 @@ def take_down_story(session: Session, comment_id: str, now: datetime) -> bool:
     return True
 
 
+def take_down_answer(session: Session, response_id: str, now: datetime) -> bool:
+    """An answer to a circle's question, removed for everyone (build 26)."""
+    from .routes.journal import delete_answers
+
+    row = session.get(PromptResponse, response_id)
+    if row is None:
+        return False
+    resolved = _resolve_about(session, now, response_id=response_id)
+    delete_answers(session, [row])
+    log.warning("event=answer_taken_down reports_resolved=%d", resolved)
+    return True
+
+
+def _about(r: Report) -> str:
+    if r.comment_id:
+        return f"story {r.comment_id}"
+    if r.response_id:
+        return f"answer {r.response_id}"
+    if r.photo_id:
+        return f"photo {r.photo_id}"
+    return "(what it was about is gone)"
+
+
 class _At:
     def __init__(self, now: datetime):
         self._now = now
@@ -170,6 +203,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     photo.add_argument("--preserve", help="copy the photo and its facts here first (CSAM: required)")
     story = sub.add_parser("story")
     story.add_argument("story")
+    answer = sub.add_parser("answer")
+    answer.add_argument("answer")
     res = sub.add_parser("resolve")
     res.add_argument("report")
     acct = sub.add_parser("account")
@@ -184,8 +219,7 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     with session:
         if args.cmd == "list":
             for r in open_reports(session):
-                what = f"story {r.comment_id}" if r.comment_id else f"photo {r.photo_id}"
-                print(f"{r.id}  {r.created_at:%Y-%m-%d %H:%M}Z  {what}  {r.reason[:60]!r}")
+                print(f"{r.id}  {r.created_at:%Y-%m-%d %H:%M}Z  {_about(r)}  {r.reason[:60]!r}")
             return 0
         if args.cmd == "show":
             r = session.get(Report, args.report)
@@ -196,6 +230,12 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             if r.comment_id:
                 c = session.get(Comment, r.comment_id)
                 print(f"story {r.comment_id}: {c.body if c else '(gone)'}")
+            if r.response_id:
+                a = session.get(PromptResponse, r.response_id)
+                q = session.get(CirclePrompt, a.prompt_id) if a else None
+                print(f"answer {r.response_id} by {a.user_id if a else '?'}: {a.body if a else '(gone)'}")
+                if q is not None:
+                    print(f"to the question of the week of {q.week_start} in circle {q.circle_id}: {q.prompt}")
             p = session.get(Photo, r.photo_id) if r.photo_id else None
             if p is not None:
                 print(f"photo {p.id} state {p.state} caption {p.caption!r}")
@@ -206,6 +246,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             ok = take_down_photo(session, storage, args.photo, now, args.preserve)
         elif args.cmd == "story":
             ok = take_down_story(session, args.story, now)
+        elif args.cmd == "answer":
+            ok = take_down_answer(session, args.answer, now)
         elif args.cmd == "account":
             ok = terminate_account(session, storage, args.user, now)
         else:

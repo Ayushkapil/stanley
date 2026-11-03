@@ -18,7 +18,7 @@ CAPTION_MAX = 2000  # I4: cap caption like comments (unbounded TEXT otherwise)
 FILTERS = frozenset({"mono", "grain", "dusk", "clean"})
 
 from .. import physics
-from ..decay import TOMBSTONE, enqueue_purge, owner_hash_for, scrub
+from ..decay import TOMBSTONE, enqueue_purge, fade_journal, owner_hash_for, scrub
 from ..deps import (
     active_circle_id,
     event,
@@ -342,6 +342,10 @@ def unanchor(
     if remaining == 0 and photo.state == physics.EXPIRED:
         # §8.2 retention rule: the last anchor letting go starts the 7-day clock.
         enqueue_purge(db, photo, clock.now() + TOMBSTONE)
+    if photo.state == physics.EXPIRED and photo.owner_id == user.id:
+        # Your own faded photo, let go of: your journal entry was kept by
+        # that hold, and goes with it (build 26).
+        fade_journal(db, photo)
 
 
 @router.get("/photos/{photo_id}/anchors")

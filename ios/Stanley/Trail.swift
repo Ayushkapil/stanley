@@ -41,6 +41,11 @@ enum Trail {
         case wentOffline = "lost the connection"
         case cameBack = "reached Stanley again"
         case renewedLinks = "renewed photo links"
+        // Build 26. What was done, never what was written.
+        case wroteJournal = "wrote in the journal"
+        case wroteReflection = "wrote a reflection"
+        case answeredQuestion = "answered the circle's question"
+        case openedCircleJournal = "opened the circle journal"
     }
 
     static func note(_ step: Step) {

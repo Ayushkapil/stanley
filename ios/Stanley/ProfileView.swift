@@ -108,6 +108,15 @@ struct ProfileView: View {
                             .frame(minHeight: 44)
                     }
                     .id("masthead")
+                    // Sunday evening (build 26): how was the week? Gone at
+                    // midnight, and once it's written. Checked each minute,
+                    // so it leaves on time with the page open.
+                    TimelineView(.everyMinute) { context in
+                        if ReflectionWindow.isOpen(context.date), let week = state.thisWeek, week.reflection == nil {
+                            ReflectionCard(week: week)
+                                .padding(.top, 22)
+                        }
+                    }
                     bookplate
                         .padding(.top, 26)
                     if let shared = state.profile?.momentsShared, shared > 0 {
@@ -147,6 +156,27 @@ struct ProfileView: View {
                             }
                         }
                     }
+                    // Your reflections, newest week first (build 26).
+                    JournalSectionHead(label: "Only you see this", title: "Journal")
+                        .padding(.top, 34)
+                        .padding(.bottom, 16)
+                    if state.reflections.isEmpty {
+                        Text("On Sunday evenings, Stanley asks how your week was. What you write is kept here, and it doesn't fade.")
+                            .font(.hand(18, relativeTo: .callout))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        LazyVStack(alignment: .leading, spacing: 18) {
+                            ForEach(state.reflections) { reflection in
+                                ReflectionPage(reflection: reflection)
+                            }
+                            if state.reflectionsCursor != nil {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 18)
+                                    .task(id: state.reflectionsCursor) { await state.loadMoreReflections() }
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
@@ -160,6 +190,8 @@ struct ProfileView: View {
                 await state.loadProfile()
                 await state.refreshMemories()
                 milestones = await state.loadMilestones()
+                await state.loadThisWeek()
+                await state.loadReflections()
             }
             .journalPage()
             .navigationTitle("You")
@@ -168,17 +200,27 @@ struct ProfileView: View {
                 await state.loadProfile()
                 await state.refreshMemories()
                 milestones = await state.loadMilestones()
+                await state.loadThisWeek()
+                await state.loadReflections()
             }
             .refreshable {
                 Haptics.refreshed()
-                await state.loadProfile()
-                await state.refreshMemories()
-                milestones = await state.loadMilestones()
+                await Task {
+                    await state.loadProfile()
+                    await state.refreshMemories()
+                    milestones = await state.loadMilestones()
+                    await state.loadThisWeek()
+                    await state.loadReflections()
+                }.value
             }
             // The profile and Held are fetched again by `AppState`; the
-            // milestones are this page's own.
+            // milestones and the journal are this page's to ask for.
             .onChange(of: state.reloads) {
-                Task { milestones = await state.loadMilestones() }
+                Task {
+                    milestones = await state.loadMilestones()
+                    await state.loadThisWeek()
+                    await state.loadReflections()
+                }
             }
           }
         }

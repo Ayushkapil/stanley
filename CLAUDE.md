@@ -5,8 +5,9 @@
 Stanley is a small-circle photo app built on two structural laws: each person may
 post **exactly one photo per day** in each circle they're in, and every photo **decays out of existence
 within six days unless someone deliberately keeps (anchors) it**. The only social
-gestures are *holding* (a private act of keeping, never counted) and
-*story-comments* (co-remembering). The product's identity lives as much in what it
+gestures are *holding* (a private act of keeping, never counted),
+*story-comments* (co-remembering) and, since build 26, the circle's *question
+of the week* (answered privately, read together). The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -63,6 +64,18 @@ guarded by tests; treat a change to any of them as a spec change.
 - **The subject wins on deletion.** Owner delete purges the image everywhere;
   anchorers keep an honest tombstone ("a memory was here") plus their own comment
   text only.
+- **What a person writes down for themselves stays theirs** (build 26). A
+  journal entry on your own photo and a weekly reflection are read by no one
+  else, anywhere: the feed never carries an entry (only an owner-only
+  `has_journal` flag, None for anyone else), and every route about one
+  answers 404 to anyone but its writer. An entry lives as long as the photo
+  does for its owner (in Today, then only while the owner holds it); a
+  reflection never fades. Answers to the circle's question are sealed until
+  that week's Saturday, 00:00 UTC (403 before), then open to the whole
+  circle at once, whether they answered or not; answering closes when they
+  open; a member reads from the week they joined. None of it counts anyone
+  ("how many answered" doesn't exist), none of it notifies, and the word
+  filter covers all three.
 - **Up to five circles per person** (build 17, a product decision from pilot
   feedback; it had been one, a permanent non-goal), each mutual by
   construction, each with a **soft cap 100** — a guardrail against an
@@ -158,8 +171,9 @@ The authoritative source for the physics constants is
   used to store unchecked, would have stopped all decay); backups pruned by
   age as well as count; `PRAGMA optimize` daily and `VACUUM` on Sundays; a
   daily `event=disk_low` warning; the pool sized to the thread pool.
-  Operator tools: `python -m stanley.moderation` (list, show, take a photo or
-  story down with evidence preserved, resolve, end an account),
+  Operator tools: `python -m stanley.moderation` (list, show, take a photo,
+  story or (build 26) an answer down, with evidence preserved for a photo,
+  resolve, end an account),
   `scripts/integrity_check.py` (read-only), `scripts/pull_backup.sh` (a copy
   off Fly, launchd plist beside it). Screenshots: `scripts/seed_screenshots.py`
   and `scripts/scenes.py` (photos drawn in code). Fixed on the way: Held's
@@ -167,8 +181,9 @@ The authoritative source for the physics constants is
   and build 24's root ink outranked `role: .destructive`, turning Leave
   Circle, Reset Code, Delete Account and Block black (`destructiveInk()`).
   The Privacy Policy changed (the crash trail) and has its own date,
-  November 3, 2026 (`PRIVACY_EFFECTIVE`, `Legal.privacyEffective`); the
-  Terms keep November 1.
+  November 3, 2026 (`PRIVACY_EFFECTIVE`, `Legal.privacyEffective`). Build 26
+  changed both documents (the journal: what's kept, who reads it, how long,
+  the export, and Content in the Terms), so the Terms are November 3 too.
 
 ## Implemented and working
 
@@ -489,6 +504,70 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   block-aware, self opt-out, purged/decayed with the photo. Not a mention.
 - **Memory milestones** — private, ≤1/week, dismissable cards in the You tab
   (circle age, held counts, oldest kept, "[name] kept N of yours", first day).
+- **Writing things down** (build 26; `journal.py` for the weeks and the
+  forty questions, `routes/journal.py`, `Writing.swift`). Three kinds, all
+  on the journal's paper in a hand, none counted or notified, the word filter
+  and the stories' rate (a `journal` bucket at `rate_stories_per_hour`) on
+  every write:
+  - **A private journal entry** ("Anything else about today?"):
+    `journal_entries`, one per photo, ≤1000. `PUT/GET/DELETE
+    /photos/{id}/journal`, owner only (404 for anyone else, and for a photo
+    deleted or purged); writing needs the photo in Today or held by its
+    owner (410 `faded` otherwise). Right after a photo posts (not one sent
+    later from the queue) a slip under the print asks, with "Not now";
+    doing nothing skips it, and it's gone at the next launch
+    (`AppState.journalOffer`). A written one shows a small book beside the
+    faces button on your own print, and the photo's menu has Write in Your
+    Journal / Your Journal Entry; both open `JournalEntrySheet` (read,
+    rewrite, delete). In Held, your own held photo carries it beneath, "Only
+    you see this" (`memory_payload`'s `journal`, owner only). It goes with
+    the photo: `decay.scrub` deletes it (owner delete, redo, purge,
+    takedown); at expiry `fade_journal` deletes it unless the *owner* holds
+    the photo (someone else's hold keeps the photo, not the owner's words);
+    the owner letting go of a faded photo takes it too.
+  - **The weekly reflection** ("How was your week?"): `weekly_reflections`,
+    one per person per week (409 `already_reflected`), ≤500, never fades.
+    `POST /me/reflections` (the server sets the week: the Monday of the
+    writer's own week, in the zone the phone sends, with Monday before 6am
+    still the week just ended, so a send at 00:01 isn't filed under the new
+    week), `GET /me/reflections` (newest first, cursor pages of 20),
+    `GET /me/reflections/this-week` (the week's days, your own photos from
+    it still in Today or held by you, and the reflection once written),
+    `GET` and `DELETE /me/reflections/{id}` (the writer alone; delete is a
+    long press, since a reflection never leaves otherwise). On Sunday from
+    6pm to midnight on the phone's clock (`ReflectionWindow`; the server
+    doesn't hold to the hour) the You tab opens with a slip, the week's
+    photos as small prints, which opens `ReflectionSheet`; it leaves at
+    midnight (a `TimelineView` checks each minute) and once it's written.
+    Past ones are the **Journal** section at the foot of the You tab, each a
+    page with the week's dates, the words, and that week's photos still
+    there. A Debug build launched with `STANLEY_SUNDAY_EVENING=1` opens the
+    window on any day, for the simulator.
+  - **The circle's question of the week**: `circle_prompts` (one per circle
+    per UTC week, chosen the first time anyone asks, never one of its last
+    thirty-nine) and `prompt_responses` (one each, ≤300, never edited).
+    `GET /circles/{id}/prompt` (the question, your own answer, `revealed`),
+    `POST /circles/{id}/prompt/respond` (409 `already_answered`, 409
+    `question_closed` once open), `GET /circles/{id}/prompt/responses` (403
+    `not_revealed` before Saturday 00:00 UTC; then everyone's, in the order
+    written, minus anyone a block stands between), and `GET
+    /circles/{id}/prompts`, the **circle journal** (every opened week from
+    the one you joined in, newest first, weeks nobody wrote skipped). A
+    slip under the note in Today (`QuestionSlip`): a line to answer on with
+    Answer at its end (below it the keyboard hid it), then "You answered"
+    behind a lock with your words, then "See what everyone said", a sheet
+    with each name in its mention tone and the words in a hand. The reveal
+    is said in the reader's own time, from `reveals_at`: "Your answer is
+    private until Friday at 7 PM" in Bloomington, because "until Saturday"
+    would be broken by hours there. The circle journal opens from the
+    circle's name atop Today and from Settings → Circle. An answer can be
+    reported once it can be read (`reports.response_id`, `moderation.py
+    answer <id>`); deleting an account deletes its answers and detaches
+    their reports.
+  Deleting an account deletes all three; the export carries entries on your
+  held photos, your reflections and your answers. Checked on the iPhone 17
+  Pro simulator against a scratch copy of the screenshot circle, including a
+  server clock moved to Saturday for the reveal, in light and dark.
 - **Offline capture queue** (client) — no signal means the moment is kept
   locally and sent when the network returns (when Stanley answers again,
   `AppState.checkConnection`, or on Today's next pass; one send at a time),
@@ -607,8 +686,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (25)", at the
-  foot).
+  production audit), and the version, "Stanley 0.2.0 (26)", at the
+  foot). Build 26 put **Circle Journal** in Circle, under Members.
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
   capitals; the rows themselves are unchanged.
@@ -660,7 +739,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   above the title, the effective date beneath it, bold headers, the contact
   address linked wherever it appears, a footer linking both documents, and
   a tighter layout under 480px. Still no scripts and nothing fetched from
-  elsewhere; the CSP allows the inline stylesheet only.
+  elsewhere; the CSP allows the inline stylesheet only. **Build 26** added
+  the journal to both: entries and reflections only ever shown to you,
+  answers sealed until Saturday at midnight UTC ("Friday afternoon or
+  evening in the United States") and then read by the circle, from the week
+  a member joined; how long each is kept; the export; and journal entries,
+  reflections and answers as Content in the Terms (both effective November
+  3, 2026, not yet deployed).
 - **Errors in Stanley's voice** — no status code, server `detail` string or
   system description ever reaches the screen. `APIError` maps every server
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
@@ -807,7 +892,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 25** (0.2.0) is committed but not archived; the archive below is
+- **Build 26** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -832,7 +917,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the secrets. The paragraphs below about v11 are history. **Not yet
   deployed: everything from the production audit** (rate limits, headers,
   the word filter, paging, refresh, moderation tool, the November 3 privacy
-  wording). The volume is **1 GB** (26 MB used): about ten days of a
+  wording), the reading layout for `/terms` and `/privacy`, and **build 26's
+  journal** (four new tables and `reports.response_id`, made by `create_all`
+  and `ensure_schema` on the first start; until then build 26's app shows no
+  question slip, no Sunday card and no book, quietly). The volume is **1 GB** (26 MB used): about ten days of a
   30-person circle's photos, so extend it before the pilot
   (`PRODUCTION_CHECKLIST.md`, step 1). The integrity check passed on the
   live database.
@@ -957,7 +1045,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**360 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**387 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
@@ -1002,7 +1090,18 @@ ordinary words passing, Today's pages adding up to the whole feed with
 moments unsplit, a failing digest not undoing the sweep, an unknown zone not
 stopping digests, the disk warning, VACUUM, each hot query's index, event
 lines without anyone's words, Held's faces, the moderation tool, and 240
-concurrent requests on a file database).
+concurrent requests on a file database), and the journal (`test_journaling.py`:
+an entry only its writer can reach, never in the feed beyond the owner's
+flag, bounded, cleaned and filtered, fading with the photo unless its owner
+held it, gone with a delete, a purge or a let-go; a reflection filed under
+its writer's week, Sunday after midnight included, one a week, paged,
+private, never fading, with only the writer's own surviving photos; the
+same question for the whole circle, forty weeks without a repeat, answers
+sealed to the second and then open to everyone, closed once open, nothing
+counted, blocks both ways, the circle journal from the week you joined,
+reporting an answer only once it's readable, account deletion and export,
+the writing rate limit, no notification, and the older database's report
+column).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
@@ -1017,13 +1116,15 @@ live APNs, concurrency under real load.
 - Response shaping (payloads, mosaic, note, faces): `serialize.py`
 - Returned logic: `returned.py`; milestones: `milestones.py`; The World Today: `news.py`
 - Notifications policy: `notifications.py`; APNs: `apns.py`; report alerts (ntfy): `alerts.py`; Terms and Privacy copy: `legal.py`
+- Writing things down (build 26): the weeks and the forty questions
+  `journal.py`; routes `routes/journal.py`
 - The production audit: rate limits `ratelimit.py`; text cleaning `text.py`;
   word filter `wordfilter.py` + `blocklist.txt`; the operator's moderation
   tool `moderation.py` (`python -m stanley.moderation`)
 - Auth: `auth.py` (JWT), `apple.py` (SIWA verify)
 - Storage + signed URLs: `storage.py`; image pipeline: `images.py`; backups: `backup.py`
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,
-  `feed.py`, `me.py`, `memories.py`, `safety.py`, `blobs.py`, `news.py`
+  `feed.py`, `me.py`, `journal.py`, `memories.py`, `safety.py`, `blobs.py`, `news.py`
 - Tests: `server/tests/`; deploy notes: `server/DEPLOY.md`; seed/dev tools:
   `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`;
   App Store screenshots `server/scripts/seed_screenshots.py` + `scenes.py`
@@ -1051,7 +1152,9 @@ live APNs, concurrency under real load.
   `Journal.swift` (the journal's look: masthead, rules, small capitals,
   prints, paper inserts; `DarkRoom`, the dark mode's colors and rules),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
-  milestones), `SettingsView.swift` (the five groups, invite code, circle
+  milestones), `Writing.swift` (build 26: the journal entry slip and sheet,
+  the question slip, answers and circle journal, the Sunday card, the
+  reflection sheet and pages), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`
   (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`

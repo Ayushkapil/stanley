@@ -51,6 +51,14 @@ enum APIError: LocalizedError {
             case "empty_story": return "A story needs a few words."
             case "bad_timezone": return "Your phone's time zone didn't come through. Try again in a moment."
             case "server_error": return Self.words(forStatus: 500)
+            // Writing things down (build 26).
+            case "empty_entry": return "An entry needs a few words."
+            case "empty_reflection": return "A reflection needs a few words."
+            case "already_reflected": return "This week's reflection is already in your journal."
+            case "empty_answer": return "An answer needs a few words."
+            case "already_answered": return "You've already answered this week's question."
+            case "question_closed": return "This week's answers are already out, so the question has closed."
+            case "not_revealed": return "Everyone's answers aren't out yet."
             default: return Self.words(forStatus: status)
             }
         case .status(let status):

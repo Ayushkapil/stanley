@@ -20,10 +20,11 @@ from ..ratelimit import per_person
 from ..text import clean
 from ..milestones import milestone_payload, surface_due
 from ..models import (
-    Anchor, Block, Comment, CommunityNote, Like, Membership, Milestone, NotificationLog, Photo, PhotoTag,
-    PushToken, Rest, ReturnedLog, User,
+    Anchor, Block, CirclePrompt, Comment, CommunityNote, JournalEntry, Like, Membership, Milestone,
+    NotificationLog, Photo, PhotoTag, PromptResponse, PushToken, Rest, ReturnedLog, User, WeeklyReflection,
 )
-from ..serialize import avatar_url, blocked_ids, iso, memory_payload, user_brief
+from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
+from .journal import delete_answers
 
 router = APIRouter(tags=["me"])
 
@@ -308,7 +309,9 @@ def export_memories(
 ):
     """Bundle the user's Held photos + captions into a zip (§15 data export).
     Held only — there is no 'all my posts' archive. Tombstones appear in the
-    manifest as an honest note, with no image."""
+    manifest as an honest note, with no image. With them, what the person
+    wrote down for themselves (build 26): journal entries on their own held
+    photos, their reflections, and their answers to their circles' questions."""
     now = clock.now()
     rows = db.execute(
         select(Anchor, Photo)
@@ -333,6 +336,10 @@ def export_memories(
                 "note": anchor.note,
                 "from": user_brief(db, photo.owner_id)["display_name"],
             }
+            # Your own held photo: the journal entry you wrote on it.
+            journal = journal_body(db, photo, user)
+            if journal is not None:
+                entry["journal"] = journal
             if photo.state != physics.PURGED and photo.deriv_key and storage.exists(photo.deriv_key):
                 name = f"held/{i:03d}_{photo.taken_at.date().isoformat()}.jpg"
                 zf.writestr(name, storage.get(photo.deriv_key))
@@ -341,6 +348,30 @@ def export_memories(
                 entry["image"] = None
                 entry["tombstone"] = True
             manifest["held"].append(entry)
+        # Build 26: your reflections, every week of them, and your answers
+        # to your circles' questions. Nobody else's answers: those are theirs.
+        manifest["reflections"] = [
+            {"week_start": r.week_start.isoformat(), "reflection": r.body}
+            for r in db.scalars(
+                select(WeeklyReflection)
+                .where(WeeklyReflection.owner_id == user.id)
+                .order_by(WeeklyReflection.week_start)
+            ).all()
+        ]
+        manifest["answers"] = [
+            {
+                "week_start": prompt.week_start.isoformat(),
+                "circle": circle_name(db, prompt.circle_id),
+                "question": prompt.prompt,
+                "answer": row.body,
+            }
+            for row, prompt in db.execute(
+                select(PromptResponse, CirclePrompt)
+                .join(CirclePrompt, CirclePrompt.id == PromptResponse.prompt_id)
+                .where(PromptResponse.user_id == user.id)
+                .order_by(CirclePrompt.week_start)
+            ).all()
+        ]
         zf.writestr("memories.json", json.dumps(manifest, indent=2))
 
     return Response(
@@ -400,6 +431,12 @@ def delete_account(
     db.execute(delete(CommunityNote).where(CommunityNote.author_id == user.id))
     db.execute(delete(NotificationLog).where(NotificationLog.user_id == user.id))
     db.execute(delete(ReturnedLog).where(ReturnedLog.user_id == user.id))
+    # What they wrote down (build 26): their reflections, their answers to
+    # their circles' questions, and any journal entry their photos' scrub
+    # above didn't already take.
+    db.execute(delete(WeeklyReflection).where(WeeklyReflection.owner_id == user.id))
+    db.execute(delete(JournalEntry).where(JournalEntry.owner_id == user.id))
+    delete_answers(db, db.scalars(select(PromptResponse).where(PromptResponse.user_id == user.id)).all())
 
     if user.avatar_key:
         storage.delete(user.avatar_key)

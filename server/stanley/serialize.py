@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from . import physics
 from .config import Settings
 from .decay import owner_hash_for
-from .models import Anchor, Block, Circle, Comment, CommunityNote, Like, Photo, PhotoTag, User
+from .models import Anchor, Block, Circle, Comment, CommunityNote, JournalEntry, Like, Photo, PhotoTag, User
 from .storage import read_url
 
 DEPARTED = "departed"
@@ -223,7 +223,19 @@ def photo_payload(
         # 'Who was there' (Part 3): part of the artifact, not a mention.
         "tagged": tagged_faces(session, photo.id, viewer.id, settings, now, hidden),
         "retake_on_delete": retake_on_delete(session, photo, viewer, now),
+        # Yours only (build 26): whether you've written a journal entry on
+        # it, for the small book on your print. Never the words, which only
+        # their own request fetches, and None on anyone else's photo.
+        "has_journal": journal_body(session, photo, viewer) is not None if photo.owner_id == viewer.id else None,
     }
+
+
+def journal_body(session: Session, photo: Photo, viewer: User) -> str | None:
+    """The owner's private journal entry on their own photo, for the owner
+    alone (build 26). None for anyone else, whatever is written."""
+    if photo.owner_id is None or photo.owner_id != viewer.id:
+        return None
+    return session.scalar(select(JournalEntry.body).where(JournalEntry.photo_id == photo.id))
 
 
 def retake_on_delete(session: Session, photo: Photo, viewer: User, now: datetime) -> bool | None:
@@ -291,6 +303,10 @@ def memory_payload(
             "note": anchor.note,
             "anchored_at": iso(anchor.created_at),
             "circle_name": circle,
+            # Your own held photo carries the entry you wrote on it, below it
+            # in the album (build 26). Held is your own archive, not the
+            # feed, and nobody else's memory of your photo ever has it.
+            "journal": journal_body(session, photo, viewer),
         }
     )
     return payload
