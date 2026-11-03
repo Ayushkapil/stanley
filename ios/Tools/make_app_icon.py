@@ -6,15 +6,24 @@ with a V cut from its foot, the mark of the hold gesture, sketched as one
 thin pen line on the journal's cream (#F6F0E4, Auto's light floor) in a
 dark brown ink (#3B2F25). It is an outline, never a fill, drawn a little
 off true the way a hand draws, with a lighter crease across the top where
-the ribbon folds over the page. Everything is drawn once at 4x and
-downsampled, so the line stays even at 20pt. The wobble comes from a fixed
-seed, so running this again writes the same bytes.
+the ribbon folds over the page.
+
+Two ways in. With `--from`, the master is a 1024px PNG exported from the
+design in Figma ("Stanley App Icon", the frame "App Icon / 1024", kept at
+ios/Design/AppIcon-1024.png), and this only cuts the sizes from it.
+Without it, the same bookmark is drawn here with Pillow, once at 4x and
+downsampled, so the line stays even at 20pt; the wobble comes from a fixed
+seed, so running this again writes the same bytes. Either way the eight
+PNGs land in the asset catalog with no alpha, and Contents.json is
+rewritten to name exactly them.
 
 Usage (any Python with Pillow; the server's venv has it):
+    server/.venv/bin/python ios/Tools/make_app_icon.py --from ios/Design/AppIcon-1024.png
     server/.venv/bin/python ios/Tools/make_app_icon.py
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
@@ -140,11 +149,34 @@ def contents_json() -> dict:
     return {"images": images, "info": {"author": "xcode", "version": 1}}
 
 
-def main() -> None:
-    os.makedirs(OUT, exist_ok=True)
+def drawn_master() -> Image.Image:
+    """The bookmark drawn here, at 4x, brought down to 1024."""
     big = Image.new("RGBA", (SS, SS), PAPER + (255,))
     draw_bookmark(big)
-    master = big.resize((MASTER, MASTER), Image.LANCZOS).convert("RGB")
+    return big.resize((MASTER, MASTER), Image.LANCZOS).convert("RGB")
+
+
+def exported_master(path: str) -> Image.Image:
+    """A master exported from Figma: flattened onto the paper (an export
+    carries an alpha channel even when nothing shows through) and brought to
+    1024 if it isn't already."""
+    src = Image.open(path).convert("RGBA")
+    flat = Image.new("RGBA", src.size, PAPER + (255,))
+    flat.alpha_composite(src)
+    master = flat.convert("RGB")
+    if master.size != (MASTER, MASTER):
+        master = master.resize((MASTER, MASTER), Image.LANCZOS)
+    return master
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--from", dest="source", metavar="PNG",
+                        help="a 1024px master exported from Figma; without it the icon is drawn here")
+    args = parser.parse_args()
+
+    os.makedirs(OUT, exist_ok=True)
+    master = exported_master(args.source) if args.source else drawn_master()
 
     for size in SIZES:
         img = master if size == MASTER else master.resize((size, size), Image.LANCZOS)
@@ -160,7 +192,8 @@ def main() -> None:
         json.dump({"info": {"author": "xcode", "version": 1}}, f, indent=2)
         f.write("\n")
 
-    print("wrote %d icons to %s" % (len(SIZES), os.path.normpath(OUT)))
+    source = "from %s" % args.source if args.source else "drawn here"
+    print("wrote %d icons to %s (%s)" % (len(SIZES), os.path.normpath(OUT), source))
 
 
 if __name__ == "__main__":
