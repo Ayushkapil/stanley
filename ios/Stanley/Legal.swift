@@ -11,6 +11,9 @@ enum Legal {
         let lines: [String]
     }
 
+    /// Where questions go, as both documents' Contact sections say it; a
+    /// link that opens Mail wherever it appears.
+    static let contact = "ayushkapileshwar@gmail.com"
     static let effective = "November 1, 2026"
     /// The Privacy Policy's own date since it last changed (the crash
     /// report's trail, November 3, 2026). `legal.py` keeps the same two.
@@ -265,8 +268,12 @@ enum Legal {
     ]
 }
 
-/// One legal document, as plain as the server's page: a heading per section,
-/// its subheadings, paragraphs and list items.
+/// One legal document, set for reading: the system font, left
+/// aligned, bold section headers and room between the lines, on a plain
+/// white page (black in dark mode). The journal stays out of it on purpose:
+/// no paper, no grain, no hand. Terms someone agrees to should look like
+/// terms and read easily, as the server's pages at /terms and /privacy do.
+/// The contact address is a link that opens Mail.
 struct LegalDocumentView: View {
     let title: String
     let sections: [Legal.Section]
@@ -274,41 +281,71 @@ struct LegalDocumentView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                Text("Effective \(effective)")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Stanley")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Effective \(effective)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 20)
+                Divider()
                 ForEach(sections, id: \.self) { section in
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
                         if let heading = section.heading {
-                            Text(heading).font(.headline)
+                            Text(heading)
+                                .font(.title3.weight(.bold))
+                                .padding(.bottom, 2)
                         }
                         ForEach(section.lines, id: \.self) { line in
-                            if line.hasPrefix("## ") {
-                                Text(String(line.dropFirst(3)))
-                                    .font(.subheadline.weight(.semibold))
-                                    .padding(.top, 6)
-                            } else if line.hasPrefix("- ") {
-                                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                    Text("•").foregroundStyle(.secondary)
-                                    Text(String(line.dropFirst(2)))
-                                }
-                            } else {
-                                Text(line)
-                            }
+                            Self.line(line)
                         }
                     }
-                    .font(.callout)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 30)
                 }
             }
+            .font(.body)
+            .lineSpacing(5)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 680, alignment: .leading)
             .padding(.horizontal, 20)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+            .padding(.bottom, 48)
+            .frame(maxWidth: .infinity)
         }
-        .atmosphereWash()
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        // Links in the system's own blue, not the atmosphere's accent: on
+        // Auto that's a warm charcoal no one would take for a link.
+        .tint(.blue)
         .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    /// A subheading, a list item with its bullet hanging, or a paragraph.
+    @ViewBuilder
+    private static func line(_ line: String) -> some View {
+        if line.hasPrefix("## ") {
+            Text(String(line.dropFirst(3)))
+                .font(.headline)
+                .padding(.top, 6)
+        } else if line.hasPrefix("- ") {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("•").foregroundStyle(.secondary)
+                Text(linked(String(line.dropFirst(2))))
+            }
+        } else {
+            Text(linked(line))
+        }
+    }
+
+    /// The line as written, with the contact address a mailto link.
+    private static func linked(_ line: String) -> AttributedString {
+        var text = AttributedString(line)
+        if let range = text.range(of: Legal.contact), let mail = URL(string: "mailto:\(Legal.contact)") {
+            text[range].link = mail
+        }
+        return text
     }
 }

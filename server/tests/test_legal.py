@@ -32,6 +32,23 @@ def test_the_policy_says_what_stanley_does_with_location_and_notifications(clien
     assert "<h3>What we don&#x27;t collect</h3>" in text  # subheadings render
 
 
+def test_the_pages_are_set_for_reading(client):
+    """The URLs App Store Connect links: a white page in a 680px column, the
+    system's sans-serif at 16px, Stanley's name at the top, the effective
+    date under the title, the contact address a mailto link, and a phone's
+    width honored."""
+    for path, effective in (("/terms", legal.EFFECTIVE), ("/privacy", legal.PRIVACY_EFFECTIVE)):
+        text = client.get(path).text
+        assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in text
+        assert "background: #ffffff" in text and "max-width: 680px" in text
+        assert "16px/1.65 -apple-system" in text and "sans-serif" in text
+        head, body = text.split("<body>")
+        assert body.index('<p class="brand">Stanley</p>') < body.index("<h1>")
+        assert f'<p class="effective">Effective {effective}</p>' in body
+        assert f'<a href="mailto:{legal.CONTACT}">{legal.CONTACT}</a>' in body
+        assert "@media (max-width: 480px)" in head
+
+
 def test_both_documents_are_complete():
     """The brief's sections, in order: eleven in the policy, and the
     terms' seventeen plus Apple's minimum terms before Contact."""

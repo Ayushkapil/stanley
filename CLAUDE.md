@@ -648,7 +648,19 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   deletes, an exported copy beyond reach, the publisher's site when an
   article opens. Change the words with the code, and `PRIVACY_LABEL.md`.
   No straight double quotes or backslashes in the text (it's pasted into
-  Swift literals). Not reviewed by a lawyer.
+  Swift literals). Not reviewed by a lawyer. **Set for reading, not in the
+  journal look** (after build 25): legal text should look like legal text.
+  In the app, `LegalDocumentView` is a plain white page (black in dark
+  mode), no paper, grain or hand: the system font, a large title that folds
+  into the bar, "Stanley" and the effective date under it, a divider, bold
+  section headers, 5pt line spacing, a 680pt column, and the contact address
+  (`Legal.contact`) a mailto link in the system's blue. On the web, `/terms`
+  and `/privacy` (`legal.page`, the URLs App Store Connect links) are a white
+  page with a 680px column, the system sans-serif at 16px, Stanley's name
+  above the title, the effective date beneath it, bold headers, the contact
+  address linked wherever it appears, a footer linking both documents, and
+  a tighter layout under 480px. Still no scripts and nothing fetched from
+  elsewhere; the CSP allows the inline stylesheet only.
 - **Errors in Stanley's voice** — no status code, server `detail` string or
   system description ever reaches the screen. `APIError` maps every server
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
@@ -945,7 +957,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**359 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**360 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared

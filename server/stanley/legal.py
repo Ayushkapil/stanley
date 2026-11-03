@@ -358,6 +358,45 @@ TERMS: list[tuple[str | None, list[str]]] = [
 ]
 
 
+# The web pages are set for reading, not in the app's journal look: these
+# are the URLs App Store Connect links, and terms someone agrees to should
+# look like terms. A white page, a 680px column, the system's sans-serif at
+# 16px, bold headings, the effective date under the title, the contact
+# address as a mailto link, and nothing fetched from anywhere else.
+STYLE = """
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; background: #ffffff; color: #1d1d1f;
+       font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 680px; margin: 0 auto; padding: 48px 24px 72px; }
+header { padding-bottom: 28px; margin-bottom: 8px; border-bottom: 1px solid #e5e5ea; }
+.brand { margin: 0 0 20px; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+h1 { margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+.effective { margin: 8px 0 0; color: #6e6e73; font-size: 15px; }
+h2 { margin: 40px 0 12px; font-size: 21px; line-height: 1.3; font-weight: 700; }
+h3 { margin: 28px 0 8px; font-size: 17px; line-height: 1.35; font-weight: 700; }
+p { margin: 0 0 14px; }
+ul { margin: 0 0 16px; padding-left: 22px; }
+li { margin: 0 0 8px; padding-left: 2px; }
+a { color: #0066cc; text-decoration: none; overflow-wrap: anywhere; }
+a:hover, a:focus { text-decoration: underline; }
+footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e5ea; color: #6e6e73; font-size: 15px; }
+footer p { margin: 0 0 6px; }
+@media (max-width: 480px) {
+  main { padding: 32px 20px 56px; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 19px; margin-top: 32px; }
+}
+"""
+
+
+def _linked(text: str) -> str:
+    """A line made safe for HTML, with the contact address as a mailto link."""
+    safe = escape(text)
+    return safe.replace(escape(CONTACT), f'<a href="mailto:{CONTACT}">{escape(CONTACT)}</a>')
+
+
 def page(title: str, sections: list[tuple[str | None, list[str]]], effective: str = EFFECTIVE) -> str:
     """A plain, readable page: no scripts, no trackers, no external assets."""
     parts: list[str] = []
@@ -367,7 +406,7 @@ def page(title: str, sections: list[tuple[str | None, list[str]]], effective: st
         items: list[str] = []
         for line in lines + [""]:
             if line.startswith("- "):
-                items.append(f"<li>{escape(line[2:])}</li>")
+                items.append(f"<li>{_linked(line[2:])}</li>")
                 continue
             if items:
                 parts.append("<ul>" + "".join(items) + "</ul>")
@@ -375,21 +414,24 @@ def page(title: str, sections: list[tuple[str | None, list[str]]], effective: st
             if line.startswith("## "):
                 parts.append(f"<h3>{escape(line[3:])}</h3>")
             elif line:
-                parts.append(f"<p>{escape(line)}</p>")
+                parts.append(f"<p>{_linked(line)}</p>")
     body = "\n".join(parts)
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stanley — {escape(title)}</title>
-<style>
-:root {{ color-scheme: light dark; }}
-body {{ font: 17px/1.55 -apple-system, system-ui, sans-serif; max-width: 640px;
-       margin: 0 auto; padding: 32px 20px 64px; background: #F8F6F1; color: #2A2724; }}
-@media (prefers-color-scheme: dark) {{ body {{ background: #000; color: #F2EFEA; }} }}
-h1 {{ font-weight: 600; margin-bottom: 4px; }} h2 {{ font-size: 19px; margin-top: 32px; }}
-h3 {{ font-size: 16px; margin: 20px 0 6px; }}
-.effective {{ opacity: .6; font-size: 14px; }} li {{ margin: 6px 0; }}
-</style></head>
-<body><h1>{escape(title)}</h1><p class="effective">Stanley · Effective {escape(effective)}</p>
+<title>{escape(title)} · Stanley</title>
+<style>{STYLE}</style></head>
+<body>
+<main>
+<header>
+<p class="brand">Stanley</p>
+<h1>{escape(title)}</h1>
+<p class="effective">Effective {escape(effective)}</p>
+</header>
 {body}
+<footer>
+<p>Questions: <a href="mailto:{CONTACT}">{escape(CONTACT)}</a></p>
+<p><a href="/terms">Terms of Use</a> · <a href="/privacy">Privacy Policy</a></p>
+</footer>
+</main>
 </body></html>"""
