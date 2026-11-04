@@ -42,7 +42,8 @@ def configure_logging() -> None:
 
 
 # Every response says how a browser may treat it. Stanley has no web app: the
-# only pages are /terms and /privacy (an inline stylesheet, no scripts), and
+# only pages are /terms, /privacy and /support (an inline stylesheet, no
+# scripts), and
 # photos are served to the phone, so the policy allows almost nothing.
 SECURITY_HEADERS = [
     (b"x-content-type-options", b"nosniff"),
@@ -283,5 +284,11 @@ def create_app(
     @app.get("/privacy", response_class=HTMLResponse, tags=["legal"])
     def privacy() -> str:
         return legal.page("Privacy Policy", legal.PRIVACY, legal.PRIVACY_EFFECTIVE)
+
+    # Where App Store Connect's Support URL points (build 34): who to write to
+    # and when to expect an answer. Public, like the two above.
+    @app.get("/support", response_class=HTMLResponse, tags=["legal"])
+    def support() -> str:
+        return legal.page(legal.SUPPORT_TITLE, legal.SUPPORT, effective=None)
 
     return app

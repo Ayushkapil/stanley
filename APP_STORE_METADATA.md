@@ -15,28 +15,24 @@ Two answers in the brief clash with Apple's current rules; they're marked
 | Secondary category | Social Networking | |
 | Copyright | `2026 Ayush Kapileshwar` | |
 | Privacy Policy URL | `https://server-earnest-stream-9793.fly.dev/privacy` | |
-| Support URL | `mailto:ayushkapileshwar@gmail.com` **⚠️ Decide**, see below | |
+| Support URL | `https://server-earnest-stream-9793.fly.dev/support` (live after the next `fly deploy`) | |
 
 **Privacy Policy URL.** It answers today, but it serves the policy as of the
 last deploy (Fly release v15, the November 1 wording). The November 4 policy
 (the journal, the board) goes live only with `fly deploy`. Deploy before you
 submit, so the URL matches what the app says.
 
-**⚠️ Decide: the Support URL.** Apple's help for this field asks for "the
-entire URL, including the protocol (for example, `http://support.example.com`)".
-It also says the URL "must lead to actual contact information... so that users
-can reach you". A `mailto:` link isn't a web page, and App Store Connect may
-refuse it in the form, or review may reject it. Options:
+**Support URL.** Apple's help for this field asks for "the entire URL,
+including the protocol", leading to "actual contact information... so that
+users can reach you". A `mailto:` link isn't a web page, so the server now
+has a `/support` page (build 34), set like the Terms:
+- "Stanley Support";
+- "For questions, feedback, or issues, contact:" and the address, linked;
+- "We'll get back to you within 48 hours.";
+- links to the Terms and the Policy.
 
-1. **A `/support` page on the Stanley server** (recommended). A plain page like
-   `/terms`, with the contact address, a line about reporting from inside the
-   app, and links to the Terms and Policy. It's a small server change plus
-   `fly deploy`. The URL would be
-   `https://server-earnest-stream-9793.fly.dev/support`.
-2. **Use the Privacy Policy URL for now.** Its Contact section carries the
-   address, so it meets the "contact information" test. Weaker: reviewers
-   sometimes object to a support URL that is a policy.
-3. **Try `mailto:` as briefed**, and switch if the form or review refuses it.
+It's in the repo but **not on Fly until `fly deploy`**; until then the URL
+is a 404, so deploy before entering it.
 
 ## Version information
 

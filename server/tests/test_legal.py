@@ -72,3 +72,25 @@ def test_the_app_shows_the_same_words():
                 assert f'"{heading}"' in swift, heading
             for line in lines:
                 assert f'"{line}"' in swift, line
+
+
+def test_the_support_page(client):
+    """The page App Store Connect's Support URL points to (build 34): public,
+    plain, set like the Terms, the address a mailto link, and when to expect
+    an answer. No effective date: it isn't a document anyone agrees to."""
+    r = client.get("/support")  # no sign-in
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    head, body = r.text.split("<body>")
+    assert "<h1>Stanley Support</h1>" in body
+    assert "<title>Stanley Support</title>" in head
+    assert "<p>For questions, feedback, or issues, contact:</p>" in body
+    assert f'<p><a href="mailto:{legal.CONTACT}">{legal.CONTACT}</a></p>' in body
+    assert "get back to you within 48 hours" in body
+    assert 'class="effective"' not in body
+    assert "<script" not in r.text and "http" not in body
+    assert "max-width: 680px" in head and "@media (max-width: 480px)" in head
+    # Every page links the other two.
+    for path in ("/terms", "/privacy", "/support"):
+        footer = client.get(path).text.split("<footer>")[1]
+        assert all(f'href="{p}"' in footer for p in ("/terms", "/privacy", "/support"))

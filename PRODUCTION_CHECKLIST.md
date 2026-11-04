@@ -32,7 +32,7 @@ Every item was checked again, read-only, against Fly, this Mac and the repo:
 - **Not set up yet:** no Sentry DSN, and no off-Fly backup job.
 - **Archives:** build 28 is the newest; nothing from builds 29 to 33 is
   archived.
-- **Server suite: 394 passing.**
+- **Server suite: 394 passing** (395 with the `/support` page, build 34).
 
 Status marks below are updated where they changed. The App Store fields
 themselves (description, keywords, age rating, screenshots) are in
@@ -129,10 +129,11 @@ themselves (description, keywords, age rating, screenshots) are in
    503 when the database can't be read, so a down database alerts too.
 
 6. ⚠️ **App Store Connect forms.** Everything to paste is in
-   `APP_STORE_METADATA.md`. Two of its fields need a decision first:
-   - **Support URL:** Apple wants a web URL with contact information, and
-     `mailto:` may be refused. A `/support` page on the server (it's a 404
-     today) is the clean fix.
+   `APP_STORE_METADATA.md`.
+   - **Support URL:** `https://server-earnest-stream-9793.fly.dev/support`.
+     The page exists from build 34 but is a 404 on Fly until the next deploy
+     (step 2).
+   - One field still needs a decision:
    - **Unrestricted Web Access:** Yes rates the app **16+** in Apple's
      current table; No keeps it at 13+. See "Age rating" below.
    - App Privacy: the click-by-click answers are at the end of

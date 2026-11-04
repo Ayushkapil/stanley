@@ -797,7 +797,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   of the server's own payload.
 - **Terms and Privacy** (build 18) — final copy, public at `/terms` and
   `/privacy` (plain HTML, no scripts; the privacy URL is the one App Store
-  Connect wants) and shown natively from Settings and from Welcome ("By
+  Connect wants), with `/support` beside them since build 34 (App Store
+  Connect's Support URL: "Stanley Support", the contact address linked,
+  "We'll get back to you within 48 hours", no effective date; server only,
+  not in the app) and shown natively from Settings and from Welcome ("By
   signing in, you agree to the Terms of Use and the Privacy Policy", both
   links). One source, `server/stanley/legal.py`; the app's `Legal.swift`
   carries the same words and `test_legal.py` fails if they drift. About
@@ -1014,9 +1017,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   screenshot plan. The screenshots are in `ios/AppStoreScreenshots/6.7/`
   (1290 × 2796) and `6.1/` (1179 × 2556): Today, capture, Held, You, World
   and the weekly question, plus an optional seventh, all from
-  `seed_screenshots.py`. Two decisions are open:
-  - **Support URL:** a `mailto:` may be refused; Apple asks for a web URL
-    with contact information, and the server has no `/support` page yet.
+  `seed_screenshots.py`. The Support URL is the server's `/support` page
+  (build 34; live after the next `fly deploy`). One decision is open:
   - **Unrestricted Web Access:** answering Yes rates the app **16+** in
     Apple's current table, against the Terms' 13; No keeps it at 13+.
 
@@ -1204,7 +1206,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**394 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**395 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

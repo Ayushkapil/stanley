@@ -368,6 +368,20 @@ TERMS: list[tuple[str | None, list[str]]] = [
 ]
 
 
+# Support (build 34): the page App Store Connect's Support URL points to.
+# Apple asks for a web page that leads to real contact information, which a
+# mailto link isn't. Set like the Terms, with no effective date: it's not a
+# document anyone agrees to.
+SUPPORT_TITLE = "Stanley Support"
+SUPPORT: list[tuple[str | None, list[str]]] = [
+    (None, [
+        "For questions, feedback, or issues, contact:",
+        CONTACT,
+        "We'll get back to you within 48 hours.",
+    ]),
+]
+
+
 # The web pages are set for reading, not in the app's journal look: these
 # are the URLs App Store Connect links, and terms someone agrees to should
 # look like terms. A white page, a 680px column, the system's sans-serif at
@@ -407,8 +421,9 @@ def _linked(text: str) -> str:
     return safe.replace(escape(CONTACT), f'<a href="mailto:{CONTACT}">{escape(CONTACT)}</a>')
 
 
-def page(title: str, sections: list[tuple[str | None, list[str]]], effective: str = EFFECTIVE) -> str:
-    """A plain, readable page: no scripts, no trackers, no external assets."""
+def page(title: str, sections: list[tuple[str | None, list[str]]], effective: str | None = EFFECTIVE) -> str:
+    """A plain, readable page: no scripts, no trackers, no external assets.
+    Without an effective date (Support), the line under the title is left out."""
     parts: list[str] = []
     for heading, lines in sections:
         if heading:
@@ -426,22 +441,22 @@ def page(title: str, sections: list[tuple[str | None, list[str]]], effective: st
             elif line:
                 parts.append(f"<p>{_linked(line)}</p>")
     body = "\n".join(parts)
+    dated = f'\n<p class="effective">Effective {escape(effective)}</p>' if effective else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{escape(title)} · Stanley</title>
+<title>{escape(title if title.startswith('Stanley') else f'{title} · Stanley')}</title>
 <style>{STYLE}</style></head>
 <body>
 <main>
 <header>
 <p class="brand">Stanley</p>
-<h1>{escape(title)}</h1>
-<p class="effective">Effective {escape(effective)}</p>
+<h1>{escape(title)}</h1>{dated}
 </header>
 {body}
 <footer>
 <p>Questions: <a href="mailto:{CONTACT}">{escape(CONTACT)}</a></p>
-<p><a href="/terms">Terms of Use</a> · <a href="/privacy">Privacy Policy</a></p>
+<p><a href="/terms">Terms of Use</a> · <a href="/privacy">Privacy Policy</a> · <a href="/support">Support</a></p>
 </footer>
 </main>
 </body></html>"""
