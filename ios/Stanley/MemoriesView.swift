@@ -91,9 +91,11 @@ struct MemoriesView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// A friend's page in the album: whose, in a hand, with their face.
+    /// A friend's page in the album: whose, in a hand, with their face. Your
+    /// own photos, kept by you, are "Me" (the polish pass): you know who you are.
     private func pageHead(_ thread: MemoryThread) -> some View {
-        JournalSectionHead(label: "Kept from", title: thread.friend.displayName) {
+        let isMe = state.myId != nil && thread.friend.id == state.myId
+        return JournalSectionHead(label: "Kept from", title: isMe ? "Me" : thread.friend.displayName) {
             AvatarView(url: thread.friend.avatarUrl, name: thread.friend.displayName, size: 32)
         }
     }
@@ -108,16 +110,21 @@ struct MemoriesView: View {
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 8, trailing: 20))
                 if showsEmpty {
                     emptyNote
-                        .listRowInsets(EdgeInsets(top: 22, leading: 22, bottom: 0, trailing: 22))
+                        .listRowInsets(EdgeInsets(top: Spacing.section, leading: 22, bottom: 0, trailing: 22))
                 }
                 ForEach(state.threads) { thread in
                     pageHead(thread)
-                        .listRowInsets(EdgeInsets(top: 26, leading: 20, bottom: 14, trailing: 20))
+                        .listRowInsets(EdgeInsets(top: Spacing.chapter, leading: 20, bottom: 0, trailing: 20))
                     ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
                         MemoryCard(memory: memory, place: position)
                             .padding(.leading, position.isMultiple(of: 2) ? 0 : 44)
                             .padding(.trailing, position.isMultiple(of: 2) ? 44 : 0)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 26, bottom: 18, trailing: 26))
+                            // A section's room either side: a print is the
+                            // same distance from the next as a page head is
+                            // from its first.
+                            .listRowInsets(EdgeInsets(
+                                top: Spacing.section, leading: 26, bottom: Spacing.section, trailing: 26
+                            ))
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 if !memory.isTombstone {
                                     Button {
@@ -135,6 +142,8 @@ struct MemoriesView: View {
             .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
+        // The same room above the tab bar as every page.
+        .contentMargins(.bottom, Spacing.chapter, for: .scrollContent)
         // A tap on the Held tab: back to the top, or at the top the pull's
         // own refresh (`TabTaps`).
         .onTabTap(state.tabTaps.held, scroll: proxy, to: "masthead") {
@@ -148,21 +157,21 @@ struct MemoriesView: View {
     /// swipe — the action itself is unchanged.
     private func magazine(_ proxy: ScrollViewProxy) -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 34) {
+            LazyVStack(alignment: .leading, spacing: Spacing.chapter) {
                 masthead
                 if showsEmpty {
-                    emptyNote.padding(.top, 10)
+                    emptyNote
                 }
                 ForEach(state.threads) { thread in
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: Spacing.section) {
                         pageHead(thread)
                         LazyVGrid(
                             columns: Array(
-                                repeating: GridItem(.flexible(), spacing: 34),
+                                repeating: GridItem(.flexible(), spacing: Spacing.chapter),
                                 count: density.heldColumns
                             ),
                             alignment: .leading,
-                            spacing: 30
+                            spacing: Spacing.chapter
                         ) {
                             ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
                                 MemoryCard(memory: memory, place: position)
@@ -174,7 +183,7 @@ struct MemoriesView: View {
                 }
             }
             .padding(.horizontal, 28)
-            .padding(.bottom, 30)
+            .padding(.bottom, Spacing.chapter)
         }
         .onTabTap(state.tabTaps.held, scroll: proxy, to: "masthead") {
             await state.refreshMemories()

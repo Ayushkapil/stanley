@@ -30,11 +30,6 @@ enum Density {
     /// On the inner display the page is a readable column, so a print doesn't
     /// grow taller than the screen.
     var journalWidth: CGFloat? { isRoom ? 560 : nil }
-    /// Between one entry and the next on the same day: room to breathe, close
-    /// enough to read as pages of one book.
-    var entrySpacing: CGFloat { isRoom ? 40 : 30 }
-    /// Above a new day's mark.
-    var daySpacing: CGFloat { isRoom ? 44 : 34 }
 
     private var screenHeight: CGFloat { Density.canvasBounds().height }
 
@@ -96,6 +91,23 @@ enum Density {
     /// exposes no fold geometry, so this is a buffer, not a measurement — when
     /// the SDK reports the crease, this should read it instead.
     var creaseBuffer: CGFloat { isRoom ? 20 : 0 }
+}
+
+/// The spaces between things (the polish pass, build 28): one unit, 16pt,
+/// with its half and its double, so every gap on a page is one of three and
+/// looks chosen rather than left. The page's side margin stays 20.
+enum Spacing {
+    /// Inside one thing: a heading and what it heads, a line and the next.
+    static let tight: CGFloat = 8
+    /// Between one section of a page and the next: the masthead and the
+    /// board, the board and the question, the question and the first day, a
+    /// tucked-in card and what follows it, a day's mark and its first print,
+    /// either side of the rule between two prints.
+    static let section: CGFloat = 16
+    /// Before a new chapter of a page: a new day in Today, a headed section
+    /// on You or a friend's page in Held; and the room left above the tab
+    /// bar at the foot of every page.
+    static let chapter: CGFloat = 32
 }
 
 /// The one shape every photo in Today has (build 17): the camera's own 4:3,

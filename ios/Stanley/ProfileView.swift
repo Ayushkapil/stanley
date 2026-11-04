@@ -25,7 +25,7 @@ struct ProfileView: View {
     }
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 18), count: density.keptColumns)
+        Array(repeating: GridItem(.flexible(), spacing: Spacing.section), count: density.keptColumns)
     }
 
     /// When this journal was begun: the month the account was made.
@@ -114,24 +114,24 @@ struct ProfileView: View {
                     TimelineView(.everyMinute) { context in
                         if ReflectionWindow.isOpen(context.date), let week = state.thisWeek, week.reflection == nil {
                             ReflectionCard(week: week)
-                                .padding(.top, 22)
+                                .padding(.top, Spacing.section)
                         }
                     }
                     bookplate
-                        .padding(.top, 26)
+                        .padding(.top, Spacing.section)
                     if let shared = state.profile?.momentsShared, shared > 0 {
                         Text("You've shared \(shared == 1 ? "one moment" : "\(shared) moments"). Only you see this.")
                             .font(.hand(16, relativeTo: .footnote))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
-                            .padding(.top, 14)
+                            .padding(.top, Spacing.section)
                     }
                     if let circle = state.circle, !others.isEmpty {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: Spacing.section) {
                             JournalSectionHead(label: "Kept with", title: circle.name)
                             CircleCards(members: others)
                         }
-                        .padding(.top, 34)
+                        .padding(.top, Spacing.chapter)
                     }
                     ForEach(milestones) { milestone in
                         MilestoneCard(milestone: milestone) {
@@ -140,17 +140,17 @@ struct ProfileView: View {
                                 milestones.removeAll { $0.id == milestone.id }
                             }
                         }
-                        .padding(.top, 26)
+                        .padding(.top, Spacing.section)
                     }
                     JournalSectionHead(label: "Only you see this", title: "Held")
-                        .padding(.top, 34)
-                        .padding(.bottom, 16)
+                        .padding(.top, Spacing.chapter)
+                        .padding(.bottom, Spacing.section)
                     if kept.isEmpty {
                         Text("Moments you hold will gather here at full light. Only you see this — nothing here fades.")
                             .font(.hand(18, relativeTo: .callout))
                             .foregroundStyle(.secondary)
                     } else {
-                        LazyVGrid(columns: columns, spacing: 22) {
+                        LazyVGrid(columns: columns, spacing: Spacing.section) {
                             ForEach(kept) { memory in
                                 HeldTile(memory: memory)
                             }
@@ -158,28 +158,28 @@ struct ProfileView: View {
                     }
                     // Your reflections, newest week first (build 26).
                     JournalSectionHead(label: "Only you see this", title: "Journal")
-                        .padding(.top, 34)
-                        .padding(.bottom, 16)
+                        .padding(.top, Spacing.chapter)
+                        .padding(.bottom, Spacing.section)
                     if state.reflections.isEmpty {
                         Text("On Sunday evenings, Stanley asks how your week was. What you write is kept here, and it doesn't fade.")
                             .font(.hand(18, relativeTo: .callout))
                             .foregroundStyle(.secondary)
                     } else {
-                        LazyVStack(alignment: .leading, spacing: 18) {
+                        LazyVStack(alignment: .leading, spacing: Spacing.section) {
                             ForEach(state.reflections) { reflection in
                                 ReflectionPage(reflection: reflection)
                             }
                             if state.reflectionsCursor != nil {
                                 ProgressView()
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 18)
+                                    .padding(.vertical, Spacing.section)
                                     .task(id: state.reflectionsCursor) { await state.loadMoreReflections() }
                             }
                         }
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 30)
+                .padding(.bottom, Spacing.chapter)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .readableWidth(density)
                 .foldAnimated(hSizeClass)
@@ -227,15 +227,20 @@ struct ProfileView: View {
     }
 }
 
-/// The circle on the You tab, as a row of small portraits pasted in along
-/// the page that scrolls when there are more than fit: each person's face
-/// (or their initial) on a scrap of photo paper, a little crooked, their
-/// name written beneath, and a quiet mark on whoever started the circle.
-/// Each opens that person's profile, their name and their words. People,
-/// never a number: the row has no "+7", and nothing says how many there are.
+/// The circle on the You tab, as a cluster of friends (the polish pass,
+/// build 28): round faces overlapping a little at their edges, the way
+/// shared-with-you faces sit together, each ringed in a hairline of paper so
+/// one face reads against the next, with a first name small beneath and a
+/// quiet mark on whoever started the circle. The row scrolls when there are
+/// more than fit. Each opens that person's profile. People, never a number:
+/// the row has no "+7", and nothing says how many there are.
 private struct CircleCards: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let members: [CircleMember]
-    @ScaledMetric(relativeTo: .caption) private var width: CGFloat = 84
+    @ScaledMetric(relativeTo: .caption) private var face: CGFloat = 52
+    /// How far each face lies over the one before it.
+    private let overlap: CGFloat = 9
 
     /// Room for the organizer's mark on every card, so the row lines up,
     /// only when the organizer is in it.
@@ -243,7 +248,7 @@ private struct CircleCards: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: -overlap) {
                 ForEach(members) { member in
                     NavigationLink {
                         MemberProfileView(memberId: member.id)
@@ -263,22 +268,27 @@ private struct CircleCards: View {
     }
 
     private func card(_ member: CircleMember) -> some View {
-        VStack(spacing: 9) {
-            AvatarView(url: member.avatarUrl, name: member.displayName, size: 56)
-                .pastedFace(member.avatarUrl, tilt: PrintTilt.degrees(member.id) * 3)
-            Text(member.displayName ?? "New member")
-                .font(.hand(16, bold: true, relativeTo: .caption))
+        // A hairline of paper around each face in daylight (1pt, where the
+        // print's border was 4); in the dark room, a ring of the black page.
+        let ring = colorScheme == .dark ? Atmosphere.resolve(raw).palette.floor : PrintStock.paper
+        let full = member.displayName ?? "New member"
+        return VStack(spacing: 4) {
+            AvatarView(url: member.avatarUrl, name: member.displayName, size: face, circular: true)
+                .overlay(Circle().strokeBorder(ring, lineWidth: 1))
+            Text(full.split(separator: " ").first.map(String.init) ?? full)
+                .font(.hand(13, bold: true, relativeTo: .caption))
                 .lineLimit(1)
-                .truncationMode(.tail)
+                .minimumScaleFactor(0.8)
+                .frame(width: face - overlap)
             // Who started it, said quietly: a word, not a crown.
             if marksOrganizer {
                 Text("organizer")
-                    .smallCaps(9)
+                    .smallCaps(7)
                     .opacity(member.isCreator == true ? 1 : 0)
             }
         }
-        .padding(.top, 6)
-        .frame(width: width)
+        .padding(.top, 4)
+        .frame(width: face)
         .contentShape(Rectangle())
     }
 }

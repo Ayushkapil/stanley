@@ -198,11 +198,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
   orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
   under it, then Post; nothing uploads until Post. Today's photo is taken from
-  a **floating camera button** (`CaptureButton`): a 56pt solid disc of the
-  accent with the camera in the palette's ink (on Auto, black on warm white
-  in dark mode, cream on charcoal in light; it was a gray-looking disc pilot
-  users called outdated, and Liquid Glass turned Auto's white gray again, so
-  it's solid). On a standard iPhone it floats bottom right above the tab bar.
+  a **floating camera button** (`CaptureButton`): since the polish pass
+  (build 28) a 64pt ring, outline only, a 1.5pt stroke in the atmosphere's
+  accent with the camera's outline glyph inside and nothing filled, over a
+  soft halo in the page's own color so it reads over a light photo or a dark
+  one (pilot users found the solid disc of builds 16 to 27 heavy; before
+  that it was a gray-looking disc they called outdated). On a standard iPhone it floats bottom right above the tab bar.
   On the Duo's cover, where iOS 27 stands the tab bar on its side as a dock,
   it sits in the dock's column just above it (build 16; it had been beside
   the dock). `SideDockReader` finds the dock by shape, not by a private class
@@ -333,7 +334,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   one circle to tell apart. Since build 20 the Held tab is **a photo album**:
   a masthead ("Held", "The one place nothing fades", Rested as a moon at its
   end), a section head per friend ("Kept from", their name in a hand, their
-  face), and each memory a print on its photo paper exactly as in Today
+  face; your own photos are "Kept from Me" since the polish pass), and each memory a print on its photo paper exactly as in Today
   (`asPrint`: barely rounded, a soft shadow), staggered left and right and
   leaning with its side, left, right, left, by a Today print's slight
   amount, with its caption written beneath in a hand and the place and
@@ -353,15 +354,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the whole photo pink, which pilot users found strange; the photo is never
   tinted now. A tap on the corner heart only fills it, and a double-tap on a
   photo already liked unlikes it without the pop.
-- **Haptics** (build 21, `Haptics.swift`) — only the deliberate social
-  gestures, never scrolling, tab switches or navigation: a light impact when
-  the double-tap heart appears (not the corner heart's tap, nor an unlike); a
-  medium one when a photo is held, however it's held (the long-press menu's
-  Hold, the bookmark, Returned's Keep this; letting go is quiet); the
-  system's success when today's photo is up (not when it's only queued); a
-  light impact as a pull to refresh lets go (Today, Held, You, World); and a
-  light tap when the circle's note is on the board (after the server says
-  so, so a note that didn't save gets none). With System Haptics off, iOS
+- **Haptics** (build 21, `Haptics.swift`; refined in the polish pass, build
+  28) — only the deliberate social gestures, never opening stories,
+  scrolling, swiping the board, tab switches or navigation, each a quiet
+  confirmation: a **soft** impact when the double-tap heart appears (not the
+  corner heart's tap, nor an unlike); a medium one when a photo is held,
+  however it's held (the long-press menu's Hold, the bookmark, Returned's
+  Keep this; letting go is quiet); the system's success when today's photo
+  is up (not when it's only queued); a light impact as a pull to refresh
+  lets go (Today, Held, You, World), once; a light tap when your note is on
+  the board, and one when your answer to the circle's question is in (both
+  after the server says so, so a note or an answer that didn't save gets
+  none). The long-press menu's light tap is the system's own, played as a
+  context menu opens, so Stanley adds none. All five checked in the
+  simulator's log in build 28. With System Haptics off, iOS
   keeps them silent. Each logs `haptic: …` at debug level (subsystem
   `com.ayushkapileshwar.stanley`, category `haptics`), which is how they're
   checked on a simulator, which has no haptic engine. **Long press is the
@@ -458,10 +464,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a bookplate in a double rule ("This journal belongs to", your photo pasted
   in a little crooked, your name written on a line, @username in small
   capitals, your words in a hand), the moments line, the circle under a
-  section head ("Kept with" and its name) as a scrolling row of small
-  portraits (`CircleCards`): a face on photo paper (only when there's a
-  photo; an initial stays bare), a name in a hand, "organizer" in small
-  capitals on whoever started it. Each opens that person's profile.
+  section head ("Kept with" and its name) as a cluster of friends
+  (`CircleCards`, the polish pass): round 52pt faces overlapping 9pt at
+  their edges, each ringed in a 1pt hairline of photo paper (the page's
+  black in the dark room) so one reads against the next, a first name small
+  in a hand beneath, "organizer" in small capitals on whoever started it,
+  scrolling when there are more than fit. Each opens that person's profile.
   Milestones are slips tucked in (`paperInsert`), and what you've held is a
   page of small prints under "Only you see this · Held". **Setup**
   (`SetupView`, build 16) walks a new account through four screens between
@@ -510,19 +518,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   deleting the account takes them all. A note can be reported
   (`reports.note_id`, not a foreign key since a note outlives no day: the
   report keeps a copy of its words in `reason`), and `moderation.py note
-  <id>` takes one down. **The look:** at most three in view, each a pastel
-  sticky (a pale paper with its author's mention tone at 15%; lamplit in
-  dark mode, never black) under a strip of tape, tilted −3° to +3° by its
-  id, with its words in a hand (three lines on the board, all of them in
-  the sheet) and "— Ruby" beneath. Yours (or a yellow "Leave a note for
-  your circle…" until it's written) sits front left, the newest two of
-  everyone else's beside it and below, overlapping only where the paper is
-  blank, so no word or name is covered, and the edges of the next two peek
-  out underneath (`BoardLayout`, a custom `Layout`). Before you've written,
-  a tap anywhere on the board writes; after, a tap on yours edits, and on
-  anyone else's opens the whole board. "See all notes" (never "6 notes")
-  opens `AllNotesSheet`, every note in full, two to a row. Long press
-  reports someone else's. No replies, no reactions, no notification, and
+  <id>` takes one down. **The look:** each note a pastel sticky (a pale
+  paper with its author's mention tone at 15%; lamplit in dark mode, never
+  black) under a strip of tape, tilted −3° to +3° by its id, with its words
+  in a hand and "— Ruby" beneath. Since the polish pass (build 28) the board
+  is **a row you swipe through**: one note in view, full width, with 20pt of
+  the next showing on the right, every note as tall as the tallest, and a
+  row of 6pt dots beneath in the atmosphere's accent (faint, the one in
+  view stronger; past nine they slide with you). Yours comes first, or a
+  yellow "Leave a note for your circle…" until it's written; then everyone
+  else's, newest first. One note alone: no peek, no dots, nothing to
+  swipe. A tap on yours (or the blank) writes; long press reports someone
+  else's. Build 27's overlapping corkboard (`BoardLayout`) and its "See
+  all notes" sheet (`AllNotesSheet`) are gone: the board took too much of
+  a phone's screen, and the swipe reaches every note. No replies, no reactions, no notification, and
   nothing counts them.
 - **Shared moments** — photos with the same location label on the same local day by
   2+ people group into one view-only card; each photo keeps its own decay/like/hold.
@@ -659,6 +668,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   atmosphere. Light mode is the journal exactly as before: in light,
   `darkRoomInk()` hands back `.foreground` and every dark-room branch is
   off.
+- **Spacing** (the polish pass, build 28, `Spacing` in `Layout.swift`) —
+  one unit and its half and double, so every gap looks chosen: 8pt inside
+  one thing, 16pt between sections (the masthead and the board, the board
+  and the question, the question and the first day, any tucked-in card and
+  what follows it, a day's mark and its first print, either side of the
+  rule between two prints, a print and the next in Held, the grids on You),
+  32pt before a new chapter (a new day in Today, a headed section on You, a
+  friend's page in Held) and at the foot of every page above the tab bar
+  (Today, Held, You, World). The page's side margin stays 20.
 - **The journal's visual language** (build 20, `Journal.swift`; in light
   mode since build 24, dark mode being the dark room above): the World
   tab's morning paper set the bar and every main page now matches it. Every
@@ -680,7 +698,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Empty Today** (`TodayEmptyPage`): a sheet tucked into the page, "Nothing
     here yet." and "Your circle's first moment is waiting." in a hand, a
     rule, "Photos live for six days, then they're gone." in small capitals,
-    then the camera at 78pt with "Take today's photo" beneath. Only once
+    then the camera at 90pt with "Take today's photo" beneath. Only once
     Today has answered (`todayLoaded`), so it never flashes up while photos
     load, and not while a capture waits to go up.
   - **Empty Held**: a sheet with a blank print (since build 24; four photo
@@ -716,7 +734,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (27)", at the
+  production audit), and the version, "Stanley 0.2.0 (28)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
@@ -922,7 +940,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 27** (0.2.0) is committed but not archived; the archive below is
+- **Build 28** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1014,7 +1032,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sign in with Apple again as a new one.
 - **Seen in the audit's screenshots, not fixed:** on iOS 26 the glass tab
   bar darkens over a dark photo and the selected tab's warm-charcoal ink
-  vanishes into it (Auto, light mode); on a 6.1" phone the capture sheet's
+  vanishes into it (Auto, light mode), and in dark mode it lightens over a
+  light photo and the warm-white ink vanishes the same way (seen again in
+  build 28's checks); on a 6.1" phone the capture sheet's
   subtitle is cut after one line. The World screenshot carries PBS's real
   election-day headlines.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the

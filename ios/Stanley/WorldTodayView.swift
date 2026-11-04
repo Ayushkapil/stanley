@@ -73,7 +73,8 @@ struct WorldTodayView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
-                .padding(.bottom, 40)
+                // The same room above the tab bar as every page.
+                .padding(.bottom, Spacing.chapter)
                 .readableWidth(density)
             }
             // A tap on the World tab: back to the top, or at the top the

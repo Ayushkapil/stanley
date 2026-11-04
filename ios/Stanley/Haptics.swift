@@ -3,17 +3,20 @@ import os
 import UIKit
 
 /// What the hand feels, kept to the deliberate social gestures: liking,
-/// holding, posting, sealing the circle's note, and pulling a page to
-/// refresh it. Nothing for scrolling, switching tabs or moving between
-/// screens, which would turn every touch into a buzz. Each is the lightest
-/// that still says "done": a light tap for the small things, a medium one
-/// for keeping a memory, and the system's success for a photo that's up.
+/// holding, posting, pinning a note, answering the circle's question, and
+/// pulling a page to refresh it. Nothing for opening stories, scrolling,
+/// switching tabs or moving between screens, which would turn every touch
+/// into a buzz. Each is a quiet confirmation (the polish pass, build 28): a
+/// soft one for a like, a light one for the small things, a medium one for
+/// keeping a memory, and the system's success for a photo that's up. The
+/// long-press menu's light tap is the system's own: iOS plays it as a
+/// context menu opens, so Stanley adds none, which would be a second.
 /// iOS stays in charge: with System Haptics off in Settings, these are
 /// silent.
 @MainActor
 enum Haptics {
-    /// The double-tap heart appearing.
-    static func liked() { impact(.light, "liked") }
+    /// The double-tap heart appearing: the softest there is.
+    static func liked() { impact(.soft, "liked") }
 
     /// A press-and-hold that keeps a photo: the bookmark filling.
     static func held() { impact(.medium, "held") }
@@ -21,8 +24,11 @@ enum Haptics {
     /// A pull that refreshes a page, as it lets go.
     static func refreshed() { impact(.light, "refreshed") }
 
-    /// The circle's note, set and on the board.
+    /// Your note, pinned to the circle's board (or changed there).
     static func noteSealed() { impact(.light, "note sealed") }
+
+    /// Your answer to the circle's question, in and sealed.
+    static func answered() { impact(.light, "answered") }
 
     /// Today's photo is up: posted, not merely queued for later.
     static func posted() {

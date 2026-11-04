@@ -404,7 +404,10 @@ struct QuestionSlip: View {
     private func send() {
         sending = true
         Task {
-            if await state.answerQuestion(text.trimmedWords) { text = "" }
+            if await state.answerQuestion(text.trimmedWords) {
+                Haptics.answered()
+                text = ""
+            }
             sending = false
         }
     }

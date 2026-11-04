@@ -19,7 +19,6 @@ struct TodayFeedView: View {
     /// The keyboard is up, so the floating camera is out of the way.
     @Binding var typing: Bool
     @State private var editingNote = false
-    @State private var readingNotes = false
     @State private var joiningAnother = false
     @State private var readingCircleJournal = false
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -49,37 +48,37 @@ struct TodayFeedView: View {
                     TodayMasthead(onJoinAnother: { joiningAnother = true }) {
                         readingCircleJournal = true
                     }
-                    .padding(.bottom, 22)
+                    .padding(.bottom, Spacing.section)
                     .id("masthead")
                     // The board is the circle talking to itself, so it goes
                     // first, above even the mosaic: everyone's sticky note
                     // for the day, pinned to the first page (build 27).
-                    NoteBoard(onWrite: { editingNote = true }, onSeeAll: { readingNotes = true })
-                        .padding(.bottom, 28)
+                    NoteBoard { editingNote = true }
+                        .padding(.bottom, Spacing.section)
                         .id("note")
                     // The circle's question of the week (build 26): a slip
                     // under the note, above the photos.
                     if let question = state.question {
                         QuestionSlip(question: question)
-                            .padding(.bottom, 28)
+                            .padding(.bottom, Spacing.section)
                             .id("question")
                     }
                     // The weekly mosaic sits above the days themselves
                     // (Part 2), Sun/Mon only.
                     if let mosaic = state.mosaic {
                         MosaicCard(mosaic: mosaic)
-                            .padding(.bottom, density.entrySpacing)
+                            .padding(.bottom, Spacing.section)
                             .id("mosaic")
                     }
                     // Returned sits above the circle's own pages, set apart.
                     if let item = state.returned {
                         ReturnedCard(item: item)
-                            .padding(.bottom, density.entrySpacing)
+                            .padding(.bottom, Spacing.section)
                             .id("returned")
                     }
                     if let pending = state.pendingHere {
                         PendingCaptureCard(pending: pending)
-                            .padding(.bottom, density.entrySpacing)
+                            .padding(.bottom, Spacing.section)
                             .id("pending")
                     }
                     // Nothing posted in this circle in six days, or ever: a
@@ -93,8 +92,8 @@ struct TodayFeedView: View {
                     }
                     ForEach(Array(JournalDay.group(state.feedItems).enumerated()), id: \.element.id) { index, day in
                         DayMark(date: day.date)
-                            .padding(.top, index == 0 ? 0 : density.daySpacing)
-                            .padding(.bottom, 18)
+                            .padding(.top, index == 0 ? 0 : Spacing.chapter)
+                            .padding(.bottom, Spacing.section)
                             .id("day:\(day.id.timeIntervalSince1970)")
                         // Entries carry their FeedItem id (a String, like the
                         // ids above), so one binding anchors to any of them.
@@ -104,7 +103,7 @@ struct TodayFeedView: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 if position > 0 {
                                     Rule(weight: 0.5)
-                                        .padding(.vertical, density.entrySpacing * 0.8)
+                                        .padding(.vertical, Spacing.section)
                                 }
                                 if item.isMoment {
                                     MomentCard(item: item)
@@ -115,7 +114,7 @@ struct TodayFeedView: View {
                                 // for your eyes only (build 26).
                                 if let offered = journalOffered(in: item) {
                                     JournalOfferSlip(photo: offered)
-                                        .padding(.top, 18)
+                                        .padding(.top, Spacing.section)
                                 }
                             }
                             // Each entry arrives as it's scrolled to (build 24).
@@ -128,7 +127,7 @@ struct TodayFeedView: View {
                     if state.todayCursor != nil {
                         ProgressView()
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 28)
+                            .padding(.vertical, Spacing.chapter)
                             .task(id: state.todayCursor) { await state.loadMoreToday() }
                             .id("more")
                     }
@@ -138,7 +137,9 @@ struct TodayFeedView: View {
                   .frame(maxWidth: .infinity)
                 }
                 .scrollTargetLayout()
-                .padding(.bottom, 8)
+                // The camera's own inset keeps the last entry clear of it, so
+                // the page only needs a section's room on top of that.
+                .padding(.bottom, Spacing.section)
                 .foldAnimated(hSizeClass)
             }
             .scrollPosition(id: $anchor)
@@ -183,7 +184,6 @@ struct TodayFeedView: View {
             .navigationTitle("Today")
             .sheet(isPresented: $capturing) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
-            .sheet(isPresented: $readingNotes) { AllNotesSheet() }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
             .sheet(isPresented: $readingCircleJournal) {
                 NavigationStack {
@@ -253,7 +253,7 @@ struct TodayEmptyPage: View {
             .paperInsert(tilt: -0.8)
             .accessibilityElement(children: .combine)
             VStack(spacing: 12) {
-                CaptureButton(disabled: state.holdsTheDay, diameter: 78, action: onCapture)
+                CaptureButton(disabled: state.holdsTheDay, diameter: 90, action: onCapture)
                 Button(action: onCapture) {
                     Text("Take today's photo")
                         .font(.hand(20, relativeTo: .body))
@@ -502,26 +502,31 @@ struct SideDockReader: UIViewRepresentable {
 /// stays put while Today scrolls. Disabled, not hidden, while a queued
 /// capture holds the day, so where it lives never changes.
 struct CaptureButton: View {
-    static let size: CGFloat = 56
+    /// 64pt since the polish pass (build 28), a fifth larger than the solid
+    /// 56pt disc it replaced, so a thin ring still reads as a button.
+    static let size: CGFloat = 64
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let disabled: Bool
     /// Larger where it's the page's one thing to do (an empty Today).
     var diameter: CGFloat = CaptureButton.size
     let action: () -> Void
 
+    /// A thin ring in the atmosphere's accent with the camera inside it, and
+    /// nothing filled (pilot users found the solid disc heavy). A soft halo
+    /// in the page's own color sits behind the ring and the glyph, so they
+    /// stay legible over a photo, light or dark, without weighing it down.
     var body: some View {
         let palette = Atmosphere.resolve(raw).palette
+        let scale = diameter / Self.size
         Button(action: action) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 21 * diameter / Self.size, weight: .semibold))
-                .foregroundStyle(palette.ink)
+            Image(systemName: "camera")
+                .font(.system(size: 24 * scale, weight: .regular))
+                .foregroundStyle(palette.accent)
                 .frame(width: diameter, height: diameter)
                 .background {
-                    Circle()
-                        .fill(palette.accent)
-                        .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
-                        .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+                    Circle().strokeBorder(palette.accent, lineWidth: 1.5)
                 }
+                .shadow(color: palette.floor.opacity(0.9), radius: 3)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

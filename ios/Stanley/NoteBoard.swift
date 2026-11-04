@@ -1,11 +1,12 @@
 import SwiftUI
 
-// The circle's board (build 27): everyone can pin one sticky note a day, and
-// the notes lie on the first page of Today the way notes lie on a corkboard,
-// overlapping a little, each at its own slight angle, each held by a strip
-// of tape and tinted with its author's own tone. You can change or take down
-// only your own. They clear at the end of their author's day. Not a chat:
-// no replies, no reactions, and never how many notes there are.
+// The circle's board (build 27): everyone can pin one sticky note a day, each
+// at its own slight angle, held by a strip of tape and tinted with its
+// author's own tone. Since the polish pass (build 28) they're a row you
+// swipe through, one note in view with the edge of the next, because the
+// corkboard of overlapping notes took too much of a phone's screen. You can
+// change or take down only your own. They clear at the end of their
+// author's day. Not a chat: no replies and no reactions.
 
 /// What a note's paper looks like: a pale paper with its author's tone in it
 /// (about 15%), so everyone's note is a slightly different pastel. In the
@@ -41,7 +42,7 @@ struct StickyNote: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let note: CommunityNote
     let tone: Color
-    /// How many lines the board shows; the sheet shows them all.
+    /// How many lines to show; all of them unless said.
     var lines: Int?
     @State private var lifts = 0
     @State private var settled = false
@@ -71,7 +72,7 @@ struct StickyNote: View {
         .padding(.horizontal, 16)
         .padding(.top, 22)
         .padding(.bottom, 16)
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity, alignment: .topLeading)
         .background { StickyPaper(color: NotePaper.base(colorScheme), tone: tone) }
         .overlay(alignment: .top) { Tape().offset(y: -10) }
         .keyframeAnimator(initialValue: 0.0, trigger: lifts) { content, lift in
@@ -134,7 +135,7 @@ private struct BlankNote: View {
             .padding(.horizontal, 16)
             .padding(.top, 22)
             .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity, alignment: .topLeading)
             .background { StickyPaper(color: NotePaper.blank(colorScheme)) }
             .overlay(alignment: .top) { Tape().offset(y: -10) }
             .rotationEffect(.degrees(-1.6))
@@ -142,161 +143,112 @@ private struct BlankNote: View {
     }
 }
 
-/// The edge of a note further down the pile: paper and tape, no words.
-private struct PeekNote: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let tone: Color
-
-    var body: some View {
-        StickyPaper(color: NotePaper.base(colorScheme), tone: tone)
-            .accessibilityHidden(true)
-    }
-}
-
-/// Where each thing on the board lies. Your note (or the blank one asking
-/// for it) at the front left, the newest two of everyone else's beside it
-/// and below, and the next two peeking out from underneath. Notes overlap
-/// only where they're blank: the two side by side share a few points of
-/// margin, and the one below is pinned just under them, its tape across
-/// their bottom margins, so no word or name is ever covered.
-private struct BoardLayout: Layout {
-    enum Slot: Int { case peekA, peekB, a, b, c }
-    struct SlotKey: LayoutValueKey { static let defaultValue: Slot = .a }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 360
-        let bottom = frames(width: width, subviews: subviews).values.map(\.maxY).max() ?? 0
-        return CGSize(width: width, height: bottom + 6)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let placed = frames(width: bounds.width, subviews: subviews)
-        for index in subviews.indices {
-            guard let frame = placed[index] else { continue }
-            subviews[index].place(
-                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
-                proposal: ProposedViewSize(frame.size)
-            )
-        }
-    }
-
-    private func frames(width: CGFloat, subviews: Subviews) -> [Int: CGRect] {
-        let slots = subviews.indices.map { ($0, subviews[$0][SlotKey.self]) }
-        let notes = slots.filter { $0.1.rawValue >= Slot.a.rawValue }.count
-        // Two side by side meet with a strip of paper in common, narrower
-        // than a note's own margin even when tilted; one alone is a single
-        // square-ish sticky.
-        let w = notes <= 1 ? min(width * 0.64, 280) : width * 0.5
-        func height(_ index: Int) -> CGFloat {
-            subviews[index].sizeThatFits(ProposedViewSize(width: w, height: nil)).height
-        }
-        var out: [Int: CGRect] = [:]
-        // The tape rides 10pt above each note, so the board starts lower.
-        if let a = slots.first(where: { $0.1 == .a })?.0 {
-            out[a] = CGRect(x: 4, y: 14, width: w, height: height(a))
-        }
-        if let b = slots.first(where: { $0.1 == .b })?.0 {
-            out[b] = CGRect(x: width - w - 2, y: 10, width: w, height: height(b))
-        }
-        if let c = slots.first(where: { $0.1 == .c })?.0 {
-            let above = [slots.first { $0.1 == .a }?.0, slots.first { $0.1 == .b }?.0]
-                .compactMap { $0.flatMap { out[$0]?.maxY } }.max() ?? 14
-            out[c] = CGRect(x: (width - w) / 2 + 8, y: above + 4, width: w, height: height(c))
-        }
-        // Further down the pile, behind the front two, an edge of each.
-        let front = out[slots.first { $0.1 == .a }?.0 ?? -1] ?? CGRect(x: 4, y: 14, width: w, height: 104)
-        let side = out[slots.first { $0.1 == .b }?.0 ?? -1] ?? front
-        if let p = slots.first(where: { $0.1 == .peekA })?.0 {
-            out[p] = front.offsetBy(dx: 10, dy: -7)
-        }
-        if let p = slots.first(where: { $0.1 == .peekB })?.0 {
-            out[p] = side.offsetBy(dx: -12, dy: 9)
-        }
-        return out
-    }
-}
-
-/// The board at the top of Today: at most three notes in view, with the edges
-/// of the next ones peeking out beneath, and "See all notes" when there are
-/// more than fit. Until you've written yours, the board asks for it, and a
-/// tap anywhere on it writes; after, a tap on yours changes it, and a tap on
-/// anyone else's opens the whole board to read.
+/// The board at the top of Today: one note in view at a time, full width,
+/// with the edge of the next showing on the right to say there's more, and
+/// a quiet row of dots beneath. Swipe through them. Yours comes first, or,
+/// until it's written, the blank one asking for it; then everyone else's,
+/// newest first. A tap on yours (or the blank) writes; anyone else's is
+/// there to read, and a long press reports it. With one note alone there's
+/// nothing to swipe: no peek and no dots.
 struct NoteBoard: View {
     @Environment(AppState.self) private var state
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let onWrite: () -> Void
-    let onSeeAll: () -> Void
+    @State private var current: String?
 
-    private var mine: CommunityNote? { state.myNote }
-    /// Everyone else's, newest first, as the server sent them.
-    private var others: [CommunityNote] { state.notes.filter { !state.isMine($0) } }
+    /// How much of the next note shows at the right edge.
+    private static let peek: CGFloat = 20
+    private static let gap: CGFloat = 12
+    /// Past this many, the dots slide with the note in view rather than
+    /// running off the page.
+    private static let maxDots = 9
+
+    private enum Card: Identifiable {
+        case blank
+        case note(CommunityNote)
+        var id: String {
+            switch self {
+            case .blank: "blank"
+            case .note(let note): note.boardId
+            }
+        }
+    }
+
+    private var cards: [Card] {
+        let others = state.notes.filter { !state.isMine($0) }.map(Card.note)
+        return [state.myNote.map(Card.note) ?? .blank] + others
+    }
 
     var body: some View {
-        let shown = Array(others.prefix(2))
-        let peeking = Array(others.dropFirst(2).prefix(2))
-        VStack(alignment: .leading, spacing: 10) {
-            BoardLayout {
-                ForEach(Array(peeking.enumerated()), id: \.offset) { index, note in
-                    PeekNote(tone: state.noteTone(note))
-                        .rotationEffect(.degrees(NotePaper.tilt((note.id ?? note.text) + "peek")))
-                        .layoutValue(key: BoardLayout.SlotKey.self, value: index == 0 ? .peekA : .peekB)
-                }
-                // Back to front: the one beside, yours, then the one below.
-                if let side = shown.first {
-                    other(side)
-                        .layoutValue(key: BoardLayout.SlotKey.self, value: .b)
-                }
-                Group {
-                    if let mine {
-                        Button(action: onWrite) {
-                            StickyNote(note: mine, tone: state.noteTone(mine), lines: 3)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Change or take down your note")
-                    } else {
-                        BlankNote()
+        let cards = self.cards
+        let many = cards.count > 1
+        VStack(spacing: Spacing.tight) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: Self.gap) {
+                    ForEach(cards) { card in
+                        view(card)
+                            .containerRelativeFrame(.horizontal) { length, _ in
+                                many ? length - Self.peek - Self.gap : length
+                            }
+                            .id(card.id)
                     }
                 }
-                .layoutValue(key: BoardLayout.SlotKey.self, value: .a)
-                if shown.count > 1 {
-                    other(shown[1])
-                        .layoutValue(key: BoardLayout.SlotKey.self, value: .c)
-                }
+                // Every note in the row as tall as the tallest, so they line
+                // up. Room above for the tape, and below for the shadow.
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
+                .scrollTargetLayout()
             }
-            // Until yours is written, the whole board is the way to write it.
-            .contentShape(Rectangle())
-            .onTapGesture { if mine == nil { onWrite() } }
-            if others.count > shown.count {
-                Button(action: onSeeAll) {
-                    HStack(spacing: 6) {
-                        Text("See all notes")
-                            .font(.hand(17, bold: true, relativeTo: .callout))
-                        Image(systemName: "arrow.right")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .padding(.leading, 6)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $current)
+            .scrollClipDisabled()
+            .scrollDisabled(!many)
+            if many {
+                dots(cards)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("The circle's notes")
     }
 
-    /// Someone else's note on the board: there to read, and to report.
     @ViewBuilder
-    private func other(_ note: CommunityNote) -> some View {
-        let sticky = StickyNote(note: note, tone: state.noteTone(note), lines: 3)
-            .noteMenu(note)
-        if mine == nil {
-            sticky
-        } else {
-            Button(action: onSeeAll) { sticky }
+    private func view(_ card: Card) -> some View {
+        switch card {
+        case .blank:
+            Button(action: onWrite) { BlankNote() }
                 .buttonStyle(.plain)
-                .accessibilityHint("Shows every note on the board")
+                .accessibilityHint("Write your note for the circle")
+        case .note(let note) where state.isMine(note):
+            Button(action: onWrite) { StickyNote(note: note, tone: state.noteTone(note)) }
+                .buttonStyle(.plain)
+                .accessibilityHint("Change or take down your note")
+        case .note(let note):
+            StickyNote(note: note, tone: state.noteTone(note))
+                .noteMenu(note)
         }
+    }
+
+    /// Where you are in the row, the way a page control says it: the one in
+    /// view in the atmosphere's accent, the rest faint. Past nine they slide
+    /// with you, the ones at the window's edges smaller.
+    private func dots(_ cards: [Card]) -> some View {
+        let accent = Atmosphere.resolve(raw).palette.accent
+        let index = cards.firstIndex { $0.id == current } ?? 0
+        let first = max(0, min(index - Self.maxDots / 2, cards.count - Self.maxDots))
+        let shown = Array(cards.indices.dropFirst(first).prefix(Self.maxDots))
+        return HStack(spacing: 6) {
+            ForEach(shown, id: \.self) { i in
+                let edge = cards.count > Self.maxDots
+                    && ((i == shown.first && i > 0) || (i == shown.last && i < cards.count - 1))
+                Circle()
+                    .fill(accent.opacity(i == index ? 0.9 : 0.25))
+                    .frame(width: edge ? 4 : 6, height: edge ? 4 : 6)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.2), value: index)
+        .accessibilityHidden(true)
     }
 }
 
@@ -332,61 +284,6 @@ private struct NoteMenu: ViewModifier {
                 .sheet(isPresented: $reporting) {
                     ReportSheet(target: .note(note))
                 }
-        }
-    }
-}
-
-/// Every note on the board today, laid out to read in full, two to a row,
-/// each at its own angle. Yours opens to change.
-struct AllNotesSheet: View {
-    @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-    @State private var editing = false
-
-    private let columns = [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)]
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(state.circle?.name ?? "Your circle")
-                        .font(.hand(30, bold: true, relativeTo: .largeTitle))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Text("Today's notes · they clear at the end of the day")
-                        .smallCaps()
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 22)
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 26) {
-                    if state.myNote == nil {
-                        Button { editing = true } label: { BlankNote() }
-                            .buttonStyle(.plain)
-                    }
-                    ForEach(state.notes, id: \.boardId) { note in
-                        if state.isMine(note) {
-                            Button { editing = true } label: {
-                                StickyNote(note: note, tone: state.noteTone(note))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Change or take down your note")
-                        } else {
-                            StickyNote(note: note, tone: state.noteTone(note))
-                                .noteMenu(note)
-                        }
-                    }
-                }
-                .padding(.top, 10)
-            }
-            .contentMargins(20, for: .scrollContent)
-            .atmosphereWash()
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
-            .sheet(isPresented: $editing) { NoteEditor() }
-            .task { await state.loadNotes() }
         }
     }
 }
