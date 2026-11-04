@@ -989,8 +989,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 33** (0.2.0) is committed but not archived; the archive below is
-  build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
+- **Build 33** (0.2.0) is committed but not archived. Xcode's Organizer
+  holds archives up to build 28 (November 4, 01:42); whether any was
+  uploaded isn't visible from here. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
 - **TestFlight build.** Build 13 (0.2.0) is archived and exported from
@@ -1007,7 +1008,27 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   simulator camera stand-in. `STANLEY_SENTRY_DSN` is empty, so this build
   has no crash reporting. To ship, use Organizer → Distribute App → TestFlight
   & App Store, or Transporter with the IPA.
-- **Fly now** (checked read-only on 2026-11-03): release **v15**
+- **App Store submission** (November 4, build 33): `APP_STORE_METADATA.md`
+  holds every field (name, subtitle, promotional text, a 3,030-character
+  description, keywords, categories, age rating, URLs, copyright) and the
+  screenshot plan. The screenshots are in `ios/AppStoreScreenshots/6.7/`
+  (1290 × 2796) and `6.1/` (1179 × 2556): Today, capture, Held, You, World
+  and the weekly question, plus an optional seventh, all from
+  `seed_screenshots.py`. Two decisions are open:
+  - **Support URL:** a `mailto:` may be refused; Apple asks for a web URL
+    with contact information, and the server has no `/support` page yet.
+  - **Unrestricted Web Access:** answering Yes rates the app **16+** in
+    Apple's current table, against the Terms' 13; No keeps it at 13+.
+
+  The World screenshot carries the day-after-midterms headlines.
+- **Fly now** (checked read-only on 2026-11-04): release **v18** (November 3,
+  20:00 UTC) carries the production audit and build 26's journal (headers,
+  hidden docs, refresh, reflections all answer). **Not deployed: the board**
+  (`/circles/{id}/notes` is a 404) and the November 4 Terms and Privacy
+  wording (`/privacy` says November 3). The volume is **3 GB**, with 32 MB
+  used. `/data/pre-build18.db` is still there (due by November 8). The
+  paragraph below about v15 is history.
+- **Fly before** (checked read-only on 2026-11-03): release **v15**
   (2026-11-02 04:54 UTC) runs the server as of `de71bc9`, the last server
   change before the production audit: `/terms` and `/privacy` are
   byte-identical to `legal.py` then, and `REPORT_WEBHOOK_URL` is set among
@@ -1270,7 +1291,7 @@ live APNs, concurrency under real load.
 - Tests: `server/tests/`; deploy notes: `server/DEPLOY.md`; seed/dev tools:
   `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`;
   App Store screenshots `server/scripts/seed_screenshots.py` + `scenes.py`
-  (output in `ios/AppStore/Screenshots/`); ops `server/scripts/
+  (output in `ios/AppStoreScreenshots/`); ops `server/scripts/
   integrity_check.py`, `pull_backup.sh` + `com.stanley.pull-backup.plist`
 - Production status of every audit item: `PRODUCTION_CHECKLIST.md` (repo root)
 

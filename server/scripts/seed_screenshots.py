@@ -3,8 +3,10 @@
 
 Eight people on a dorm floor, "Third Floor", three days of photos (two from
 tonight, a shared moment at Griffy Lake yesterday, a fading Sunday), stories
-with a mention, likes, who-was-there faces, a note on the board, and a Held
-page with memories from late October. Every photo is drawn in code
+with a mention, likes, who-was-there faces, notes on the board, and a Held
+page with memories from late October. Since build 33 the circle's question
+too: last week's, its answers open and kept in the circle journal, and this
+week's, with Maya's answer sealed. Every photo is drawn in code
 (`scenes.py`): nobody's real photos, no stock licence. Times are relative to
 now, so the journal reads "Today" and "Yesterday" whenever it's run.
 
@@ -33,13 +35,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scenes import scene  # noqa: E402
 
-from stanley import decay, physics  # noqa: E402
+from stanley import decay, journal, physics  # noqa: E402
 from stanley.clock import SystemClock  # noqa: E402
 from stanley.config import Settings  # noqa: E402
 from stanley.db import Base, ensure_schema, make_engine, make_sessionmaker  # noqa: E402
 from stanley.images import process_avatar, process_upload  # noqa: E402
 from stanley.models import (  # noqa: E402
-    Anchor, Circle, CircleNote, Comment, Like, Membership, Photo, PhotoTag, User, new_id,
+    Anchor, Circle, CircleNote, CirclePrompt, Comment, Like, Membership, Photo, PhotoTag,
+    PromptResponse, User, new_id,
 )
 from stanley.notifications import Notifier  # noqa: E402
 from stanley.storage import make_blob_store  # noqa: E402
@@ -206,6 +209,9 @@ def main() -> None:
 
         # Tonight's board: a few notes, each its author's own.
         for who, words, minutes_ago in (
+            # Maya's own first: she's who the screenshots sign in as, and the
+            # board puts yours first, so a blank note would lead it.
+            ("Maya", "pancakes in the lounge sunday at 10, bring syrup", 20),
             ("Ruby", "movie night in the lounge at 9, bring blankets", 50),
             ("Jonah", "anyone up for griffy saturday morning? leaving 8am", 95),
             ("Priya", "quiet hours start at 11 tonight, midterm tomorrow", 140),
@@ -216,6 +222,38 @@ def main() -> None:
                 circle_id=circle.id, author_id=users[who].id, body=words, created_at=pinned, updated_at=pinned,
                 expires_at=(midnight + timedelta(days=1)).astimezone(timezone.utc),
             ))
+
+        # The circle's question. Last week's answers are open, read together
+        # and kept in the circle journal; this week's are sealed until
+        # Saturday, Maya's among them.
+        this_week = journal.question_week(now)
+        last_week = this_week - timedelta(days=7)
+        opened = CirclePrompt(
+            circle_id=circle.id, week_start=last_week,
+            prompt="If you could give this week a color, what would it be?",
+            created_at=datetime.combine(last_week, datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=9),
+        )
+        current = CirclePrompt(
+            circle_id=circle.id, week_start=this_week,
+            prompt="What moment this week would you relive if you could?",
+            created_at=datetime.combine(this_week, datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=9),
+        )
+        s.add_all([opened, current])
+        s.flush()
+        for hours, who, words in (
+            (20, "Priya", "Gray-blue. Every morning was fog, and I liked it more than I expected."),
+            (31, "Jonah", "Burnt orange, like the trail at Griffy on Saturday."),
+            (44, "Ines", "The yellow of the lounge lamps at 1am, when the studio finally made sense."),
+            (52, "Theo", "Library green. I don't think I saw daylight until Thursday."),
+            (66, "Ruby", "Popcorn butter. Movie night carried the whole week."),
+            (79, "Maya", "Pale pink, the sky the morning I finally slept in."),
+            (90, "Marcus", "Navy, with a few stars in it."),
+        ):
+            s.add(PromptResponse(prompt_id=opened.id, user_id=users[who].id, body=words,
+                                 created_at=opened.created_at + timedelta(hours=hours)))
+        s.add(PromptResponse(prompt_id=current.id, user_id=maya.id,
+                             body="Running up the hill at Griffy before the sun went down.",
+                             created_at=min(now, at(1, 22, 30))))
         s.commit()
 
     with Session() as s:

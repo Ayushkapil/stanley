@@ -5,7 +5,7 @@ the server as of the commit that added this file. Every item says where it
 stands:
 
 - ✅ **Good**: already right; checked, nothing changed.
-- 🔧 **Fixed**: changed in this audit, with tests (server suite: 359 passing).
+- 🔧 **Fixed**: changed in this audit, with tests (server suite: 359 passing then; 394 on November 4).
 - ⚠️ **By hand**: needs someone with the accounts (Fly, Apple, Sentry, an
   uptime monitor). Exact steps are below.
 
@@ -15,11 +15,37 @@ code as `main` before this audit, the full Terms and Privacy Policy are live
 is 1 GB with 26 MB used, and the integrity check found nothing wrong. None of
 the fixes below are on Fly until the next `fly deploy`.
 
+### Re-checked November 4, 2026 (build 33, before App Store submission)
+
+Every item was checked again, read-only, against Fly, this Mac and the repo:
+
+- **Fly runs release v18**, deployed November 3 at 20:00 UTC. It carries the
+  production audit and build 26's journal:
+  - HSTS and CSP headers are on `/health`;
+  - `/openapi.json` is a 404;
+  - `/auth/refresh` and `/me/reflections` exist.
+- **v18 doesn't carry build 27's board.** `/circles/{id}/notes` is a 404, and
+  `/privacy` still says November 3, not the November 4 wording.
+- **The volume is 3 GB**, with 32 MB used (step 1, done).
+- **The pre-build-18 snapshot is still on the volume and on this Mac**
+  (step 8, due in four days).
+- **Not set up yet:** no Sentry DSN, and no off-Fly backup job.
+- **Archives:** build 28 is the newest; nothing from builds 29 to 33 is
+  archived.
+- **Server suite: 394 passing.**
+
+Status marks below are updated where they changed. The App Store fields
+themselves (description, keywords, age rating, screenshots) are in
+`APP_STORE_METADATA.md`.
+
 ---
 
 ## Do these by hand, in this order
 
-1. **Grow the volume before anyone posts in earnest.** At about 3 MB a photo,
+1. ✅ **Done (3 GB, seen November 4; 32 MB used).** About a month of a
+   30-person circle at ~3 MB a photo; extend again as it fills (the daily
+   `event=disk_low` warning fires at three quarters).
+   **Grow the volume before anyone posts in earnest.** At about 3 MB a photo,
    a 30-person circle fills 1 GB in roughly ten days and every post after
    that fails (DEPLOY.md, "Disk").
 
@@ -27,7 +53,12 @@ the fixes below are on Fly until the next `fly deploy`.
    fly volumes extend vol_v8eygoljqj2j02kv --size 10 --app server-earnest-stream-9793
    ```
 
-2. **Deploy the server.** It works with every build in people's hands, and
+2. ⚠️ **Partly done.** v18 (November 3, 20:00 UTC) has the production audit
+   and the journal. **Deploy once more** for the board (build 27) and the
+   November 4 Terms and Privacy Policy: until then the app falls back to the
+   old single note, and the store's Privacy Policy URL serves the November 3
+   wording. Deploy before submitting, so the URL says what the app says.
+   **Deploy the server.** It works with every build in people's hands, and
    the other way round: an older app never asks for pages and gets
    everything, as before; the app built from this commit, against today's
    server, gets everything in one page and quietly skips the token refresh
@@ -56,7 +87,8 @@ the fixes below are on Fly until the next `fly deploy`.
    and, after the first sign-up, `event=signup`; and the integrity check
    passes (DEPLOY.md, "Integrity check").
 
-3. **Turn on crash reporting** (Sentry; no build has had a DSN yet, so no
+3. ⚠️ **Not done** (`STANLEY_SENTRY_DSN` is still empty in `ios/project.yml`).
+   **Turn on crash reporting** (Sentry; no build has had a DSN yet, so no
    crash has ever been reported from anyone's phone):
    1. sentry.io → Projects → Create Project → platform **Apple / iOS** →
       name it `stanley-ios`.
@@ -77,7 +109,8 @@ the fixes below are on Fly until the next `fly deploy`.
    7. Before that build reaches anyone, tell the pilot the Privacy Policy
       changed (see 7).
 
-4. **Schedule the off-Fly backup** on this Mac (DEPLOY.md, "Backups", layer 3):
+4. ⚠️ **Not done** (no `com.stanley.pull-backup` in `~/Library/LaunchAgents`).
+   **Schedule the off-Fly backup** on this Mac (DEPLOY.md, "Backups", layer 3):
 
    ```bash
    server/scripts/pull_backup.sh --dry-run
@@ -87,26 +120,34 @@ the fixes below are on Fly until the next `fly deploy`.
    launchctl load ~/Library/LaunchAgents/com.stanley.pull-backup.plist
    ```
 
-5. **Watch `/health` from outside** (free): uptimerobot.com → Add New Monitor
+5. ⚠️ **Unknown from here** (an outside monitor can't be seen from the repo).
+   **Watch `/health` from outside** (free): uptimerobot.com → Add New Monitor
    → type **HTTP(s)** → name `Stanley` → URL
    `https://server-earnest-stream-9793.fly.dev/health` → interval 5 minutes →
    alert contact: your email, and the UptimeRobot app for pushes → Create.
    Better Stack's free plan does the same at 3-minute checks. `/health` is a
    503 when the database can't be read, so a down database alerts too.
 
-6. **App Store Connect forms.**
+6. ⚠️ **App Store Connect forms.** Everything to paste is in
+   `APP_STORE_METADATA.md`. Two of its fields need a decision first:
+   - **Support URL:** Apple wants a web URL with contact information, and
+     `mailto:` may be refused. A `/support` page on the server (it's a 404
+     today) is the clean fix.
+   - **Unrestricted Web Access:** Yes rates the app **16+** in Apple's
+     current table; No keeps it at 13+. See "Age rating" below.
    - App Privacy: the click-by-click answers are at the end of
      `PRIVACY_LABEL.md` (Name, Photos, Other User Content, User ID, Device ID,
      Coarse Location, Product Interaction, Crash Data). Privacy Policy URL:
      `https://server-earnest-stream-9793.fly.dev/privacy`.
    - Age rating: the answers are under "App Store requirements" below; the
-     result is **13+**.
-   - Screenshots: upload `ios/AppStore/Screenshots/6.7/` to the **6.9"
+     result is **13+**, or **16+** with Unrestricted Web Access answered Yes.
+   - Screenshots: upload `ios/AppStoreScreenshots/6.7/` to the **6.9"
      display** slot (1290 × 2796 is accepted there) and, optionally,
-     `ios/AppStore/Screenshots/6.1/` to the 6.1"/6.3" slot. Read the caveats
-     under "Screenshots" first.
+     `ios/AppStoreScreenshots/6.1/` to the 6.3" slot. Read the caveats under
+     "Screenshots" first.
 
-7. **Tell the pilot about the Privacy Policy change** before a build with a
+7. ⚠️ **Not done.** Now covers the November 4 wording too (the board).
+   **Tell the pilot about the Privacy Policy change** before a build with a
    Sentry DSN ships. The policy now says a crash report carries a short trail
    of what the app did ("opened Held", "posted a photo"), and its section 10
    promises material changes are told "in the app before it takes effect".
@@ -123,7 +164,9 @@ the fixes below are on Fly until the next `fly deploy`.
    That's collecting something new, so section 10's promise applies to build
    26 whether or not it has a Sentry DSN: tell the pilot before it ships.
 
-8. **Delete the pre-build-18 snapshot by November 8** (both copies), or the
+8. ⚠️ **Not done, due November 8.** Both copies were still there on November 4
+   (`/data/pre-build18.db` on the volume, 196 KB, and the copy here).
+   **Delete the pre-build-18 snapshot by November 8** (both copies), or the
    policy's "gone from our backups within seven days" stops being true:
 
    ```bash
@@ -133,6 +176,13 @@ the fixes below are on Fly until the next `fly deploy`.
 
 9. **Before any open release:** the CSAM launch items below, and a lawyer's
    read of the Terms and Privacy Policy (not done).
+
+10. ⚠️ **Archive and upload build 33.** The newest archive is build 28
+    (November 4, 01:42); builds 29 to 33 (the "+", the biometric lock, the QA
+    and HCI fixes, Invite, the accent contrast) exist only as commits. Archive
+    from `main` in Xcode → Product → Archive, then Organizer → Distribute App →
+    TestFlight & App Store. Build 18 added Push Notifications; automatic
+    signing adds it to the App ID.
 
 ---
 
@@ -158,7 +208,8 @@ the fixes below are on Fly until the next `fly deploy`.
   tokens, Today's cursor and page size, and "who was there" tags (cut at the
   circle cap; past 1,000 form fields the framework refuses the request with
   a 400). Existing caps kept: captions 2,000, stories 2,000, bios 1,000, names
-  80, circle names 80, places 120, notes 90.
+  80, circle names 80, places 120, notes 200 (the board, build 27; it was
+  90), journal entries 1,000, reflections 500, answers 300 (build 26).
 - 🔧 **Found and fixed: one malformed time zone could stop decay for
   everyone.** `GET /feed/returned?tz=…` stored any string as the person's
   time zone. The evening digest then failed on it every pass, and since the
@@ -285,10 +336,11 @@ the fixes below are on Fly until the next `fly deploy`.
   root ink (the dark room) outranked `role: .destructive`, so Leave Circle,
   Reset Code, Delete Account and Block lost their red in both modes. They're
   red again (`destructiveInk()`); alerts and menus were never affected.
-- ⚠️ **Seen, not fixed (design calls):** on iOS 26 the glass tab bar darkens
-  over a dark photo and the selected tab's warm-charcoal ink disappears into
-  it (Auto, light mode). And on a 6.1" phone the capture sheet's subtitle
-  ("…It fades in six days unless someone keeps it.") is cut after one line.
+- 🔧 **Seen in the audit, fixed in build 31:** the tab bar now sits on the
+  atmosphere's floor (`SolidTabBar`), so the selected tab no longer vanishes
+  into iOS 26's glass over a photo. The capture sheet's subtitle wraps
+  instead of being cut, and the photo sizes itself so nothing starts under
+  the footer (seen whole on the iPhone 17 in the November 4 screenshots).
 
 ## App Store requirements
 
@@ -299,7 +351,7 @@ the fixes below are on Fly until the next `fly deploy`.
     harassment phrases ("kill yourself"), matched as whole words after
     undoing the usual dodges (case, accents, "n1gg3r", "f.a.g", letters
     spaced out or stretched, two words run together). Applied to stories,
-    community notes, captions, places, names, usernames, bios and circle
+    the board's notes, journal entries, reflections, answers, captions, places, names, usernames, bios and circle
     names, refused before anything is stored, said in words by the app. This
     goes past the comments and notes asked for: a caption or a name is read
     by the whole circle too. Never applied to reports (they may need to
@@ -358,35 +410,52 @@ the fixes below are on Fly until the next `fly deploy`.
     13+.)
   - Medical or treatment information, health or wellness topics: None / No.
   - Simulated gambling: None. Gambling, contests, loot boxes: No.
-  - **Unrestricted web access: No.** A news story opens its publisher's page
-    in Safari's in-app viewer, with no address bar; Stanley offers no way to
-    browse to an address. (Yes forces a much higher rating; if a reviewer
-    insists, the fallback is to open articles in Safari itself.)
+  - **Unrestricted web access: No (this audit) / Yes (the submission brief,
+    November 4). ⚠️ Decide.** A news story opens its publisher's page in
+    Safari's in-app viewer, with no address bar; Stanley offers no way to
+    browse to an address, though a reader can follow the publisher's own
+    links. Apple's definition is "Users can navigate to any webpage within
+    the app or freely browse the web. May include: embedded browser
+    functionality or browser app." In Apple's current base table that
+    capability is **16+** (checked November 4 in App Store Connect Help,
+    "Age ratings values and definitions"). Yes makes Stanley 16+, three
+    years above the Terms' minimum of 13. If you answer No and a reviewer
+    insists, the fallback is to open articles in Safari itself.
   - **User-generated content: Yes.** Messaging and chat: No (no direct
     messages; stories are comments on a photo within a circle). Advertising:
     No.
   - **Social media feed (July 2026): Yes.** Today surfaces circle members'
     photos in a feed, which sets a 13+ floor. "Disabled for users under 13":
     No; the Terms already require 13.
-  - Result: **13+**, which matches the Terms.
-- 🔧⚠️ **Screenshots.** `ios/AppStore/Screenshots/6.7/` (iPhone 15 Pro Max,
-  1290 × 2796) and `6.1/` (iPhone 15 Pro, 1179 × 2556), six each, JPEG:
-  Today, the capture screen (Grain, a place), Held, You, World, Settings.
-  Light mode, status bar at 9:41, a believable circle ("Third Floor", eight
-  people, stories, a shared moment, a note, a Held album), seeded by
-  `server/scripts/seed_screenshots.py`. Every photo is drawn in code
-  (`server/scripts/scenes.py`): nobody's real photos, no stock licence, no
-  paid image generation. Caveats before uploading:
-  - **The World screenshot shows PBS's real headlines from election day
-    2026**, a US strike on Iran among them. A publisher's headlines on a
-    store page, and heavy ones, may be worth a retake on a quieter day, or
-    leaving World out.
-  - The drawn photos read as illustration more than photography up close.
-  - App Store Connect requires the 6.9" set (the 6.7" files fit it); the
-    6.1" set is optional, scaled from the larger one if absent.
-  - To retake: seed into a scratch folder, run the dev server on it, sign in
-    as "Maya Chen" in a Debug build, and drop a `SampleCapture.jpg` in the
-    app's Documents (the simulator's camera stand-in).
+  - Result: **13+**, which matches the Terms, with web access No; **16+**
+    with Yes. In Australia, social media alone maps to 16+.
+- 🔧⚠️ **Screenshots** (retaken November 4, build 33).
+  `ios/AppStoreScreenshots/6.7/` (1290 × 2796, from the iPhone 17 Pro Max
+  simulator) and `6.1/` (1179 × 2556, from the iPhone 17 simulator), JPEG,
+  light mode, status bar at 9:41.
+  - **The set:** six each in the order the brief asked for: Today (the board
+    and the week's question), the capture sheet (Grain, a place, a caption,
+    two tagged), Held, You (the faces and Invite), World, and the weekly
+    question's answers in the circle journal. Plus an optional seventh,
+    stories and a shared moment.
+  - **How it was made:** seeded by `server/scripts/seed_screenshots.py`,
+    which now also writes the circle's questions and Maya's own note. Photos
+    are drawn in code (`server/scripts/scenes.py`). The older set in
+    `ios/AppStore/Screenshots/` is removed (it's in git history).
+  - **Caveats:** in `APP_STORE_METADATA.md`. The main one: **World shows
+    PBS's real headlines from the day after the 2026 midterms**, which read
+    as partisan on a store page. Retake on a quieter day, or leave World
+    out.
+  - **To retake:**
+    1. Seed into a scratch folder and run the dev server on it, with news
+       on.
+    2. Sign in as "Maya Chen" in a Debug build.
+    3. Drop a `SampleCapture.jpg` in the app's Documents (the simulator's
+       camera stand-in).
+    4. Grant location before opening the capture sheet (`simctl privacy …
+       grant location-always`), and set Bloomington (`simctl location … set
+       39.1682,-86.5230`).
+    5. Fix the status bar with `simctl status_bar … override --time 9:41`.
 
 ## Monitoring and observability
 
