@@ -144,6 +144,7 @@ struct TodayFeedView: View {
             // A tap on the Today tab: back to the top, or at the top the
             // pull's own refresh (`TabTaps`).
             .onTabTap(state.tabTaps.today, scroll: proxy, to: "masthead") {
+                await state.loadCircle()
                 await state.refreshToday()
                 await state.loadQuestion()
                 await state.flushPendingCapture()
@@ -175,6 +176,10 @@ struct TodayFeedView: View {
                 // response: Returned and the queued upload never ran. The
                 // pass runs as its own task and the pull waits on it.
                 await Task {
+                    // The circle too: who's in it (Members, mention tones)
+                    // and which circles you're in had no other way to catch
+                    // up until a relaunch (the QA audit, build 30).
+                    await state.loadCircle()
                     await state.refreshToday()
                     await state.loadQuestion()
                     await state.flushPendingCapture()
@@ -205,45 +210,46 @@ struct TodayEmptyPage: View {
     @Environment(AppState.self) private var state
     let onCapture: () -> Void
 
+    /// The camera is inside the sheet, at its foot (the QA audit, build 30):
+    /// below it, under the board and the question, a 90pt ring fell behind
+    /// the tab bar on a phone, half hidden, exactly where it was meant to be
+    /// the page's one thing to do.
     var body: some View {
-        VStack(spacing: 34) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Nothing here yet.")
-                    .font(.hand(32, bold: true, relativeTo: .title))
-                Text("Your circle's first moment is waiting.")
-                    .font(.hand(22, relativeTo: .title3))
-                    .foregroundStyle(.secondary)
-                Rule(weight: 0.5)
-                    .padding(.top, 10)
-                Text("Photos live for six days, then they're gone.")
-                    .smallCaps()
-                    .padding(.top, 2)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .paperInsert(tilt: -0.8)
-            .accessibilityElement(children: .combine)
-            VStack(spacing: 12) {
-                CaptureButton(disabled: state.holdsTheDay, diameter: 90, action: onCapture)
-                Button(action: onCapture) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Nothing here yet.")
+                .font(.hand(32, bold: true, relativeTo: .title))
+            Text("Your circle's first moment is waiting.")
+                .font(.hand(22, relativeTo: .title3))
+                .foregroundStyle(.secondary)
+            Rule(weight: 0.5)
+                .padding(.top, 10)
+            Text("Photos live for six days, then they're gone.")
+                .smallCaps()
+                .padding(.top, 2)
+            Button(action: onCapture) {
+                HStack(spacing: 14) {
+                    CaptureButton(disabled: state.holdsTheDay, diameter: 52, action: onCapture)
+                        .allowsHitTesting(false)
                     Text("Take today's photo")
-                        .font(.hand(20, relativeTo: .body))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
+                        .font(.hand(21, bold: true, relativeTo: .body))
+                        .foregroundStyle(.primary)
                 }
-                .buttonStyle(.plain)
-                .disabled(state.holdsTheDay)
-                // The camera above already says it.
-                .accessibilityHidden(true)
+                .frame(minHeight: 52)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity)
+            .buttonStyle(.plain)
+            .disabled(state.holdsTheDay)
+            .opacity(state.holdsTheDay ? 0.45 : 1)
+            .padding(.top, Spacing.section)
+            .accessibilityLabel("Take today's photo")
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .paperInsert(tilt: -0.8)
         .padding(.top, 6)
-        .padding(.bottom, 24)
+        .padding(.bottom, Spacing.section)
     }
 }
 

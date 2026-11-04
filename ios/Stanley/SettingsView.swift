@@ -58,6 +58,7 @@ struct SettingsView: View {
                     : "You'll stop seeing the circle. The memories you've held stay yours.")
             }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
+            .task { await state.loadCircle() }
             .sheet(isPresented: $showShare) {
                 if let exportURL {
                     ShareSheet(items: [exportURL])
@@ -72,6 +73,17 @@ struct SettingsView: View {
     private var circleSection: some View {
         if let circle = state.circle {
             Section {
+                // Which circle this page is about, once there's more than one
+                // (the same choice as the circle's name atop Today).
+                if state.circles.count > 1 {
+                    Picker("Circle", selection: Binding(
+                        get: { state.circle?.id ?? "" },
+                        set: { id in Task { await state.switchCircle(to: id) } }
+                    )) {
+                        ForEach(state.circles) { Text($0.name).tag($0.id) }
+                    }
+                    .pickerStyle(.menu)
+                }
                 if isCreator {
                     NavigationLink {
                         CircleNameView(name: circle.name)

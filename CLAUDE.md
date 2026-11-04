@@ -696,7 +696,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Empty Today** (`TodayEmptyPage`): a sheet tucked into the page, "Nothing
     here yet." and "Your circle's first moment is waiting." in a hand, a
     rule, "Photos live for six days, then they're gone." in small capitals,
-    then the camera at 90pt with "Take today's photo" beneath. Only once
+    then (since the QA audit, build 30) a 52pt camera ring and "Take today's
+    photo" as one button inside the sheet; at 90pt below it, it fell under
+    the tab bar once the note row and the question were above it. Only once
     Today has answered (`todayLoaded`), so it never flashes up while photos
     load, and not while a capture waits to go up.
   - **Empty Held**: a sheet with a blank print (since build 24; four photo
@@ -733,8 +735,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (29)", at the
+  production audit), and the version, "Stanley 0.2.0 (30)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
+  With more than one circle, a **Circle** picker heads the Circle group
+  (build 30; documented earlier but missing until the QA audit).
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
   capitals; the rows themselves are unchanged.
@@ -944,7 +948,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 29** (0.2.0) is committed but not archived; the archive below is
+- **Build 30** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1041,6 +1045,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   build 28's checks); on a 6.1" phone the capture sheet's
   subtitle is cut after one line. The World screenshot carries PBS's real
   election-day headlines.
+- **QA audit** (November 4, 2026, build 30; `docs/qa-2026-11-04/QA_AUDIT.md`
+  with screenshots): fixed the app rotating (the portrait-only key was a
+  build setting that never reached Stanley's own Info.plist; it's in the plist
+  now), the empty Today's camera falling behind the tab bar (it's inside the
+  sheet now), the username check's low-contrast orange and green, and the
+  circle never reloading after launch (now on Today's pull and tab tap,
+  Settings, and coming to the front, with the Settings circle picker that had
+  been documented but missing). Open from it: the circle gate is still a plain
+  system form, and the capture sheet's "In your words" sits under the Post
+  footer until scrolled.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
   pilot.
 - **Offline queue across midnight.** The server refuses retroactive uploads, so

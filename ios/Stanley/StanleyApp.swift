@@ -189,6 +189,8 @@ struct RootView: View {
                 Task {
                     await state.checkConnection()
                     await state.refreshSignInIfDue()
+                    // Back to the front: who's in the circle may have changed.
+                    if state.signedIn, state.checkedCircle, !state.offline { await state.loadCircle() }
                 }
             }
         }

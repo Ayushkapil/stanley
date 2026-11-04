@@ -27,6 +27,11 @@ targets:
       path: Stanley/Info.plist
       properties:
         UILaunchScreen: {}
+        # Portrait only. It has to be here: the INFOPLIST_KEY_ build setting
+        # below only reaches a generated plist, and this one is our own, so
+        # until the QA audit (build 30) the app turned with the phone.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
         CFBundleDisplayName: Stanley
         # Required alongside an asset-catalog icon; the store rejects a build
         # without it. Must match ASSETCATALOG_COMPILER_APPICON_NAME.
@@ -34,7 +39,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "29"
+        CFBundleVersion: "30"
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to
@@ -65,7 +70,6 @@ targets:
         DEVELOPMENT_TEAM: 6P882KH9CZ
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         # Empty in Debug on purpose: a dev build should talk to the uvicorn on
         # this machine, which APIClient reaches by falling back to
         # 127.0.0.1:8000 when it finds no address here.

@@ -269,6 +269,14 @@ enum Username {
 
     static let rule = "Three to thirty characters. Letters, numbers, . and _ — can't start with a number."
 
+    /// The system's orange and green read at about 2:1 on the light paper,
+    /// too faint to say "taken" (the QA audit, build 30). Deeper in daylight,
+    /// the system's own in the dark.
+    static let warning = Color(UIColor { $0.userInterfaceStyle == .dark
+        ? .systemOrange : UIColor(red: 0.66, green: 0.30, blue: 0.02, alpha: 1) })
+    static let fine = Color(UIColor { $0.userInterfaceStyle == .dark
+        ? .systemGreen : UIColor(red: 0.11, green: 0.44, blue: 0.20, alpha: 1) })
+
     @ViewBuilder
     static func footer(for status: Status) -> some View {
         switch status {
@@ -277,11 +285,11 @@ enum Username {
         case .checking:
             Text("Checking…")
         case .invalid:
-            Text(rule).foregroundStyle(.orange)
+            Text(rule).foregroundStyle(Self.warning)
         case .taken:
-            Text("That username is taken.").foregroundStyle(.orange)
+            Text("That username is taken.").foregroundStyle(Self.warning)
         case .available:
-            Text("Available.").foregroundStyle(.green)
+            Text("Available.").foregroundStyle(Self.fine)
         }
     }
 }
