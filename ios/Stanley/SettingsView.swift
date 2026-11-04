@@ -372,10 +372,15 @@ private struct CircleNameView: View {
 }
 
 /// How people join: the code, a way to copy it and a way to send it, and,
-/// for the organizer, a way to make it stop working.
-private struct InviteCodeView: View {
+/// for the organizer, a way to make it stop working. Pushed from Settings
+/// and, since build 33, opened as a sheet from the Invite card at the end of
+/// the You tab's faces (`InviteSheet`).
+struct InviteCodeView: View {
     @Environment(AppState.self) private var state
     @State private var confirmReset = false
+    /// Copy says so on its own row: the app's flash sits at the root, under
+    /// a sheet, where nobody would see it.
+    @State private var copied = false
 
     var body: some View {
         let code = state.inviteCode ?? ""
@@ -396,13 +401,20 @@ private struct InviteCodeView: View {
                 Section {
                     Button {
                         UIPasteboard.general.string = code
-                        state.flash = "Copied"
+                        withAnimation(.easeOut(duration: 0.2)) { copied = true }
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            withAnimation(.easeOut(duration: 0.2)) { copied = false }
+                        }
                     } label: {
-                        Label("Copy Code", systemImage: "doc.on.doc")
+                        Label(copied ? "Copied" : "Copy Code", systemImage: copied ? "checkmark" : "doc.on.doc")
+                            .contentTransition(.opacity)
                     }
+                    .disabled(code.isEmpty)
                     ShareLink(item: "Join \(name) on Stanley with the code \(code).") {
                         Label("Share Invite", systemImage: "square.and.arrow.up")
                     }
+                    .disabled(code.isEmpty)
                 }
                 if state.circle?.isCreator == true {
                     Section {
@@ -481,5 +493,24 @@ struct MembersView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+}
+
+/// The invite page as a sheet, for the Invite card on the You tab (build 33):
+/// growing the circle one tap from where its faces are, not two levels into
+/// Settings (the HCI audit). The same page, with Done.
+struct InviteSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            InviteCodeView()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
     }
 }

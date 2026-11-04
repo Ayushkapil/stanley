@@ -13,6 +13,7 @@ struct ProfileView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     @State private var showEdit = false
+    @State private var inviting = false
     @State private var milestones: [Milestone] = []
 
     private var kept: [Memory] {
@@ -126,10 +127,13 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, Spacing.section)
                     }
-                    if let circle = state.circle, !others.isEmpty {
+                    // The circle's faces, and at their end the way to add one
+                    // (build 33). Shown even before anyone else has joined,
+                    // when inviting is the one thing to do.
+                    if let circle = state.circle {
                         VStack(alignment: .leading, spacing: Spacing.section) {
                             JournalSectionHead(label: "Kept with", title: circle.name)
-                            CircleCards(members: others)
+                            CircleCards(members: others) { inviting = true }
                         }
                         .padding(.top, Spacing.chapter)
                     }
@@ -196,6 +200,7 @@ struct ProfileView: View {
             .journalPage()
             .navigationTitle("You")
             .sheet(isPresented: $showEdit) { EditProfileSheet() }
+            .sheet(isPresented: $inviting) { InviteSheet() }
             .task {
                 await state.loadProfile()
                 await state.refreshMemories()
@@ -238,6 +243,8 @@ private struct CircleCards: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let members: [CircleMember]
+    /// The Invite card at the end of the row.
+    let onInvite: () -> Void
     @ScaledMetric(relativeTo: .caption) private var face: CGFloat = 52
     /// How far each face lies over the one before it.
     private let overlap: CGFloat = 9
@@ -261,10 +268,39 @@ private struct CircleCards: View {
                     )
                     .accessibilityHint("Opens their profile")
                 }
+                inviteCard
+                    // Clear of the last face rather than lying over it.
+                    .padding(.leading, members.isEmpty ? 0 : overlap + 8)
             }
             .padding(.vertical, 4)
         }
         .scrollClipDisabled()
+    }
+
+    /// A face-sized ring in the accent with a plus, and "Invite" beneath in
+    /// the same hand as the names: the next face, not yet there.
+    private var inviteCard: some View {
+        let accent = Atmosphere.resolve(raw).palette.accent
+        return Button(action: onInvite) {
+            VStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: face * 0.36, weight: .light))
+                    .foregroundStyle(accent)
+                    .frame(width: face, height: face)
+                    .overlay(Circle().strokeBorder(accent, lineWidth: 1))
+                Text("Invite")
+                    .font(.hand(13, bold: true, relativeTo: .caption))
+                    .foregroundStyle(accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.top, 4)
+            .frame(width: face)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Invite someone")
+        .accessibilityHint("Shows the circle's invite code to copy or share")
     }
 
     private func card(_ member: CircleMember) -> some View {

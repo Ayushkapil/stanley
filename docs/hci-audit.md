@@ -52,7 +52,7 @@ them**, including the critical one and six of the seven majors.
 | m2 | 7 | The note editor opened without the keyboard | Minor | Fixed |
 | m3 | 9 | "too_soon" and "circle_full" didn't say what to do | Minor | Fixed |
 | m4 | 3 | A swipe down on the journal entry sheet dropped unsaved words | Minor | Fixed |
-| m5 | A11y | Spring's and Warm's accents are 2.5:1 on paper, below the 3:1 icons need | Minor | Open |
+| m5 | A11y | Spring's and Warm's accents are 2.5:1 on paper, below the 3:1 icons need | Minor | Fixed (build 33) |
 | m6 | 8 | Today's first screen fills with the board and the question before the first photo | Minor | Open |
 | N1 | 1 | Decay is shown only by the fade and the last light's glow | Note | By design |
 | N2 | 5 | Posting to the wrong circle is well guarded | Note | — |
@@ -304,6 +304,14 @@ product: the circle now, what you've kept, and yourself.
 and it sits two levels into Settings. A "Invite someone" line in the circle's
 name menu, or on an empty board, would put it where people are.
 
+**Done in build 33.** An **Invite** card now sits at the end of the You tab's
+faces: a face-sized ring with a plus, in the accent. It opens the same invite
+page as Settings (the code, Copy, Share, and Reset for the organizer) as a
+sheet, with Done. It shows even before anyone else has joined, when inviting
+is the one thing to do (`invite-card-you.jpg`). Copy now says "Copied" on its
+own row (`invite-sheet-copied.jpg`), because the app's flash sits under a
+sheet.
+
 ## Gestural vocabulary
 
 | Gesture | Means | Where | Consistent? |
@@ -376,9 +384,27 @@ is reachable only by a hidden gesture.
 
   Spring and Warm are below even the 3:1 that icons need. Each mood keeps
   an `ink` for labels on an accent fill (5:1), so it's only text and icons
-  in the accent itself. Deepening those two accents is a palette decision;
-  they were redrawn from palette sources in build 20, so it's left for the
-  product.
+  in the accent itself.
+
+  **Fixed in build 33.** Both are darker in HSL lightness alone, with hue
+  and saturation held, just far enough to reach 3.0:1 on their worst
+  background, the card:
+
+  | Mood | Accent | Floor | Card |
+  |---|---|---|---|
+  | Spring | `7CA368` → `6F955B` | 3.15:1 | 3.0:1 |
+  | Warm | `C98A2E` → `B57C29` | 3.19:1 | 3.0:1 |
+
+  - Spring's lightness went from 0.524 to 0.471, Warm's from 0.484 to 0.435.
+  - Their inks deepened to match (`1E2E17` → `1A2814`, `3A2608` → `2E1E06`).
+    The darker accents would otherwise have let a label on an accent fill
+    fall from 5:1 to about 4.1:1; it's 4.5:1 now.
+  - Dark mode is unchanged.
+  - Screenshots: `spring-accent-3to1.jpg`, `warm-accent-3to1.jpg`.
+
+  At 3:1 these pass for icons and large text (the "+", the bookmark, the
+  rings, the 17pt "Choose from library"), not for small body text, which
+  Stanley doesn't set in the accent.
 - **Note.** A disabled wide button's label is about 1.8:1. WCAG exempts
   disabled controls, and the dimness is the signal.
 - **Note.** Noteworthy Light is thin at the smaller hand sizes (16pt
@@ -406,10 +432,10 @@ is reachable only by a hidden gesture.
 
 1. **M7.** Write the note editor on the note itself, then the report sheet,
    the profile editor and the place picker, in the journal's look.
-2. **m5.** Deepen Spring's and Warm's accents to at least 3:1 on paper
-   (4.5:1 where they're text).
-3. **Invite.** Put "Invite someone" where people are: the circle menu, or an
-   empty board.
+2. ~~**m5.** Deepen Spring's and Warm's accents to at least 3:1.~~ Done,
+   build 33.
+3. ~~**Invite.** Put "Invite someone" where people are.~~ Done, build 33:
+   the You tab's Invite card.
 4. **m6.** Let Today's first photo come sooner (fold an answered question).
 5. **N5.** A Home Screen quick action for today's photo.
 6. **VoiceOver.** A live pass on a device.

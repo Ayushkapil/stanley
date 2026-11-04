@@ -491,6 +491,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   black in the dark room) so one reads against the next, a first name small
   in a hand beneath, "organizer" in small capitals on whoever started it,
   scrolling when there are more than fit. Each opens that person's profile.
+  At the row's end is **Invite** (build 33, from the HCI audit): a
+  face-sized ring in the accent with a plus and "Invite" in the hand, which
+  opens the invite page as a sheet (`InviteSheet` around Settings'
+  `InviteCodeView`: the code, Copy, Share, Reset for the organizer, Done).
+  The section shows with nobody else in the circle yet, just the card. Copy
+  says "Copied" on its own row, since the app's flash sits under a sheet.
   Milestones are slips tucked in (`paperInsert`), and what you've held is a
   page of small prints under "Only you see this · Held". **Setup**
   (`SetupView`, build 16) walks a new account through four screens between
@@ -672,7 +678,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   none reads as a stock one: Spring is moss, not mint; Warm is honey, not
   amber; Fall is terracotta, not pumpkin; Cool is slate, not sky; Rain is
   fog on a window. Auto's accent and floor are a little warmer. Ambient
-  only; never affects function.
+  only; never affects function. Since build 33, Spring's and Warm's light
+  accents are darker in lightness alone, to 3:1 on their own card (moss
+  `6F955B`, honey `B57C29`; they were 2.5:1), with their inks deepened so
+  a label on the accent stays at 4.5:1. Dark accents unchanged.
   **The dark room** (build 24, `DarkRoom` in `Journal.swift`): pilot users
   kept saying dark mode looked bad, so dark mode stopped being the journal
   at night and is a photo gallery in a dark room. Pure black (#000000)
@@ -762,7 +771,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (32)", at the
+  production audit), and the version, "Stanley 0.2.0 (33)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -980,7 +989,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 32** (0.2.0) is committed but not archived; the archive below is
+- **Build 33** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1110,9 +1119,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Open:
   - the note editor, report sheet, profile editor and place picker are
     still system forms;
-  - Spring's and Warm's accents are 2.5:1 on paper;
-  - Today's first photo starts low under the board and the question;
-  - inviting someone is two levels into Settings.
+  - Today's first photo starts low under the board and the question.
+  Fixed in build 33: inviting someone was two levels into Settings, and
+  Spring's and Warm's accents were 2.5:1.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
   pilot.
 - **Offline queue across midnight.** The server refuses retroactive uploads, so

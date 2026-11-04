@@ -67,13 +67,21 @@ enum Atmosphere: String, CaseIterable, Identifiable {
         // (warm sits in honey not amber, spring in moss not mint, fall in
         // terracotta not pumpkin, cool in slate not sky) so neighbours
         // don't blur into one and no mood reads as a stock color.
+        // Spring's and Warm's light accents were 2.5:1 on their own paper,
+        // under the 3:1 an icon or a large word needs, and the accent draws
+        // the "+", the bookmark, the place pin and links (the HCI audit).
+        // Since build 33 they're darker in lightness alone, hue and
+        // saturation held, just to 3.0:1 on their card (3.15 to 3.2 on the
+        // floor): moss 7CA368 to 6F955B, honey C98A2E to B57C29. Their inks
+        // deepened to match, so a label on the accent stays at 4.5:1 (it
+        // would have fallen to about 4.1). Dark mode is untouched.
         case .spring:   // light: moss on linen · dark: new growth over black
             return .make(
-                light: .init(accent: 0x7CA368, ink: 0x1E2E17, tone: 0xA6C294, floor: 0.14, card: 0.09),
+                light: .init(accent: 0x6F955B, ink: 0x1A2814, tone: 0xA6C294, floor: 0.14, card: 0.09),
                 dark: .init(accent: 0x86C892, ink: 0x0A2414, tone: 0x86C892, floor: 0.05, card: 0.06))
         case .warm:     // light: honey, late afternoon · dark: candlelight
             return .make(
-                light: .init(accent: 0xC98A2E, ink: 0x3A2608, tone: 0xE2B069, floor: 0.18, card: 0.11),
+                light: .init(accent: 0xB57C29, ink: 0x2E1E06, tone: 0xE2B069, floor: 0.18, card: 0.11),
                 dark: .init(accent: 0xE8A94B, ink: 0x2E1C02, tone: 0xE8A94B, floor: 0.06, card: 0.07))
         case .fall:     // light: wet brick, terracotta · dark: ember on black
             return .make(
