@@ -244,39 +244,80 @@ struct HomeView: View {
     var body: some View {
         TabView(selection: selection) {
             TodayFeedView(capturing: $capturing, sideDock: $sideDock)
+                .solidTabBar(sideDock)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
                 .tag(Tab.today)
             MemoriesView()
+                .solidTabBar(sideDock)
                 .tabItem { Label("Held", systemImage: "bookmark") }
                 .tag(Tab.held)
             ProfileView()
+                .solidTabBar(sideDock)
                 .tabItem { Label("You", systemImage: "person") }
                 .tag(Tab.you)
             WorldTodayView()
+                .solidTabBar(sideDock)
                 .tabItem { Label("World", systemImage: "globe") }
                 .tag(Tab.world)
             SettingsView()
+                .solidTabBar(sideDock)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
-        .modifier(QuietTabBar(sideDock: sideDock))
     }
 }
 
-/// The tab bar steps back while you read (build 17): scrolling down Today's
-/// pages folds it to the tab you're on, and scrolling back up brings the rest.
-/// Not where it's a dock down the side (the Duo's cover), which stands beside
-/// the page rather than over it, so there's nothing to fold out of the way.
-private struct QuietTabBar: ViewModifier {
+/// The tab bar on a floor of its own (build 31): the atmosphere's floor at
+/// 95%, nearly solid, under the bar instead of whatever is scrolling past.
+/// Over a photo the glass took on the photo's light and the selected tab's
+/// ink vanished into it: the warm charcoal over a dark photo in light mode,
+/// the warm white over a light one in dark mode (the QA audit). iOS 26's
+/// floating glass bar ignores `toolbarBackground`, so there the floor is a
+/// band laid under the bar, the height of the page's bottom inset, with a
+/// short fade into the page at its top so it reads as the page and not a
+/// slab; the glass then lies on the floor's own color, whatever's beneath.
+/// Before iOS 26 the bar's own background takes the same floor. Not where
+/// the bar is a dock down the side (the Duo's cover), which the page
+/// already clears. The bar no longer folds to the current tab as Today
+/// scrolls (build 17's `tabBarMinimizeBehavior(.onScrollDown)`): folded, it
+/// left a small pill alone on an empty band, giving the page nothing back.
+private struct SolidTabBar: ViewModifier {
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let sideDock: CGRect?
 
     func body(content: Content) -> some View {
+        let floor = Atmosphere.resolve(raw).palette.floor
         if #available(iOS 26, *) {
-            content.tabBarMinimizeBehavior(sideDock == nil ? .onScrollDown : .never)
+            content.overlay {
+                if sideDock == nil {
+                    GeometryReader { geo in
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            LinearGradient(
+                                colors: [floor.opacity(0), floor.opacity(0.95)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                            .frame(height: 16)
+                            floor.opacity(0.95)
+                                .frame(height: geo.safeAreaInsets.bottom)
+                        }
+                        .ignoresSafeArea(edges: .bottom)
+                    }
+                    .ignoresSafeArea(.keyboard)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
         } else {
             content
+                .toolbarBackground(floor.opacity(0.95), for: .tabBar)
+                .toolbarBackground(.visible, for: .tabBar)
         }
     }
+}
+
+private extension View {
+    func solidTabBar(_ sideDock: CGRect?) -> some View { modifier(SolidTabBar(sideDock: sideDock)) }
 }
 
 /// The launch, when Stanley can't be reached. Without an answer nobody knows

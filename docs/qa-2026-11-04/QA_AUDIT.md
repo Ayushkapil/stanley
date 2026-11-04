@@ -88,3 +88,36 @@ for the report webhook. Screenshots are in this folder.
   haptic, was checked in build 28; Held, You and World use the same code.
 - **The inner display of the Duo, and any real device.** Unchanged from
   CLAUDE.md's open items.
+
+## Build 31: the four left open
+
+All four "Found, not fixed" items above are fixed in build 31, checked on the
+iPhone 17 Pro simulator (iOS 26.5) against a local server, in light and dark;
+screenshots in `build31/`.
+
+- **The circle gate** is the journal's first page: a masthead ("Your circle",
+  or "Another circle" from inside the app), a line in a hand, then two slips
+  taped into the page, one to join with a code and one to start a circle, each
+  with its line written on by hand and a wide button (`gate-top.jpg`,
+  `gate-start.jpg`, `gate-dark.jpg`). Return sends either. Started a circle
+  from it ("Quiet House"); the sheet closed and Today showed the new circle.
+- **The empty Today's sheet** is shorter (the camera, "Take today's photo" and
+  the waiting line on one row) and has 32pt beneath it; with the board and a
+  three-line question above it, its foot now sits about 35pt clear of the tab
+  bar (`empty-today.jpg`, `empty-today-dark.jpg`).
+- **The capture sheet** sizes the photo to what's left once everything under
+  it has its room, before the shutter and after, so nothing starts under the
+  footer. With a nine-person circle the place, the looks, "In your words" and
+  "Who was there?" all sit above Post (`capture-before-shutter.jpg`,
+  `capture-after-shutter.jpg`). The height holds while the caption is typed,
+  and the caption scrolls up above Post and the keyboard (`capture-typing.jpg`).
+  Before the shutter the same was true of the footnote under the empty frame.
+- **The tab bar** sits on a band of the atmosphere's floor at 95%, since iOS
+  26's glass ignores `toolbarBackground` (tried first: in dark mode the bar
+  still turned gray over a light photo). The selected tab stays legible over a
+  light photo in dark mode and a near-black one in light mode
+  (`tabbar-dark-light-photo.jpg`, `tabbar-light-dark-photo.jpg`). The bar no
+  longer folds while Today scrolls: folded, it was a small pill on an empty
+  band. The Duo's side dock has no band. While a finger is down on the bar,
+  the glass still lifts and grays for a moment (the system's own press
+  effect); the ink comes back when it's let go.

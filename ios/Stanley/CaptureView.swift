@@ -51,6 +51,13 @@ struct CaptureView: View {
     @State private var moving = false
     /// The photo has been moved or zoomed at least once, so the hint goes.
     @State private var framed = false
+    /// The sheet's height between the navigation bar and the footer, and
+    /// the height of everything under the photo once it's taken (build 31):
+    /// the photo gives up height so the place, the looks, the words and who
+    /// was there all sit above Post without scrolling.
+    @State private var viewport: CGFloat = 0
+    @State private var below: CGFloat = 0
+    @FocusState private var writing: Bool
 
     private var members: [CircleMember] {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
@@ -67,8 +74,10 @@ struct CaptureView: View {
     /// height is what limits it. The border is outside the frame, so the
     /// frame, which is the crop, stays exactly 3:4. Never tilted: it's being
     /// framed by hand.
-    private func photoFrame<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        let maxHeight = density.capturePhotoMaxHeight
+    private func photoFrame<Content: View>(
+        maxHeight: CGFloat? = nil, @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        let maxHeight = maxHeight ?? density.capturePhotoMaxHeight
         return content()
             .aspectRatio(PhotoShape.aspect, contentMode: .fit)
             .asPrint(border: Self.border)
@@ -82,12 +91,15 @@ struct CaptureView: View {
                 VStack(spacing: 0) {
                     if let shot {
                         preview(shot)
-                        placeLine
-                            .padding(.top, 14)
-                        FilterPills(selection: $filter)
-                            .padding(.top, 16)
-                        details
-                            .padding(.top, 24)
+                        VStack(spacing: 0) {
+                            placeLine
+                                .padding(.top, 14)
+                            FilterPills(selection: $filter)
+                                .padding(.top, 16)
+                            details
+                                .padding(.top, 24)
+                        }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { below = $0 }
                     } else if let mine = state.sharedToday {
                         sharedPage(mine)
                     } else {
@@ -100,6 +112,12 @@ struct CaptureView: View {
                 .readableWidth(density)
             }
             .scrollDismissesKeyboard(.interactively)
+            // The room the sheet has to show, between the bar and Post (the
+            // scroll view is laid out inside both). Not while the keyboard
+            // is up, so the photo doesn't shrink under the words being typed.
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                if !writing { viewport = height }
+            }
             .safeAreaInset(edge: .bottom) { footer }
             // A sheet sits outside the root's floor, so it paints its own:
             // the camera button should land on the same temperature as Today.
@@ -152,9 +170,9 @@ struct CaptureView: View {
     /// the day's prompt, and the rule in a line beneath. Tapping the frame
     /// opens the camera, the same as the button.
     private var waiting: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 0) {
             Button(action: openCamera) {
-                photoFrame {
+                photoFrame(maxHeight: fittedPhotoHeight) {
                     // A print not yet developed: the paper, a shade deeper.
                     Rectangle()
                         .fill(.primary.opacity(0.05))
@@ -188,7 +206,10 @@ struct CaptureView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.top, 22)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { below = $0 }
         }
     }
 
@@ -291,6 +312,20 @@ struct CaptureView: View {
 
     /// The words and who was there.
     /// The words, written by hand on a ruled line, and who was there.
+    /// The photo's height, before the shutter and after: whatever's left once
+    /// what's under it has its room (the rule's two lines before; the place,
+    /// the looks, the words and who was there after), so none of it starts
+    /// under the footer (the QA audit found "In your words" under Post).
+    /// Never taller than before, and never smaller than a photo you can
+    /// frame by hand; a large circle's names can still scroll past that.
+    private var fittedPhotoHeight: CGFloat {
+        let most = density.capturePhotoMaxHeight
+        guard viewport > 0, below > 0 else { return most }
+        // The page's own top and bottom padding, and the print's border.
+        let room = viewport - below - 8 - 24 - 2 * Self.border - 8
+        return min(most, max(260, room.rounded(.down)))
+    }
+
     private var details: some View {
         VStack(alignment: .leading, spacing: 26) {
             VStack(alignment: .leading, spacing: 6) {
@@ -302,6 +337,7 @@ struct CaptureView: View {
                 )
                 .font(.hand(21, relativeTo: .body))
                 .lineLimit(1...5)
+                .focused($writing)
                 .padding(.vertical, 4)
                 Rule(weight: 0.5)
             }
@@ -368,7 +404,7 @@ struct CaptureView: View {
         let photo = shot.source.extent.size
         let filled = Framing.covering(photo, window)
         let movable = framing.canMove(photo, window)
-        return photoFrame {
+        return photoFrame(maxHeight: fittedPhotoHeight) {
             Color.clear
                 .overlay {
                     if let image = looks[filter] ?? looks[.none] {

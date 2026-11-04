@@ -208,17 +208,23 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   button** (`CaptureButton`), which sat over the photos: a solid disc in
   builds 16 to 27 that pilot users found heavy, an outline ring in build
   28, and before build 16 a gray disc they called outdated. Only the empty
-  Today still draws that ring, at 90pt, as the page's one thing to do. With
+  Today still draws that ring, at 44pt inside its sheet (build 31), as the
+  page's one thing to do. With
   the floating camera gone, so went its Duo placement (`HomeView` drew it in
   the side dock's column) and its hiding while the keyboard was up;
-  `SideDockReader` stays, for the tab bar's folding (`QuietTabBar`). The
+  `SideDockReader` stays, so the tab bar's floor (`SolidTabBar`) knows
+  when the bar is a side dock. The
   sheet (build 15) is laid out like composing
   a memory: before the photo, an empty print holding the day's
   prompt (tapping it opens the camera) and the rule in a line beneath;
   after it, the photo as a print (build 21; it had 20pt corners). Both are `PhotoShape` (3:4, the
   camera's own 4:3 held upright; build 17), as wide as the sheet allows and
   no taller than 55% of the screen, so the place and the pills show on the
-  Duo's cover. **The frame is the crop** (build 17): a photo of another
+  Duo's cover. Since build 31 it gives up height so nothing starts under
+  the footer, before the shutter or after (the QA audit found "In your
+  words" under Post): the photo is the sheet's height between the bar and
+  the footer less what's beneath it, measured (`fittedPhotoHeight`, never
+  under 260pt; the height is held while the caption is being typed). **The frame is the crop** (build 17): a photo of another
   shape (most library photos) fills it and drags to choose what's in it,
   and any photo pinches in closer (`Framing.swift`, the same arithmetic as
   the avatar crop). "Drag to frame it" shows until it's moved, and thirds
@@ -314,10 +320,19 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   thin rule, the paper's, not by a gap. A shared moment is a run of signed
   prints under its place, written by hand. The mosaic and Returned are
   sheets of their own tucked into the journal (`paperInsert`, grained paper
-  edged in a hairline), with their photos as prints. On an ordinary
-  iPhone the tab bar folds to the current tab while Today scrolls down
-  (`tabBarMinimizeBehavior(.onScrollDown)`, iOS 26+; not on the Duo's side
-  dock, which the camera is placed against). **Each entry arrives as it's
+  edged in a hairline), with their photos as prints. **The tab bar sits on
+  the atmosphere's floor** (build 31, `SolidTabBar` in `StanleyApp.swift`):
+  iOS 26's glass took on the light of the photo beneath it and the selected
+  tab's ink vanished (the warm charcoal over a dark photo in light mode, the
+  warm white over a light one in dark), and the glass ignores
+  `toolbarBackground`. So each tab lays a band of its floor at 95% under the
+  bar, the height of the page's bottom inset, fading into the page over its
+  top 16pt; before iOS 26 the bar's own background takes the same floor.
+  Not on the Duo's side dock, which the page clears. The bar no longer folds
+  to the current tab as Today scrolls (it did from build 17,
+  `tabBarMinimizeBehavior(.onScrollDown)`): folded, it was a small pill on
+  an empty band. Checked on the 17 Pro over light and dark photos in both
+  modes, and on the Duo's cover. **Each entry arrives as it's
   scrolled to** (build 24, `Entrance`): it fades in and settles up by 20pt
   over 0.3s, once per entry (a refresh keeps the entries it had, so they
   stay put; one scrolled far off and back arrives again), only a fade
@@ -442,6 +457,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   menu of them, with "Join another circle". That opens the circle gate as a
   sheet (`CircleGateView(another: true)`); Settings has it too, and a circle
   picker once there's more than one. Joining or starting one shows it. The
+  gate is the journal's first page (build 31; the QA audit found it the one
+  plain system form left): a masthead ("Your circle", or "Another circle"
+  from inside the app), a line in a hand, then two slips taped into the
+  page (`GateSlip`: `paperInsert` under `Tape`, a little off square; no
+  tape in the dark room), "Join your circle" with the code written on a
+  ruled line and **Join**, and, after an "or" between rules, "Start a
+  circle" with its name and **Start it**, both `WideButton`s; Return sends
+  either. Sign out (or Cancel) stays in the bar. The
   one on screen is remembered per account; leaving it brings up another, or
   the gate if none is left. A sixth is `too_many_circles`, said in words.
 - **Profiles** — display name, username, multi-line bio, avatar (soft-square,
@@ -696,9 +719,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Empty Today** (`TodayEmptyPage`): a sheet tucked into the page, "Nothing
     here yet." and "Your circle's first moment is waiting." in a hand, a
     rule, "Photos live for six days, then they're gone." in small capitals,
-    then (since the QA audit, build 30) a 52pt camera ring and "Take today's
-    photo" as one button inside the sheet; at 90pt below it, it fell under
-    the tab bar once the note row and the question were above it. Only once
+    with (since the QA audit, build 30) the camera inside the sheet; at
+    90pt below it, it fell under the tab bar once the note row and the
+    question were above it. Since build 31 it's shorter, so its foot clears
+    the tab bar with a three-line question above it: "Nothing here yet.",
+    then a 44pt camera ring with "Take today's photo" and "Your circle's
+    first moment is waiting." beside it as one button, then the rule and
+    the six days in small capitals, and 32pt of room beneath. Only once
     Today has answered (`todayLoaded`), so it never flashes up while photos
     load, and not while a capture waits to go up.
   - **Empty Held**: a sheet with a blank print (since build 24; four photo
@@ -735,7 +762,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (30)", at the
+  production audit), and the version, "Stanley 0.2.0 (31)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -948,7 +975,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 30** (0.2.0) is committed but not archived; the archive below is
+- **Build 31** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1038,12 +1065,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   notice; none exists), and the CSAM launch items (hash matching,
   SensitiveContentAnalysis). There's no lasting ban: an ended account can
   sign in with Apple again as a new one.
-- **Seen in the audit's screenshots, not fixed:** on iOS 26 the glass tab
-  bar darkens over a dark photo and the selected tab's warm-charcoal ink
-  vanishes into it (Auto, light mode), and in dark mode it lightens over a
-  light photo and the warm-white ink vanishes the same way (seen again in
-  build 28's checks); on a 6.1" phone the capture sheet's
-  subtitle is cut after one line. The World screenshot carries PBS's real
+- **Seen in the audit's screenshots, not fixed:** on a 6.1" phone the
+  capture sheet's subtitle is cut after one line. (The glass tab bar losing
+  its ink over photos, seen here and in build 28, is fixed in build 31.) The World screenshot carries PBS's real
   election-day headlines.
 - **QA audit** (November 4, 2026, build 30; `docs/qa-2026-11-04/QA_AUDIT.md`
   with screenshots): fixed the app rotating (the portrait-only key was a
@@ -1052,9 +1076,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sheet now), the username check's low-contrast orange and green, and the
   circle never reloading after launch (now on Today's pull and tab tap,
   Settings, and coming to the front, with the Settings circle picker that had
-  been documented but missing). Open from it: the circle gate is still a plain
-  system form, and the capture sheet's "In your words" sits under the Post
-  footer until scrolled.
+  been documented but missing). What it left open, build 31 fixed: the
+  circle gate restyled as the journal's first page, the empty Today short
+  enough to clear the tab bar, the capture sheet's photo fitted so nothing
+  starts under its footer, and the tab bar on a floor of its own
+  (screenshots in `docs/qa-2026-11-04/build31/`).
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
   pilot.
 - **Offline queue across midnight.** The server refuses retroactive uploads, so

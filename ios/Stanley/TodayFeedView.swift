@@ -210,46 +210,56 @@ struct TodayEmptyPage: View {
     @Environment(AppState.self) private var state
     let onCapture: () -> Void
 
-    /// The camera is inside the sheet, at its foot (the QA audit, build 30):
-    /// below it, under the board and the question, a 90pt ring fell behind
-    /// the tab bar on a phone, half hidden, exactly where it was meant to be
-    /// the page's one thing to do.
+    /// The camera is inside the sheet (the QA audit, build 30): below it,
+    /// under the board and the question, a 90pt ring fell behind the tab bar
+    /// on a phone, half hidden, exactly where it was meant to be the page's
+    /// one thing to do. Since build 31 the sheet is short enough to sit
+    /// whole above the tab bar with the board and a three-line question
+    /// above it: the camera and its words on one line, the rule of six days
+    /// as its small print, and room beneath before the tab bar.
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Nothing here yet.")
-                .font(.hand(32, bold: true, relativeTo: .title))
-            Text("Your circle's first moment is waiting.")
-                .font(.hand(22, relativeTo: .title3))
-                .foregroundStyle(.secondary)
-            Rule(weight: 0.5)
-                .padding(.top, 10)
-            Text("Photos live for six days, then they're gone.")
-                .smallCaps()
-                .padding(.top, 2)
+                .font(.hand(26, bold: true, relativeTo: .title))
             Button(action: onCapture) {
-                HStack(spacing: 14) {
-                    CaptureButton(disabled: state.holdsTheDay, diameter: 52, action: onCapture)
+                HStack(spacing: 12) {
+                    CaptureButton(disabled: state.holdsTheDay, diameter: 44, action: onCapture)
                         .allowsHitTesting(false)
-                    Text("Take today's photo")
-                        .font(.hand(21, bold: true, relativeTo: .body))
-                        .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Take today's photo")
+                            .font(.hand(20, bold: true, relativeTo: .body))
+                            .foregroundStyle(.primary)
+                        Text("Your circle's first moment is waiting.")
+                            .font(.hand(16, relativeTo: .callout))
+                            .foregroundStyle(.secondary)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(minHeight: 52)
+                .frame(minHeight: 48)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(state.holdsTheDay)
             .opacity(state.holdsTheDay ? 0.45 : 1)
-            .padding(.top, Spacing.section)
+            .padding(.top, Spacing.tight)
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel("Take today's photo")
+            .accessibilityHint("Your circle's first moment is waiting.")
+            Rule(weight: 0.5)
+                .padding(.top, 12)
+            Text("Photos live for six days, then they're gone.")
+                .smallCaps()
+                .padding(.top, 6)
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 28)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .paperInsert(tilt: -0.8)
         .padding(.top, 6)
-        .padding(.bottom, Spacing.section)
+        // Breathing room under the sheet, so its foot clears the tab bar
+        // with the page's own margin to spare once scrolled to the end.
+        .padding(.bottom, Spacing.chapter)
     }
 }
 
