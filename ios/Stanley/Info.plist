@@ -21,7 +21,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>28</string>
+	<string>29</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -30,7 +30,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Stanley uses the camera to take your photo for the day.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Stanley can lock itself behind Face ID so only you can open it.</string>
+	<string>When you turn on the lock, Stanley uses biometric authentication so only you can open it.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Stanley fills in where a photo was taken and shows headlines from the town you're in. Stanley only ever sends the name of a place, never where you are exactly, and you can change or clear it before posting.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

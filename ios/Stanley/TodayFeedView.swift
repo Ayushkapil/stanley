@@ -9,15 +9,12 @@ import UIKit
 /// with the words beneath it. Still reverse-chronological and nothing else.
 struct TodayFeedView: View {
     @Environment(AppState.self) private var state
-    /// The capture sheet is up. Shared with `HomeView`, which shows the
-    /// camera itself where the tab bar is a dock down the side.
+    /// The capture sheet is up.
     @Binding var capturing: Bool
     /// The tab bar's dock, when it stands down the side of the screen (the
     /// iPhone Duo's cover display). Nil on an ordinary iPhone. Read here,
     /// inside the tab bar controller, for `HomeView`.
     @Binding var sideDock: CGRect?
-    /// The keyboard is up, so the floating camera is out of the way.
-    @Binding var typing: Bool
     @State private var editingNote = false
     @State private var joiningAnother = false
     @State private var readingCircleJournal = false
@@ -45,9 +42,11 @@ struct TodayFeedView: View {
                     // The journal's cover line, the way the paper opens: the
                     // circle's name (which opens the others), a double rule
                     // and the day in small capitals.
-                    TodayMasthead(onJoinAnother: { joiningAnother = true }) {
-                        readingCircleJournal = true
-                    }
+                    TodayMasthead(
+                        onJoinAnother: { joiningAnother = true },
+                        onCircleJournal: { readingCircleJournal = true },
+                        onCapture: { capturing = true }
+                    )
                     .padding(.bottom, Spacing.section)
                     .id("masthead")
                     // The board is the circle talking to itself, so it goes
@@ -137,9 +136,8 @@ struct TodayFeedView: View {
                   .frame(maxWidth: .infinity)
                 }
                 .scrollTargetLayout()
-                // The camera's own inset keeps the last entry clear of it, so
-                // the page only needs a section's room on top of that.
-                .padding(.bottom, Spacing.section)
+                // The same room above the tab bar as every page.
+                .padding(.bottom, Spacing.chapter)
                 .foldAnimated(hSizeClass)
             }
             .scrollPosition(id: $anchor)
@@ -151,34 +149,9 @@ struct TodayFeedView: View {
                 await state.flushPendingCapture()
             }
             .background(SideDockReader(dock: $sideDock))
-            // The camera floats where a thumb already is, instead of in the
-            // top bar, which it can't reach on a tall phone. On an ordinary
-            // iPhone that's the bottom right, as a safe-area inset, so the
-            // pages scroll under it and the last entry can still scroll clear
-            // of it. Where the tab bar is a dock down the side (the Duo's
-            // cover), `HomeView` puts it in the dock's own column, just above
-            // it. The day is claimed the moment the shutter closes, signal or
-            // not, so a queued capture closes the camera too.
-            .safeAreaInset(edge: .bottom, alignment: .trailing) {
-                // While a story is being typed the button steps aside. Above
-                // the keyboard it would sit on the field and its Add button.
-                if !typing && sideDock == nil {
-                    CaptureButton(disabled: state.holdsTheDay) { capturing = true }
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 12)
-                        .transition(.opacity)
-                }
-            }
             // While a story's @ is being typed: who it could be, right above
             // the keyboard.
             .safeAreaInset(edge: .bottom) { MentionBar() }
-            .animation(.easeOut(duration: 0.15), value: typing)
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                typing = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                typing = false
-            }
             // Paper, no navigation bar: the masthead is the page's own.
             .journalPage()
             .navigationTitle("Today")
@@ -338,10 +311,15 @@ struct DayMark: View {
 struct TodayMasthead: View {
     let onJoinAnother: () -> Void
     var onCircleJournal: () -> Void = {}
+    var onCapture: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            CircleSwitcher(onJoinAnother: onJoinAnother, onCircleJournal: onCircleJournal)
+            HStack(alignment: .center) {
+                CircleSwitcher(onJoinAnother: onJoinAnother, onCircleJournal: onCircleJournal)
+                Spacer(minLength: 12)
+                NewPhotoButton(action: onCapture)
+            }
             VStack(spacing: 2) {
                 Rule(weight: 1.5)
                 Rule(weight: 0.5)
@@ -356,6 +334,34 @@ struct TodayMasthead: View {
         .padding(.top, 8)
         // Room under the rule before the page begins (build 22).
         .padding(.bottom, 10)
+    }
+}
+
+/// Today's photo, from the end of the masthead (build 29): a thin "+" in the
+/// atmosphere's accent, nothing around it, the size of the masthead's other
+/// marks, where a navigation bar's button would be. It replaced the
+/// floating camera, which sat on the photos. Always there: with today's
+/// photo already up, the capture sheet opens on it and says so ("Today's
+/// moment is out there. Come back tomorrow."). Dimmed only while a capture
+/// waits for signal, whose card in Today says why.
+struct NewPhotoButton: View {
+    @Environment(AppState.self) private var state
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    @ScaledMetric(relativeTo: .title2) private var glyph: CGFloat = 22
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .font(.system(size: glyph, weight: .light))
+                .foregroundStyle(Atmosphere.resolve(raw).palette.accent)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(state.holdsTheDay ? 0.4 : 1)
+        .disabled(state.holdsTheDay)
+        .accessibilityLabel("Take today's photo")
     }
 }
 
@@ -502,8 +508,9 @@ struct SideDockReader: UIViewRepresentable {
 /// stays put while Today scrolls. Disabled, not hidden, while a queued
 /// capture holds the day, so where it lives never changes.
 struct CaptureButton: View {
-    /// 64pt since the polish pass (build 28), a fifth larger than the solid
-    /// 56pt disc it replaced, so a thin ring still reads as a button.
+    /// The ring's size. Only the empty Today draws one now (at 90pt), as
+    /// the page's one thing to do; everywhere else it's the masthead's "+"
+    /// (`NewPhotoButton`, build 29).
     static let size: CGFloat = 64
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let disabled: Bool

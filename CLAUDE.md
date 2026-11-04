@@ -198,23 +198,21 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
   orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
   under it, then Post; nothing uploads until Post. Today's photo is taken from
-  a **floating camera button** (`CaptureButton`): since the polish pass
-  (build 28) a 64pt ring, outline only, a 1.5pt stroke in the atmosphere's
-  accent with the camera's outline glyph inside and nothing filled, over a
-  soft halo in the page's own color so it reads over a light photo or a dark
-  one (pilot users found the solid disc of builds 16 to 27 heavy; before
-  that it was a gray-looking disc they called outdated). On a standard iPhone it floats bottom right above the tab bar.
-  On the Duo's cover, where iOS 27 stands the tab bar on its side as a dock,
-  it sits in the dock's column just above it (build 16; it had been beside
-  the dock). `SideDockReader` finds the dock by shape, not by a private class
-  name: UIKit gives a side tab bar the whole 69pt strip, and the visible dock
-  is a glass view inside the tab container (48×262pt on the Duo). Not found,
-  or a bottom tab bar, means the bottom-right camera. `HomeView` draws the
-  Duo camera, over the tab bar, because inside Today, over that strip, it
-  never saw a tap. It stays put while Today scrolls. It's dimmed, not
-  hidden, while a queued capture holds the day. It hides while the keyboard
-  is up: a safe-area inset rides above the keyboard and would sit on the
-  story field's Add button. The sheet (build 15) is laid out like composing
+  a **"+" at the end of Today's masthead** (`NewPhotoButton`, build 29): a
+  thin plus, light weight, 22pt (scaling with Dynamic Type) in a 44pt
+  target, in the atmosphere's accent, with nothing around it, on the line
+  with the circle's name where a navigation bar's button would be. It's
+  always there: with today's photo already up, the sheet opens on it and
+  says "Today's moment is out there. Come back tomorrow."; it's dimmed only
+  while a queued capture holds the day. It replaced the **floating camera
+  button** (`CaptureButton`), which sat over the photos: a solid disc in
+  builds 16 to 27 that pilot users found heavy, an outline ring in build
+  28, and before build 16 a gray disc they called outdated. Only the empty
+  Today still draws that ring, at 90pt, as the page's one thing to do. With
+  the floating camera gone, so went its Duo placement (`HomeView` drew it in
+  the side dock's column) and its hiding while the keyboard was up;
+  `SideDockReader` stays, for the tab bar's folding (`QuietTabBar`). The
+  sheet (build 15) is laid out like composing
   a memory: before the photo, an empty print holding the day's
   prompt (tapping it opens the camera) and the rule in a line beneath;
   after it, the photo as a print (build 21; it had 20pt corners). Both are `PhotoShape` (3:4, the
@@ -730,11 +728,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the code, Copy Code, Share Invite and, for the organizer, Reset Code behind
   a confirmation; Join Another Circle; Leave Circle, red and last),
   **Appearance**, **Quiet** (the two notices, with the reason there are so
-  few), **Privacy & Security** (Require Face ID, Export My Memories, and About
+  few), **Privacy & Security** (Require Face ID or Touch ID, whichever the
+  phone has, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (28)", at the
+  production audit), and the version, "Stanley 0.2.0 (29)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
@@ -895,7 +894,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
   report (24h takedown), account deletion
-  with cascading blob purge, signed URLs, Face ID app lock (off by default),
+  with cascading blob purge, signed URLs, a biometric app lock (off by default;
+  named for the phone's own biometric since build 29, `Biometrics.kind` from
+  `LAContext.biometryType`: Face ID with the faceid symbol, Touch ID with
+  touchid on the Duo, no row at all without one unless the lock is already
+  on, so it can still be turned off; the lock screen's Unlock says which, and
+  the usage description is generic),
   memories export (zip). **In the app since build 18** (`SafetyViews.swift`;
   before, no build had ever called the server's report, block, photo delete
   or untag): every print has a quiet "…" at the end of its caption line
@@ -940,7 +944,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 28** (0.2.0) is committed but not archived; the archive below is
+- **Build 29** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1052,7 +1056,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   circle, no black bars, and iOS 27 draws the tab bar as a vertical floating
   dock on the trailing edge that the layout clears. Every screen before sign-in
   too (build 13): the launch spinner, onboarding, Welcome, the name and
-  circle gates, and the Face ID lock. Welcome and the spinner used to leave a
+  circle gates, and the app lock. Welcome and the spinner used to leave a
   black band in the dock strip. The root's floor only reached as far as its
   child's frame, so `RootView` now fills the screen before painting it. Two unknowns remain. (a) The
   **inner (unfolded) panel** is still unseen: this simulator exposes no

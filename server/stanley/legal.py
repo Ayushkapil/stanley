@@ -17,11 +17,11 @@ from __future__ import annotations
 from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
-# The Terms' date, and the Privacy Policy's own. The Terms last changed on
-# November 3, 2026 (the journal, build 26); the policy on November 4, when
-# the circle's board gave everyone a note of their own, deleted at the end
-# of its day (build 27).
-EFFECTIVE = "November 3, 2026"
+# The Terms' date, and the Privacy Policy's own. Both last changed on
+# November 4, 2026: the circle's board gave everyone a note of their own,
+# deleted at the end of its day (build 27), and the lock is Face ID or Touch
+# ID, whichever the phone has (build 29).
+EFFECTIVE = "November 4, 2026"
 PRIVACY_EFFECTIVE = "November 4, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
@@ -71,7 +71,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Your photo library. The system's photo picker gives Stanley only the one photo you choose, and your phone removes its metadata before it's sent",
             "- Browsing, usage or analytics data. Nothing in Stanley records what you tap, view or open, except that short trail, which stays on your phone and is sent only with a crash report",
             "- Advertising identifiers",
-            "- Biometric data. If you lock Stanley with Face ID, your iPhone checks your face; Stanley only learns whether it matched",
+            "- Biometric data. If you lock Stanley with Face ID or Touch ID, your iPhone checks your face or fingerprint; Stanley only learns whether it matched",
         ],
     ),
     (
@@ -137,7 +137,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Every connection between the app and our server is encrypted with HTTPS (TLS)",
             "- Photos are never public. Each one is shown through a signed link that stops working after 15 minutes",
             "- Our database and photos are stored on an encrypted disk",
-            "- Your sign-in is kept in your iPhone's Keychain, and you can lock Stanley with Face ID",
+            "- Your sign-in is kept in your iPhone's Keychain, and you can lock Stanley with Face ID or Touch ID",
             "We take reasonable care to protect your data, but no system is perfectly secure. If something happens that affects your data, we'll tell you.",
         ],
     ),
@@ -191,7 +191,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
             "Welcome to Stanley. These Terms of Use are an agreement between you and Ayush Kapileshwar, who builds and runs Stanley (“Stanley”, “we”, “us”). They cover the Stanley app and the server it uses.",
             "By creating an account or using Stanley, you agree to these terms and to our Privacy Policy. If you don't agree, please don't use Stanley.",
             "You must be at least 13 years old to use Stanley. If you're under the age of majority where you live, you need a parent's or guardian's permission, and they agree to these terms for you.",
-            "These terms are effective November 3, 2026.",
+            "These terms are effective November 4, 2026.",
         ],
     ),
     (
@@ -199,7 +199,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
         [
             "- You need Sign in with Apple to create an account. It's the only way in",
             "- One account per person. Your account is yours alone: don't share it, sell it, or let anyone else use it",
-            "- Keep your phone and your Apple Account secure. You can also lock Stanley with Face ID in Settings",
+            "- Keep your phone and your Apple Account secure. You can also lock Stanley with Face ID or Touch ID in Settings",
             "- You're responsible for what happens on your account. If you think someone else has used it, tell us",
             "- Use your own name, or the one your circle knows you by. Don't choose a name or username meant to mislead",
         ],

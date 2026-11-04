@@ -146,8 +146,14 @@ struct SettingsView: View {
 
     private var privacySection: some View {
         Section {
-            Toggle("Require Face ID", isOn: $appLock)
+            // Named for the phone's own biometric. A phone without one has
+            // no row, unless the lock is already on, so it can be turned off.
+            if Biometrics.kind != .none || appLock {
+                Toggle(isOn: $appLock) {
+                    Label("Require \(Biometrics.kind.name)", systemImage: Biometrics.kind.symbol)
+                }
                 .tint(palette.toggle)
+            }
             Button {
                 exporting = true
                 Task {
@@ -179,8 +185,15 @@ struct SettingsView: View {
         } header: {
             Text("Privacy & Security").smallCaps(11)
         } footer: {
-            Text("With Face ID on, Stanley asks for it each time it opens. The export bundles the photos you've held, with their captions; there's no archive of everything you've ever posted.")
+            Text(lockFooter + "The export bundles the photos you've held, with their captions; there's no archive of everything you've ever posted.")
         }
+    }
+
+    /// What the lock does, named for the phone's own biometric.
+    private var lockFooter: String {
+        Biometrics.kind == .none && !appLock
+            ? ""
+            : "With \(Biometrics.kind.name) on, Stanley asks for it each time it opens. "
     }
 
     private var aboutSection: some View {

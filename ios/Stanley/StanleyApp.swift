@@ -205,7 +205,6 @@ struct HomeView: View {
     @State private var tab = Tab.today
     @State private var capturing = false
     @State private var sideDock: CGRect?
-    @State private var typing = false
 
     /// Which tab; and a tap on the one already showing, which its page
     /// answers by scrolling to its top, or refreshing (`TabTaps`).
@@ -242,7 +241,7 @@ struct HomeView: View {
 
     var body: some View {
         TabView(selection: selection) {
-            TodayFeedView(capturing: $capturing, sideDock: $sideDock, typing: $typing)
+            TodayFeedView(capturing: $capturing, sideDock: $sideDock)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
                 .tag(Tab.today)
             MemoriesView()
@@ -258,36 +257,14 @@ struct HomeView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
-        // Where the tab bar is a dock down the side (the Duo's cover), Today's
-        // camera sits in the dock's column, just above it. It's drawn here,
-        // over the tab bar, because UIKit gives a side dock's tab bar the whole
-        // strip it stands in, top to bottom: a button inside Today, over that
-        // strip, never saw a tap. Today has no pushed screens, so showing it
-        // whenever Today is the tab is the same as showing it on Today.
-        .overlay {
-            if tab == .today, let sideDock, !typing {
-                GeometryReader { geo in
-                    let origin = geo.frame(in: .global).origin
-                    CaptureButton(disabled: state.holdsTheDay) { capturing = true }
-                        .position(
-                            x: sideDock.midX - origin.x,
-                            y: sideDock.minY - 12 - CaptureButton.size / 2 - origin.y
-                        )
-                }
-                .ignoresSafeArea()
-                .transition(.opacity)
-            }
-        }
-        .animation(.easeOut(duration: 0.15), value: typing)
         .modifier(QuietTabBar(sideDock: sideDock))
     }
 }
 
 /// The tab bar steps back while you read (build 17): scrolling down Today's
 /// pages folds it to the tab you're on, and scrolling back up brings the rest.
-/// Not where it's a dock down the side (the Duo's cover), where the camera
-/// is placed against the dock's own frame and it's out of the page's way
-/// already.
+/// Not where it's a dock down the side (the Duo's cover), which stands beside
+/// the page rather than over it, so there's nothing to fold out of the way.
 private struct QuietTabBar: ViewModifier {
     let sideDock: CGRect?
 

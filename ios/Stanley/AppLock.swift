@@ -1,9 +1,50 @@
 import LocalAuthentication
 import SwiftUI
 
-/// Optional Face ID / passcode lock (Part 1). Off by default. When on, the app
-/// requires authentication to open and re-locks when it goes to the background.
+/// Optional biometric lock (Part 1), with the passcode to fall back on. Off by
+/// default. When on, the app requires authentication to open and re-locks
+/// when it goes to the background. Named for what the phone has (build 29):
+/// the iPhone Duo has Touch ID, not Face ID.
 enum Biometrics {
+    enum Kind {
+        case faceID, touchID, opticID, none
+
+        /// What the phone calls it, for the toggle, its footer and the lock.
+        var name: String {
+            switch self {
+            case .faceID: "Face ID"
+            case .touchID: "Touch ID"
+            case .opticID: "Optic ID"
+            case .none: "Passcode"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .faceID: "faceid"
+            case .touchID: "touchid"
+            case .opticID: "opticid"
+            case .none: "lock"
+            }
+        }
+    }
+
+    /// Which biometric this phone has. `biometryType` is set only once the
+    /// context has been asked whether it can evaluate the policy; it names
+    /// the hardware even before a face or finger is enrolled. Fixed for the
+    /// life of the app, so it's asked once.
+    static let kind: Kind = {
+        let context = LAContext()
+        var error: NSError?
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        switch context.biometryType {
+        case .faceID: return .faceID
+        case .touchID: return .touchID
+        case .opticID: return .opticID
+        default: return .none
+        }
+    }()
+
     static func authenticate(reason: String) async -> Bool {
         let context = LAContext()
         var error: NSError?
@@ -73,7 +114,7 @@ private struct LockScreen: View {
                 Button {
                     Task { await unlock() }
                 } label: {
-                    Label("Unlock", systemImage: "faceid").accentInk()
+                    Label("Unlock with \(Biometrics.kind.name)", systemImage: Biometrics.kind.symbol).accentInk()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(authenticating)
