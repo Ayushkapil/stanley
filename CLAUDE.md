@@ -1015,7 +1015,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   holds every field (name, subtitle, promotional text, a 3,030-character
   description, keywords, categories, age rating, URLs, copyright) and the
   screenshot plan. The screenshots are in `ios/AppStoreScreenshots/6.7/`
-  (1290 × 2796) and `6.1/` (1179 × 2556): Today, capture, Held, You, World
+  (1290 × 2796) and `6.1/` (1179 × 2556, native from an iPhone 15 Pro
+  simulator), and the Duo's cover in `duo-outer/` (1398 × 2034; no inner set,
+  since the simulator can't unfold): Today, capture, Held, You, World
   and the weekly question, plus an optional seventh, all from
   `seed_screenshots.py`. The Support URL is the server's `/support` page
   (build 34; live after the next `fly deploy`). One decision is open:

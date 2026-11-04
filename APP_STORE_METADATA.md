@@ -170,7 +170,20 @@ bars:
 | Folder | Size | Taken on | App Store Connect slot |
 |---|---|---|---|
 | `6.7/` | 1290 × 2796 | iPhone 17 Pro Max simulator (1320 × 2868), scaled | **6.9" display** (required; 1290 × 2796 is accepted there) |
-| `6.1/` | 1179 × 2556 | iPhone 17 simulator (1206 × 2622), scaled | 6.3" display (optional; App Store Connect scales the 6.9" set if absent) |
+| `6.1/` | 1179 × 2556 | iPhone 15 Pro simulator (iOS 26.5), native, retaken November 4 for build 34 | 6.1"/6.3" display (optional; App Store Connect scales the 6.9" set if absent) |
+| `duo-outer/` | 1398 × 2034 | iPhone Duo simulator (iOS 27.1), the outer (cover) display, native | ⚠️ No slot confirmed. 1398 × 2034 isn't one of the iPhone sizes App Store Connect lists in this audit's knowledge; check the screenshot specifications page before uploading. Useful for the website or press either way. |
+
+There's no `duo-inner/` set. The Duo simulator won't put the app on its
+inner (unfolded) display: there's no fold-posture control for a headless
+session, so the app's window stays on the cover. A screenshot of the inner
+display (2007 × 2853) comes back black. It needs Simulator.app's own fold
+control, or the hardware.
+
+On the 6.1" and the Duo's cover, the capture shot's caption is "the field
+behind the stadium at dusk": on the narrower screens the longer one wraps to
+two lines and pushes "Who was there?" under Post. On the Duo's cover, "Who
+was there?" is below the fold anyway, since the photo stops shrinking at its
+260pt minimum.
 
 Each set, in upload order:
 

@@ -432,7 +432,9 @@ themselves (description, keywords, age rating, screenshots) are in
     with Yes. In Australia, social media alone maps to 16+.
 - 🔧⚠️ **Screenshots** (retaken November 4, build 33).
   `ios/AppStoreScreenshots/6.7/` (1290 × 2796, from the iPhone 17 Pro Max
-  simulator) and `6.1/` (1179 × 2556, from the iPhone 17 simulator), JPEG,
+  simulator) and `6.1/` (1179 × 2556, native from an iPhone 15 Pro simulator,
+  retaken for build 34), plus `duo-outer/` (1398 × 2034, the Duo's cover;
+  no store slot confirmed, and no inner-display set), JPEG,
   light mode, status bar at 9:41.
   - **The set:** six each in the order the brief asked for: Today (the board
     and the week's question), the capture sheet (Grain, a place, a caption,
