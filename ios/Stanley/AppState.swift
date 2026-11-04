@@ -34,7 +34,8 @@ final class AppState {
     /// feed means "not here yet", not "nothing posted", so the empty page
     /// doesn't flash up at every launch and circle switch.
     var todayLoaded = false
-    var communityNote: CommunityNote?
+    /// The circle's board today (build 27): everyone's note, newest first.
+    var notes: [CommunityNote] = []
     var mosaic: Mosaic?
     var returned: ReturnedItem?
     /// The circle on screen's question of the week, and your answer to it
@@ -366,7 +367,7 @@ final class AppState {
         feedItems = []
         todayCursor = nil
         todayLoaded = false
-        communityNote = nil
+        notes = []
         mosaic = nil
         returned = nil
         question = nil
@@ -460,7 +461,7 @@ final class AppState {
         feedItems = []
         todayCursor = nil
         todayLoaded = false
-        communityNote = nil
+        notes = []
         mosaic = nil
         question = nil
         journalOffer = nil
@@ -476,7 +477,7 @@ final class AppState {
         feedItems = []
         todayCursor = nil
         todayLoaded = false
-        communityNote = nil
+        notes = []
         mosaic = nil
         question = nil
         journalOffer = nil
@@ -540,7 +541,7 @@ final class AppState {
             feedItems = response.items
             todayCursor = response.nextCursor
             todayLoaded = true
-            communityNote = response.note
+            notes = response.notes ?? response.note.map { [$0] } ?? []
             mosaic = response.mosaic
             let returnedResponse: ReturnedResponse = try await api.send(
                 "GET", "/feed/returned", query: ["tz": TimeZone.current.identifier]
@@ -626,20 +627,60 @@ final class AppState {
         }
     }
 
-    /// Set the circle's note. True once it's on the board.
+    /// Your note on the board today, if you've written one.
+    var myNote: CommunityNote? { notes.first(where: isMine) }
+
+    func isMine(_ note: CommunityNote) -> Bool { myId != nil && note.author.id == myId }
+
+    /// Pin your note to the board, or change it. True once it's up.
     @discardableResult
     func setNote(_ text: String) async -> Bool {
         guard let circle else { return false }
         do {
-            let _: CommunityNote = try await api.send(
-                "PUT", "/circles/\(circle.id)/note", json: ["text": text]
-            )
+            do {
+                let _: CommunityNote = try await api.send(
+                    "PUT", "/circles/\(circle.id)/notes/mine", json: ["text": text]
+                )
+            } catch APIError.status(404) {
+                // A server from before the board: its one note.
+                let _: CommunityNote = try await api.send(
+                    "PUT", "/circles/\(circle.id)/note", json: ["text": text]
+                )
+            }
             Trail.note(.leftNote)
-            await refreshToday()
+            await loadNotes()
             return true
         } catch {
             surface(error)
             return false
+        }
+    }
+
+    /// Take your note off the board.
+    func deleteNote() async {
+        guard let circle else { return }
+        do {
+            let _: Empty = try await api.send("DELETE", "/circles/\(circle.id)/notes/mine")
+            notes.removeAll(where: isMine)
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// The board again, on its own: after writing, and when every note is
+    /// opened to read. A server before the board has no such list, and
+    /// Today's own refresh brings its one note instead.
+    func loadNotes() async {
+        guard let circleId = circle?.id else { return }
+        struct Board: Decodable { let notes: [CommunityNote] }
+        do {
+            let board: Board = try await api.send("GET", "/circles/\(circleId)/notes")
+            guard circle?.id == circleId else { return }
+            notes = board.notes
+        } catch APIError.status(404) {
+            await refreshToday()
+        } catch {
+            missed(error)
         }
     }
 
@@ -1136,13 +1177,16 @@ final class AppState {
 
     /// A report about a photo or a story, with the reason in words. Read by a
     /// person within a day (Terms §5). True once it's in.
-    func report(photo: Photo? = nil, comment: Comment? = nil, answer: Answer? = nil, reason: String) async -> Bool {
+    func report(
+        photo: Photo? = nil, comment: Comment? = nil, answer: Answer? = nil, note: CommunityNote? = nil,
+        reason: String
+    ) async -> Bool {
         do {
             let _: Empty = try await api.send(
                 "POST", "/reports",
                 json: [
                     "photo_id": photo?.id, "comment_id": comment?.id, "response_id": answer?.id,
-                    "reason": reason,
+                    "note_id": note?.id, "reason": reason,
                 ]
             )
             Trail.note(.reported)

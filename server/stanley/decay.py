@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .clock import Clock
-from .models import Anchor, Comment, DecayAudit, JournalEntry, Like, Photo, PhotoTag, PurgeQueueItem, Report
+from .models import (
+    Anchor, CircleNote, Comment, DecayAudit, JournalEntry, Like, Photo, PhotoTag, PurgeQueueItem, Report,
+)
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
 
@@ -168,6 +170,13 @@ def scrub(
     )
     photo.state = physics.PURGED
     photo.state_deadline = None
+
+
+def clear_notes(session: Session, clock: Clock) -> int:
+    """The board's notes go at the end of their author's day (build 27):
+    deleted, not kept. Every pass, beside the photos' decay."""
+    cleared = session.execute(delete(CircleNote).where(CircleNote.expires_at <= clock.now()))
+    return cleared.rowcount or 0
 
 
 def run_purges(session: Session, storage: BlobStore, clock: Clock) -> int:

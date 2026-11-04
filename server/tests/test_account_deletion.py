@@ -8,7 +8,7 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from stanley.models import Comment, CommunityNote, NotificationLog, Report, ReturnedLog, User
+from stanley.models import CircleNote, Comment, NotificationLog, Report, ReturnedLog, User
 
 from .conftest import NY
 
@@ -34,7 +34,7 @@ def test_nothing_of_the_person_is_left(circle, db, app):
         assert (user.display_name, user.username, user.bio, user.apple_sub, user.avatar_key) == (None,) * 5
         assert user.tz_last_seen is None
         assert not user.last_light_notice_enabled and not user.digest_enabled
-        assert s.scalars(select(CommunityNote).where(CommunityNote.author_id == ben.id)).all() == []
+        assert s.scalars(select(CircleNote).where(CircleNote.author_id == ben.id)).all() == []
         assert s.scalars(select(NotificationLog).where(NotificationLog.user_id == ben.id)).all() == []
         assert s.scalars(select(ReturnedLog).where(ReturnedLog.user_id == ben.id)).all() == []
 

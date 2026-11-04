@@ -33,7 +33,7 @@ from stanley.models import (
     Anchor,
     Circle,
     Comment,
-    CommunityNote,
+    CircleNote,
     Like,
     Membership,
     Photo,
@@ -243,16 +243,17 @@ def main() -> None:
         snowday = photo("Bihag", "snow day on the quad", "Collins", 100 * 24, ((214, 226, 240), (150, 178, 214)))
         hold(snowday, "Ayush", days_ago=100)
 
-        # Community note (clears at the end of Katy's local day) --------------
+        # A note on the board (clears at the end of Katy's local day) -------
         ny_now = now.astimezone(ZoneInfo(NY))
         midnight = (ny_now + DAY).replace(hour=0, minute=0, second=0, microsecond=0)
         s.add(
-            CommunityNote(
+            CircleNote(
                 circle_id=circle.id,
                 author_id=users["Katy"].id,
                 body="cookout at dunn meadow 6pm 🌽",
                 expires_at=midnight.astimezone(timezone.utc),
                 created_at=now - 2 * HOUR,
+                updated_at=now - 2 * HOUR,
             )
         )
 

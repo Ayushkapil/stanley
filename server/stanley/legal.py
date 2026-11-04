@@ -17,11 +17,12 @@ from __future__ import annotations
 from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
-# The Terms' date, and the Privacy Policy's own. Both last changed on
-# November 3, 2026: the crash report's short trail of what the app did, and
-# then the journal (build 26: entries, reflections, the circle's question).
+# The Terms' date, and the Privacy Policy's own. The Terms last changed on
+# November 3, 2026 (the journal, build 26); the policy on November 4, when
+# the circle's board gave everyone a note of their own, deleted at the end
+# of its day (build 27).
 EFFECTIVE = "November 3, 2026"
-PRIVACY_EFFECTIVE = "November 3, 2026"
+PRIVACY_EFFECTIVE = "November 4, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
     (
@@ -29,7 +30,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 3, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 4, 2026.",
         ],
     ),
     (
@@ -48,7 +49,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- When each photo was taken. That's the only photo metadata we keep: everything else, including any location, is removed before a photo is stored",
             "- Captions and the place names you put on your photos",
             "- Stories you add to photos, your answers to “What do you remember?”",
-            "- Community notes you leave for your circle",
+            "- Notes you leave on your circle's board",
             "- Journal entries you write on your own photos, and your reflections on your week. Only you ever see these",
             "- Your answers to your circle's question of the week",
             "- Who was there: the people you tag on a photo",
@@ -101,6 +102,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- When someone deletes a photo they posted, its image is removed everywhere at once, including from the collections of people who held it. They keep a note that a memory was there, and the stories they wrote themselves. The person who posted a photo always has the last word",
             "- A journal entry on your photo lasts as long as the photo does for you: while it's in Today, and after that only while you hold it. It's deleted when the photo fades without your hold, when you let go of it, when the photo is deleted, or when you delete the entry",
             "- Reflections don't fade. Each is kept until you delete it or your account",
+            "- Your note on your circle's board clears at the end of the day you wrote it, and is deleted from our servers then. If someone reports a note, the report keeps a copy of its words so it can be reviewed",
             "- Your answers to your circle's weekly questions are kept in the circle's journal until you delete your account",
             "- When you delete your account, we delete your data right away: your profile, your photos (including ones other people held), your stories, likes, holds, tags, notes, journal entries, reflections, answers, settings, notification tokens and circle memberships. What's left is a bare record with nothing about you in it, so that the people who held your photos see “a memory was here” instead of an error, and so that reports can still be reviewed",
             "- Our database is backed up once a day and each backup is kept for seven days, so anything deleted is gone from our backups within seven days",

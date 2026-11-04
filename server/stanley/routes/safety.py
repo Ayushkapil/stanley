@@ -12,10 +12,10 @@ from .. import alerts
 from ..deps import (
     event, get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
 )
-from ..models import Block, Comment, Photo, Report, User
+from ..models import Block, CircleNote, Comment, Photo, Report, User
 from ..ratelimit import per_person
 from .journal import readable_answer
-from ..serialize import user_brief
+from ..serialize import blocked_ids, user_brief
 from ..text import clean
 
 log = logging.getLogger("stanley")
@@ -28,6 +28,8 @@ class ReportBody(BaseModel):
     comment_id: str | None = Field(default=None, max_length=64)
     # An answer to the circle's question of the week (build 26).
     response_id: str | None = Field(default=None, max_length=64)
+    # A note on the circle's board (build 27).
+    note_id: str | None = Field(default=None, max_length=64)
     # Never run through the word filter: a report may have to quote what
     # it's about.
     reason: str = Field(min_length=1, max_length=2000)
@@ -49,8 +51,8 @@ def report(
     """§15: report with a 24h human-review takedown commitment (App Review
     Guideline 1.2). Pilot-stage review is manual."""
     require_membership(db, user)
-    if not body.photo_id and not body.comment_id and not body.response_id:
-        raise HTTPException(400, "photo_id, comment_id or response_id required")
+    if not (body.photo_id or body.comment_id or body.response_id or body.note_id):
+        raise HTTPException(400, "photo_id, comment_id, response_id or note_id required")
     if body.photo_id:
         photo = db.get(Photo, body.photo_id)
         if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
@@ -65,12 +67,26 @@ def report(
         # Only an answer you could have read: open, in your circle, from a
         # week you were there for.
         raise HTTPException(404, "not found")
+    reason = clean(body.reason, multiline=True) or "(no reason given)"
+    if body.note_id:
+        # Only a note you could see: on a board you're on, by someone no
+        # block stands between. It clears by midnight, sooner than a report
+        # may be read, so the report keeps a copy of what it said.
+        note = db.get(CircleNote, body.note_id)
+        if (
+            note is None
+            or note.circle_id not in my_circle_ids(db, user.id)
+            or note.author_id in blocked_ids(db, user.id)
+        ):
+            raise HTTPException(404, "not found")
+        reason = f"{reason}\n\nThe note, by {note.author_id}: {note.body}"
     row = Report(
         reporter_id=user.id,
         photo_id=body.photo_id,
         comment_id=body.comment_id,
         response_id=body.response_id,
-        reason=clean(body.reason, multiline=True) or "(no reason given)",
+        note_id=body.note_id,
+        reason=reason,
         created_at=clock.now(),
     )
     db.add(row)

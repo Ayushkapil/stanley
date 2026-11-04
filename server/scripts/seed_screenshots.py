@@ -39,7 +39,7 @@ from stanley.config import Settings  # noqa: E402
 from stanley.db import Base, ensure_schema, make_engine, make_sessionmaker  # noqa: E402
 from stanley.images import process_avatar, process_upload  # noqa: E402
 from stanley.models import (  # noqa: E402
-    Anchor, Circle, Comment, CommunityNote, Like, Membership, Photo, PhotoTag, User, new_id,
+    Anchor, Circle, CircleNote, Comment, Like, Membership, Photo, PhotoTag, User, new_id,
 )
 from stanley.notifications import Notifier  # noqa: E402
 from stanley.storage import make_blob_store  # noqa: E402
@@ -204,10 +204,18 @@ def main() -> None:
         # One that faded with nobody holding it: purged, and gone.
         photo("Sam", "overcast_sea", at(16, 9, 0), "rainy monday", None, seed=3)
 
-        s.add(CommunityNote(
-            circle_id=circle.id, author_id=users["Ruby"].id, body="movie night in the lounge at 9, bring blankets",
-            expires_at=(midnight + timedelta(days=1)).astimezone(timezone.utc), created_at=tonight(50),
-        ))
+        # Tonight's board: a few notes, each its author's own.
+        for who, words, minutes_ago in (
+            ("Ruby", "movie night in the lounge at 9, bring blankets", 50),
+            ("Jonah", "anyone up for griffy saturday morning? leaving 8am", 95),
+            ("Priya", "quiet hours start at 11 tonight, midterm tomorrow", 140),
+            ("Theo", "found a blue scarf in the study room, it's on my door", 200),
+        ):
+            pinned = tonight(minutes_ago)
+            s.add(CircleNote(
+                circle_id=circle.id, author_id=users[who].id, body=words, created_at=pinned, updated_at=pinned,
+                expires_at=(midnight + timedelta(days=1)).astimezone(timezone.utc),
+            ))
         s.commit()
 
     with Session() as s:

@@ -9,6 +9,7 @@ of editing the database by hand. This is that way, run on the server:
     ... photo <photo id> [--preserve /data/evidence]   take a photo down
     ... story <story id>          take a story down
     ... answer <answer id>        take down an answer to the circle's question
+    ... note <note id>            take a note off a circle's board
     ... resolve <report id>       close a report that needed nothing removed
     ... account <user id>         end an account (the Terms, section 6)
 
@@ -35,7 +36,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .decay import delete_comments, scrub
-from .models import CirclePrompt, Comment, Photo, PromptResponse, Report, User
+from .models import CircleNote, CirclePrompt, Comment, Photo, PromptResponse, Report, User
 
 log = logging.getLogger("stanley")
 
@@ -152,7 +153,25 @@ def take_down_answer(session: Session, response_id: str, now: datetime) -> bool:
     return True
 
 
+def take_down_note(session: Session, note_id: str, now: datetime) -> bool:
+    """A note off a circle's board, for everyone (build 27). The reports about
+    it keep their copy of its words."""
+    note = session.get(CircleNote, note_id)
+    if note is None:
+        return False
+    reports = session.scalars(
+        select(Report).where(Report.resolved_at.is_(None), Report.note_id == note_id)
+    ).all()
+    for report in reports:
+        report.resolved_at = now
+    session.delete(note)
+    log.warning("event=note_taken_down reports_resolved=%d", len(reports))
+    return True
+
+
 def _about(r: Report) -> str:
+    if r.note_id:
+        return f"note {r.note_id}"
     if r.comment_id:
         return f"story {r.comment_id}"
     if r.response_id:
@@ -205,6 +224,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     story.add_argument("story")
     answer = sub.add_parser("answer")
     answer.add_argument("answer")
+    note = sub.add_parser("note")
+    note.add_argument("note")
     res = sub.add_parser("resolve")
     res.add_argument("report")
     acct = sub.add_parser("account")
@@ -248,6 +269,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             ok = take_down_story(session, args.story, now)
         elif args.cmd == "answer":
             ok = take_down_answer(session, args.answer, now)
+        elif args.cmd == "note":
+            ok = take_down_note(session, args.note, now)
         elif args.cmd == "account":
             ok = terminate_account(session, storage, args.user, now)
         else:

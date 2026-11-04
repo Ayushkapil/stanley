@@ -43,6 +43,13 @@ the fixes below are on Fly until the next `fly deploy`.
    Against today's server, build 26's app quietly shows no question slip, no
    Sunday card and no book on a print.
 
+   And the circle's board (a note each): the first start creates
+   `circle_notes`, moves the one live community note onto it as its author's
+   note, drops `community_notes`, and adds `reports.note_id`. Builds already
+   installed keep working: their `PUT /note` writes the caller's own note,
+   and they show the newest note on the board. The Privacy Policy's date
+   moves to November 4 with it, so tell the pilot about both changes at once.
+
    Then check: `curl -sI https://server-earnest-stream-9793.fly.dev/health`
    shows `strict-transport-security` and `content-security-policy`;
    `/openapi.json` is a 404; `fly logs` shows `INFO stanley: backup: wrote …`

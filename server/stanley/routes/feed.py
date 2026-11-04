@@ -25,7 +25,7 @@ from ..returned import returned_item
 from .photos import valid_timezone
 from ..serialize import (
     blocked_ids,
-    community_note_payload,
+    circle_notes,
     photo_payload,
     user_brief,
     weekly_mosaic,
@@ -149,9 +149,13 @@ def today(
             )
 
     first_page = cursor is None
+    notes = circle_notes(db, settings, now, membership.circle_id, user.id) if first_page else []
     return {
         "mosaic": weekly_mosaic(db, settings, now, circle, user.id) if first_page else None,
-        "note": community_note_payload(db, settings, now, membership.circle_id) if first_page else None,
+        # The board (build 27): everyone's note for the day, newest first.
+        "notes": notes if first_page else None,
+        # A build before the board shows one note: the newest.
+        "note": notes[0] if notes else None,
         "items": items,
         "next_cursor": _cursor(page[-1][0], page[-1][1]) if more and page else None,
     }

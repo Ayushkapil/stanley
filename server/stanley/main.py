@@ -98,6 +98,7 @@ def tick(app: FastAPI) -> None:
     with app.state.sessionmaker() as session:
         decay.sweep(session, app.state.clock, app.state.notifier)
         decay.run_purges(session, app.state.storage, app.state.clock)
+        decay.clear_notes(session, app.state.clock)
         session.commit()
 
     try:

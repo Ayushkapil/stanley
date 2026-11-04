@@ -19,6 +19,7 @@ struct TodayFeedView: View {
     /// The keyboard is up, so the floating camera is out of the way.
     @Binding var typing: Bool
     @State private var editingNote = false
+    @State private var readingNotes = false
     @State private var joiningAnother = false
     @State private var readingCircleJournal = false
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -50,10 +51,10 @@ struct TodayFeedView: View {
                     }
                     .padding(.bottom, 22)
                     .id("masthead")
-                    // The note is the circle talking to itself, so it goes
-                    // first, above even the mosaic: one sticky note on the
-                    // first page.
-                    NoteBar(note: state.communityNote) { editingNote = true }
+                    // The board is the circle talking to itself, so it goes
+                    // first, above even the mosaic: everyone's sticky note
+                    // for the day, pinned to the first page (build 27).
+                    NoteBoard(onWrite: { editingNote = true }, onSeeAll: { readingNotes = true })
                         .padding(.bottom, 28)
                         .id("note")
                     // The circle's question of the week (build 26): a slip
@@ -182,6 +183,7 @@ struct TodayFeedView: View {
             .navigationTitle("Today")
             .sheet(isPresented: $capturing) { CaptureView() }
             .sheet(isPresented: $editingNote) { NoteEditor() }
+            .sheet(isPresented: $readingNotes) { AllNotesSheet() }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
             .sheet(isPresented: $readingCircleJournal) {
                 NavigationStack {
@@ -1078,179 +1080,6 @@ struct MomentCard: View {
         .sheet(item: $viewedMember) { member in
             MemberProfileView(memberId: member.id)
                 .presentationDetents([.medium, .large])
-        }
-    }
-}
-
-/// The community note (Part 4), as a sticky note stuck to the first page of
-/// the day: the circle's one shared line, in a hand, with a strip of tape.
-/// Not a chat — tapping it just lets you write a new one over it.
-struct NoteBar: View {
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let note: CommunityNote?
-    let onTap: () -> Void
-    /// Bumped when the note's words change while it's on screen, to lift it
-    /// off the board and settle it again.
-    @State private var lifts = 0
-    /// Not on the first load: the note arriving isn't someone changing it.
-    @State private var settled = false
-
-    /// Sticky-note yellow, always, because that's what makes it a sticky
-    /// note: bright in the light, and in the dark a step down, as if under a
-    /// lamp, so it doesn't glare off a black page. The ink is a soft pencil
-    /// on both.
-    private var paper: Color {
-        colorScheme == .dark ? Color(red: 0.80, green: 0.72, blue: 0.40) : Color(red: 0.99, green: 0.93, blue: 0.62)
-    }
-
-    private var ink: Color { Color(red: 0.22, green: 0.18, blue: 0.10) }
-
-    /// Stuck on a little crooked, between one and two degrees, and not the
-    /// same way every time: each note's angle comes from its words (build 19).
-    private var tilt: Double {
-        guard let text = note?.text else { return -1.4 }
-        let h = text.unicodeScalars.reduce(UInt32(7)) { $0 &* 31 &+ $1.value }
-        let angle = 1.0 + Double(h % 11) / 10.0
-        return h % 3 == 0 ? angle : -angle
-    }
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                if let note {
-                    Text(note.text)
-                        .font(.hand(20, bold: true))
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("— \(note.author.displayName)")
-                        .font(.hand(15, relativeTo: .footnote))
-                        .opacity(0.7)
-                } else {
-                    Text("Leave a note for the circle…")
-                        .font(.hand(18))
-                        .opacity(0.55)
-                }
-            }
-            .foregroundStyle(ink)
-            .padding(.horizontal, 18)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
-            // A written note is a square-ish sticky; an empty one is a slip,
-            // so it doesn't take the first page for an invitation.
-            .frame(maxWidth: 300, minHeight: note == nil ? 0 : 110, alignment: .topLeading)
-            .background {
-                Rectangle()
-                    .fill(paper)
-                    .overlay(
-                        // Paper isn't flat: a little lighter where the light
-                        // falls, a little deeper at the curl, and a grain.
-                        LinearGradient(
-                            colors: [.white.opacity(0.10), .clear, .black.opacity(0.05)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(PaperGrainView(strength: 0.55).clipped())
-                    .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.16), radius: 6, x: 1, y: 3)
-            }
-            // Taped to the page across its top edge, the way a note is
-            // stuck in a journal: half the tape on the note, half on the page.
-            .overlay(alignment: .top) {
-                Tape().offset(y: -10)
-            }
-            .keyframeAnimator(initialValue: 0.0, trigger: lifts) { content, lift in
-                content
-                    .scaleEffect(1 + 0.035 * lift, anchor: .top)
-                    .rotationEffect(.degrees(tilt * (1 - 0.6 * lift)), anchor: .top)
-                    .offset(y: -5 * lift)
-                    .shadow(color: .black.opacity(0.16 * lift), radius: 14 * lift, y: 10 * lift)
-            } keyframes: { _ in
-                // Up off the board, then back down with a little give.
-                KeyframeTrack {
-                    CubicKeyframe(1, duration: 0.22)
-                    SpringKeyframe(0, duration: 0.7, spring: .init(duration: 0.6, bounce: 0.35))
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.leading, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityLabel(note.map { "Note from \($0.author.displayName): \($0.text)" } ?? "Leave a note for the circle")
-        .accessibilityHint("Write the circle's note")
-        .onChange(of: note?.text) { _, words in
-            if settled, words != nil, !reduceMotion { lifts += 1 }
-        }
-        .task {
-            try? await Task.sleep(for: .seconds(1.5))
-            settled = true
-        }
-    }
-}
-
-/// A strip of tape over the top edge of the note, holding it to the page
-/// (build 22; a red pushpin from build 19 to 21): translucent cream, so the
-/// note's yellow and the page both show through, a little crooked, catching
-/// the light along its length, with the faintest shadow at its edges.
-private struct Tape: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-        shape
-            .fill(Color(red: 0.98, green: 0.96, blue: 0.90).opacity(colorScheme == .dark ? 0.55 : 0.62))
-            .overlay(
-                LinearGradient(
-                    colors: [.white.opacity(0.35), .clear, .white.opacity(0.15)],
-                    startPoint: .leading, endPoint: .trailing
-                )
-                .clipShape(shape)
-            )
-            .overlay(shape.strokeBorder(.white.opacity(0.4), lineWidth: 0.5))
-            .frame(width: 66, height: 22)
-            .shadow(color: .black.opacity(0.14), radius: 2, y: 1)
-            .rotationEffect(.degrees(-6))
-            .accessibilityHidden(true)
-    }
-}
-
-struct NoteEditor: View {
-    @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-
-    private let limit = 90
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("One line for the whole circle", text: $text, axis: .vertical)
-                        .lineLimit(1...3)
-                        .onChange(of: text) { _, new in
-                            if new.count > limit { text = String(new.prefix(limit)) }
-                        }
-                } footer: {
-                    Text("Everyone sees this line. It clears at the end of the day — it's a sticky note, not a chat.")
-                }
-                .atmosphereRows()
-            }
-            .atmosphereWash()
-            .navigationTitle("Today's note")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Set") {
-                        let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        // Sealed when it's on the board, not before: a note
-                        // that didn't save gets no tap.
-                        Task { if await state.setNote(line) { Haptics.noteSealed() } }
-                        dismiss()
-                    }
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-            .onAppear { text = state.communityNote?.text ?? "" }
         }
     }
 }

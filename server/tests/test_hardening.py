@@ -187,12 +187,13 @@ def test_no_backup_outlives_seven_days(tmp_path):
 
 
 def test_community_note_upsert_no_duplicate(circle, db):
-    """I6: repeated set_note replaces in place (single row)."""
-    from stanley.models import CommunityNote
+    """I6: writing your note again edits it in place: one row per person per
+    circle, whatever else is on the board."""
+    from stanley.models import CircleNote
 
     circle.ana.set_note(circle.id, "first")
-    circle.ben.set_note(circle.id, "second")
+    circle.ana.set_note(circle.id, "second")
+    circle.ben.set_note(circle.id, "third")
     with db() as session:
-        notes = session.scalars(select(CommunityNote).where(CommunityNote.circle_id == circle.id)).all()
-    assert len(notes) == 1
-    assert notes[0].body == "second"
+        notes = session.scalars(select(CircleNote).where(CircleNote.circle_id == circle.id)).all()
+    assert sorted(n.body for n in notes) == ["second", "third"]

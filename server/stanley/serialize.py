@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from . import physics
 from .config import Settings
 from .decay import owner_hash_for
-from .models import Anchor, Block, Circle, Comment, CommunityNote, JournalEntry, Like, Photo, PhotoTag, User
+from .models import Anchor, Block, Circle, CircleNote, Comment, JournalEntry, Like, Photo, PhotoTag, User
 from .storage import read_url
 
 DEPARTED = "departed"
@@ -66,19 +66,32 @@ def user_brief(
     }
 
 
-def community_note_payload(
-    session: Session, settings: Settings, now: datetime, circle_id: str
-) -> dict | None:
-    """The active community note (Part 4), or None. A note stops showing at the
-    end of the author's local day — same as everything else, it's gone by then."""
-    note = session.get(CommunityNote, circle_id)
-    if note is None or now >= note.expires_at:
-        return None
+def note_payload(session: Session, settings: Settings, now: datetime, note: CircleNote) -> dict:
+    """One sticky note on the board: its words and whose they are. Nothing
+    else: no replies, no reactions, no count of anything."""
     return {
+        "id": note.id,
         "text": note.body,
         "author": user_brief(session, note.author_id, settings, now),
         "set_at": iso(note.created_at),
+        "updated_at": iso(note.updated_at),
     }
+
+
+def circle_notes(
+    session: Session, settings: Settings, now: datetime, circle_id: str, viewer_id: str
+) -> list[dict]:
+    """The circle's board today (build 27): every note still up, newest
+    first, without anyone a block stands between. A note stops showing at
+    the end of its author's local day, whether or not the sweep has been by
+    to delete it yet."""
+    hidden = blocked_ids(session, viewer_id)
+    notes = session.scalars(
+        select(CircleNote)
+        .where(CircleNote.circle_id == circle_id, CircleNote.expires_at > now)
+        .order_by(CircleNote.created_at.desc(), CircleNote.id.desc())
+    ).all()
+    return [note_payload(session, settings, now, n) for n in notes if n.author_id not in hidden]
 
 
 def weekly_mosaic(session: Session, settings: Settings, now: datetime, circle, viewer_id: str) -> dict | None:

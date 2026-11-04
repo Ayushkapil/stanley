@@ -76,6 +76,10 @@ guarded by tests; treat a change to any of them as a spec change.
   open; a member reads from the week they joined. None of it counts anyone
   ("how many answered" doesn't exist), none of it notifies, and the word
   filter covers all three.
+- **The board's notes are everyone's own and the day's alone** (build 27).
+  One note per person per circle per day, changed or taken down only by its
+  author, gone at the end of their day (deleted, not archived). No replies,
+  no reactions, no notification and no count of how many there are.
 - **Up to five circles per person** (build 17, a product decision from pilot
   feedback; it had been one, a permanent non-goal), each mutual by
   construction, each with a **soft cap 100** — a guardrail against an
@@ -183,7 +187,9 @@ The authoritative source for the physics constants is
   The Privacy Policy changed (the crash trail) and has its own date,
   November 3, 2026 (`PRIVACY_EFFECTIVE`, `Legal.privacyEffective`). Build 26
   changed both documents (the journal: what's kept, who reads it, how long,
-  the export, and Content in the Terms), so the Terms are November 3 too.
+  the export, and Content in the Terms), so the Terms are November 3 too. Build 27's board changed the policy again
+  (notes deleted at the end of their day; a report keeps a reported note's
+  words), so it's November 4.
 
 ## Implemented and working
 
@@ -294,7 +300,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   navigation bar: a **masthead** (`TodayMasthead`), the circle's name written
   large in a hand (`CircleSwitcher`, still the menu of circles, in ink not
   the accent), the paper's double rule, the date in small capitals and a
-  hairline. The community note is a sticky note on the first page. Each day
+  hairline. The circle's board of sticky notes is on the first page. Each day
   has a mark written in a hand, "Today", "Yesterday", then the weekday, with
   the date beside it and the line ruled off (`JournalDay`, `DayMark`). Each
   photo is a **print laid on paper**: `PhotoShape` 3:4, filled and clipped,
@@ -484,16 +490,40 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   ran (the server still validates on save). A nameless member
   serializes as `UNNAMED` ("New member"); `DEPARTED` ("departed") now means
   only a genuinely deleted account.
-- **Community note** — one shared line atop Today, last-writer-wins, clears at end
-  of the setter's local day. Not a chat. Drawn as a sticky note (build 17):
-  yellow paper, a slight tilt, the words in a hand; a lamplit yellow in dark
-  mode. Empty, it's a slip asking for a note. Build 19: the paper has grain,
-  the tilt is 1–2° and differs by note (from its words), and when the words
-  change while it's on screen it lifts off the board and settles back
-  (`keyframeAnimator`; not on first load, not under Reduce Motion). It's
-  held by a strip of tape over its top edge (`Tape`, build 22: translucent
-  cream, half on the note and half on the page, 6° off, with the yellow and
-  the page showing through); builds 19 to 21 had a red pushpin there.
+- **The circle's board** (build 27; it was one shared line, the
+  **community note**, last-writer-wins until then) — a board of sticky notes
+  atop Today, under the masthead (`NoteBoard.swift`). Everyone in the circle
+  can pin one note a day (≤200 characters, the word filter on it), and only
+  its author can change it or take it down: there's no way to address
+  anyone else's. It clears at the end of the author's local day and the
+  sweep deletes it then (`decay.clear_notes`, every pass beside the photos'
+  decay); the next day's is a new note. `circle_notes` (id, circle, author,
+  body, created/updated, `expires_at`; one row per person per circle,
+  yesterday's deleted before today's is written). `PUT /circles/{id}/notes/
+  mine` pins or edits yours, `DELETE` takes it down, `GET /circles/{id}/notes`
+  is the board, and Today's first page carries the same list as `notes`,
+  newest first, minus anyone a block stands between. For builds before the
+  board, `PUT /circles/{id}/note` writes the caller's own note and the
+  feed's `note` is the newest one. `ensure_schema` moves the old table's
+  line onto the board as its author's note and drops `community_notes`.
+  Leaving a circle, or being removed, takes your note off its board;
+  deleting the account takes them all. A note can be reported
+  (`reports.note_id`, not a foreign key since a note outlives no day: the
+  report keeps a copy of its words in `reason`), and `moderation.py note
+  <id>` takes one down. **The look:** at most three in view, each a pastel
+  sticky (a pale paper with its author's mention tone at 15%; lamplit in
+  dark mode, never black) under a strip of tape, tilted −3° to +3° by its
+  id, with its words in a hand (three lines on the board, all of them in
+  the sheet) and "— Ruby" beneath. Yours (or a yellow "Leave a note for
+  your circle…" until it's written) sits front left, the newest two of
+  everyone else's beside it and below, overlapping only where the paper is
+  blank, so no word or name is covered, and the edges of the next two peek
+  out underneath (`BoardLayout`, a custom `Layout`). Before you've written,
+  a tap anywhere on the board writes; after, a tap on yours edits, and on
+  anyone else's opens the whole board. "See all notes" (never "6 notes")
+  opens `AllNotesSheet`, every note in full, two to a row. Long press
+  reports someone else's. No replies, no reactions, no notification, and
+  nothing counts them.
 - **Shared moments** — photos with the same location label on the same local day by
   2+ people group into one view-only card; each photo keeps its own decay/like/hold.
 - **Daily prompt** (client only) — a deterministic-by-date whisper in the capture
@@ -686,7 +716,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (26)", at the
+  production audit), and the version, "Stanley 0.2.0 (27)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Since build 20 it sits on the journal's paper under its own masthead
   ("Settings", "Stanley, and how it's kept"), with section heads in small
@@ -892,7 +922,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 26** (0.2.0) is committed but not archived; the archive below is
+- **Build 27** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -920,7 +950,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   wording), the reading layout for `/terms` and `/privacy`, and **build 26's
   journal** (four new tables and `reports.response_id`, made by `create_all`
   and `ensure_schema` on the first start; until then build 26's app shows no
-  question slip, no Sunday card and no book, quietly). The volume is **1 GB** (26 MB used): about ten days of a
+  question slip, no Sunday card and no book, quietly), and **the board**
+  (`circle_notes`, `reports.note_id`, the old note moved across; against
+  today's server the app shows its one note and writes it through the old
+  path). The volume is **1 GB** (26 MB used): about ten days of a
   30-person circle's photos, so extend it before the pilot
   (`PRODUCTION_CHECKLIST.md`, step 1). The integrity check passed on the
   live database.
@@ -1045,10 +1078,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**387 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**394 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
-likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
+likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
+(a note each, newest first, edits in place, only your own to change or take
+down, gone at the end of its author's day with or without the sweep, blocks
+both ways, leaving takes yours, no counts, 200 characters, reporting with a
+copy of its words, and the old single note moved across), shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming,
 `new_account` on the first sign-in only (dev and Apple), push (both notices
@@ -1136,8 +1173,9 @@ live APNs, concurrency under real load.
 - App entry / root / tabs / flash / atmosphere tint: `StanleyApp.swift`
 - State + API calls: `AppState.swift`; HTTP client: `APIClient.swift`; models: `Models.swift`
 - Screens: `WelcomeView.swift` (sign-in), `TodayFeedView.swift` (the journal,
-  circle switcher, day marks, prints, moments, mosaic card, returned card,
-  sticky note), `CaptureView.swift` (prompt, who-was-there, the framed
+  circle switcher, day marks, prints, moments, mosaic card, returned card),
+  `NoteBoard.swift` (build 27: the circle's board, a sticky note, the note
+  editor, every note in a sheet, the tape), `CaptureView.swift` (prompt, who-was-there, the framed
   preview + filter pills), `Framing.swift` (move and scale, the crop
   arithmetic both crops share), `PhotoFilters.swift` (the four
   looks, `FilterRenderer`), `Places.swift` (place picker, favorites,

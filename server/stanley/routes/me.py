@@ -20,7 +20,7 @@ from ..ratelimit import per_person
 from ..text import clean
 from ..milestones import milestone_payload, surface_due
 from ..models import (
-    Anchor, Block, CirclePrompt, Comment, CommunityNote, JournalEntry, Like, Membership, Milestone,
+    Anchor, Block, CircleNote, CirclePrompt, Comment, JournalEntry, Like, Membership, Milestone,
     NotificationLog, Photo, PhotoTag, PromptResponse, PushToken, Rest, ReturnedLog, User, WeeklyReflection,
 )
 from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
@@ -428,7 +428,7 @@ def delete_account(
     # Nothing reaches their phones again.
     db.execute(delete(PushToken).where(PushToken.user_id == user.id))
     # The note they left, what Stanley sent them and what it handed back.
-    db.execute(delete(CommunityNote).where(CommunityNote.author_id == user.id))
+    db.execute(delete(CircleNote).where(CircleNote.author_id == user.id))
     db.execute(delete(NotificationLog).where(NotificationLog.user_id == user.id))
     db.execute(delete(ReturnedLog).where(ReturnedLog.user_id == user.id))
     # What they wrote down (build 26): their reflections, their answers to

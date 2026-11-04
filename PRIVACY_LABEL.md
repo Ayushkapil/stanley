@@ -68,7 +68,7 @@ Personalization, never Other.
   Nothing about this changes a label answer: the photo is still collected,
   linked to the account, and not used for tracking.
 - [ ] **Other User Content — COLLECTED · Linked to identity · Not used for tracking.**
-  Captions, story-comments, bio, username, hold notes, the community note,
+  Captions, story-comments, bio, username, hold notes, notes on the circle's board,
   location labels (a free-text string like "Dunn Meadow", typed, or offered
   from where the phone is and kept by the person; never coordinates),
   who-was-there tags, and report text. Since build 26, what a person writes

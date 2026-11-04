@@ -94,7 +94,11 @@ _LATER_COLUMNS = {
     "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
     # Build 26: a report about an answer to the circle's question.
-    "reports": {"response_id": "VARCHAR(32) REFERENCES prompt_responses(id)"},
+    "reports": {
+        "response_id": "VARCHAR(32) REFERENCES prompt_responses(id)",
+        # Build 27: a report about a note on the circle's board.
+        "note_id": "VARCHAR(32)",
+    },
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
 # Hot-path indexes (audit M3). Idempotent CREATE INDEX IF NOT EXISTS so existing
@@ -178,6 +182,23 @@ def ensure_schema(engine) -> list[str]:
         for table in _LEGACY_TABLES:
             if table in tables:
                 conn.execute(text(f"DROP TABLE {table}"))
+
+        # Build 27: the one shared line per circle became a board with a note
+        # each. The line still up (at most one per circle, never more than a
+        # day old) moves onto the board as its author's note, keeping when it
+        # clears; then the old table goes.
+        if "community_notes" in tables:
+            moved = conn.execute(text(
+                "INSERT OR IGNORE INTO circle_notes "
+                "(id, circle_id, author_id, body, created_at, updated_at, expires_at) "
+                "SELECT lower(hex(randomblob(16))), circle_id, author_id, body, created_at, created_at, expires_at "
+                "FROM community_notes "
+                # A row left pointing at nothing (from before foreign keys)
+                # stays behind rather than stopping the server from starting.
+                "WHERE circle_id IN (SELECT id FROM circles) AND author_id IN (SELECT id FROM users)"
+            ))
+            conn.execute(text("DROP TABLE community_notes"))
+            log.info("ensure_schema: moved %d note(s) onto the circle's board", moved.rowcount)
 
         # Migrate old 32-char hex invite tokens to the short XXXX-XXXX format.
         # Existing circles get a new code; the old long string is unusable anyway

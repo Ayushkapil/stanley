@@ -160,12 +160,15 @@ enum ReportTarget {
     case story(Comment, on: Photo)
     /// An answer to the circle's question of the week (build 26).
     case answer(Answer)
+    /// A note on the circle's board (build 27).
+    case note(CommunityNote)
 
     var author: UserBrief {
         switch self {
         case .photo(let photo): photo.owner
         case .story(let comment, _): comment.author
         case .answer(let answer): answer.author
+        case .note(let note): note.author
         }
     }
 
@@ -174,6 +177,7 @@ enum ReportTarget {
         case .photo: "photo"
         case .story: "story"
         case .answer: "answer"
+        case .note: "note"
         }
     }
 }
@@ -300,12 +304,14 @@ struct ReportSheet: View {
         guard !reason.isEmpty, !sending else { return }
         sending = true
         Task {
-            let (photo, comment, answer): (Photo?, Comment?, Answer?) = switch target {
-            case .photo(let p): (p, nil, nil)
-            case .story(let c, _): (nil, c, nil)
-            case .answer(let a): (nil, nil, a)
+            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?
+            switch target {
+            case .photo(let p): photo = p
+            case .story(let c, _): comment = c
+            case .answer(let a): answer = a
+            case .note(let n): note = n
             }
-            let ok = await state.report(photo: photo, comment: comment, answer: answer, reason: reason)
+            let ok = await state.report(photo: photo, comment: comment, answer: answer, note: note, reason: reason)
             sending = false
             if ok { withAnimation { sent = true } }
         }

@@ -55,12 +55,20 @@ struct Photo: Codable, Identifiable, Hashable {
     let hasJournal: Bool?
 }
 
-/// One short shared line for the circle (Part 4). A sticky note the day erases
-/// — not a chat: there are no replies or reactions to decode.
+/// A sticky note on the circle's board (Part 4; one each since build 27). The
+/// day erases it — not a chat: there are no replies or reactions to decode,
+/// and nothing counts the notes.
 struct CommunityNote: Codable, Hashable {
+    /// Nil from a server before the board, whose one note had none.
+    let id: String?
     let text: String
     let author: UserBrief
     let setAt: Date?
+    let updatedAt: Date?
+
+    /// Its place on the board: its id, or for an older server's one note,
+    /// whose it is.
+    var boardId: String { id ?? author.id ?? text }
 }
 
 /// A Today entry: either a standalone photo or a shared moment (Part 3).
@@ -97,6 +105,9 @@ struct Mosaic: Codable, Hashable {
 
 struct TodayResponse: Codable {
     let mosaic: Mosaic?
+    /// The board (build 27): everyone's note today, newest first. Nil from a
+    /// server before the board, which sends only `note`.
+    let notes: [CommunityNote]?
     let note: CommunityNote?
     let items: [FeedItem]
     /// Where the next page starts, or nil at the end (and from a server

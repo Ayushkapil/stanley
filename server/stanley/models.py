@@ -140,19 +140,30 @@ class Like(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
-class CommunityNote(Base):
-    """One short shared line for the whole circle (Part 4) — a sticky note the
-    day erases, not a chat. Single active row per circle (last-writer-wins);
-    it stops showing at the end of the author's local day. No replies, no
-    reactions, no threads — by construction there's nowhere to put them."""
+class CircleNote(Base):
+    """A sticky note on the circle's board (Part 4; one each since build 27,
+    when the board replaced the single shared line). Everyone in a circle can
+    pin one a day, and only its author can change it or take it down. It
+    clears at the end of the author's local day, and the sweep deletes it
+    then (`decay.clear_notes`). Not a chat: no replies, no reactions, no
+    threads, and nothing counts them — by construction there's nowhere to
+    put any of that. One row per person per circle: writing again the same
+    day edits it, and the next day's starts afresh once yesterday's is gone."""
 
-    __tablename__ = "community_notes"
+    __tablename__ = "circle_notes"
+    __table_args__ = (
+        UniqueConstraint("circle_id", "author_id", name="uq_circle_note_author"),
+        Index("ix_circle_notes_author", "author_id"),
+        Index("ix_circle_notes_expiry", "expires_at"),
+    )
 
-    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"), primary_key=True)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"))
     author_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
-    body: Mapped[str] = mapped_column(String(90))
-    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class PhotoTag(Base):
@@ -224,6 +235,10 @@ class Report(Base):
     # An answer to the circle's question of the week (build 26), which the
     # whole circle reads once the answers open.
     response_id: Mapped[str | None] = mapped_column(ForeignKey("prompt_responses.id"), nullable=True)
+    # A note on the circle's board (build 27). Not a foreign key: a note
+    # clears at the end of its day, sooner than a report may be read, so the
+    # report keeps a copy of its words in `reason` and names it here.
+    note_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

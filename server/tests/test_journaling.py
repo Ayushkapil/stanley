@@ -489,7 +489,8 @@ def test_an_older_database_gets_the_report_column():
             "CREATE TABLE reports (id VARCHAR(32) PRIMARY KEY, reporter_id VARCHAR(32), photo_id VARCHAR(32), "
             "comment_id VARCHAR(32), reason TEXT, created_at DATETIME, resolved_at DATETIME)"
         ))
-    assert ensure_schema(engine) == ["reports.response_id"]
+    # And build 27's note column with it.
+    assert ensure_schema(engine) == ["reports.response_id", "reports.note_id"]
     assert ensure_schema(engine) == []
     with engine.begin() as conn:
         indexes = {row[1] for row in conn.execute(text("PRAGMA index_list(reports)"))}

@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -26,9 +26,9 @@ from ..deps import (
 )
 from ..text import clean
 from .. import physics
-from ..models import Circle, CommunityNote, Membership, Photo, User, new_id, new_invite_code
+from ..models import Circle, CircleNote, Membership, Photo, User, new_id, new_invite_code
 from ..physics import CIRCLES_PER_PERSON
-from ..serialize import avatar_url, blocked_ids, community_note_payload, iso, photo_payload
+from ..serialize import avatar_url, blocked_ids, circle_notes, iso, note_payload, photo_payload
 
 # Said once, in words rather than a number: the cap is a guardrail, not a goal.
 CIRCLE_FULL_MESSAGE = "Stanley works best with people you actually know."
@@ -49,7 +49,8 @@ class JoinCodeBody(BaseModel):
 
 
 class NoteBody(BaseModel):
-    text: str = Field(min_length=1, max_length=90)
+    # A sticky note's worth (build 27; a 90-character line before the board).
+    text: str = Field(min_length=1, max_length=200)
 
 
 class RenameBody(BaseModel):
@@ -269,6 +270,8 @@ def remove_member(
     if target is None:
         raise HTTPException(404, "not found")
     db.delete(target)
+    # Their note comes off this circle's board with them.
+    db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user_id))
 
 
 @router.post("/circles/{circle_id}/leave", status_code=204)
@@ -282,6 +285,8 @@ def leave_circle(
     circle leaves the others as they were."""
     membership, circle = membership_in(db, user, circle_id)
     db.delete(membership)
+    # Your note comes off this circle's board as you go.
+    db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user.id))
     db.flush()
     if circle.created_by == user.id:
         # user_id breaks ties so "next-earliest" is deterministic even when two
@@ -296,8 +301,18 @@ def leave_circle(
             successor.role = "creator"
 
 
-@router.put("/circles/{circle_id}/note")
-def set_note(
+def _end_of_their_day(user: User, now):
+    """When a note written now clears: the author's next local midnight."""
+    tz = ZoneInfo(user.tz_last_seen or "UTC")
+    local_next_midnight = (now.astimezone(tz) + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return local_next_midnight.astimezone(ZoneInfo("UTC"))
+
+
+@router.put("/circles/{circle_id}/notes/mine")
+@router.put("/circles/{circle_id}/note")  # a build before the board
+def set_my_note(
     circle_id: str,
     body: NoteBody,
     db: Session = Depends(get_db, scope="function"),
@@ -305,9 +320,11 @@ def set_note(
     clock=Depends(get_clock),
     settings=Depends(get_settings),
 ):
-    """Set or replace the circle's shared line (Part 4). Single active note,
-    last-writer-wins. It expires at the end of the setter's local day. Not a
-    chat — there is nowhere to reply, and nothing is notified."""
+    """Pin your note to the circle's board, or change it (build 27). Everyone
+    in the circle has one a day; this is only ever your own, so nobody can
+    change or replace anyone else's. It clears at the end of your local day,
+    and the next one is a new note. Not a chat — there is nowhere to reply,
+    and nothing is notified."""
     membership, circle = membership_in(db, user, circle_id)
     text = clean(body.text)
     if not text:
@@ -315,23 +332,49 @@ def set_note(
     refuse_objectionable(text)
 
     now = clock.now()
-    tz = ZoneInfo(user.tz_last_seen or "UTC")
-    local_next_midnight = (now.astimezone(tz) + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    expires_at = local_next_midnight.astimezone(ZoneInfo("UTC"))
-
-    # I6: atomic last-writer-wins — no get-or-create PK race.
+    mine = (CircleNote.circle_id == circle.id, CircleNote.author_id == user.id)
+    # Yesterday's is gone, even if the sweep hasn't been by: today's is new.
+    db.execute(delete(CircleNote).where(*mine, CircleNote.expires_at <= now))
+    # One statement, so two taps at once are one note, never a 500. Changing
+    # it keeps when it was pinned and when it clears.
     db.execute(
-        sqlite_insert(CommunityNote)
-        .values(circle_id=circle.id, author_id=user.id, body=text, expires_at=expires_at, created_at=now)
+        sqlite_insert(CircleNote)
+        .values(
+            id=new_id(), circle_id=circle.id, author_id=user.id, body=text,
+            created_at=now, updated_at=now, expires_at=_end_of_their_day(user, now),
+        )
         .on_conflict_do_update(
-            index_elements=["circle_id"],
-            set_={"author_id": user.id, "body": text, "expires_at": expires_at, "created_at": now},
+            index_elements=["circle_id", "author_id"], set_={"body": text, "updated_at": now}
         )
     )
     db.flush()
-    return community_note_payload(db, settings, now, circle.id)
+    note = db.scalars(select(CircleNote).where(*mine)).one()
+    return note_payload(db, settings, now, note)
+
+
+@router.delete("/circles/{circle_id}/notes/mine", status_code=204)
+def take_down_my_note(
+    circle_id: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """Take your note off the board. Only ever your own."""
+    _, circle = membership_in(db, user, circle_id)
+    db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user.id))
+
+
+@router.get("/circles/{circle_id}/notes")
+def the_board(
+    circle_id: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+):
+    """Today's board: everyone's note, newest first. Today's first page of
+    the feed carries the same list. Never how many there are."""
+    _, circle = membership_in(db, user, circle_id)
+    return {"notes": circle_notes(db, settings, clock.now(), circle.id, user.id)}
 
 
 @router.get("/members/{user_id}")

@@ -30,6 +30,7 @@ def run_once(settings: Settings | None = None) -> None:
     with sessionmaker() as session:
         advanced = decay.sweep(session, clock, notifier)
         purged = decay.run_purges(session, storage, clock)
+        decay.clear_notes(session, clock)
         digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)
         session.commit()
         if settings.news_enabled:
