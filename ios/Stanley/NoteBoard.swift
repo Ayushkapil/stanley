@@ -294,6 +294,8 @@ struct NoteEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var confirmTakeDown = false
+    @State private var saving = false
+    @FocusState private var writing: Bool
 
     static let limit = 200
 
@@ -305,6 +307,7 @@ struct NoteEditor: View {
                 Section {
                     TextField("Leave a note for your circle…", text: $text, axis: .vertical)
                         .lineLimit(2...6)
+                        .focused($writing)
                         .onChange(of: text) { _, new in
                             let clamped = WritingLimit.clamp(new, Self.limit)
                             if clamped != new { text = clamped }
@@ -326,16 +329,27 @@ struct NoteEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(editing ? "Save" : "Post") {
+                    Button(saving ? "Pinning…" : editing ? "Save" : "Post") {
                         let line = text.trimmedWords
                         // Sealed when it's on the board, not before: a note
-                        // that didn't save gets no tap.
-                        Task { if await state.setNote(line) { Haptics.noteSealed() } }
-                        dismiss()
+                        // that didn't save gets no tap. The sheet stays until
+                        // the server has it (the HCI audit, build 32): it used
+                        // to close at once, and a note that failed took its
+                        // words with it, where a story's come back.
+                        saving = true
+                        Task {
+                            let pinned = await state.setNote(line)
+                            saving = false
+                            if pinned {
+                                Haptics.noteSealed()
+                                dismiss()
+                            }
+                        }
                     }
-                    .disabled(!text.hasWords || text.trimmedWords == state.myNote?.text)
+                    .disabled(saving || !text.hasWords || text.trimmedWords == state.myNote?.text)
                 }
             }
+            .interactiveDismissDisabled(saving || (text.hasWords && text.trimmedWords != state.myNote?.text))
             .alert("Take down your note?", isPresented: $confirmTakeDown) {
                 Button("Take Down", role: .destructive) {
                     Task { await state.deleteNote() }
@@ -345,7 +359,12 @@ struct NoteEditor: View {
             } message: {
                 Text("It comes off the board for everyone. You can write another today.")
             }
-            .onAppear { text = state.myNote?.text ?? "" }
+            .onAppear {
+                text = state.myNote?.text ?? ""
+                // Opened to write, so the keyboard is up (the HCI audit,
+                // build 32): it took a second tap on the field before.
+                writing = true
+            }
         }
     }
 }

@@ -56,11 +56,11 @@ struct Rule: View {
 extension View {
     /// Small capitals, tracked, in the secondary ink: a dateline, a section's
     /// label, the line under a masthead.
+    /// They follow Dynamic Type (the HCI audit, build 32): at a fixed 10pt
+    /// they were the one text in Stanley that never grew, and they carry
+    /// real information (the date, when answers open, what a section is).
     func smallCaps(_ size: CGFloat = 10) -> some View {
-        font(.system(size: size, weight: .semibold))
-            .tracking(size * 0.11)
-            .textCase(.uppercase)
-            .foregroundStyle(.secondary)
+        modifier(SmallCaps(size: size))
     }
 
     /// A main page of the journal: the paper edge to edge, its own masthead
@@ -91,6 +91,22 @@ extension View {
     /// Something tucked into the journal rather than written in it: a sheet
     /// of its own paper, edged in a hairline of ink.
     func paperInsert(tilt: Double = 0) -> some View { modifier(PaperInsert(tilt: tilt)) }
+}
+
+private struct SmallCaps: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+
+    init(size: CGFloat) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: .caption2)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: size, weight: .semibold))
+            .tracking(size * 0.11)
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+    }
 }
 
 private struct JournalPage: ViewModifier {

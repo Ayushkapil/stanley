@@ -35,7 +35,7 @@ struct OnboardingView: View {
         ),
         Page(
             headline: "Everything fades.",
-            body: "Your photos live for six days, then they're gone — unless someone keeps them. The moments that survive are the ones someone reached for.",
+            body: "Your photos live for six days, then they're gone — unless someone keeps them. Tap the bookmark on any photo to keep it.",
             artifact: .fading
         ),
         Page(

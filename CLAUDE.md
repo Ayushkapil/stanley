@@ -762,7 +762,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (31)", at the
+  production audit), and the version, "Stanley 0.2.0 (32)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -829,7 +829,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   code and bare status to a sentence; `AppState.words(for:)` covers the rest
   (unreachable, undecodable, Apple sign-in). A failed upload says the day is
   still open, which is true: the server rolls the whole request back. No
-  signal never fails at all — it queues. A sign-in the server turns down
+  signal never fails at all — it queues. **An error is said over whatever
+  is showing** (build 32, `Spoken` in `StanleyApp.swift`): a UIKit alert
+  from the topmost view controller, tinted with the accent. It was a
+  SwiftUI alert on the root, which closed any open sheet to show itself, so
+  a note that didn't pin lost its words and a refused post would have lost
+  its framed photo (the HCI audit's one critical finding). A sign-in the server turns down
   (a bare 401 on a request that carried a token: expired, secret rotated,
   account gone) signs out **automatically**. `APIClient.onTokenRejected`
   hands `AppState` the token that was refused, and the app signs out only if
@@ -975,7 +980,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 31** (0.2.0) is committed but not archived; the archive below is
+- **Build 32** (0.2.0) is committed but not archived; the archive below is
   build 13's. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1081,6 +1086,33 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   enough to clear the tab bar, the capture sheet's photo fitted so nothing
   starts under its footer, and the tab bar on a floor of its own
   (screenshots in `docs/qa-2026-11-04/build31/`).
+- **HCI audit** (November 4, 2026, build 32; `docs/hci-audit.md`, screenshots
+  in `docs/hci-audit/`): a heuristic evaluation, Nielsen's ten plus IA,
+  gestures, emotional design and accessibility; 19 findings, 14 fixed.
+  Fixed:
+  - errors no longer close sheets (above);
+  - the capture sheet can't be swiped away after the shutter, and Not now
+    asks before discarding;
+  - the note editor waits for the server and opens with the keyboard up,
+    and it and the journal entry sheet hold against a swipe while edited;
+  - small capitals (`SmallCaps`) and the World tab's small type follow
+    Dynamic Type;
+  - light mode's `.secondary` is the system gray at 75% (4.6 to 4.9:1 on
+    every mood's paper, from 3.2), set inside each tab by `darkRoomInk()`
+    with a single ink above the tab bar so the selected tab keeps its
+    accent;
+  - photos are described to VoiceOver ("Photo by Theo, fading") with Like
+    and Hold actions;
+  - About Stanley has "How it works", and onboarding's second page says to
+    tap the bookmark;
+  - Held's long-press menu offers Rest on a phone too;
+  - "too_soon" and "circle_full" say what to do.
+  Open:
+  - the note editor, report sheet, profile editor and place picker are
+    still system forms;
+  - Spring's and Warm's accents are 2.5:1 on paper;
+  - Today's first photo starts low under the board and the question;
+  - inviting someone is two levels into Settings.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
   pilot.
 - **Offline queue across midnight.** The server refuses retroactive uploads, so

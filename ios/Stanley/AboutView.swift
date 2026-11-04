@@ -9,6 +9,19 @@ struct AboutStanleyView: View {
         "What you post here belongs to you. What your friends keep lives in their memory of you. If you ever delete something, it's gone everywhere. Stanley doesn't sell your data, doesn't show you ads, and doesn't use your photos to train anything.",
     ]
 
+    /// How it's used, said once somewhere (the HCI audit, build 32): the
+    /// gestures and the corners of the journal were explained nowhere but
+    /// the empty Held page.
+    private static let howItWorks = [
+        "Today is your circle's journal. The + at the top takes today's photo: one a day in each circle you're in.",
+        "Tap the bookmark on a photo, or press and hold it and choose Hold, to keep it in Held. Double-tap a photo to like it; only the person who posted it sees who did.",
+        "Under a photo, write what you remember. Type @ to mention someone.",
+        "The board at the top of Today holds a sticky note from each of you, for the day. Swipe to read them.",
+        "Each week your circle gets one question. Answers stay sealed until the week's end, then everyone's open at once.",
+        "On Sunday evening, the You tab asks how your week was. Your journal entries and reflections are only ever yours.",
+        "Tap the tab you're on to go back to the top of it.",
+    ]
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -20,6 +33,20 @@ struct AboutStanleyView: View {
                         .font(.body)
                         .lineSpacing(5)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("How it works")
+                    .font(.keepsake(22))
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, 12)
+                ForEach(Self.howItWorks, id: \.self) { line in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("·").font(.body.weight(.bold)).foregroundStyle(.secondary)
+                        Text(line)
+                            .font(.body)
+                            .lineSpacing(5)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
                 }
             }
             .padding(.horizontal, 24)

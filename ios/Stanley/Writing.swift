@@ -269,6 +269,9 @@ struct JournalEntrySheet: View {
                         .disabled(!loaded || saving || !text.hasWords || text.trimmedWords == written?.body)
                 }
             }
+            // Unsaved words don't go with a stray swipe; Cancel still
+            // leaves on purpose (the HCI audit, build 32, as the reflection).
+            .interactiveDismissDisabled(loaded && text.hasWords && text.trimmedWords != written?.body)
             .alert("Delete this entry?", isPresented: $confirmDelete) {
                 Button("Delete", role: .destructive) {
                     Task { if await state.deleteJournal(photoId) { dismiss() } }

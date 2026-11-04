@@ -112,6 +112,9 @@ struct WorldTodayView: View {
 /// small capitals between rules, the way a front page opens.
 private struct Masthead: View {
     let edition: String
+    // The paper's small type follows Dynamic Type (the HCI audit, build 32).
+    @ScaledMetric(relativeTo: .caption2) private var dateline: CGFloat = 10
+    @ScaledMetric(relativeTo: .caption) private var publisher: CGFloat = 12
 
     var body: some View {
         VStack(spacing: 7) {
@@ -122,7 +125,7 @@ private struct Masthead: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityAddTraits(.isHeader)
             Text("By Stanley")
-                .font(.system(size: 12, design: .serif).italic())
+                .font(.system(size: publisher, design: .serif).italic())
                 .foregroundStyle(.secondary)
                 .padding(.top, -3)
             VStack(spacing: 2) {
@@ -134,7 +137,7 @@ private struct Masthead: View {
                 Spacer(minLength: 12)
                 Text(edition)
             }
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: dateline, weight: .semibold))
             .tracking(1.1)
             .textCase(.uppercase)
             .lineLimit(1)
@@ -304,10 +307,11 @@ private struct StoryBlock<Content: View>: View {
 /// read as a countdown.
 private struct Byline: View {
     let article: NewsArticle
+    @ScaledMetric(relativeTo: .caption2) private var size: CGFloat = 10
 
     var body: some View {
         Text(line)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: size, weight: .semibold))
             .tracking(0.8)
             .textCase(.uppercase)
             .foregroundStyle(.secondary)

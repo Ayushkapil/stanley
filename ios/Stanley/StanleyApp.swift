@@ -1,5 +1,6 @@
 import Sentry
 import SwiftUI
+import UIKit
 
 @main
 struct StanleyApp: App {
@@ -51,16 +52,35 @@ struct StanleyApp: App {
 }
 
 /// Words in the dark room are a warm white, not a stark one (`DarkRoom.ink`).
-/// Set once at the root for everything that doesn't name its own color; in
-/// light mode it hands back `.foreground`, which is the default, so the
-/// journal's words don't move by a shade. One view either way, so flipping
-/// the appearance doesn't rebuild the app.
+/// Set once at the root for everything that doesn't name its own color, as
+/// three levels: the words, the quieter `.secondary`, and the `.tertiary`.
+/// In daylight the words are the label color as ever, but the secondary is
+/// a step deeper than the system's (the HCI audit, build 32): the system's
+/// secondary gray on the journal's paper measured 3.2:1, under the 4.5:1 that
+/// WCAG AA asks of small text, and the small capitals are all small text. At
+/// 75% it's 4.6 to 4.9:1 on every mood's paper. In the dark room the
+/// secondary is the warm white at half strength (4.6:1 on black), as before.
+/// Colors that answer to the appearance themselves, so flipping it doesn't
+/// rebuild the app.
 private struct DarkRoomInk: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
+    static let words = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1)
+            : .label
+    })
+    static let quieter = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 0.5)
+            : UIColor(red: 60 / 255, green: 60 / 255, blue: 67 / 255, alpha: 0.75)
+    })
+    static let quietest = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 0.3)
+            : .tertiaryLabel
+    })
+
     func body(content: Content) -> some View {
-        content.foregroundStyle(
-            DarkRoom.isDark(colorScheme) ? AnyShapeStyle(DarkRoom.ink) : AnyShapeStyle(ForegroundStyle())
-        )
+        content.foregroundStyle(Self.words, Self.quieter, Self.quietest)
     }
 }
 
@@ -156,14 +176,13 @@ struct RootView: View {
             // nothing can show through.
             .background(Atmosphere.resolve(atmosphere).palette.floor.ignoresSafeArea())
         }
-        .alert(
-            state.errorMessage ?? "",
-            isPresented: Binding(
-                get: { state.errorMessage != nil },
-                set: { if !$0 { state.errorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
+        // Said from whatever is on top (the HCI audit, build 32). A SwiftUI
+        // alert here, on the root, closed any sheet that was open to show
+        // itself: a note that didn't pin vanished with its words, and a
+        // photo the server refused would have taken the framed shot with it.
+        .onChange(of: state.errorMessage) { _, message in
+            guard let message else { return }
+            Spoken.alert(message) { state.errorMessage = nil }
         }
         .overlay(alignment: .bottom) {
             if let flash = state.flash {
@@ -244,26 +263,36 @@ struct HomeView: View {
     var body: some View {
         TabView(selection: selection) {
             TodayFeedView(capturing: $capturing, sideDock: $sideDock)
+                .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
                 .tag(Tab.today)
             MemoriesView()
+                .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Held", systemImage: "bookmark") }
                 .tag(Tab.held)
             ProfileView()
+                .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("You", systemImage: "person") }
                 .tag(Tab.you)
             WorldTodayView()
+                .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("World", systemImage: "globe") }
                 .tag(Tab.world)
             SettingsView()
+                .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
+        // A single ink above the tabs, as the dark room always had: the
+        // three levels set inside each tab (`darkRoomInk`) reached the tab
+        // bar's symbols and drew the selected one in ink instead of the
+        // accent (the HCI audit, build 32).
+        .foregroundStyle(DarkRoomInk.words)
     }
 }
 
@@ -365,5 +394,28 @@ private struct OfflineCover: View {
         }
         .padding(32)
         .frame(maxWidth: 420)
+    }
+}
+
+/// An error said over whatever is showing, sheet or not, without closing it:
+/// presented by UIKit from the topmost view controller. Tinted with the
+/// atmosphere's accent, like every other alert in Stanley.
+@MainActor
+enum Spoken {
+    static func alert(_ message: String, done: @escaping () -> Void) {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        guard var top = scene?.keyWindow?.rootViewController else { done(); return }
+        while let presented = top.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        // One thing said at a time: a second error while one is up waits for
+        // nothing and is let go, as the old alert did.
+        if top is UIAlertController { done(); return }
+        let alert = UIAlertController(title: message, message: nil, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel) { _ in done() })
+        let raw = UserDefaults.standard.string(forKey: "stanley.atmosphere") ?? "auto"
+        alert.view.tintColor = UIColor(Atmosphere.resolve(raw).palette.accent)
+        top.present(alert, animated: true)
     }
 }

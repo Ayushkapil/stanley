@@ -125,6 +125,10 @@ struct MemoriesView: View {
                             .listRowInsets(EdgeInsets(
                                 top: Spacing.section, leading: 26, bottom: Spacing.section, trailing: 26
                             ))
+                            // The swipe had no sign it was there; the long
+                            // press offers the same, as on the Duo (the HCI
+                            // audit, build 32).
+                            .contextMenu { restMenu(memory) }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 if !memory.isTombstone {
                                     Button {

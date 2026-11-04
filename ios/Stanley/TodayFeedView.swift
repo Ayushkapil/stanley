@@ -524,9 +524,9 @@ struct SideDockReader: UIViewRepresentable {
 /// stays put while Today scrolls. Disabled, not hidden, while a queued
 /// capture holds the day, so where it lives never changes.
 struct CaptureButton: View {
-    /// The ring's size. Only the empty Today draws one now (at 90pt), as
-    /// the page's one thing to do; everywhere else it's the masthead's "+"
-    /// (`NewPhotoButton`, build 29).
+    /// The ring's size. Only the empty Today draws one now (at 44pt, inside
+    /// its sheet, since build 31), as the page's one thing to do; everywhere
+    /// else it's the masthead's "+" (`NewPhotoButton`, build 29).
     static let size: CGFloat = 64
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let disabled: Bool
@@ -674,6 +674,18 @@ struct PhotoImageView: View {
 
     private var opacityDrop: Double { colorScheme == .dark ? 0.62 : 0.82 }
 
+    /// The photo as VoiceOver says it: whose, and where it is in its six
+    /// days, in the words the page shows without words.
+    private var spoken: String {
+        let first = photo.owner.displayName.split(separator: " ").first.map(String.init) ?? photo.owner.displayName
+        let who = photo.owner.id == state.myId ? "Your photo" : "Photo by \(first)"
+        switch photo.state {
+        case "LAST_LIGHT": return "\(who), in its last light"
+        case "FADING": return "\(who), fading"
+        default: return who
+        }
+    }
+
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
     }
@@ -682,6 +694,16 @@ struct PhotoImageView: View {
         Group {
             if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
                 bed(url)
+                // What the fade shows, said (the HCI audit, build 32): a
+                // VoiceOver user heard nothing of whose photo it was or how
+                // far it had faded. Words, never a time left.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(spoken)
+                .accessibilityAddTraits(.isImage)
+                .accessibilityAction(named: photo.likedByMe ? "Unlike" : "Like") {
+                    Task { await state.toggleLike(photo) }
+                }
+                .accessibilityAction(named: photo.anchoredByMe ? "Let go" : "Hold") { toggleHold() }
                 .saturation(1.0 - 0.85 * fade)
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))

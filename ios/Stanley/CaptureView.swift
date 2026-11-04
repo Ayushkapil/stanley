@@ -58,6 +58,8 @@ struct CaptureView: View {
     @State private var viewport: CGFloat = 0
     @State private var below: CGFloat = 0
     @FocusState private var writing: Bool
+    /// Asked before a framed, unposted photo is thrown away (build 32).
+    @State private var confirmDiscard = false
 
     private var members: [CircleMember] {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
@@ -126,7 +128,10 @@ struct CaptureView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(spent ? "Done" : "Not now") { dismiss() }
+                    Button(spent ? "Done" : "Not now") {
+                        if shot != nil { confirmDiscard = true } else { dismiss() }
+                    }
+                    .disabled(uploading)
                 }
                 // Each circle has its own day, so with more than one, the
                 // sheet says whose day this photo is.
@@ -163,6 +168,17 @@ struct CaptureView: View {
                 PlacePicker(userId: state.myId, current: location) { location = $0 }
             }
             .onAppear { Trail.note(.openedCamera) }
+            // After the shutter, the sheet doesn't go with a stray swipe (the
+            // HCI audit, build 32): a camera photo is in no library, so a
+            // swipe down threw the moment away with its words and its place.
+            // Not now asks first; while it's posting, nothing closes it.
+            .interactiveDismissDisabled(shot != nil || uploading)
+            .alert("Discard this photo?", isPresented: $confirmDiscard) {
+                Button("Discard", role: .destructive) { dismiss() }
+                Button("Keep It", role: .cancel) {}
+            } message: {
+                Text("It hasn't been posted. Today's photo is still yours to take.")
+            }
         }
     }
 

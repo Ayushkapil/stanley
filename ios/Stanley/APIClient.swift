@@ -23,8 +23,8 @@ enum APIError: LocalizedError {
             // or status number ever reaches the screen.
             switch code {
             case "slot_used": return APIError.sharedToday
-            case "too_soon": return "A little too soon — the day needs room to breathe."
-            case "circle_full": return "This circle has reached its limit."
+            case "too_soon": return "A little too soon — photos in a circle are twelve hours apart. Try again later."
+            case "circle_full": return "This circle is as big as Stanley lets one grow. You could start one of your own."
             case "already_in_circle": return "You're already in that circle."
             case "too_many_circles": return "Stanley keeps it to five circles. Leave one to join another."
             case "not_in_circle": return "You're no longer in that circle."
