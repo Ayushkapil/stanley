@@ -19,6 +19,10 @@ targets:
       path: Stanley/Stanley.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # Push (APNs). "development" here; an App Store export re-signs it as
+        # production. Needs the Push Notifications capability on the App ID,
+        # which, like Sign in with Apple, a free personal team can't provision.
+        aps-environment: development
     info:
       path: Stanley/Info.plist
       properties:

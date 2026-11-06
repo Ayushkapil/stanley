@@ -20,12 +20,14 @@ from ..deps import (
     get_clock,
     get_current_user,
     get_db,
+    get_notifier,
     get_settings,
     get_storage,
     require_membership,
 )
 from ..images import BadImage, PreparedUpload, prepare_upload
 from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
+from ..notifications import notify_circle_of_post
 from ..serialize import photo_payload, user_brief
 
 log = logging.getLogger("stanley")
@@ -85,6 +87,7 @@ def capture(
     clock=Depends(get_clock),
     storage=Depends(get_storage),
     settings=Depends(get_settings),
+    notifier=Depends(get_notifier),
 ):
     membership, _ = require_membership(db, user)
     try:
@@ -208,6 +211,9 @@ def capture(
 
     user.tz_last_seen = tz
     db.flush()
+    # §10 N3: whoever in the circle asked to know. Same transaction as the
+    # photo, so a capture that fails to commit announces nothing.
+    notify_circle_of_post(db, notifier, photo, now)
     return photo_payload(db, settings, now, photo, user)
 
 

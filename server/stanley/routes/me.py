@@ -16,7 +16,19 @@ from ..decay import TOMBSTONE, enqueue_purge, scrub
 from ..deps import get_clock, get_current_user, get_db, get_settings, get_storage
 from ..images import BadImage, process_avatar
 from ..milestones import milestone_payload, surface_due
-from ..models import Anchor, Block, Comment, Like, Membership, Milestone, Photo, PhotoTag, Rest, User
+from ..models import (
+    Anchor,
+    Block,
+    Comment,
+    Like,
+    Membership,
+    Milestone,
+    Photo,
+    PhotoTag,
+    PushToken,
+    Rest,
+    User,
+)
 from ..serialize import avatar_url, blocked_ids, iso, memory_payload, user_brief
 
 router = APIRouter(tags=["me"])
@@ -29,6 +41,14 @@ USERNAME_RE = re.compile(r"^(?![0-9])[a-z0-9._]{3,30}$")
 
 class SettingsPatch(BaseModel):
     last_light_notice_enabled: bool | None = None
+    circle_post_notice_enabled: bool | None = None
+    digest_enabled: bool | None = None
+
+
+class PushTokenBody(BaseModel):
+    # APNs device tokens are hex today; Apple says treat them as opaque and
+    # variable-length, so only the size is checked.
+    token: str = Field(min_length=1, max_length=200)
 
 
 class ProfilePatch(BaseModel):
@@ -36,6 +56,14 @@ class ProfilePatch(BaseModel):
     username: str | None = None
     # A real bio: multi-line free text, room to write about yourself.
     bio: str | None = Field(default=None, max_length=1000)
+
+
+def _settings_payload(user: User) -> dict:
+    return {
+        "last_light_notice_enabled": user.last_light_notice_enabled,
+        "circle_post_notice_enabled": user.circle_post_notice_enabled,
+        "digest_enabled": user.digest_enabled,
+    }
 
 
 def _profile_payload(user: User) -> dict:
@@ -59,8 +87,7 @@ def me(
         "avatar_url": avatar_url(settings, user.avatar_key, now),
         # join date for "About your account" — nothing else lives there.
         "created_at": iso(user.created_at),
-        "last_light_notice_enabled": user.last_light_notice_enabled,
-    }
+    } | _settings_payload(user)
 
 
 @router.post("/me/avatar")
@@ -139,7 +166,37 @@ def patch_settings(
 ):
     if body.last_light_notice_enabled is not None:
         user.last_light_notice_enabled = body.last_light_notice_enabled
-    return {"last_light_notice_enabled": user.last_light_notice_enabled}
+    if body.circle_post_notice_enabled is not None:
+        user.circle_post_notice_enabled = body.circle_post_notice_enabled
+    if body.digest_enabled is not None:
+        user.digest_enabled = body.digest_enabled
+    return _settings_payload(user)
+
+
+@router.post("/me/push_token", status_code=204)
+def register_push_token(
+    body: PushTokenBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """This device may be pushed to, as this person. A token names a device,
+    so if someone else signed in on it before, it is no longer theirs."""
+    existing = db.get(PushToken, body.token)
+    if existing is None:
+        db.add(PushToken(token=body.token, user_id=user.id, created_at=clock.now()))
+    else:
+        existing.user_id = user.id
+
+
+@router.delete("/me/push_token/{token}", status_code=204)
+def forget_push_token(
+    token: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Signing out: this device stops being pushed to as this person."""
+    db.execute(delete(PushToken).where(PushToken.token == token, PushToken.user_id == user.id))
 
 
 @router.get("/me/anchored")
@@ -291,6 +348,8 @@ def delete_account(
     # Their 'who was there' tags on others' photos go too, and their milestones.
     db.execute(delete(PhotoTag).where(PhotoTag.tagged_user_id == user.id))
     db.execute(delete(Milestone).where(Milestone.user_id == user.id))
+    # No device is pushed to on behalf of someone who no longer exists.
+    db.execute(delete(PushToken).where(PushToken.user_id == user.id))
     for rest in db.scalars(select(Rest).where(Rest.user_id == user.id)).all():
         db.delete(rest)
     for block in db.scalars(

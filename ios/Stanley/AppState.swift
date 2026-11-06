@@ -20,6 +20,10 @@ final class AppState {
     var errorMessage: String?
     var flash: String?  // gentle, transient confirmation (e.g. after resting)
     var checkedCircle = false
+    /// The tab HomeView shows. Tapping a notification brings it to Today.
+    var tab: HomeTab = .today
+    /// This phone's APNs token, once iOS has handed one over.
+    var deviceToken: String?
     /// Why the launch check couldn't say which circle this is; nil once it
     /// could. Only the server answering `no_circle` means "no circle" — a
     /// member on a bad connection was being sent to join one.
@@ -97,6 +101,8 @@ final class AppState {
             api.token = auth.token
             myId = auth.user.id
             signedIn = true
+            // A phone that could already be reached is now reached as this person.
+            if let deviceToken { await registerDevice(deviceToken) }
             await loadCircle()
         } catch {
             surface(error)
@@ -111,6 +117,8 @@ final class AppState {
             api.token = auth.token
             myId = auth.user.id
             signedIn = true
+            // A phone that could already be reached is now reached as this person.
+            if let deviceToken { await registerDevice(deviceToken) }
             await loadCircle()
         } catch {
             surface(error)
@@ -118,6 +126,13 @@ final class AppState {
     }
 
     func signOut() {
+        // This phone stops being pushed to as this person. Sent with the
+        // sign-in that is ending, since it is forgotten on the next line.
+        if let device = deviceToken, let auth = api.token {
+            Task { [api] in
+                _ = try? await api.send("DELETE", "/me/push_token/\(device)", bearer: auth) as Empty
+            }
+        }
         api.token = nil
         signedIn = false
         circle = nil
@@ -130,6 +145,7 @@ final class AppState {
         threads = []
         profile = nil
         myId = nil
+        tab = .today
     }
 
     /// The launch check: who this is, then which circle they're in. Also the

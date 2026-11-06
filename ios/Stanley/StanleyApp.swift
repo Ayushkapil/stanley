@@ -3,7 +3,8 @@ import SwiftUI
 
 @main
 struct StanleyApp: App {
-    @State private var state = AppState()
+    /// Owns the AppState: APNs and notification taps arrive at the delegate.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
         // Crash visibility for TestFlight. DSN-gated: empty DSN (every dev
@@ -26,7 +27,7 @@ struct StanleyApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(state)
+                .environment(appDelegate.state)
         }
     }
 }
@@ -123,17 +124,28 @@ struct RootView: View {
     }
 }
 
+enum HomeTab: Hashable {
+    case today, held, you, settings
+}
+
 struct HomeView: View {
+    @Environment(AppState.self) private var state
+
     var body: some View {
-        TabView {
+        @Bindable var state = state
+        TabView(selection: $state.tab) {
             TodayFeedView()
                 .tabItem { Label("Today", systemImage: "sun.haze") }
+                .tag(HomeTab.today)
             MemoriesView()
                 .tabItem { Label("Held", systemImage: "bookmark") }
+                .tag(HomeTab.held)
             ProfileView()
                 .tabItem { Label("You", systemImage: "person") }
+                .tag(HomeTab.you)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(HomeTab.settings)
         }
     }
 }

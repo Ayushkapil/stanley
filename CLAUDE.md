@@ -37,10 +37,19 @@ guarded by tests; treat a change to any of them as a spec change.
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
-- **Notifications are almost nothing.** The only push that exists is the owner's
-  single LAST_LIGHT notice for their own photo (off by default). At most one
-  evening digest per day. No notification may carry a count, deadline, or
-  countdown. No round has added a new notification.
+- **Notifications are few, and each one is asked for.** Exactly three exist:
+  the owner's single LAST_LIGHT notice for their own photo (off by default);
+  at most one evening digest per day (on by default, and anyone can turn it
+  off); and the **circle-post notice**, "{name} shared a moment", one per
+  post (off by default). The circle-post notice goes only to members who
+  turned it on and have a device registered, never to the poster, and never
+  across a block. No notification may carry a count, deadline, countdown,
+  image or caption. Nothing is ever sent for likes, holds, comments, tags or
+  the note. The circle-post notice was an explicit product decision
+  (2026-11-06) that ended the old cap of one push a day. Adding any other
+  notification is a spec change. The policy lives in
+  `server/stanley/notifications.py` (N1–N5) and is guarded by
+  `test_notifications.py`.
 - **The subject wins on deletion.** Owner delete purges the image everywhere;
   anchorers keep an honest tombstone ("a memory was here") plus their own comment
   text only.
@@ -168,6 +177,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Sign in again instead, because retrying can't help. A check cancelled
   mid-request (its view went away) changes nothing. A failure mid-session
   still keeps the circle already on screen.
+- **Notifications (Settings → Quiet)** — three toggles: Circle posts (off),
+  Evening digest (on), and the last-light notice (off), all saved through
+  PATCH `/me/settings`. iOS is asked for permission only when someone turns
+  one on, never at launch. Alerts only: no badge (a badge is a count) and no
+  sound. The APNs device token is posted to `POST /me/push_token`. A token
+  names a device, so it moves to whoever registers it last. Sign-out deletes
+  it (`DELETE /me/push_token/{token}`), and so does account deletion. The app
+  re-registers quietly at launch when permission is already there. Tapping
+  any Stanley notification opens the Today tab (`AppDelegate` in
+  `PushNotices.swift`, which also owns the `AppState`). If iOS has
+  notifications turned off for Stanley, the Quiet footer says so instead of
+  promising notices that can't arrive. The circle-post notice is written in
+  the capture's own transaction, so a capture that fails to commit announces
+  nothing.
 - **Safety/privacy** — bidirectional block (enforced on the feed, direct photo
   access, member profiles, **and the Held/Rested archive** — a blocked person's
   photos are hidden, never deleted; unblocking restores the thread intact),
@@ -187,14 +210,27 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   rather than answering 503 `apple_auth_unconfigured`.
 - **TestFlight build.** Needs a **paid** Apple Developer Program membership: a
   free personal team cannot provision Sign in with Apple (Xcode refuses outright)
-  and its profiles expire weekly. Also needs the capability enabled on the App ID
-  — `STANLEY_API_BASE` for the release config is set (build 4 points at the Fly
+  and its profiles expire weekly. Also needs the Sign in with Apple **and Push
+  Notifications** capabilities enabled on the App ID (`aps-environment` is in
+  the entitlements as `development`; an App Store export re-signs it as
+  production) — `STANLEY_API_BASE` for the release config is set (build 4 points at the Fly
   host; Debug still falls back to localhost).
 - **Live SIWA verification.** The Apple flow is tested against a mocked signing key
   (faithful to the verify path); it has not been run end-to-end on a real device.
 - **APNs transport.** `Notifier` records every send to `NotificationLog` but the
-  transport hook is unset — the last-light notice and digest are logged, not
-  actually pushed. Wire APNs before the pilot relies on either.
+  transport hook is unset. The last-light notice, the digest and the
+  circle-post notice are logged, not pushed. Device tokens *are* collected
+  now (a simulator returned a real 160-hex-character token), so the
+  transport only has to look them up in `push_tokens`. When it is wired:
+  deliver after commit and off the request path, because one capture can now
+  fan out to ~99 sends inside `POST /photos`. Also drop tokens that APNs
+  reports as unregistered.
+- **The digest has no device unless asked.** It is on by default, but Stanley
+  asks iOS for permission only when someone turns a notice on. A member who
+  never touches Quiet has no token, so once APNs is live they won't actually
+  get the digest. Decide whether to ask for permission at some calm moment.
+- **Quiet hours** don't exist. The circle-post spec mentioned them; skipped
+  for now by decision (2026-11-06).
 - **Off-box backups.** Daily local SQLite snapshots exist (keep 7); copying them
   off the box (cron + rclone/scp) is still manual.
 - **A cleanup/polish pass** (planned) — tidy any remaining rough edges before the
@@ -253,12 +289,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**178 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**189 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, community note, shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
-capture-race/orphan-blob safety, backups, nameless-vs-departed naming. Untested by nature: real-device SIWA,
+capture-race/orphan-blob safety, backups, nameless-vs-departed naming,
+circle-post notices (opt-in, device required, never the poster, blocks both ways,
+device hand-over, digest independence, legacy-row migration). Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
 
 ## Key file locations
@@ -285,7 +323,8 @@ live APNs, concurrency under real load.
   moment card, mosaic card, returned card, note), `CaptureView.swift` (prompt,
   who-was-there), `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `SettingsView.swift`, `AboutView.swift`, `CircleGateView.swift`,
-  `CircleTroubleView.swift` (couldn't reach Stanley / sign-in expired)
+  `CircleTroubleView.swift` (couldn't reach Stanley / sign-in expired),
+  `PushNotices.swift` (app delegate: APNs token, notification tap → Today)
 - Components: `UIComponents.swift` (avatars, face cluster, faces sheet, share),
   `AvatarPicker.swift`, `Atmosphere.swift`, `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`

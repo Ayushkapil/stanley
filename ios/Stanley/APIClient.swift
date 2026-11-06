@@ -119,7 +119,8 @@ final class APIClient {
         _ method: String,
         _ path: String,
         json: [String: Any?]? = nil,
-        query: [String: String] = [:]
+        query: [String: String] = [:],
+        bearer: String? = nil
     ) async throws -> T {
         var components = URLComponents(
             url: baseURL.appending(path: path), resolvingAgainstBaseURL: false
@@ -129,8 +130,8 @@ final class APIClient {
         }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
-        if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let auth = bearer ?? token {
+            request.setValue("Bearer \(auth)", forHTTPHeaderField: "Authorization")
         }
         if let json {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

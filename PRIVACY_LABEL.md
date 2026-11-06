@@ -105,9 +105,11 @@ launches)**, Surroundings, Body, Other Data.
   `America/New_York`) sent with each capture — it defines "one photo per local
   day". It is not a location under Apple's definitions (no GPS/network
   derivation) and has no label category.
-- Push notifications: when APNs is wired, the server stores a **device push
-  token**. Tokens exist to deliver the single last-light notice/digest and are
-  not an Apple label category by themselves.
+- Push notifications: once someone turns a notice on in Settings → Quiet, the
+  server stores that phone's **APNs device token** (`push_tokens`). It exists
+  only to deliver the three notices: last light, the evening digest and
+  circle posts. It is deleted on sign-out and on account deletion, and it is
+  not an Apple label category by itself.
 - Data deletion: account deletion cascades — photos, blobs, comments, holds
   all purge. Owner-deleted photos purge everywhere immediately.
 

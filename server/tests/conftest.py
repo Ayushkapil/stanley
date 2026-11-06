@@ -179,6 +179,12 @@ class Api:
     def patch_settings(self, **kw):
         return self.client.patch("/me/settings", json=kw, headers=self.h)
 
+    def register_device(self, token: str):
+        return self.client.post("/me/push_token", json={"token": token}, headers=self.h)
+
+    def forget_device(self, token: str):
+        return self.client.delete(f"/me/push_token/{token}", headers=self.h)
+
     def delete_me(self):
         return self.client.delete("/me", headers=self.h)
 

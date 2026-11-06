@@ -7,6 +7,9 @@ struct SettingsView: View {
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.appLock") private var appLock = false
     @State private var lastLight = false
+    @State private var circlePosts = false
+    @State private var digest = true
+    @State private var notificationsBlocked = false
     @State private var loaded = false
 
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -43,7 +46,10 @@ struct SettingsView: View {
                 if !loaded {
                     if let me: MeSettings = try? await state.api.send("GET", "/me") {
                         lastLight = me.lastLightNoticeEnabled
+                        circlePosts = me.circlePostNoticeEnabled ?? false
+                        digest = me.digestEnabled ?? true
                     }
+                    notificationsBlocked = await AppState.notificationsBlocked()
                     loaded = true
                 }
             }
@@ -152,25 +158,54 @@ struct SettingsView: View {
 
     private var quietSection: some View {
         Section {
-            Toggle("Tell me when my own photo is fading", isOn: $lastLight)
-                .onChange(of: lastLight) { _, newValue in
-                    guard loaded else { return }
-                    Task {
-                        do {
-                            let settings: MeSettings = try await state.api.send(
-                                "PATCH", "/me/settings",
-                                json: ["last_light_notice_enabled": newValue]
-                            )
-                            lastLight = settings.lastLightNoticeEnabled
-                        } catch {
-                            state.surface(error)
-                        }
-                    }
+            Toggle(isOn: $circlePosts) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Circle posts")
+                    Text("Get notified when someone in your circle shares a moment")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
+            }
+            .onChange(of: circlePosts) { _, on in save("circle_post_notice_enabled", on) }
+            Toggle(isOn: $digest) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Evening digest")
+                    Text("One note in the evening, on days your circle shared something")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onChange(of: digest) { _, on in save("digest_enabled", on) }
+            Toggle("Tell me when my own photo is fading", isOn: $lastLight)
+                .onChange(of: lastLight) { _, on in save("last_light_notice_enabled", on) }
         } header: {
             Text("Quiet")
         } footer: {
-            Text("The only notice that exists: one, for your own photo, on its last day. Off unless you ask. Stanley sends at most one digest a day and nothing else — no streaks, no nudges.")
+            if notificationsBlocked && (circlePosts || digest || lastLight) {
+                Text("Notifications for Stanley are off in iOS Settings, so none of these can reach you.")
+            } else {
+                Text("These are the only notices there are. Nothing for likes, holds or stories, and never a number.")
+            }
+        }
+    }
+
+    /// One notice switched. Turning one on is the only time Stanley asks iOS
+    /// for permission to notify.
+    private func save(_ key: String, _ on: Bool) {
+        guard loaded else { return }
+        Task {
+            do {
+                let settings: MeSettings = try await state.api.send(
+                    "PATCH", "/me/settings", json: [key: on]
+                )
+                lastLight = settings.lastLightNoticeEnabled
+                circlePosts = settings.circlePostNoticeEnabled ?? circlePosts
+                digest = settings.digestEnabled ?? digest
+            } catch {
+                state.surface(error)
+            }
+            if on { await state.enableNotifications() }
+            notificationsBlocked = await AppState.notificationsBlocked()
         }
     }
 

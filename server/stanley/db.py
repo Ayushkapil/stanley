@@ -78,7 +78,14 @@ def make_sessionmaker(engine):
 # Columns added after the first release. create_all() only creates missing
 # tables, so existing pilot databases get these via ALTER on startup.
 _LATER_COLUMNS = {
-    "users": {"username": "VARCHAR(30)", "bio": "TEXT"},
+    "users": {
+        "username": "VARCHAR(30)",
+        "bio": "TEXT",
+        # Existing people keep exactly what they had: no circle-post pushes,
+        # and the digest they were already getting.
+        "circle_post_notice_enabled": "BOOLEAN DEFAULT 0",
+        "digest_enabled": "BOOLEAN DEFAULT 1",
+    },
     "photos": {"location": "VARCHAR(120)"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
 }

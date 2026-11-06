@@ -190,6 +190,9 @@ struct AuthResponse: Codable {
 
 struct MeSettings: Codable {
     let lastLightNoticeEnabled: Bool
+    /// Nil from a server that predates them; read as their defaults.
+    let circlePostNoticeEnabled: Bool?
+    let digestEnabled: Bool?
 }
 
 /// Own profile (GET /me, PATCH /me/profile). Identity only — the API has no

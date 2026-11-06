@@ -38,6 +38,10 @@ class User(Base):
     tz_last_seen: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # §10 N2: the last-light notice is off by default, offerable in settings.
     last_light_notice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # §10 N3: a push when someone in the circle posts. Off unless asked for.
+    circle_post_notice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # §10 N1: the evening digest. On, as it always was, until turned off.
+    digest_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -251,6 +255,18 @@ class ReturnedLog(Base):
     # "Not now" for today (distinct from rest, which is forever). Cleared with
     # the day, since the row is keyed by local_date.
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PushToken(Base):
+    """A device that may be pushed to (APNs). A token names a device, not a
+    person: it belongs to whoever registered it last, and goes when they sign
+    out or delete their account."""
+
+    __tablename__ = "push_tokens"
+
+    token: Mapped[str] = mapped_column(String(200), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class NotificationLog(Base):

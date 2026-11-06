@@ -29,6 +29,7 @@
 		ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B910D5D0535C57C080D6460 /* Keychain.swift */; };
 		C96BDD3661F67BA0510F17BC /* CircleTroubleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F315A2EF9F01B281275EC5 /* CircleTroubleView.swift */; };
 		D5D40121434D7046D84E7057 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28BF0640C2B868C0AD896FBF /* AboutView.swift */; };
+		D7B581235A435C5FD187F845 /* PushNotices.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4F59FEE634132C92C7BF19F /* PushNotices.swift */; };
 		EA6BF973AFD0E4B649393A8A /* NameGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAA37A65E99288FB8D1E2719 /* NameGateView.swift */; };
 		EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */; };
 		F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1401F690E1241EB4B8D190DC /* AppState.swift */; };
@@ -60,6 +61,7 @@
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
+		E4F59FEE634132C92C7BF19F /* PushNotices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotices.swift; sourceTree = "<group>"; };
 		E5F315A2EF9F01B281275EC5 /* CircleTroubleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleTroubleView.swift; sourceTree = "<group>"; };
 		EAA37A65E99288FB8D1E2719 /* NameGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameGateView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -107,6 +109,7 @@
 				A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */,
 				98DB333BECC60813C685C4A7 /* ProfileView.swift */,
 				2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */,
+				E4F59FEE634132C92C7BF19F /* PushNotices.swift */,
 				E1D927F2B4D7F02207747D21 /* SettingsView.swift */,
 				830E153D6B3273810AD97B6E /* Stanley.entitlements */,
 				B371E63EBC11AC20695ED507 /* StanleyApp.swift */,
@@ -218,6 +221,7 @@
 				A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */,
 				4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */,
 				608876305B018E5CDACEA8ED /* Prompts.swift in Sources */,
+				D7B581235A435C5FD187F845 /* PushNotices.swift in Sources */,
 				7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */,
 				1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */,
 				69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */,
