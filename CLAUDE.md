@@ -95,6 +95,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Story-comments** — flat, chronological, part of the artifact. Today shows
   the first one on the card; the rest sit behind "More stories" (never "2
   more" — a tally is still a count) which opens the photo with the thread.
+  The first story's own line opens the thread too, so a photo with exactly
+  one story is never a dead end. Every photo on Today has a visible "Add to
+  the story…", including each tile in a shared moment, which until now
+  showed an image and a name and nothing else. The thread sheet reads the
+  photo live from Today (`AppState.feedPhoto`), so a story added there
+  appears there.
 - **Returned + rest-a-memory** — one quiet card atop Today; priority **rescue >
   anniversary > near-forgotten**; Keep / Rest (never again) / Dismiss (not now);
   a Rested view with "let it return"; tombstoned photos never resurface.
@@ -111,7 +117,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Community note** — one shared line atop Today, last-writer-wins, clears at end
   of the setter's local day. Not a chat.
 - **Shared moments** — photos with the same location label on the same local day by
-  2+ people group into one view-only card; each photo keeps its own decay/like/hold.
+  2+ people group into one card; each photo keeps its own decay/like/hold and
+  its own stories (first story + "Add to the story…" under each tile, which
+  opens that photo's thread with the field ready).
 - **Daily prompt** (client only) — a deterministic-by-date whisper in the capture
   screen; optional, never tracked.
 - **Weekly mosaic** — the week's photos as an ephemeral card, creator's local

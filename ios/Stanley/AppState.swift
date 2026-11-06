@@ -221,6 +221,17 @@ final class AppState {
         }
     }
 
+    /// The freshest copy of a photo on Today, wherever it sits: alone, or as
+    /// a tile in a shared moment. A sheet that kept the copy it was opened
+    /// with would never show the story just added from it.
+    func feedPhoto(_ id: String) -> Photo? {
+        for item in feedItems {
+            if let photo = item.photo, photo.id == id { return photo }
+            if let photo = item.photos?.first(where: { $0.id == id }) { return photo }
+        }
+        return nil
+    }
+
     func setNote(_ text: String) async {
         guard let circle else { return }
         do {

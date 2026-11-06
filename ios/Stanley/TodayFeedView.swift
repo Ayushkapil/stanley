@@ -95,6 +95,14 @@ struct ViewedMember: Identifiable {
     let id: String
 }
 
+/// A photo's thread, opened from Today. `adding` when the way in was "Add to
+/// the story…", so the sheet opens with the field ready.
+struct OpenedStories: Identifiable {
+    let photo: Photo
+    let adding: Bool
+    var id: String { photo.id }
+}
+
 /// The image with its two gestures: double-tap to like (ephemeral, a heart),
 /// press-and-hold to hold (permanent, a bookmark). Color deepens under the
 /// thumb while held, with a soft settle on commit — never applause. Reused by
@@ -339,11 +347,17 @@ struct PhotoCard: View {
         if let first = photo.comments.first {
             VStack(alignment: .leading, spacing: 4) {
                 // Co-remembering, visible without digging: one line, the way
-                // you'd overhear it.
-                (Text(first.author.displayName).fontWeight(.medium)
-                    + Text("  ") + Text(first.body))
-                    .font(.callout)
-                    .lineLimit(density.storyLineLimit)
+                // you'd overhear it. The line is also the way into the whole
+                // thread, even when it is the only story there is.
+                Button { showStories = true } label: {
+                    Text.story(first)
+                        .font(.callout)
+                        .lineLimit(density.storyLineLimit)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 if photo.comments.count > 1 {
                     // "More", never "2 more" — the no-counts rule holds here too.
                     Button("More stories") { showStories = true }
@@ -376,11 +390,12 @@ struct PhotoCard: View {
 
 /// A shared moment (Part 3): one event, many phones. Header shows the place and
 /// the faces who posted from it (never a count); the photos scroll horizontally,
-/// each keeping its own like, Held, and decay.
+/// each keeping its own like, Held, decay and stories.
 struct MomentCard: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let item: FeedItem
+    @State private var opened: OpenedStories?
 
     private var momentHeight: CGFloat { density.isRoom ? 300 : 210 }
 
@@ -409,13 +424,16 @@ struct MomentCard: View {
             // at, with a sliver of the third so it's clear there is more.
             // Outer display: the same strip, narrowed to fit.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                // Top-aligned: a tile with a story under it is taller than one
+                // without, and the photos should still line up.
+                HStack(alignment: .top, spacing: 10) {
                     ForEach(item.photos ?? []) { photo in
                         VStack(alignment: .leading, spacing: 4) {
                             PhotoImageView(photo: photo, height: momentHeight, cornerRadius: 12)
                             Text(photo.owner.displayName)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            stories(for: photo)
                         }
                         .containerRelativeFrame(.horizontal) { length, _ in
                             density.momentTileWidth(container: length)
@@ -427,6 +445,36 @@ struct MomentCard: View {
         }
         .padding(density.cardPadding)
         .cardSurface(corner: density.cardCorner)
+        .sheet(item: $opened) { opened in
+            PhotoStoriesView(photo: opened.photo, focusOnOpen: opened.adding)
+        }
+    }
+
+    /// A photo in a moment is still its own photo. It used to arrive here as
+    /// an image and a name and nothing else, so its stories were invisible
+    /// and there was no way to add one. Now its first story and "Add to the
+    /// story…" sit under it, as they do under a photo on its own, and either
+    /// opens its thread.
+    @ViewBuilder
+    private func stories(for photo: Photo) -> some View {
+        if let first = photo.comments.first {
+            Button { opened = OpenedStories(photo: photo, adding: false) } label: {
+                Text.story(first)
+                    .font(.footnote)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        Button { opened = OpenedStories(photo: photo, adding: true) } label: {
+            Text("Add to the story…")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -720,39 +768,45 @@ struct ReturnedCard: View {
     }
 }
 
-/// The whole thread, for when the card's one line isn't enough. Opened from
-/// "More stories" — the photo, its caption, and every story on it, in the order
-/// they were told. Adding one works here too.
+/// The whole thread, for when the card's one line isn't enough. Opened from a
+/// photo's stories or "More stories", or from a tile in a shared moment: the
+/// photo, its caption, and every story on it, in the order they were told.
+/// Adding one works here too.
 struct PhotoStoriesView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let photo: Photo
+    /// Opened by "Add to the story…": start in the field.
+    var focusOnOpen = false
     @State private var newComment = ""
+
+    /// The photo as Today has it now. Adding a story refreshes Today; the
+    /// copy this sheet was opened with would never show it.
+    private var current: Photo { state.feedPhoto(photo.id) ?? photo }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    PhotoImageView(photo: photo, cornerRadius: 12)
-                    if let caption = photo.caption, !caption.isEmpty {
+                    PhotoImageView(photo: current, cornerRadius: 12)
+                    if let caption = current.caption, !caption.isEmpty {
                         Text(caption).font(.body)
                     }
-                    ForEach(photo.comments) { comment in
-                        (Text(comment.author.displayName).fontWeight(.medium)
-                            + Text("  ") + Text(comment.body))
+                    ForEach(current.comments) { comment in
+                        Text.story(comment)
                             .font(.callout)
                     }
                     HStack {
                         TextField("", text: $newComment, prompt: .fieldPrompt("Add to the story…"))
                             .font(.callout)
-                            .storyField()
+                            .storyField(autofocus: focusOnOpen)
                         if !newComment.trimmingCharacters(in: .whitespaces).isEmpty {
                             Button("Add") {
                                 let body = newComment.trimmingCharacters(in: .whitespaces)
                                 newComment = ""
-                                Task { await state.comment(on: photo, body: body) }
+                                Task { await state.comment(on: current, body: body) }
                             }
                             .font(.callout)
                         }

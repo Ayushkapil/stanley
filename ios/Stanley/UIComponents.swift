@@ -233,7 +233,7 @@ private struct StanleyFieldBox: ViewModifier {
 
 extension View {
     func stanleyField() -> some View { modifier(StanleyFieldBox()) }
-    func storyField() -> some View { modifier(StoryField()) }
+    func storyField(autofocus: Bool = false) -> some View { modifier(StoryField(autofocus: autofocus)) }
 }
 
 /// A field that belongs to the words around it, not to a form.
@@ -244,6 +244,7 @@ extension View {
 /// one line of text so it is easy to land on, without drawing anything to
 /// show for it.
 private struct StoryField: ViewModifier {
+    var autofocus = false
     @FocusState private var focused: Bool
     func body(content: Content) -> some View {
         content
@@ -254,10 +255,24 @@ private struct StoryField: ViewModifier {
             // the field if we say so, and nothing drawn says where it begins.
             .contentShape(Rectangle())
             .onTapGesture { focused = true }
+            .task {
+                // Reached by tapping "Add to the story…": land in the field,
+                // not one more tap short of it. The sheet has to finish
+                // arriving before a field inside it can take focus.
+                guard autofocus else { return }
+                try? await Task.sleep(for: .milliseconds(450))
+                focused = true
+            }
     }
 }
 
 extension Text {
+    /// One story as a card tells it: who, then what they remember.
+    static func story(_ comment: Comment) -> Text {
+        Text(comment.author.displayName).fontWeight(.medium)
+            + Text("  ") + Text(comment.body)
+    }
+
     /// A placeholder you can actually read. The system's `placeholderText` is
     /// dim enough on an OLED panel to look like an empty box.
     static func fieldPrompt(_ string: String) -> Text {
