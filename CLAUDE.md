@@ -1015,14 +1015,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **The India countdown in production.** Build 35's server is deployed
-  (Fly release **v20**, 2026-11-06; the column is added on startup, null
-  everywhere), but the countdown only appears once it is set on Ayush's
-  production circle:
-  `set_countdown.py ... find Ayush`, then `set <circle_id> india`, both
-  piped over `fly ssh` as the script's docstring shows. People see it once
-  they're on build 35; older builds ignore the field. It has to reach them
-  before November 23.
+- **The India countdown in production.** Set on 2026-11-06 (Fly release
+  **v20**) with the `india` preset on Ayush's production circle, **Anti
+  mosquito** (`8fa3cca67bba40ec8157dca4fd8193ce`, the only circle `find
+  Ayush` names; Ayush is a member, not its creator), and on no other. The
+  script ships in the image, so it runs as it is, no piping:
+  `fly ssh console -a server-earnest-stream-9793 -C "/app/.venv/bin/python
+  /app/scripts/set_countdown.py /data/var/stanley.db show <id>"` (or
+  `clear <id>`). Everyone in that circle sees it once they're on build 35;
+  older builds ignore the field. **Build 35 has to reach them before
+  November 23.**
 - **Build 35** (0.2.0) is committed but not archived (build 34 wasn't
   either). Xcode's Organizer
   holds archives up to build 28 (November 4, 01:42); whether any was
