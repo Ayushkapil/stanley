@@ -242,6 +242,23 @@ struct CircleInfo: Codable {
     let inviteToken: String?
     let isCreator: Bool?
     let members: [CircleMember]?
+    /// Build 35: something this one circle is counting toward, nil for every
+    /// other circle.
+    let countdown: Countdown?
+}
+
+extension CircleInfo {
+    /// A countdown that won't decode is dropped, never allowed to take the
+    /// circle down with it: a circle that fails to load is a trouble page.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        inviteToken = try c.decodeIfPresent(String.self, forKey: .inviteToken)
+        isCreator = try c.decodeIfPresent(Bool.self, forKey: .isCreator)
+        members = try c.decodeIfPresent([CircleMember].self, forKey: .members)
+        countdown = try? c.decodeIfPresent(Countdown.self, forKey: .countdown)
+    }
 }
 
 struct AuthResponse: Codable {

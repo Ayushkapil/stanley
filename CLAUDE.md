@@ -981,6 +981,29 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   it (`decay.delete_comments`, pointing the report at the photo instead):
   before, foreign keys refused, and one reported story made its photo's
   deletion, its purge and its author's account deletion fail.
+- **One circle's countdown** (build 35, a product decision on 2026-11-06,
+  for Ayush's circle going home to India for Thanksgiving). A flag, not a
+  feature: `circles.countdown`, a JSON column, null for every circle but the
+  one it was set on, returned by `/circles/mine` with the circle on screen.
+  Set only by hand with `scripts/set_countdown.py` (`find`, `show`, `set`
+  with the `india` preset or a JSON file, `clear`; standard library only, so
+  it can be piped to Fly like `integrity_check.py`). Nothing in the app or
+  the API creates one. Under Today's dateline the app draws `CountdownRoute`:
+  a dotted route sketched edge to edge, a dot at the start, a ring at the
+  end, a light SF `airplane` along it by how much of the wait since
+  `start_date` has passed, and the phase's words in Noteworthy beneath, all
+  in the secondary ink and not tappable. Phases (`Countdown.phase(at:)`):
+  counting days in `target_tz` ("17 days until India ✈️", two left "Almost
+  there", one left "Tomorrow"); the day itself, plane at the end ("Bags
+  packed, hearts full. Let's go home."); then until `arrives_at` ("You're in
+  for an awesome journey!"); then a 🏠 in place of the route ("How's home?")
+  until `home_until`, after which nothing is drawn. Landing and the end are
+  stored with their own IST offsets (Nov 25 02:30 IST, which is Nov 24 15:00
+  CST, and the start of Nov 28 IST). A photo posted on the day itself, in
+  `target_tz`, gets a tiny ✈️ after the time in its byline. It counts days,
+  never people, so it sits outside "No counts"; a countdown would still
+  break the rule for notifications. A countdown the app can't decode is
+  dropped and never fails the circle (`CircleInfo.init(from:)`).
 
 ## Open items (not yet built / not yet done)
 
@@ -992,7 +1015,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **Build 34** (0.2.0) is committed but not archived. Xcode's Organizer
+- **The India countdown in production.** Build 35's server change needs a
+  `fly deploy` (the column is added on startup, null everywhere), and the
+  countdown only appears once it is set on Ayush's production circle:
+  `set_countdown.py ... find Ayush`, then `set <circle_id> india`, both
+  piped over `fly ssh` as the script's docstring shows. People see it once
+  they're on build 35; older builds ignore the field. It has to reach them
+  before November 23.
+- **Build 35** (0.2.0) is committed but not archived (build 34 wasn't
+  either). Xcode's Organizer
   holds archives up to build 28 (November 4, 01:42); whether any was
   uploaded isn't visible from here. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
@@ -1208,7 +1239,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**395 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**411 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -1296,7 +1327,8 @@ live APNs, concurrency under real load.
   `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`;
   App Store screenshots `server/scripts/seed_screenshots.py` + `scenes.py`
   (output in `ios/AppStoreScreenshots/`); ops `server/scripts/
-  integrity_check.py`, `pull_backup.sh` + `com.stanley.pull-backup.plist`
+  integrity_check.py`, `pull_backup.sh` + `com.stanley.pull-backup.plist`,
+  `set_countdown.py` (the one circle's countdown)
 - Production status of every audit item: `PRODUCTION_CHECKLIST.md` (repo root)
 
 **iOS** (`ios/Stanley/`)
@@ -1319,6 +1351,8 @@ live APNs, concurrency under real load.
   `MentionBar`), `Paper.swift` (the paper grain, `.paperPage()`),
   `Journal.swift` (the journal's look: masthead, rules, small capitals,
   prints, paper inserts; `DarkRoom`, the dark mode's colors and rules),
+  `Countdown.swift` + `CountdownRoute.swift` (build 35: one circle's
+  countdown, its phases and the route under Today's dateline),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `Writing.swift` (build 26: the journal entry slip and sheet,
   the question slip, answers and circle journal, the Sunday card, the

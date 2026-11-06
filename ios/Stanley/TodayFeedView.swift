@@ -325,6 +325,7 @@ struct DayMark: View {
 /// a hand and opening the others, then the paper's double rule, the day in
 /// small capitals and a hairline. It scrolls away with the page.
 struct TodayMasthead: View {
+    @Environment(AppState.self) private var state
     let onJoinAnother: () -> Void
     var onCircleJournal: () -> Void = {}
     var onCapture: () -> Void = {}
@@ -345,6 +346,11 @@ struct TodayMasthead: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             OfflineLine()
+            // One circle's countdown (build 35), under the date it counts
+            // from. Every other circle has none, and nothing is drawn.
+            if let countdown = state.circle?.countdown {
+                CountdownRoute(countdown: countdown)
+            }
             Rule(weight: 0.5)
         }
         .padding(.top, 8)
@@ -968,7 +974,10 @@ struct PhotoCard: View {
         let place = photo.location.flatMap { $0.isEmpty ? nil : $0 }
         return HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
-                PrintByline(owner: photo.owner, time: photo.takenAt) {
+                PrintByline(
+                    owner: photo.owner, time: photo.takenAt,
+                    mark: state.circle?.countdown?.mark(for: photo.takenAt)
+                ) {
                     if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
                 }
                 .padding(.bottom, 2)
@@ -1080,6 +1089,7 @@ struct PhotoCard: View {
 /// the faces of who posted from it (never a count); each print keeps its own
 /// name, like, Held and decay.
 struct MomentCard: View {
+    @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     let item: FeedItem
@@ -1112,7 +1122,10 @@ struct MomentCard: View {
                         VStack(alignment: .leading, spacing: 10) {
                             PhotoImageView(photo: photo)
                                 .asPrint(border: 6, tilt: PrintTilt.degrees(photo.id))
-                            PrintByline(owner: photo.owner, time: photo.takenAt, size: 16) {
+                            PrintByline(
+                                owner: photo.owner, time: photo.takenAt, size: 16,
+                                mark: state.circle?.countdown?.mark(for: photo.takenAt)
+                            ) {
                                 if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
                             }
                             .padding(.horizontal, 4)

@@ -91,6 +91,8 @@ def make_sessionmaker(engine):
 # tables, so existing pilot databases get these via ALTER on startup.
 _LATER_COLUMNS = {
     "users": {"username": "VARCHAR(30)", "bio": "TEXT", "digest_enabled": "BOOLEAN DEFAULT 0"},
+    # Build 35: one circle's countdown, null everywhere else.
+    "circles": {"countdown": "JSON"},
     "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
     # Build 26: a report about an answer to the circle's question.

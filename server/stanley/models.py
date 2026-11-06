@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, UTCDateTime
@@ -55,6 +55,11 @@ class Circle(Base):
     cap: Mapped[int] = mapped_column(Integer, default=CIRCLE_CAP)
     invite_token: Mapped[str] = mapped_column(String(9), unique=True, default=new_invite_code)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # Build 35: something this one circle is counting toward, drawn under
+    # Today's dateline (`CountdownRoute` in the app). A flag, not a feature:
+    # null for every circle but the one it was set on, by hand, with
+    # scripts/set_countdown.py. Nothing in the app or the API creates one.
+    countdown: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class Membership(Base):

@@ -215,6 +215,8 @@ def my_circle(
         "invite_token": circle.invite_token,
         "is_creator": circle.created_by == user.id,
         "members": _members_payload(db, circle, settings, clock.now()),
+        # Null for every circle but the one it was set on (build 35).
+        "countdown": circle.countdown,
     }
 
 

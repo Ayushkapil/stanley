@@ -294,6 +294,9 @@ struct PrintByline: View {
     let owner: UserBrief
     let time: Date
     var size: CGFloat = 18
+    /// Something tiny after the time: the countdown's plane on a photo posted
+    /// on the day itself (build 35). Nil everywhere else.
+    var mark: String? = nil
     var onOwner: (() -> Void)?
 
     var body: some View {
@@ -307,6 +310,11 @@ struct PrintByline: View {
                 Text(time, format: .dateTime.hour().minute())
                     .font(.hand(size - 3, relativeTo: .subheadline))
                     .foregroundStyle(.secondary)
+                if let mark {
+                    Text(mark)
+                        .font(.system(size: size - 8))
+                        .accessibilityHidden(true)
+                }
             }
             .lineLimit(1)
             .contentShape(Rectangle())
