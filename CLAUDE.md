@@ -1015,9 +1015,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **The India countdown in production.** Build 35's server change needs a
-  `fly deploy` (the column is added on startup, null everywhere), and the
-  countdown only appears once it is set on Ayush's production circle:
+- **The India countdown in production.** Build 35's server is deployed
+  (Fly release **v20**, 2026-11-06; the column is added on startup, null
+  everywhere), but the countdown only appears once it is set on Ayush's
+  production circle:
   `set_countdown.py ... find Ayush`, then `set <circle_id> india`, both
   piped over `fly ssh` as the script's docstring shows. People see it once
   they're on build 35; older builds ignore the field. It has to reach them
