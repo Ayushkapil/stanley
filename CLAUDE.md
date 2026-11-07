@@ -783,7 +783,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (37)", at the
+  production audit), and the version, "Stanley 0.2.0 (38)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1033,25 +1033,34 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   little card of the atmosphere's card color with a hairline round it and
   one across the middle where a flip card splits (black boxed in the
   room's gray in the dark room), colons in the secondary ink between. The
-  digits are SF Rounded semibold with even widths, 16pt scaling with
-  Dynamic Type; the labels are the hand, bold, 10pt, in capitals beneath.
+  digits are SF Rounded semibold with even widths, 20pt since build 38
+  (the centerpiece; 16pt in build 36), scaling with Dynamic Type up to
+  24pt so the row still fits a 375pt phone; the labels are the hand, bold,
+  10pt, in capitals beneath.
   Each digit flips on its own as it changes, a 0.3s rotation about its
   middle (`rotation3DEffect` on X with a little `scaleEffect`), the old one
   tipping away as the new one comes up; only a fade under Reduce Motion;
   silent. A `TimelineView` ticks on whole seconds while the clock counts
   and each minute after. VoiceOver reads the words and what's left to the
-  minute, not a number every second. **Trip reminders** (build 36): the
-  countdown's `reminders`, keyed by calendar days left, a note on certain
-  days ("17": "The countdown begins!", then 14, 11 ("Shopping done? 👀", the
-  one emoji a reminder may carry; the script allows them there), 8, 5, 3,
-  and "1": "Tomorrow. TOMORROW."). On its day only, a `ReminderSlip` sits
-  above the route: a scrap of the sticky note's paper (lamplit in the dark)
-  torn along the bottom (`TornEdge`, from a seed of its words), as wide as
-  its words, under a small strip of `Tape`, 2° to 4° off square, the words
-  in the hand at 14pt in the note's ink. It fades in as it settles 8pt
-  down onto the page each time the page shows it (just the fade under
-  Reduce Motion). The days between have none; nothing to dismiss, nothing
-  that notifies. It counts days, never people, so it sits outside "No
+  minute, not a number every second. **Daily notes** (build 36 as trip
+  reminders every three days; **one for every day since build 38**): the
+  countdown's `reminders`, keyed by calendar days left, "0" being the day
+  itself, a slow story from casual to excited: "17": "The countdown
+  begins.", "16": "Start making lists.", "14": "Two weeks. Let that sink
+  in.", "7": "One week. ONE WEEK.", "3": "Three days. Check your
+  passport.", "1": "Tomorrow. TOMORROW." and "0": "Let's go home." (the
+  rest in the preset). None carries an emoji now; the script still allows
+  one in a reminder, never in the label or a message. On its day only, a
+  `ReminderSlip` sits above the route: a scrap of the sticky note's paper
+  (lamplit in the dark) torn along the bottom (`TornEdge`, from a seed of
+  its words), as wide as its words up to 250pt (a longer note wraps at
+  180pt onto two lines rather than stretching into a banner), under a
+  small strip of `Tape`, 2° to 4° off square, the words in the hand at
+  14pt in the note's ink. It fades in as it settles 8pt down onto the page
+  each time the page shows it (just the fade under Reduce Motion). Nothing
+  to dismiss, nothing that notifies. The day itself's note sits over "Bags
+  packed, hearts full. Let's go home.", so the words repeat that day. A
+  build before 38 shows the notes for 17 to 1 and skips the day itself's. It counts days, never people, so it sits outside "No
   counts"; a countdown would still break the rule for notifications. A
   countdown the app can't decode is dropped and never fails the circle
   (`CircleInfo.init(from:)`), and one written before build 36 (with
@@ -1079,6 +1088,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   `set <id> india`, `clear <id>`). Everyone in that circle sees it once
   they're on build 35 (36 for the clock and the slips); older builds
   ignore the field. **Build 36 has to reach them before November 23.**
+  Build 38's daily notes are in the preset, so they need the script on
+  Fly (`fly deploy`) and `set <id> india` once more; builds 36 and 37
+  then show them too, all but the day itself's.
 - **Circle Posts on Fly.** Deployed as release **v22** (2026-11-07): the
   column is added on startup, off for everyone, and `/terms` and `/privacy`
   answer with the November 7 wording. Nobody is notified until people on
@@ -1086,9 +1098,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 37** (0.2.0) is committed but not archived; it adds Circle Posts
-  to everything in 36. Build 36 was archived on November 6 at 8:21 PM and
-  build 35 at 7:30 PM (Organizer); builds 34 and 28 are archived too. Whether any was
+- **Build 38** (0.2.0) is committed but not archived; it adds the bigger
+  flip clock and the day itself's note to everything in 37. Build 37
+  (Circle Posts) was archived on November 7 at 4:18 PM, build 36 on
+  November 6 at 8:21 PM and build 35 at 7:30 PM (Organizer); builds 34
+  and 28 are archived too. Whether any was
   uploaded isn't visible from here. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1303,7 +1317,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**439 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**441 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

@@ -28,9 +28,10 @@ The fields:
   messages            optional words for each phase; {days} (the whole days
                       left on the app's clock) and {label} are filled in
 
-  reminders           optional notes tucked in on certain days, keyed by the
-                      calendar days left ({"14": "Have you even started
-                      packing??"}); each shows on its day only
+  reminders           optional notes tucked into the page, keyed by the
+                      calendar days left ({"14": "Two weeks. Let that sink
+                      in."}), "0" for the day itself; each shows on its
+                      day only
 
 No emoji in the label or the messages (build 36): the app draws the plane
 and the house, and the words are only words, so a symbol there is refused.
@@ -53,7 +54,7 @@ PRESETS = {
     # Ayush's circle, home for Thanksgiving. Departure is Nov 23 in Chicago;
     # landing is Nov 25 02:30 IST (Nov 24 15:00 CST); it all goes at the
     # start of Nov 28 IST, i.e. after 23:59 on Nov 27 there. The words since
-    # build 36: "for Home", and no emoji.
+    # build 36: "for Home", and no emoji. A note for every day since build 38.
     "india": {
         "label": "India",
         "start_date": "2026-11-06",
@@ -69,15 +70,27 @@ PRESETS = {
             "in_the_air": "You're in for an awesome journey!",
             "home": "How's home?",
         },
-        # Every three days or so, a note tucked into the page (build 36).
+        # A note tucked into the page every day, from the first (17 left,
+        # Nov 6) to the day itself (0, Nov 23): casual at first, building.
         "reminders": {
-            "17": "The countdown begins!",
-            "14": "Have you even started packing??",
-            "11": "Shopping done? 👀",
-            "8": "Cleaned your place yet?",
-            "5": "Packed?? Not yet?",
-            "3": "Seriously though, pack.",
+            "17": "The countdown begins.",
+            "16": "Start making lists.",
+            "15": "What are you bringing back for people?",
+            "14": "Two weeks. Let that sink in.",
+            "13": "Have you told your mom yet?",
+            "12": "Start saying bye to your favorite spots here.",
+            "11": "Shopping list ready?",
+            "10": "Double digits done. Single digits next.",
+            "9": "What's the first thing you're eating when you land?",
+            "8": "One week and a day.",
+            "7": "One week. ONE WEEK.",
+            "6": "Have you even started packing??",
+            "5": "Okay seriously. Pack.",
+            "4": "Clean your place. You're coming back to it.",
+            "3": "Three days. Check your passport.",
+            "2": "Packed?? Not yet??",
             "1": "Tomorrow. TOMORROW.",
+            "0": "Let's go home.",
         },
     },
 }
@@ -149,8 +162,10 @@ def validate(data: dict) -> dict:
         raise Invalid("reminders is an object of days left to words")
     span = (target - start).days
     for days, words in reminders.items():
-        if not (isinstance(days, str) and days.isdigit() and 1 <= int(days) <= span):
-            raise Invalid(f"a reminder's key is the days left, 1 to {span}, not {days!r}")
+        # Written the way the app looks it up: "7", never "07".
+        if not (isinstance(days, str) and days.isdigit() and days == str(int(days))
+                and 0 <= int(days) <= span):
+            raise Invalid(f"a reminder's key is the days left, 0 to {span}, not {days!r}")
         if not isinstance(words, str) or not words.strip() or len(words) > 80:
             raise Invalid("a reminder is a short line of words")
     return data

@@ -144,8 +144,9 @@ def test_the_script_refuses_an_unknown_circle(db_file):
         {"messages": {"home": "How's home? 🏠"}},
         {"messages": {"countdown": "{days} days ✈"}},  # without the selector too
         {"reminders": ["pack"]},
-        {"reminders": {"0": "pack"}},  # the day itself has its own words
+        {"reminders": {"-1": "pack"}},  # after the day itself
         {"reminders": {"18": "pack"}},  # before the countdown starts
+        {"reminders": {"07": "pack"}},  # the app looks up "7"; this never shows
         {"reminders": {"two": "pack"}},
         {"reminders": {"3": ""}},
         {"reminders": {"3": "x" * 81}},
@@ -183,19 +184,28 @@ def test_the_india_preset_says_home_without_emoji():
     assert all(script._plain(words) for words in [INDIA["label"], *INDIA["messages"].values()])
 
 
-def test_the_india_preset_tucks_in_a_note_every_three_days():
-    assert INDIA["reminders"] == {
-        "17": "The countdown begins!",
-        "14": "Have you even started packing??",
-        "11": "Shopping done? 👀",
-        "8": "Cleaned your place yet?",
-        "5": "Packed?? Not yet?",
-        "3": "Seriously though, pack.",
-        "1": "Tomorrow. TOMORROW.",
-    }
+def test_the_india_preset_tucks_in_a_note_every_day():
+    """Build 38: a note for each day from the first (17 left, Nov 6) to the
+    day itself (0, Nov 23), and no day without one."""
+    notes = INDIA["reminders"]
+    assert set(notes) == {str(days) for days in range(0, 18)}
+    assert notes["17"] == "The countdown begins."
+    assert notes["16"] == "Start making lists."
+    assert notes["14"] == "Two weeks. Let that sink in."
+    assert notes["7"] == "One week. ONE WEEK."
+    assert notes["3"] == "Three days. Check your passport."
+    assert notes["1"] == "Tomorrow. TOMORROW."
+    assert notes["0"] == "Let's go home."
+    # Every one different, and none with an emoji.
+    assert len(set(notes.values())) == len(notes)
+    assert all(script._plain(words) for words in notes.values())
+
+
+def test_a_note_on_the_day_itself_is_allowed():
+    script.validate({**INDIA, "reminders": {"0": "Let's go home."}})
 
 
 def test_the_reminders_come_with_their_own_circle_only(two, db):
     _flag(db, two.id, INDIA)
-    assert _mine(two.ben)["countdown"]["reminders"]["11"] == "Shopping done? 👀"
+    assert _mine(two.ben)["countdown"]["reminders"]["11"] == "Shopping list ready?"
     assert _mine(two.dee)["countdown"] is None

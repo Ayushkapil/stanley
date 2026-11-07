@@ -21,9 +21,10 @@ struct Countdown: Codable, Equatable {
     /// When it all goes, with its own offset.
     let homeUntil: String?
     let messages: Messages?
-    /// Little notes tucked in on certain days (build 36), keyed by how many
-    /// calendar days are left ("14": "Have you even started packing??"). A
-    /// note shows on its day only; the days between have none.
+    /// Little notes tucked into the page (build 36; one for every day since
+    /// build 38), keyed by how many calendar days are left ("14": "Two weeks.
+    /// Let that sink in."), "0" being the day itself. A note shows on its day
+    /// only; a day without one has none.
     let reminders: [String: String]?
 
     struct Messages: Codable, Equatable {
@@ -49,7 +50,8 @@ struct Countdown: Codable, Equatable {
         /// The start of the day itself, while it's still ahead (build 36).
         /// Nil once it has come: the moment has arrived, nothing to count.
         var until: Date? = nil
-        /// Today's tucked-in note, if today is one of its days (build 36).
+        /// Today's tucked-in note, if today has one (build 36; the day
+        /// itself too since build 38).
         var reminder: String? = nil
     }
 
@@ -85,12 +87,10 @@ struct Countdown: Codable, Equatable {
                 words = fill(messages?.countdown ?? "{days} days until {label}",
                              days: Self.wholeDays(departs.timeIntervalSince(now)))
             }
-            let note = reminders?[String(days)].map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            return Phase(mark: .plane(progress), text: words, until: departs,
-                         reminder: note?.isEmpty == false ? note : nil)
+            return Phase(mark: .plane(progress), text: words, until: departs, reminder: note(days))
         }
         if now < departureEnds {
-            return Phase(mark: .plane(1), text: fill(messages?.departure ?? "Today"))
+            return Phase(mark: .plane(1), text: fill(messages?.departure ?? "Today"), reminder: note(0))
         }
         if let lands, now < lands {
             return Phase(mark: .plane(1), text: fill(messages?.inTheAir ?? "On the way"))
@@ -138,6 +138,14 @@ struct Countdown: Codable, Equatable {
         let reader = ISO8601DateFormatter()
         reader.formatOptions = [.withInternetDateTime]
         return reader.date(from: text)
+    }
+
+    /// The note for so many calendar days left, if there's one with words.
+    private func note(_ days: Int) -> String? {
+        guard let words = reminders?[String(days)]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !words.isEmpty
+        else { return nil }
+        return words
     }
 
     private func fill(_ template: String, days: Int? = nil) -> String {

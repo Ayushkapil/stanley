@@ -4,7 +4,7 @@ import SwiftUI
 /// on a paper map. A dotted path edge to edge, a dot where it starts, a ring
 /// where it ends, and a small plane along it by how much of the wait has
 /// passed; once landed, a house where the route was. Under it, in a hand,
-/// where things stand, and while the day is still ahead, a little flip clock
+/// where things stand, and while the day is still ahead, a flip clock
 /// counting down to it (build 36). Thin strokes in the page's secondary ink,
 /// a nod rather than a banner, and not a control: nothing here can be tapped.
 /// No emoji anywhere: the plane and the house are drawn.
@@ -45,7 +45,7 @@ struct CountdownRoute: View {
                         .fixedSize(horizontal: false, vertical: true)
                     if let until = phase.until {
                         FlipClock(remaining: until.timeIntervalSince(context.date))
-                            .padding(.top, 4)
+                            .padding(.top, 6)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -76,13 +76,14 @@ struct CountdownRoute: View {
 
 // MARK: - The day's note
 
-/// A note a friend tucked into the page on certain days (build 36): a small
-/// slip torn from something, a little crooked, held by a bit of tape, the
-/// words in a hand a size under the countdown's. The sticky note's paper and
-/// ink, smaller and more casual. It's there on its day and gone the next;
-/// nothing to dismiss, nothing that asks for anything. It arrives the way a
-/// note would: fading in as it settles down onto the page, once each time
-/// the page shows it (only the fade under Reduce Motion).
+/// A note a friend tucked into the page (build 36; one for every day since
+/// build 38): a small slip torn from something, a little crooked, held by a
+/// bit of tape, the words in a hand a size under the countdown's. The sticky
+/// note's paper and ink, smaller and more casual. It's there on its day, and
+/// the next day brings another; nothing to dismiss, nothing that asks for
+/// anything. It arrives the way a note would: fading in as it settles down
+/// onto the page, once each time the page shows it (only the fade under
+/// Reduce Motion).
 private struct ReminderSlip: View {
     let words: String
     @Environment(\.colorScheme) private var colorScheme
@@ -102,17 +103,32 @@ private struct ReminderSlip: View {
     }
 
     var body: some View {
-        let edge = TornEdge(seed: seed)
         let line = Text(words)
             .font(.hand(14, relativeTo: .footnote))
             .foregroundStyle(NotePaper.ink)
             .multilineTextAlignment(.center)
-        // As wide as its words, the way a scrap is torn to fit a note; only
-        // wrapped when one line won't fit (large type).
+        // As wide as its words, the way a scrap is torn to fit a note, up to
+        // a small slip's width: a longer note ("What's the first thing you're
+        // eating when you land?") wraps onto a second line rather than
+        // stretching into a banner across the page.
         ViewThatFits(in: .horizontal) {
-            line.fixedSize()
-            line.fixedSize(horizontal: false, vertical: true).frame(maxWidth: 240)
+            scrap(line.fixedSize())
+            scrap(line.fixedSize(horizontal: false, vertical: true).frame(maxWidth: 180))
         }
+            .frame(maxWidth: 250)
+            .rotationEffect(.degrees(tilt))
+            .opacity(stuck ? 1 : 0)
+            .offset(y: stuck || reduceMotion ? 0 : -8)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.5).delay(0.25)) { stuck = true }
+            }
+            .onDisappear { stuck = false }
+    }
+
+    /// The words on their torn scrap, under their bit of tape.
+    private func scrap(_ words: some View) -> some View {
+        let edge = TornEdge(seed: seed)
+        return words
             .padding(.horizontal, 14)
             .padding(.top, 9)
             .padding(.bottom, 11)
@@ -126,13 +142,6 @@ private struct ReminderSlip: View {
                     .scaleEffect(0.62)
                     .offset(y: -9)
             }
-            .rotationEffect(.degrees(tilt))
-            .opacity(stuck ? 1 : 0)
-            .offset(y: stuck || reduceMotion ? 0 : -8)
-            .onAppear {
-                withAnimation(.easeOut(duration: 0.5).delay(0.25)) { stuck = true }
-            }
-            .onDisappear { stuck = false }
     }
 }
 
@@ -168,11 +177,16 @@ private struct TornEdge: Shape {
 /// The numbers are set to be read (SF Rounded, semibold, even-width digits),
 /// not written; the labels beneath are in the journal's hand. Each digit
 /// flips on its own as it changes, the old one tipping down and away while
-/// the new one comes up, about 0.3s, silent. A detail under the words, not
-/// the main event, so it's kept small.
+/// the new one comes up, about 0.3s, silent. The countdown's centerpiece
+/// (build 38): the digits are 20pt, a quarter up from build 36's 16, and the
+/// labels stay as they were.
 private struct FlipClock: View {
     let remaining: TimeInterval
-    @ScaledMetric(relativeTo: .subheadline) private var digit: CGFloat = 16
+    @ScaledMetric(relativeTo: .subheadline) private var scaled: CGFloat = 20
+
+    /// Grows with Dynamic Type, up to where four cards and their colons still
+    /// fit across a 375pt phone's page.
+    private var digit: CGFloat { min(scaled, 24) }
 
     var body: some View {
         let left = Countdown.clock(remaining)
