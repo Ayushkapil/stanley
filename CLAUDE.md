@@ -1089,9 +1089,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   they're on build 35 (36 for the clock and the slips); older builds
   ignore the field. **Build 36 has to reach them before November 23.**
   Build 38's daily notes are in the preset: the script with them is on
-  Fly as release **v23** (2026-11-07), and they reach the circle once
-  `set <id> india` is run once more (not yet, as of v23); builds 36 and
-  37 then show them too, all but the day itself's.
+  Fly as release **v23** (2026-11-07), and the preset was set again on
+  Anti mosquito the same evening, so the circle has them; builds 36 and
+  37 show them too, all but the day itself's.
 - **Circle Posts on Fly.** Deployed as release **v22** (2026-11-07): the
   column is added on startup, off for everyone, and `/terms` and `/privacy`
   answer with the November 7 wording. Nobody is notified until people on
