@@ -1079,12 +1079,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   `set <id> india`, `clear <id>`). Everyone in that circle sees it once
   they're on build 35 (36 for the clock and the slips); older builds
   ignore the field. **Build 36 has to reach them before November 23.**
-- **Circle Posts on Fly.** Not deployed: Fly's v21 has no
-  `circle_posts_enabled`, so build 37 hides the switch against it and
-  nobody is notified. It takes a `fly deploy` (the column is added on
-  startup, off for everyone). The November 7 Terms and Privacy Policy go
-  live with it; the policy's promise to say in the app when it changes
-  still has no in-app notice behind it.
+- **Circle Posts on Fly.** Deployed as release **v22** (2026-11-07): the
+  column is added on startup, off for everyone, and `/terms` and `/privacy`
+  answer with the November 7 wording. Nobody is notified until people on
+  build 37 turn it on (older builds never show the switch). The policy's
+  promise to say in the app when it changes still has no in-app notice
+  behind it. Not yet seen end to end: a real phone receiving "… shared a
+  moment".
 - **Build 37** (0.2.0) is committed but not archived; it adds Circle Posts
   to everything in 36. Build 36 was archived on November 6 at 8:21 PM and
   build 35 at 7:30 PM (Organizer); builds 34 and 28 are archived too. Whether any was
