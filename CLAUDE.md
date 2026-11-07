@@ -1053,9 +1053,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   **Anti mosquito** (`8fa3cca67bba40ec8157dca4fd8193ce`, the only circle
   `find Ayush` names; Ayush is a member, not its creator), and on no other.
   **Not yet: build 36's words and reminders.** The row still holds build
-  35's ("17 days until India ✈️", no reminders), and v20's copy of the
-  script has the old preset, so it takes a `fly deploy` of the new script
-  and then the same `set 8fa3cca67bba40ec8157dca4fd8193ce india` again.
+  35's ("17 days until India ✈️", no reminders). The new script is on Fly
+  (release **v21**, 2026-11-06), so it takes only the same `set
+  8fa3cca67bba40ec8157dca4fd8193ce india` again.
   The script ships in the image, so it runs as it is, no piping:
   `fly ssh console -a server-earnest-stream-9793 -C "/app/.venv/bin/python
   /app/scripts/set_countdown.py /data/var/stanley.db show <id>"` (or
