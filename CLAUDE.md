@@ -771,7 +771,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (34)", at the
+  production audit), and the version, "Stanley 0.2.0 (36)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -992,18 +992,51 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a dotted route sketched edge to edge, a dot at the start, a ring at the
   end, a light SF `airplane` along it by how much of the wait since
   `start_date` has passed, and the phase's words in Noteworthy beneath, all
-  in the secondary ink and not tappable. Phases (`Countdown.phase(at:)`):
-  counting days in `target_tz` ("17 days until India ✈️", two left "Almost
-  there", one left "Tomorrow"); the day itself, plane at the end ("Bags
-  packed, hearts full. Let's go home."); then until `arrives_at` ("You're in
-  for an awesome journey!"); then a 🏠 in place of the route ("How's home?")
-  until `home_until`, after which nothing is drawn. Landing and the end are
-  stored with their own IST offsets (Nov 25 02:30 IST, which is Nov 24 15:00
-  CST, and the start of Nov 28 IST). A photo posted on the day itself, in
-  `target_tz`, gets a tiny ✈️ after the time in its byline. It counts days,
-  never people, so it sits outside "No counts"; a countdown would still
-  break the rule for notifications. A countdown the app can't decode is
-  dropped and never fails the circle (`CircleInfo.init(from:)`).
+  in the secondary ink and not tappable. Phases (`Countdown.phase(at:)`,
+  the words since build 36): before the day, "16 days for Home", two
+  calendar days left "Almost Home", one left "Tomorrow", each over a
+  **flip clock** (build 36) counting to the first second of the day in
+  `target_tz`; the day itself, plane at the end ("Bags packed, hearts full.
+  Let's go home.", no clock: the moment has come); then until `arrives_at`
+  ("You're in for an awesome journey!"); then a drawn SF `house` in place of
+  the route ("How's home?") until `home_until`, after which nothing is
+  drawn. Which words is a matter of calendar days; the number in them is
+  the clock's own whole days, so the two never disagree (Nov 6 at 7 PM CST
+  is "16 days for Home" over 16 : 05 : 00 : 00, though Nov 23 is 17
+  calendar days off). Landing and the end are stored with their own IST
+  offsets (Nov 25 02:30 IST, which is Nov 24 15:00 CST, and the start of
+  Nov 28 IST). **No emoji in the countdown** (build 36, a product
+  decision): the plane and the house are drawn, `set_countdown.py` refuses
+  a symbol in the label or a message, and a photo posted on the day itself
+  gets a tiny drawn plane after the time in its byline (`PrintByline`'s
+  `plane`; it was a ✈️). **The flip clock** (`FlipClock` in
+  `CountdownRoute.swift`): Days, Hours, Min, Sec, each two digits on a
+  little card of the atmosphere's card color with a hairline round it and
+  one across the middle where a flip card splits (black boxed in the
+  room's gray in the dark room), colons in the secondary ink between. The
+  digits are SF Rounded semibold with even widths, 16pt scaling with
+  Dynamic Type; the labels are the hand, bold, 10pt, in capitals beneath.
+  Each digit flips on its own as it changes, a 0.3s rotation about its
+  middle (`rotation3DEffect` on X with a little `scaleEffect`), the old one
+  tipping away as the new one comes up; only a fade under Reduce Motion;
+  silent. A `TimelineView` ticks on whole seconds while the clock counts
+  and each minute after. VoiceOver reads the words and what's left to the
+  minute, not a number every second. **Trip reminders** (build 36): the
+  countdown's `reminders`, keyed by calendar days left, a note on certain
+  days ("17": "The countdown begins!", then 14, 11 ("Shopping done? 👀", the
+  one emoji a reminder may carry; the script allows them there), 8, 5, 3,
+  and "1": "Tomorrow. TOMORROW."). On its day only, a `ReminderSlip` sits
+  above the route: a scrap of the sticky note's paper (lamplit in the dark)
+  torn along the bottom (`TornEdge`, from a seed of its words), as wide as
+  its words, under a small strip of `Tape`, 2° to 4° off square, the words
+  in the hand at 14pt in the note's ink. It fades in as it settles 8pt
+  down onto the page each time the page shows it (just the fade under
+  Reduce Motion). The days between have none; nothing to dismiss, nothing
+  that notifies. It counts days, never people, so it sits outside "No
+  counts"; a countdown would still break the rule for notifications. A
+  countdown the app can't decode is dropped and never fails the circle
+  (`CircleInfo.init(from:)`), and one written before build 36 (with
+  `emoji`, without `reminders`) still reads.
 
 ## Open items (not yet built / not yet done)
 
@@ -1016,18 +1049,22 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
 - **The India countdown in production.** Set on 2026-11-06 (Fly release
-  **v20**) with the `india` preset on Ayush's production circle, **Anti
-  mosquito** (`8fa3cca67bba40ec8157dca4fd8193ce`, the only circle `find
-  Ayush` names; Ayush is a member, not its creator), and on no other. The
-  script ships in the image, so it runs as it is, no piping:
+  **v20**) with build 35's `india` preset on Ayush's production circle,
+  **Anti mosquito** (`8fa3cca67bba40ec8157dca4fd8193ce`, the only circle
+  `find Ayush` names; Ayush is a member, not its creator), and on no other.
+  **Not yet: build 36's words and reminders.** The row still holds build
+  35's ("17 days until India ✈️", no reminders), and v20's copy of the
+  script has the old preset, so it takes a `fly deploy` of the new script
+  and then the same `set 8fa3cca67bba40ec8157dca4fd8193ce india` again.
+  The script ships in the image, so it runs as it is, no piping:
   `fly ssh console -a server-earnest-stream-9793 -C "/app/.venv/bin/python
   /app/scripts/set_countdown.py /data/var/stanley.db show <id>"` (or
-  `clear <id>`). Everyone in that circle sees it once they're on build 35;
-  older builds ignore the field. **Build 35 has to reach them before
-  November 23.**
-- **Build 35** (0.2.0) is committed but not archived (build 34 wasn't
-  either). Xcode's Organizer
-  holds archives up to build 28 (November 4, 01:42); whether any was
+  `set <id> india`, `clear <id>`). Everyone in that circle sees it once
+  they're on build 35 (36 for the clock and the slips); older builds
+  ignore the field. **Build 36 has to reach them before November 23.**
+- **Build 36** (0.2.0) is committed but not archived. Build 35 was
+  archived on November 6 at 7:30 PM (Organizer), before the flip clock and
+  the reminders; builds 34 and 28 are archived too. Whether any was
   uploaded isn't visible from here. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1242,7 +1279,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**411 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**424 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -1355,7 +1392,8 @@ live APNs, concurrency under real load.
   `Journal.swift` (the journal's look: masthead, rules, small capitals,
   prints, paper inserts; `DarkRoom`, the dark mode's colors and rules),
   `Countdown.swift` + `CountdownRoute.swift` (build 35: one circle's
-  countdown, its phases and the route under Today's dateline),
+  countdown, its phases and the route under Today's dateline; build 36:
+  the flip clock and the day's reminder slip),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `Writing.swift` (build 26: the journal entry slip and sheet,
   the question slip, answers and circle journal, the Sunday card, the

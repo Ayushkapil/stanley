@@ -976,7 +976,7 @@ struct PhotoCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 PrintByline(
                     owner: photo.owner, time: photo.takenAt,
-                    mark: state.circle?.countdown?.mark(for: photo.takenAt)
+                    plane: state.circle?.countdown?.marks(photo.takenAt) ?? false
                 ) {
                     if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
                 }
@@ -1124,7 +1124,7 @@ struct MomentCard: View {
                                 .asPrint(border: 6, tilt: PrintTilt.degrees(photo.id))
                             PrintByline(
                                 owner: photo.owner, time: photo.takenAt, size: 16,
-                                mark: state.circle?.countdown?.mark(for: photo.takenAt)
+                                plane: state.circle?.countdown?.marks(photo.takenAt) ?? false
                             ) {
                                 if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
                             }

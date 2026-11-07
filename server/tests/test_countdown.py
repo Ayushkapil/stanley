@@ -138,6 +138,17 @@ def test_the_script_refuses_an_unknown_circle(db_file):
         {"messages": {"countdown": "x", "banner": "LOUD"}},
         {"label": ""},
         {"colour": "red"},
+        # No emoji anywhere (build 36): the app draws its own plane and house.
+        {"emoji": "✈️"},
+        {"label": "India ✈️"},
+        {"messages": {"home": "How's home? 🏠"}},
+        {"messages": {"countdown": "{days} days ✈"}},  # without the selector too
+        {"reminders": ["pack"]},
+        {"reminders": {"0": "pack"}},  # the day itself has its own words
+        {"reminders": {"18": "pack"}},  # before the countdown starts
+        {"reminders": {"two": "pack"}},
+        {"reminders": {"3": ""}},
+        {"reminders": {"3": "x" * 81}},
     ],
 )
 def test_validate_refuses_what_it_cant_draw(change):
@@ -157,3 +168,34 @@ def test_the_india_preset_is_the_plan():
     # Home lasts through 23:59 on Nov 27 IST; it's gone from Nov 28 IST.
     assert until - timedelta(minutes=1) == datetime(2026, 11, 27, 23, 59, tzinfo=india)
     script.validate(INDIA)
+
+
+def test_the_india_preset_says_home_without_emoji():
+    assert INDIA["messages"] == {
+        "countdown": "{days} days for Home",
+        "two_days": "Almost Home",
+        "one_day": "Tomorrow",
+        "departure": "Bags packed, hearts full. Let's go home.",
+        "in_the_air": "You're in for an awesome journey!",
+        "home": "How's home?",
+    }
+    assert "emoji" not in INDIA
+    assert all(script._plain(words) for words in [INDIA["label"], *INDIA["messages"].values()])
+
+
+def test_the_india_preset_tucks_in_a_note_every_three_days():
+    assert INDIA["reminders"] == {
+        "17": "The countdown begins!",
+        "14": "Have you even started packing??",
+        "11": "Shopping done? 👀",
+        "8": "Cleaned your place yet?",
+        "5": "Packed?? Not yet?",
+        "3": "Seriously though, pack.",
+        "1": "Tomorrow. TOMORROW.",
+    }
+
+
+def test_the_reminders_come_with_their_own_circle_only(two, db):
+    _flag(db, two.id, INDIA)
+    assert _mine(two.ben)["countdown"]["reminders"]["11"] == "Shopping done? 👀"
+    assert _mine(two.dee)["countdown"] is None

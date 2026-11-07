@@ -6,10 +6,10 @@ import Foundation
 /// dateline by `CountdownRoute`; nothing in the app makes one.
 ///
 /// Dates arrive as text and are read here, so a field the app can't read
-/// means only that the countdown isn't drawn.
+/// means only that the countdown isn't drawn. No emoji anywhere (build 36):
+/// the plane and the house are drawn, and the words are only words.
 struct Countdown: Codable, Equatable {
     let label: String
-    let emoji: String?
     /// The day the plane leaves the origin dot.
     let startDate: String?
     /// The day itself, in `targetTz`. The days are counted in that zone.
@@ -21,6 +21,10 @@ struct Countdown: Codable, Equatable {
     /// When it all goes, with its own offset.
     let homeUntil: String?
     let messages: Messages?
+    /// Little notes tucked in on certain days (build 36), keyed by how many
+    /// calendar days are left ("14": "Have you even started packing??"). A
+    /// note shows on its day only; the days between have none.
+    let reminders: [String: String]?
 
     struct Messages: Codable, Equatable {
         let countdown: String?
@@ -31,7 +35,8 @@ struct Countdown: Codable, Equatable {
         let home: String?
     }
 
-    /// Where things stand at a moment: what's drawn, and the words under it.
+    /// Where things stand at a moment: what's drawn, the words under it, and
+    /// what the flip clock counts down to, if it's still counting.
     struct Phase: Equatable {
         enum Mark: Equatable {
             /// The plane on the route: 0 on the origin dot, 1 on the end.
@@ -41,12 +46,24 @@ struct Countdown: Codable, Equatable {
         }
         let mark: Mark
         let text: String
+        /// The start of the day itself, while it's still ahead (build 36).
+        /// Nil once it has come: the moment has arrived, nothing to count.
+        var until: Date? = nil
+        /// Today's tucked-in note, if today is one of its days (build 36).
+        var reminder: String? = nil
     }
 
     /// Before the day, the plane moves along by how much of the wait has
-    /// passed and the words count the days (two left is "Almost there", one
-    /// is "Tomorrow"). The day itself, then until landing, the plane sits at
-    /// the end. Landed, a house. After `homeUntil`, nothing at all.
+    /// passed, the words count the days (two left is "Almost Home", one is
+    /// "Tomorrow"), and the clock counts to the first second of the day. The
+    /// day itself, then until landing, the plane sits at the end. Landed, a
+    /// house. After `homeUntil`, nothing at all.
+    ///
+    /// Which words is a matter of calendar days in `targetTz` (the day before
+    /// is "Tomorrow" all day). The number in them is the clock's own whole
+    /// days, so the words and the clock under them never disagree: on Nov 6
+    /// at 7 PM it's "16 days for Home" over 16 Days : 05 Hours, not a 17 over
+    /// a 16.
     func phase(at now: Date) -> Phase? {
         guard let calendar = calendar, let departs = day(targetDate, in: calendar),
               let departureEnds = calendar.date(byAdding: .day, value: 1, to: departs)
@@ -62,34 +79,44 @@ struct Countdown: Codable, Equatable {
             let progress = span > 0 ? min(1, max(0, now.timeIntervalSince(start) / span)) : 0
             let words: String
             switch days {
-            case 1: words = fill(messages?.oneDay ?? "Tomorrow {emoji}")
-            case 2: words = fill(messages?.twoDays ?? "Almost there {emoji}")
-            default: words = fill(messages?.countdown ?? "{days} days until {label} {emoji}", days: days)
+            case 1: words = fill(messages?.oneDay ?? "Tomorrow")
+            case 2: words = fill(messages?.twoDays ?? "Almost there")
+            default:
+                words = fill(messages?.countdown ?? "{days} days until {label}",
+                             days: Self.wholeDays(departs.timeIntervalSince(now)))
             }
-            return Phase(mark: .plane(progress), text: words)
+            let note = reminders?[String(days)].map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            return Phase(mark: .plane(progress), text: words, until: departs,
+                         reminder: note?.isEmpty == false ? note : nil)
         }
         if now < departureEnds {
-            return Phase(mark: .plane(1), text: fill(messages?.departure ?? "Today {emoji}"))
+            return Phase(mark: .plane(1), text: fill(messages?.departure ?? "Today"))
         }
         if let lands, now < lands {
-            return Phase(mark: .plane(1), text: fill(messages?.inTheAir ?? "On the way {emoji}"))
+            return Phase(mark: .plane(1), text: fill(messages?.inTheAir ?? "On the way"))
         }
         if let lands, let leaves, now >= lands, now < leaves {
-            return Phase(mark: .home, text: fill(messages?.home ?? "Home 🏠"))
+            return Phase(mark: .home, text: fill(messages?.home ?? "Home"))
         }
         return nil
     }
 
-    /// A small plane by the time on a photo posted on the day itself.
+    /// A photo posted on the day itself, which gets a small drawn plane by
+    /// its time.
     func marks(_ posted: Date) -> Bool {
         guard let calendar = calendar, let departs = day(targetDate, in: calendar) else { return false }
         return calendar.isDate(posted, inSameDayAs: departs)
     }
 
-    /// What goes by that time, if anything.
-    func mark(for posted: Date) -> String? {
-        marks(posted) ? (emoji ?? "✈️") : nil
+    /// What the flip clock shows for so many seconds left: whole days, then
+    /// hours, minutes and seconds. Rounded to the nearest second, since the
+    /// clock ticks on whole seconds.
+    static func clock(_ remaining: TimeInterval) -> (days: Int, hours: Int, minutes: Int, seconds: Int) {
+        let total = max(0, Int(remaining.rounded()))
+        return (total / 86_400, total % 86_400 / 3_600, total % 3_600 / 60, total % 60)
     }
+
+    static func wholeDays(_ remaining: TimeInterval) -> Int { clock(remaining).days }
 
     // MARK: reading it
 
@@ -114,9 +141,7 @@ struct Countdown: Codable, Equatable {
     }
 
     private func fill(_ template: String, days: Int? = nil) -> String {
-        var words = template
-            .replacingOccurrences(of: "{label}", with: label)
-            .replacingOccurrences(of: "{emoji}", with: emoji ?? "")
+        var words = template.replacingOccurrences(of: "{label}", with: label)
         if let days { words = words.replacingOccurrences(of: "{days}", with: "\(days)") }
         return words.trimmingCharacters(in: .whitespaces)
     }
