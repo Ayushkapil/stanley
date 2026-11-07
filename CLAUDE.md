@@ -1048,15 +1048,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`com.ayushkapileshwar.stanley`) all deployed, `STANLEY_DEV_AUTH=0`. Sign in
   with Apple is configured: `POST /auth/apple` rejects a bad token with 401
   rather than answering 503 `apple_auth_unconfigured`.
-- **The India countdown in production.** Set on 2026-11-06 (Fly release
-  **v20**) with build 35's `india` preset on Ayush's production circle,
-  **Anti mosquito** (`8fa3cca67bba40ec8157dca4fd8193ce`, the only circle
-  `find Ayush` names; Ayush is a member, not its creator), and on no other.
-  **Not yet: build 36's words and reminders.** The row still holds build
-  35's ("17 days until India ✈️", no reminders). The new script is on Fly
-  (release **v21**, 2026-11-06), so it takes only the same `set
-  8fa3cca67bba40ec8157dca4fd8193ce india` again.
-  The script ships in the image, so it runs as it is, no piping:
+- **The India countdown in production.** Set on 2026-11-06 with the
+  `india` preset on Ayush's production circle, **Anti mosquito**
+  (`8fa3cca67bba40ec8157dca4fd8193ce`, the only circle `find Ayush` names;
+  Ayush is a member, not its creator), and on no other: first build 35's
+  words (Fly v20), then build 36's words and reminders once the new script
+  was on Fly (release **v21**), the same evening. The script ships in the
+  image, so it runs as it is, no piping:
   `fly ssh console -a server-earnest-stream-9793 -C "/app/.venv/bin/python
   /app/scripts/set_countdown.py /data/var/stanley.db show <id>"` (or
   `set <id> india`, `clear <id>`). Everyone in that circle sees it once
