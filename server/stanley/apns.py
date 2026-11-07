@@ -1,10 +1,11 @@
 """Apple Push Notification service, directly (build 18): token auth over
 HTTP/2, no third party in between.
 
-Only two notices ever travel this way, and only to someone who turned them
-on (§10): the owner's last-light notice and the evening digest. The text
-is the notice's own, with no count, deadline or countdown (N4), no sound,
-and nothing in it but the words.
+Only three notices ever travel this way, and only to someone who turned
+them on (§10): the owner's last-light notice, the evening digest, and since
+build 37 "{name} shared a moment" (N5). The text is the notice's own, with
+no count, deadline or countdown (N4), no sound, and nothing in it but the
+words.
 
 Token auth: an ES256 JWT signed with the team's APNs key (a .p8 from Apple
 Developer → Keys), naming the key and the team. Apple accepts one for up to

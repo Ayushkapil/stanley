@@ -236,29 +236,48 @@ struct SettingsView: View {
     }
 }
 
-/// The two notices Stanley can send, and the words for why there are so few.
-/// Both are off until asked for. Turning one on asks iOS for permission then
-/// and there, in the moment it means something, rather than at first launch;
-/// if iOS has it switched off, the row says so and opens Settings.
+/// The three notices Stanley can send, and the words for why there are so
+/// few. All are off until asked for. Turning one on asks iOS for permission
+/// then and there, in the moment it means something, rather than at first
+/// launch; if iOS has it switched off, the row says so and opens Settings.
+/// Each says in a line what it is, since the evening note and Circle Posts
+/// (build 37, "{name} shared a moment" each time) are both about the circle
+/// posting.
 private struct QuietSection: View {
     @Environment(AppState.self) private var state
     @Environment(\.scenePhase) private var scenePhase
     let toggleTint: Color
     @State private var lastLight = false
     @State private var digest = false
+    @State private var circlePosts = false
+    /// Whether the server knows Circle Posts. One from before build 37
+    /// doesn't, and a switch it can't keep would look on and do nothing.
+    @State private var offersCirclePosts = false
     @State private var loaded = false
     @State private var blocked = false
 
     var body: some View {
         Section {
-            Toggle("When My Photo Is Fading", isOn: $lastLight)
+            Toggle(isOn: $lastLight) {
+                QuietRow(title: "When My Photo Is Fading", detail: "Once, on your photo's last day")
+            }
                 .tint(toggleTint)
                 .disabled(!loaded)
                 .onChange(of: lastLight) { _, on in save("last_light_notice_enabled", on) { lastLight = $0 } }
-            Toggle("When My Circle Has Posted", isOn: $digest)
+            Toggle(isOn: $digest) {
+                QuietRow(title: "When My Circle Has Posted", detail: "One note in the evening, if anyone posted that day")
+            }
                 .tint(toggleTint)
                 .disabled(!loaded)
                 .onChange(of: digest) { _, on in save("digest_enabled", on) { digest = $0 } }
+            if offersCirclePosts {
+                Toggle(isOn: $circlePosts) {
+                    QuietRow(title: "Circle Posts", detail: "Get notified when someone in your circle shares a moment")
+                }
+                    .tint(toggleTint)
+                    .disabled(!loaded)
+                    .onChange(of: circlePosts) { _, on in save("circle_posts_enabled", on) { circlePosts = $0 } }
+            }
             if blocked {
                 Button("Allow Notifications in Settings") {
                     if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
@@ -271,7 +290,7 @@ private struct QuietSection: View {
         } footer: {
             Text(blocked
                 ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."
-                : "Stanley is quiet on purpose. Two notices exist, both off unless you ask: one when your own photo reaches its last day, and one in the evening when someone in your circle has posted. No streaks, no nudges, nothing about likes or holds, and never a number.")
+                : "Stanley is quiet on purpose. Three notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, and one each time someone in your circle shares a moment. No streaks, no nudges, nothing about likes or holds, and never a number.")
         }
         .task(id: state.reloads) { await load() }
         .onChange(of: scenePhase) { _, phase in
@@ -291,6 +310,8 @@ private struct QuietSection: View {
         if let me: MeSettings = try? await state.api.send("GET", "/me") {
             lastLight = me.lastLightNoticeEnabled
             digest = me.digestEnabled ?? false
+            circlePosts = me.circlePostsEnabled ?? false
+            offersCirclePosts = me.circlePostsEnabled != nil
             answered = true
         }
         await checkBlocked()
@@ -299,7 +320,7 @@ private struct QuietSection: View {
 
     private func checkBlocked() async {
         let status = await Push.shared.authorization()
-        blocked = status == .denied && (lastLight || digest)
+        blocked = status == .denied && (lastLight || digest || circlePosts)
     }
 
     /// Turning a notice on asks iOS first. If iOS says no, the switch goes
@@ -322,6 +343,21 @@ private struct QuietSection: View {
                 revert(!on)
                 state.surface(error)
             }
+        }
+    }
+}
+
+/// A notice's switch: its name, and a line under it saying what it is.
+private struct QuietRow: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 }

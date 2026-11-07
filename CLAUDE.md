@@ -51,12 +51,21 @@ guarded by tests; treat a change to any of them as a spec change.
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
-- **Notifications are almost nothing.** Two exist, and both are **off until
+- **Notifications are almost nothing.** Three exist, and all are **off until
   the person turns them on** in Settings → Quiet: the owner's single
-  LAST_LIGHT notice for their own photo, and at most one evening digest a day
+  LAST_LIGHT notice for their own photo, at most one evening digest a day
   ("Something new from your circle today.", when someone else in one of
-  their circles posted). No notification may carry a count, deadline,
-  countdown, name or image. No round has added a new notification. Build 18
+  their circles posted), and since build 37 **Circle Posts** ("Ruby shared a
+  moment", each time someone else in the circle a photo went to posts it).
+  No notification may carry a count, deadline, countdown or image, and only
+  Circle Posts carries a name: the poster's, to their own circle, and
+  nothing else about the photo. **Build 37's notice is a product decision**
+  (2026-11-07, asked for twice; it's §10 N5 in `notifications.py`): until
+  then no round had added a notification and none carried a name. It never
+  goes to the poster, across a block either way, or twice for one person's
+  day in one circle (a retake after the redo is quiet), and it's handed to
+  Apple only after the post's response, so posting never waits on a push.
+  Likes, holds, stories, mentions and notes still notify nobody. Build 18
   made them real pushes (APNs, `apns.py`) and, because of that, made the
   digest opt-in (it had gone to everyone back when it was only logged). A
   brief asking for "3 new moments today" was kept to words: the count would
@@ -189,7 +198,9 @@ The authoritative source for the physics constants is
   changed both documents (the journal: what's kept, who reads it, how long,
   the export, and Content in the Terms), so the Terms are November 3 too. Build 27's board changed the policy again
   (notes deleted at the end of their day; a report keeps a reported note's
-  words), so it's November 4.
+  words), so it's November 4. Build 37's Circle Posts changed both (three
+  notices, not two; the notice carries your name to your circle), so both
+  are November 7.
 
 ## Implemented and working
 
@@ -765,13 +776,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   /circles/{id}`; Members; **Invite Code**, one row opening its own page with
   the code, Copy Code, Share Invite and, for the organizer, Reset Code behind
   a confirmation; Join Another Circle; Leave Circle, red and last),
-  **Appearance**, **Quiet** (the two notices, with the reason there are so
-  few), **Privacy & Security** (Require Face ID or Touch ID, whichever the
+  **Appearance**, **Quiet** (the three notices, each with a line under it
+  saying what it is, and the reason there are so few; Circle Posts shows
+  only when the server knows it, `circle_posts_enabled` in `GET /me`), **Privacy & Security** (Require Face ID or Touch ID, whichever the
   phone has, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (36)", at the
+  production audit), and the version, "Stanley 0.2.0 (37)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -794,7 +806,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   /me/push-token`); sign-out removes it (`DELETE /me/push-token`), and a
   token follows whoever signed in on that phone last. Alerts are words only:
   no sound, no badge, priority 5. Checked on the simulator with `simctl push`
-  of the server's own payload.
+  of the server's own payload. **Circle Posts** (build 37) rides the same
+  path with one difference: `send_circle_post_notices`, called from
+  `POST /photos`, logs each notice with the photo and passes the request's
+  `BackgroundTasks` as `later`, so `Notifier` hands it to APNs after the
+  response (still only after the commit) instead of inside it; a circle of
+  a hundred would otherwise hold the post open while every push went out.
+  `users.circle_posts_enabled` (off, in the database too), `PATCH
+  /me/settings`, cleared with the rest on account deletion.
 - **Terms and Privacy** (build 18) — final copy, public at `/terms` and
   `/privacy` (plain HTML, no scripts; the privacy URL is the one App Store
   Connect wants), with `/support` beside them since build 34 (App Store
@@ -1060,9 +1079,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   `set <id> india`, `clear <id>`). Everyone in that circle sees it once
   they're on build 35 (36 for the clock and the slips); older builds
   ignore the field. **Build 36 has to reach them before November 23.**
-- **Build 36** (0.2.0) is committed but not archived. Build 35 was
-  archived on November 6 at 7:30 PM (Organizer), before the flip clock and
-  the reminders; builds 34 and 28 are archived too. Whether any was
+- **Circle Posts on Fly.** Not deployed: Fly's v21 has no
+  `circle_posts_enabled`, so build 37 hides the switch against it and
+  nobody is notified. It takes a `fly deploy` (the column is added on
+  startup, off for everyone). The November 7 Terms and Privacy Policy go
+  live with it; the policy's promise to say in the app when it changes
+  still has no in-app notice behind it.
+- **Build 37** (0.2.0) is committed but not archived; it adds Circle Posts
+  to everything in 36. Build 36 was archived on November 6 at 8:21 PM and
+  build 35 at 7:30 PM (Organizer); builds 34 and 28 are archived too. Whether any was
   uploaded isn't visible from here. Build 18 added the `aps-environment` entitlement, so the App ID
   needs Push Notifications (automatic signing normally adds it; see DEPLOY.md
   if the archive complains).
@@ -1277,7 +1302,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**424 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**439 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -1287,7 +1312,11 @@ both ways, leaving takes yours, no counts, 200 characters, reporting with a
 copy of its words, and the old single note moved across), shared
 moments, mosaic windows, tags, milestones, auth hardening + SIWA, FK enforcement,
 capture-race/orphan-blob safety, backups, nameless-vs-departed naming,
-`new_account` on the first sign-in only (dev and Apple), push (both notices
+`new_account` on the first sign-in only (dev and Apple), Circle Posts
+(`test_circle_posts.py`: off until asked for, the name and nothing else, never
+the poster, only the circle posted to, blocks both ways, the retake quiet, a
+refused post silent, a deleted account deaf, delivered after the response, a
+failed push never failing the post), push (both notices
 off until asked for, tokens registered, refused, moved between accounts and
 removed on sign-out and deletion, delivery only after commit, a failed
 delivery never failing the sweep, dead tokens dropped, the exact APNs

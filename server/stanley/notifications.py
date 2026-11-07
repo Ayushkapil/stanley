@@ -9,14 +9,22 @@ N3: nothing else exists. No pushes for others' fades, for anchors, for
 N4: no notification may contain an engagement count, a deadline timestamp, or
     a countdown. (The digest's new-moment count is explicitly sanctioned by
     N1's wording; N4 targets urgency and judgment, not volume of moments.)
+N5: (build 37, a product decision on 2026-11-07, asked for twice by the
+    person who builds Stanley.) A third notice, and the one exception to N1
+    and N3: "{name} shared a moment", to the people in the circle a photo was
+    posted to who turned it on. The only notice that carries a name, and the
+    name is all it carries: no photo, caption, place or count. Never to the
+    poster, never across a block either way, never for a retake of the day
+    (one notice per person per circle per day, like the photo itself), and
+    never for a like, hold, story, mention, note or anything else.
 
 There is deliberately no generic "send a push" endpoint anywhere else in the
-codebase; everything funnels through the two functions below.
+codebase; everything funnels through the three functions below.
 
-Both are off until the person turns them on (build 18; the digest used to go
-to everyone, back when it was only ever logged). A notice reaches a phone
-through APNs (`apns.py`) once its log row is committed, never before: a pass
-that rolls back sends nothing, so nothing is ever sent twice.
+All three are off until the person turns them on (build 18; the digest used
+to go to everyone, back when it was only ever logged). A notice reaches a
+phone through APNs (`apns.py`) once its log row is committed, never before: a
+pass that rolls back sends nothing, so nothing is ever sent twice.
 """
 from __future__ import annotations
 
@@ -28,7 +36,7 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from .clock import Clock
-from .models import Membership, NotificationLog, Photo, User
+from .models import Block, Membership, NotificationLog, Photo, User
 
 
 def make_notifier(settings, sessionmaker) -> "Notifier":
@@ -64,10 +72,27 @@ class Notifier:
         event.listen(sessionmaker, "after_commit", self._deliver)
         event.listen(sessionmaker, "after_soft_rollback", self._forget)
 
-    def send(self, session: Session, user_id: str, kind: str, body: str, now: datetime) -> None:
+    def send(
+        self, session: Session, user_id: str, kind: str, body: str, now: datetime, later=None
+    ) -> None:
+        """`later`, a request's BackgroundTasks: deliver after the response
+        rather than inside the commit, so a request never waits on Apple.
+        Still only after the commit: a route's session commits before its
+        response, and a request whose commit fails has no response to run
+        its background tasks after."""
         session.add(NotificationLog(user_id=user_id, kind=kind, body=body, sent_at=now))
-        if self._transport is not None:
+        if self._transport is None:
+            return
+        if later is not None:
+            later.add_task(self._deliver_one, user_id, kind, body)
+        else:
             session.info.setdefault(self._pending, []).append((user_id, kind, body))
+
+    def _deliver_one(self, user_id: str, kind: str, body: str) -> None:
+        try:
+            self._transport(user_id, kind, body)
+        except Exception:
+            logging.getLogger("stanley").exception("notice delivery failed")
 
     def _deliver(self, session: Session) -> None:
         pending = session.info.pop(self._pending, [])
@@ -159,5 +184,55 @@ def run_evening_digests(
         # Whether anyone posted decides if there is a digest at all; how many
         # never reaches the words. A notification carries no count (N4).
         notifier.send(session, user.id, "digest", DIGEST_BODY, now)
+        sent += 1
+    return sent
+
+
+CIRCLE_POST_KIND = "circle_post"
+
+
+def circle_post_body(poster: User) -> str:
+    """The poster's name and that they shared a moment: nothing about the
+    photo, and no number (N4, N5)."""
+    name = (poster.display_name or "").strip()
+    return f"{name} shared a moment" if name else "Someone in your circle shared a moment"
+
+
+def send_circle_post_notices(
+    session: Session,
+    notifier: Notifier,
+    photo: Photo,
+    poster: User,
+    now: datetime,
+    later=None,
+    retake: bool = False,
+) -> int:
+    """§10 N5. Called only from a photo's capture, once its row is in the
+    session. Everyone else in the photo's circle who turned the notice on
+    and isn't on either side of a block with the poster. A retake of the
+    day (the redo) is not news a second time. Returns sends."""
+    if retake:
+        return 0
+    recipients = session.scalars(
+        select(User)
+        .join(Membership, Membership.user_id == User.id)
+        .where(
+            Membership.circle_id == photo.circle_id,
+            User.id != poster.id,
+            User.deleted_at.is_(None),
+            User.circle_posts_enabled.is_(True),
+        )
+    ).all()
+    # Both ways, as everywhere a block reaches (§15). Asked here rather than
+    # through serialize.blocked_ids, which would import this module back.
+    blocked = set(
+        session.scalars(select(Block.blocked_id).where(Block.blocker_id == poster.id)).all()
+    ) | set(session.scalars(select(Block.blocker_id).where(Block.blocked_id == poster.id)).all())
+    body = circle_post_body(poster)
+    sent = 0
+    for user in recipients:
+        if user.id in blocked:
+            continue
+        notifier.send(session, user.id, CIRCLE_POST_KIND, body, now, later=later)
         sent += 1
     return sent

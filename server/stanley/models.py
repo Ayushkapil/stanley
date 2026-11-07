@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, false, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, UTCDateTime
@@ -42,6 +42,11 @@ class User(Base):
     # pushed it was only logged, for everyone; now that it reaches a phone it
     # is asked for, like the last-light notice.
     digest_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # §10 N5 (build 37, a product decision): a notice each time someone in
+    # one of your circles shares a moment. Off by default, like the others.
+    # Off in the database too, as the column added to older ones is, so a
+    # row written without it is off rather than refused.
+    circle_posts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -312,8 +317,9 @@ class NotificationLog(Base):
 
 class PushToken(Base):
     """Where a person's notices go: an APNs device token for one of their
-    phones (build 18). Kept only to deliver the two notices that exist, and
-    only what was asked for: the last-light notice and the evening digest.
+    phones (build 18). Kept only to deliver the three notices that exist,
+    and only what was asked for: the last-light notice, the evening digest
+    and the circle-post notice (build 37).
     A token belongs to one account at a time (a phone changes hands when
     someone else signs in on it), goes when they sign out on that phone or
     delete the account, and goes when Apple says it's no longer valid."""

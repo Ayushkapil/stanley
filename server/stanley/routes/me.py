@@ -37,6 +37,7 @@ USERNAME_RE = re.compile(r"^(?![0-9])[a-z0-9._]{3,30}$")
 class SettingsPatch(BaseModel):
     last_light_notice_enabled: bool | None = None
     digest_enabled: bool | None = None
+    circle_posts_enabled: bool | None = None
 
 
 # An APNs device token: hex, 32 bytes today. Room for Apple to lengthen it.
@@ -79,6 +80,7 @@ def me(
         "created_at": iso(user.created_at),
         "last_light_notice_enabled": user.last_light_notice_enabled,
         "digest_enabled": user.digest_enabled,
+        "circle_posts_enabled": user.circle_posts_enabled,
         "moments_shared": moments_shared(db, user.id),
     }
 
@@ -182,9 +184,12 @@ def patch_settings(
         user.last_light_notice_enabled = body.last_light_notice_enabled
     if body.digest_enabled is not None:
         user.digest_enabled = body.digest_enabled
+    if body.circle_posts_enabled is not None:
+        user.circle_posts_enabled = body.circle_posts_enabled
     return {
         "last_light_notice_enabled": user.last_light_notice_enabled,
         "digest_enabled": user.digest_enabled,
+        "circle_posts_enabled": user.circle_posts_enabled,
     }
 
 
@@ -450,4 +455,5 @@ def delete_account(
     user.tz_last_seen = None
     user.last_light_notice_enabled = False
     user.digest_enabled = False
+    user.circle_posts_enabled = False
     user.deleted_at = now

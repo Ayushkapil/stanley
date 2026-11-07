@@ -84,7 +84,7 @@ THE WORLD TODAY
 A morning paper, kept apart from your circle: the day's headlines laid out like a front page, with stories from near you if you share your location. Read a story in place, or open it in full. No likes, no shares, no comments.
 
 WHAT STANLEY DOESN'T DO
-No followers. No public profiles. No like counts, no view counts, no streaks. No algorithm choosing what you see, and no ads. Two notifications exist, and both stay off until you turn them on. Up to five circles, each one mutual by invite code, and each one made for the people you'd actually call.
+No followers. No public profiles. No like counts, no view counts, no streaks. No algorithm choosing what you see, and no ads. Three notifications exist, and all stay off until you turn them on. Up to five circles, each one mutual by invite code, and each one made for the people you'd actually call.
 
 PRIVATE BY DESIGN
 Every photo is stripped of its location data. A place you add is only the words you choose. If you delete a photo, it's gone everywhere, even from the albums of friends who kept it; they're left with a quiet note that a memory was here. Stanley doesn't sell your data or use your photos to train anything. You can export your memories, or delete your account, whenever you like.
@@ -106,7 +106,7 @@ Every claim in it is something the app does, checked against CLAUDE.md:
   it clears at the end of their day.
 - **The weekly question:** answers are sealed until the week's end.
 - **Private writing:** journal entries and reflections are read by no one else.
-- **Notifications:** two, both off by default.
+- **Notifications:** three, all off by default.
 - **Location:** GPS is stripped from every photo.
 - **Deletion:** a deleted photo leaves a tombstone in friends' albums.
 - **Data:** export and account deletion exist.

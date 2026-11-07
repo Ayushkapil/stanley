@@ -26,12 +26,14 @@ from ..deps import (
     get_clock,
     get_current_user,
     get_db,
+    get_notifier,
     get_settings,
     get_storage,
     refuse_objectionable,
     require_membership,
 )
 from ..images import BadImage, PreparedUpload, prepare_upload
+from ..notifications import send_circle_post_notices
 from ..ratelimit import per_person
 from ..text import clean_optional
 from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
@@ -109,6 +111,7 @@ def capture(
     clock=Depends(get_clock),
     storage=Depends(get_storage),
     settings=Depends(get_settings),
+    notifier=Depends(get_notifier),
     circle_id: str | None = Depends(active_circle_id),
 ):
     # The circle on screen when the shutter closed. A circle the person has
@@ -244,6 +247,13 @@ def capture(
     user.tz_last_seen = tz
     db.flush()
     event("photo_posted", photo=photo.id, circle=membership.circle_id, user=user.id)
+    # §10 N5 (build 37): "{name} shared a moment" to whoever in this circle
+    # asked for it. Logged with the photo, so a post that rolls back tells
+    # nobody, and handed to Apple after the response, so posting never waits
+    # on a push. Today's retake isn't news twice.
+    send_circle_post_notices(
+        db, notifier, photo, user, now, later=background, retake=redos_used > 0
+    )
     return photo_payload(db, settings, now, photo, user)
 
 

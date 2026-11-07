@@ -1,8 +1,9 @@
 import UIKit
 import UserNotifications
 
-/// The two notices Stanley can send (the last-light notice and the evening
-/// note), and the phone's side of reaching it: permission, and the APNs token
+/// The three notices Stanley can send (the last-light notice, the evening
+/// note and, since build 37, "{name} shared a moment"), and the phone's side
+/// of reaching them: permission, and the APNs token
 /// the server pushes to.
 ///
 /// Permission is asked when someone turns a notice on, in Settings, not at

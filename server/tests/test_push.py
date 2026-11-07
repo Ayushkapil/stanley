@@ -77,7 +77,11 @@ def test_both_notices_are_off_until_asked_for(circle):
     assert me["last_light_notice_enabled"] is False
     assert me["digest_enabled"] is False
     r = circle.ana.patch_settings(digest_enabled=True)
-    assert r.json() == {"last_light_notice_enabled": False, "digest_enabled": True}
+    assert r.json() == {
+        "last_light_notice_enabled": False,
+        "digest_enabled": True,
+        "circle_posts_enabled": False,
+    }
 
 
 def test_no_digest_for_someone_who_didnt_ask(circle, clock, app, db):

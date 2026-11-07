@@ -14,18 +14,18 @@ enum Legal {
     /// Where questions go, as both documents' Contact sections say it; a
     /// link that opens Mail wherever it appears.
     static let contact = "ayushkapileshwar@gmail.com"
-    static let effective = "November 4, 2026"
-    /// The Privacy Policy's own date. Both last changed on November 4, 2026
-    /// (the board's own notes, build 27; Face ID or Touch ID, build 29).
-    /// `legal.py` keeps the same two.
-    static let privacyEffective = "November 4, 2026"
+    static let effective = "November 7, 2026"
+    /// The Privacy Policy's own date. Both last changed on November 7, 2026
+    /// (Circle Posts, the third notice, which carries the poster's name,
+    /// build 37). `legal.py` keeps the same two.
+    static let privacyEffective = "November 7, 2026"
 
     static let terms: [Section] = [
         Section(heading: "1. Introduction and acceptance", lines: [
             "Welcome to Stanley. These Terms of Use are an agreement between you and Ayush Kapileshwar, who builds and runs Stanley (“Stanley”, “we”, “us”). They cover the Stanley app and the server it uses.",
             "By creating an account or using Stanley, you agree to these terms and to our Privacy Policy. If you don't agree, please don't use Stanley.",
             "You must be at least 13 years old to use Stanley. If you're under the age of majority where you live, you need a parent's or guardian's permission, and they agree to these terms for you.",
-            "These terms are effective November 4, 2026.",
+            "These terms are effective November 7, 2026.",
         ]),
         Section(heading: "2. Your account", lines: [
             "- You need Sign in with Apple to create an account. It's the only way in",
@@ -54,7 +54,7 @@ enum Legal {
             "- Likes and holds are private: only the person who posted a photo sees who liked or held it, and Stanley never counts them",
             "- You can be in up to 5 circles, and each circle has a soft cap of 100 members",
             "- Anyone with a circle's invite code can join it, so share it only with people you'd want there. The person who started a circle can reset its code and remove members",
-            "- Notifications are off until you turn them on, and there are only two",
+            "- Notifications are off until you turn them on, and there are only three",
             "These mechanics may be adjusted as we improve the service. If a change matters to how you use Stanley, we'll tell you in the app.",
         ]),
         Section(heading: "5. Community guidelines", lines: [
@@ -153,7 +153,7 @@ enum Legal {
         Section(heading: "1. Introduction", lines: [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 4, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 7, 2026.",
         ]),
         Section(heading: "2. What we collect", lines: [
             "## Account data",
@@ -227,6 +227,7 @@ enum Legal {
         Section(heading: "5. Who we share it with", lines: [
             "## Your circle",
             "Your photos, captions, places, stories and tags are seen by the members of the circle you post them to, and your profile by the people who share a circle with you. Likes and holds are different: only the person who posted a photo sees who liked or held it, as faces, never as a number.",
+            "When you post a photo, the people in that circle who turned on Circle Posts get a notice with your name, saying you shared a moment. It carries nothing else: not the photo, the caption or the place. People you've blocked, and people who have blocked you, don't get it.",
             "Your journal entries and reflections are never shown to anyone but you. Your answer to your circle's question of the week is sealed until that week's answers open, on Saturday at midnight UTC (Friday afternoon or evening in the United States). Then everyone in the circle can read the answers together, whether they answered or not, including anyone who joined that week. People who join later don't see the weeks before they joined.",
             "People who hold your photo keep it, and can include it when they export their memories. A copy someone has exported is outside Stanley, where we can't delete it. And as with anything you show people, someone could take a screenshot.",
             "## Services that run Stanley",
@@ -256,7 +257,7 @@ enum Legal {
             "- Export: your held memories, with their captions and places and your journal entries on them, your reflections, and your answers to your circle's questions, any time from Settings → Privacy & Security → Export My Memories",
             "- Change: your name, username, bio and photo, any time, from the You tab",
             "- Delete: a journal entry or a reflection, any time, from where you read it; your account, any time, from Settings → Privacy & Security → About Your Account → Delete Account",
-            "- Notifications: both are off until you turn them on in Settings → Quiet, and you can turn them off there or in iOS Settings",
+            "- Notifications: all three are off until you turn them on in Settings → Quiet, and you can turn them off there or in iOS Settings",
             "- Location: you can say no, or change your mind in iOS Settings. Stanley works without it; you type your own places and see national news",
             "- Ask us: for a copy of the data we hold about you, or to correct or delete something, write to us. We'll answer within 30 days",
             "California residents: we do not sell or share personal information as the California Consumer Privacy Act defines those words, and we don't use it for targeted advertising. You have the right to know what we collect, to have it corrected or deleted, and not to be treated differently for asking.",
