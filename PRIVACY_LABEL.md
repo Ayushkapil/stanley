@@ -180,7 +180,7 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   as before. No maps or places service. Account deletion erases them from
   the phone.
 - Push notifications: when APNs is wired, the server stores a **device push
-  token**. Tokens exist to deliver the three notices (last light, the
+  token**. Tokens exist to deliver the five notices (the two reminders a person sets for themselves since build 39, last light, the
   digest, and since build 37 the circle-post notice) and are not an Apple
   label category by themselves. The circle-post notice carries the poster's
   display name to the people in their circle who turned it on: the same
@@ -201,7 +201,7 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
 
 - `.email` is added to SIWA `requestedScopes` → Email becomes Collected.
 - A notice ever carries a photo or a count, or a name to anyone outside
-  the poster's circle, or push is used for anything but the three notices
+  the poster's circle, or push is used for anything but the five notices
   → revisit Device ID's purpose, and §10. (A name to the circle, build 37,
   was re-derived and changes nothing above.)
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no

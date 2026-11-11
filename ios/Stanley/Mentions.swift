@@ -109,6 +109,17 @@ struct MentionDirectory {
         guard let circle else { return .primary }
         return MentionInk.color(MentionTones.index(for: userId, in: circle))
     }
+
+    /// The tone a story's writer's name is written in (build 39): their own
+    /// in this circle, given the first time it's needed. Someone who isn't
+    /// in the circle on screen (a photo held from another circle, or someone
+    /// who has left) keeps the page's ink.
+    func nameColor(_ userId: String?) -> Color {
+        guard let userId, let circle, circle.members?.contains(where: { $0.id == userId }) == true else {
+            return DarkRoom.ink
+        }
+        return MentionInk.color(MentionTones.index(for: userId, in: circle))
+    }
 }
 
 /// The people a story being written could mention right now, and what

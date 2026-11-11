@@ -43,10 +43,15 @@ struct SignedImage<Content: View, Placeholder: View>: View {
         Group {
             if let shown, shown.path == url?.path {
                 content(Image(uiImage: shown.image))
+                    .transition(.opacity)
             } else {
                 placeholder()
+                    .transition(.opacity)
             }
         }
+        // A picture comes up out of its placeholder rather than replacing
+        // it in one frame (build 39). One already in memory is there at once.
+        .animation(.easeOut(duration: 0.2), value: shown?.path)
         // A new link, or Stanley reachable again, is another try.
         .task(id: Attempt(url: url, reloads: state.reloads)) { await load() }
     }

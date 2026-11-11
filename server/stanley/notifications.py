@@ -18,10 +18,20 @@ N5: (build 37, a product decision on 2026-11-07, asked for twice by the
     (one notice per person per circle per day, like the photo itself), and
     never for a like, hold, story, mention, note or anything else.
 
-There is deliberately no generic "send a push" endpoint anywhere else in the
-codebase; everything funnels through the three functions below.
+N6: (build 39, a product decision on 2026-11-11 by the person who builds
+    Stanley.) Two reminders a person sets for themselves, and the first
+    notices that ask for something: "Leave a note for your circle today" and
+    "Your circle is waiting for today's moment", each at one of four hours
+    of their own day they choose (9, 14, 18 or 21). Each goes at most once
+    a day, only to the person who turned it on, and only when it's still
+    true: no note of theirs on any board today, or no photo of theirs in any
+    circle today. They carry no name, count, deadline or image (N4), and
+    nothing about what anyone else did.
 
-All three are off until the person turns them on (build 18; the digest used
+There is deliberately no generic "send a push" endpoint anywhere else in the
+codebase; everything funnels through the functions below.
+
+All of them are off until the person turns them on (build 18; the digest used
 to go to everyone, back when it was only ever logged). A notice reaches a
 phone through APNs (`apns.py`) once its log row is committed, never before: a
 pass that rolls back sends nothing, so nothing is ever sent twice.
@@ -36,7 +46,7 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from .clock import Clock
-from .models import Block, Membership, NotificationLog, Photo, User
+from .models import Block, CircleNote, Membership, NotificationLog, Photo, User
 
 
 def make_notifier(settings, sessionmaker) -> "Notifier":
@@ -235,4 +245,87 @@ def send_circle_post_notices(
             continue
         notifier.send(session, user.id, CIRCLE_POST_KIND, body, now, later=later)
         sent += 1
+    return sent
+
+
+# --- §10 N6: the two reminders a person sets for themselves -------------------
+
+# The hours a reminder may be set for: morning, afternoon, evening, night.
+REMINDER_HOURS = (9, 14, 18, 21)
+NOTE_REMINDER_KIND = "note_reminder"
+PHOTO_REMINDER_KIND = "photo_reminder"
+NOTE_REMINDER_BODY = "Leave a note for your circle today"
+PHOTO_REMINDER_BODY = "Your circle is waiting for today's moment"
+
+
+def _zone(user: User) -> ZoneInfo:
+    try:
+        return ZoneInfo(user.tz_last_seen or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
+
+def run_reminders(session: Session, notifier: Notifier, clock: Clock) -> int:
+    """§10 N6. For everyone who set a reminder and whose own clock is in the
+    hour they chose: one push, if they haven't had today's and it's still
+    true (no note of theirs on a board today; no photo of theirs today).
+    Someone in no circle has nothing to be reminded of. Returns sends."""
+    now = clock.now()
+    sent = 0
+    users = session.scalars(
+        select(User).where(
+            User.deleted_at.is_(None),
+            User.note_reminder_enabled.is_(True) | User.photo_reminder_enabled.is_(True),
+        )
+    ).all()
+    for user in users:
+        local_now = now.astimezone(_zone(user))
+        wanted = [
+            (kind, body)
+            for on, hour, kind, body in (
+                (user.note_reminder_enabled, user.note_reminder_hour, NOTE_REMINDER_KIND, NOTE_REMINDER_BODY),
+                (user.photo_reminder_enabled, user.photo_reminder_hour, PHOTO_REMINDER_KIND, PHOTO_REMINDER_BODY),
+            )
+            if on and local_now.hour == hour
+        ]
+        if not wanted:
+            continue
+        circle_ids = session.scalars(
+            select(Membership.circle_id).where(Membership.user_id == user.id)
+        ).all()
+        if not circle_ids:
+            continue
+        day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(
+            ZoneInfo("UTC")
+        )
+        for kind, body in wanted:
+            already = session.scalars(
+                select(NotificationLog.id).where(
+                    NotificationLog.user_id == user.id,
+                    NotificationLog.kind == kind,
+                    NotificationLog.sent_at >= day_start,
+                ).limit(1)
+            ).first()
+            if already is not None:
+                continue
+            if kind == NOTE_REMINDER_KIND:
+                # A note lives until the end of its author's day, so one
+                # that's still up is today's.
+                done = session.scalars(
+                    select(CircleNote.id).where(
+                        CircleNote.author_id == user.id, CircleNote.expires_at > now
+                    ).limit(1)
+                ).first()
+            else:
+                done = session.scalars(
+                    select(Photo.id).where(
+                        Photo.owner_id == user.id,
+                        Photo.local_date == local_now.date(),
+                        Photo.deleted_at.is_(None),
+                    ).limit(1)
+                ).first()
+            if done is not None:
+                continue
+            notifier.send(session, user.id, kind, body, now)
+            sent += 1
     return sent

@@ -81,6 +81,10 @@ def test_both_notices_are_off_until_asked_for(circle):
         "last_light_notice_enabled": False,
         "digest_enabled": True,
         "circle_posts_enabled": False,
+        "note_reminder_enabled": False,
+        "note_reminder_hour": 9,
+        "photo_reminder_enabled": False,
+        "photo_reminder_hour": 18,
     }
 
 

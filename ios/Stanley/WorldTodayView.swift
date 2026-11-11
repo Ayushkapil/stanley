@@ -85,7 +85,7 @@ struct WorldTodayView: View {
             // The paper, no navigation bar, and a strip of the page under the
             // status bar so the paper slides beneath the clock (`Journal.swift`).
             .journalPage()
-            .refreshable {
+            .sunRefreshable {
                 Haptics.refreshed()
                 // Its own task: SwiftUI cancels a refresh's task as soon as
                 // the state it refreshes changes.

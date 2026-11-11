@@ -117,7 +117,10 @@ private struct StickyPaper: View {
                 )
             )
             .overlay(PaperGrainView(strength: 0.55).clipped())
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.16), radius: 6, x: 1, y: 3)
+            // Two shadows, the way paper sits on a page (build 39): a tight
+            // one where it touches, and a soft one where its edge lifts.
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 1.5, x: 0, y: 1)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.17), radius: 8, x: 1, y: 5)
     }
 }
 
@@ -150,11 +153,25 @@ private struct BlankNote: View {
 /// newest first. A tap on yours (or the blank) writes; anyone else's is
 /// there to read, and a long press reports it. With one note alone there's
 /// nothing to swipe: no peek and no dots.
+///
+/// **Writing is on the note itself** (build 39; it was a sheet with a form's
+/// text field). A tap on yours, or on the blank one, and the note straightens
+/// and takes a cursor: the words go down in the hand, on its paper, under
+/// its tape, with Cancel and Done written along its foot. Done pins it once
+/// the server has it; a note that didn't pin stays open with its words.
+/// Clearing your note's words and tapping Take Down takes it off the board
+/// (asked first), and so does a long press on it.
 struct NoteBoard: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.atmosphere") private var raw = "auto"
-    let onWrite: () -> Void
     @State private var current: String?
+    /// The words being written on your note; nil when nobody's writing.
+    @State private var draft: String?
+    @State private var saving = false
+    @State private var confirmTakeDown = false
+    @FocusState private var typing: Bool
+
+    static let limit = 200
 
     /// How much of the next note shows at the right edge.
     private static let peek: CGFloat = 20
@@ -197,36 +214,118 @@ struct NoteBoard: View {
                 // up. Room above for the tape, and below for the shadow.
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 12)
-                .padding(.bottom, 6)
+                .padding(.bottom, 12)
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $current)
             .scrollClipDisabled()
-            .scrollDisabled(!many)
+            // Held still while you write, so the note can't slide away
+            // from under the cursor.
+            .scrollDisabled(!many || draft != nil)
             if many {
                 dots(cards)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("The circle's notes")
+        .alert("Take down your note?", isPresented: $confirmTakeDown) {
+            Button("Take Down", role: .destructive) {
+                Task { await state.deleteNote() }
+                finish()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It comes off the board for everyone. You can write another today.")
+        }
+        // Another circle's board has its own note: nothing half-written
+        // follows you there.
+        .onChange(of: state.circle?.id) { finish() }
+    }
+
+    private func begin() {
+        guard draft == nil else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            draft = state.myNote?.text ?? ""
+            current = cards.first?.id
+        }
+    }
+
+    private func finish() {
+        typing = false
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { draft = nil }
+    }
+
+    /// Done: pin what's written. The note stays open until the server has
+    /// it, so words that didn't go through are still there to send again.
+    private func done() {
+        guard let draft, !saving else { return }
+        let words = draft.trimmedWords
+        if words.isEmpty {
+            // Nothing on it: taking your note down, or never mind.
+            if state.myNote != nil { confirmTakeDown = true } else { finish() }
+            return
+        }
+        if words == state.myNote?.text {
+            finish()
+            return
+        }
+        saving = true
+        Task {
+            let pinned = await state.setNote(words)
+            saving = false
+            if pinned {
+                Haptics.noteSealed()
+                finish()
+            }
+        }
     }
 
     @ViewBuilder
     private func view(_ card: Card) -> some View {
         switch card {
+        case .blank where draft != nil:
+            writingNote(mine: nil)
+        case .note(let note) where state.isMine(note) && draft != nil:
+            writingNote(mine: note)
         case .blank:
-            Button(action: onWrite) { BlankNote() }
+            Button(action: begin) { BlankNote() }
                 .buttonStyle(.plain)
                 .accessibilityHint("Write your note for the circle")
         case .note(let note) where state.isMine(note):
-            Button(action: onWrite) { StickyNote(note: note, tone: state.noteTone(note)) }
+            Button(action: begin) { StickyNote(note: note, tone: state.noteTone(note)) }
                 .buttonStyle(.plain)
                 .accessibilityHint("Change or take down your note")
+                .contextMenu {
+                    Button(action: begin) { Label("Edit Note", systemImage: "pencil") }
+                    Button(role: .destructive) { confirmTakeDown = true } label: {
+                        Label("Take Down Note", systemImage: "trash")
+                    }
+                }
         case .note(let note):
             StickyNote(note: note, tone: state.noteTone(note))
                 .noteMenu(note)
         }
+    }
+
+    /// Your note while you write on it: the same paper it has on the board
+    /// (the blank one's yellow until there's a note), straight, with the
+    /// cursor in it.
+    private func writingNote(mine: CommunityNote?) -> some View {
+        WritingNote(
+            // Only while writing: a field on its way out writes its last
+            // (empty) text back, which mustn't open the note again.
+            text: Binding(
+                get: { draft ?? "" },
+                set: { if draft != nil { draft = WritingLimit.clamp($0, Self.limit) } }
+            ),
+            typing: $typing,
+            tone: mine.map { state.noteTone($0) },
+            takesDown: mine != nil && (draft ?? "").trimmedWords.isEmpty,
+            saving: saving,
+            onCancel: finish,
+            onDone: done
+        )
     }
 
     /// Where you are in the row, the way a page control says it: the one in
@@ -288,83 +387,68 @@ private struct NoteMenu: ViewModifier {
     }
 }
 
-/// Writing your note: one a day, yours alone to change or take down.
-struct NoteEditor: View {
-    @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @State private var confirmTakeDown = false
-    @State private var saving = false
-    @FocusState private var writing: Bool
-
-    static let limit = 200
-
-    private var editing: Bool { state.myNote != nil }
+/// Your note, being written: sticky paper, tape and all, with the words
+/// going down in the hand where they'll stay. Cancel and Done are written
+/// along its foot, where a signature goes; Done reads Take Down once your
+/// note's words are all rubbed out.
+private struct WritingNote: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Binding var text: String
+    var typing: FocusState<Bool>.Binding
+    /// The note's own tint; nil for one not on the board yet, which is
+    /// still the blank's yellow.
+    let tone: Color?
+    let takesDown: Bool
+    let saving: Bool
+    let onCancel: () -> Void
+    let onDone: () -> Void
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Leave a note for your circle…", text: $text, axis: .vertical)
-                        .lineLimit(2...6)
-                        .focused($writing)
-                        .onChange(of: text) { _, new in
-                            let clamped = WritingLimit.clamp(new, Self.limit)
-                            if clamped != new { text = clamped }
-                        }
-                } footer: {
-                    Text("Everyone in the circle sees your note on the board, and only you can change it or take it down. It clears at the end of your day. It's a sticky note, not a chat.")
-                }
-                if editing {
-                    Section {
-                        Button("Take Down Note", role: .destructive) { confirmTakeDown = true }
-                            .destructiveInk()
-                    }
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            TextField(
+                "", text: $text,
+                prompt: Text("Leave a note for your circle…").foregroundColor(NotePaper.ink.opacity(0.45)),
+                axis: .vertical
+            )
+            .font(.hand(18, bold: true, relativeTo: .body))
+            .foregroundStyle(NotePaper.ink)
+            .tint(NotePaper.ink)
+            .textFieldStyle(.plain)
+            .lineLimit(2...7)
+            .focused(typing)
+            .accessibilityLabel("Your note")
+            Spacer(minLength: 0)
+            HStack(spacing: 18) {
+                Button("Cancel", action: onCancel)
+                    .font(.hand(15, relativeTo: .footnote))
+                    .opacity(0.7)
+                    .disabled(saving)
+                Spacer(minLength: 0)
+                Button(saving ? "Pinning…" : takesDown ? "Take Down" : "Done", action: onDone)
+                    .font(.hand(16, bold: true, relativeTo: .footnote))
+                    .disabled(saving)
             }
-            .atmosphereRows()
-            .atmosphereWash()
-            .navigationTitle(editing ? "Your note" : "A note for today")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(saving ? "Pinning…" : editing ? "Save" : "Post") {
-                        let line = text.trimmedWords
-                        // Sealed when it's on the board, not before: a note
-                        // that didn't save gets no tap. The sheet stays until
-                        // the server has it (the HCI audit, build 32): it used
-                        // to close at once, and a note that failed took its
-                        // words with it, where a story's come back.
-                        saving = true
-                        Task {
-                            let pinned = await state.setNote(line)
-                            saving = false
-                            if pinned {
-                                Haptics.noteSealed()
-                                dismiss()
-                            }
-                        }
-                    }
-                    .disabled(saving || !text.hasWords || text.trimmedWords == state.myNote?.text)
-                }
-            }
-            .interactiveDismissDisabled(saving || (text.hasWords && text.trimmedWords != state.myNote?.text))
-            .alert("Take down your note?", isPresented: $confirmTakeDown) {
-                Button("Take Down", role: .destructive) {
-                    Task { await state.deleteNote() }
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("It comes off the board for everyone. You can write another today.")
-            }
-            .onAppear {
-                text = state.myNote?.text ?? ""
-                // Opened to write, so the keyboard is up (the HCI audit,
-                // build 32): it took a second tap on the field before.
-                writing = true
-            }
+            .buttonStyle(.plain)
+            .foregroundStyle(NotePaper.ink)
+            // A thumb's height each, though they're written small.
+            .frame(minHeight: 30)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 22)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity, minHeight: 112, maxHeight: .infinity, alignment: .topLeading)
+        .background {
+            StickyPaper(color: tone == nil ? NotePaper.blank(colorScheme) : NotePaper.base(colorScheme), tone: tone ?? .clear)
+        }
+        .overlay(alignment: .top) { Tape().offset(y: -10) }
+        // Lifted a little toward you while you write.
+        .scaleEffect(1.01, anchor: .top)
+        .contentShape(Rectangle())
+        .onTapGesture { typing.wrappedValue = true }
+        .task {
+            // After the note is on the page, or the cursor doesn't take.
+            try? await Task.sleep(for: .milliseconds(60))
+            typing.wrappedValue = true
         }
     }
 }

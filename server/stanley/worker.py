@@ -32,6 +32,7 @@ def run_once(settings: Settings | None = None) -> None:
         purged = decay.run_purges(session, storage, clock)
         decay.clear_notes(session, clock)
         digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)
+        notifications.run_reminders(session, notifier, clock)
         session.commit()
         if settings.news_enabled:
             news.refresh_if_due(

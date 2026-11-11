@@ -15,7 +15,6 @@ struct TodayFeedView: View {
     /// iPhone Duo's cover display). Nil on an ordinary iPhone. Read here,
     /// inside the tab bar controller, for `HomeView`.
     @Binding var sideDock: CGRect?
-    @State private var editingNote = false
     @State private var joiningAnother = false
     @State private var readingCircleJournal = false
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -52,7 +51,7 @@ struct TodayFeedView: View {
                     // The board is the circle talking to itself, so it goes
                     // first, above even the mosaic: everyone's sticky note
                     // for the day, pinned to the first page (build 27).
-                    NoteBoard { editingNote = true }
+                    NoteBoard()
                         .padding(.bottom, Spacing.section)
                         .id("note")
                     // The circle's question of the week (build 26): a slip
@@ -88,6 +87,13 @@ struct TodayFeedView: View {
                     if state.todayLoaded && state.feedItems.isEmpty && state.pendingHere == nil {
                         TodayEmptyPage { capturing = true }
                             .id("empty")
+                    }
+                    // Before Today's first answer: the shapes of the page,
+                    // shimmering, where its prints will be (build 39).
+                    if !state.todayLoaded && state.feedItems.isEmpty && !state.offline {
+                        TodaySkeleton()
+                            .id("skeleton")
+                            .transition(.opacity)
                     }
                     ForEach(Array(JournalDay.group(state.feedItems).enumerated()), id: \.element.id) { index, day in
                         DayMark(date: day.date)
@@ -157,7 +163,6 @@ struct TodayFeedView: View {
             .journalPage()
             .navigationTitle("Today")
             .sheet(isPresented: $capturing) { CaptureView() }
-            .sheet(isPresented: $editingNote) { NoteEditor() }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
             .sheet(isPresented: $readingCircleJournal) {
                 NavigationStack {
@@ -169,7 +174,7 @@ struct TodayFeedView: View {
                         }
                 }
             }
-            .refreshable {
+            .sunRefreshable {
                 Haptics.refreshed()
                 // SwiftUI cancels a pull's own task as soon as the state it is
                 // refreshing changes, which cut the pass short after the first
@@ -381,9 +386,18 @@ struct NewPhotoButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // A quiet invitation while today's photo isn't up yet (build 39):
+        // a small swell every five seconds. It stops once you've posted.
+        .gentlePulse(invites, color: Atmosphere.resolve(raw).palette.accent)
         .opacity(state.holdsTheDay ? 0.4 : 1)
         .disabled(state.holdsTheDay)
         .accessibilityLabel("Take today's photo")
+    }
+
+    /// Today has answered, and there's no photo of yours in it from today,
+    /// posted or waiting to go up.
+    private var invites: Bool {
+        state.todayLoaded && state.sharedToday == nil && !state.holdsTheDay
     }
 }
 
@@ -567,7 +581,9 @@ struct CaptureButton: View {
 
 /// One story on a photo, and the line that asks for the next one.
 enum StoryLine {
-    /// Who, then what they remember: the name in bold at full strength, the
+    /// Who, then what they remember: the name in bold in the writer's own
+    /// tone (build 39; it was the page's ink), the same watercolor their
+    /// name takes when a story mentions them, and the
     /// words a step quieter in the secondary color. Two people's lines never
     /// run together into one white run of text. A person the story mentions
     /// (build 19, `Mentions.swift`) is their name in bold, in their own tone,
@@ -579,7 +595,7 @@ enum StoryLine {
     static func text(_ comment: Comment, people: MentionDirectory, opening stories: URL? = nil) -> Text {
         var line = AttributedString(comment.author.displayName)
         line.inlinePresentationIntent = .stronglyEmphasized
-        line.swiftUI.foregroundColor = DarkRoom.ink
+        line.swiftUI.foregroundColor = people.nameColor(comment.author.id)
         line.link = stories
         line += AttributedString("  ")
         for part in Mentions.parts(comment.body) {
@@ -657,6 +673,9 @@ struct PhotoImageView: View {
     let photo: Photo
     /// A print's photo is cut nearly square inside its border (`asPrint`).
     var cornerRadius: CGFloat = PrintStock.photoCorner
+    /// In Today's page the photo drifts a little behind its print as the
+    /// page scrolls (build 39): up to 7pt, so the print has some depth.
+    var drifts = false
 
     @State private var holdProgress: Double = 0
     @State private var settleScale: CGFloat = 1
@@ -714,6 +733,7 @@ struct PhotoImageView: View {
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))
                 .overlay { likeHeart }
+                .overlay { HeartBurst(trigger: heartPops) }
                 .overlay(alignment: .bottomTrailing) { gestures }
                 .clipShape(shape)
                 // Its final day: a warm edge, like candlelight. No text, no
@@ -769,8 +789,9 @@ struct PhotoImageView: View {
                 SignedImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    Rectangle().fill(.quaternary)
+                    Shimmer()
                 }
+                .modifier(Drift(reach: drifts && !reduceMotion ? 7 : 0))
             }
             .clipped()
     }
@@ -881,6 +902,37 @@ struct PhotoImageView: View {
     }
 }
 
+/// A photo that lags a little behind its print as the page scrolls (build
+/// 39): up to `reach` points, upward as the print nears the foot of the
+/// page's window and downward near its top, a touch larger than its frame
+/// so no edge ever shows. Its place is read as the page moves and kept
+/// here, so only this small view is drawn again, not the print around it.
+/// (Drawn with `visualEffect` instead, iOS 26's glass tab bar took on the
+/// photo's darkness straight through the bar's floor.)
+private struct Drift: ViewModifier {
+    let reach: CGFloat
+    /// Where the print is in the window: -1 at its top, 1 at its foot.
+    @State private var place: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        if reach > 0 {
+            content
+                .scaleEffect(1.035)
+                .offset(y: -place * reach)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    let window = proxy.bounds(of: .scrollView)?.height ?? 0
+                    guard window > 0 else { return 0 }
+                    let middle = proxy.frame(in: .scrollView).midY
+                    // To the nearest fiftieth: a seventh of a point is
+                    // finer than the eye, and fewer redraws.
+                    return (min(1, max(-1, (middle - window / 2) / window)) * 50).rounded() / 50
+                } action: { place = $0 }
+        } else {
+            content
+        }
+    }
+}
+
 /// A print laid on the page by hand is never quite square to it: a degree
 /// or less either way, decided by the photo itself so it lies the same way
 /// every time it's drawn. The album page lays its prints a little looser.
@@ -933,7 +985,7 @@ struct PhotoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            PhotoImageView(photo: photo)
+            PhotoImageView(photo: photo, drifts: true)
                 .asPrint(border: density.isRoom ? 9 : 7, tilt: PrintTilt.degrees(photo.id))
                 .padding(.bottom, 6)
             words

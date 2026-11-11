@@ -51,12 +51,22 @@ guarded by tests; treat a change to any of them as a spec change.
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
-- **Notifications are almost nothing.** Three exist, and all are **off until
+- **Notifications are almost nothing.** Five exist, and all are **off until
   the person turns them on** in Settings → Quiet: the owner's single
   LAST_LIGHT notice for their own photo, at most one evening digest a day
   ("Something new from your circle today.", when someone else in one of
-  their circles posted), and since build 37 **Circle Posts** ("Ruby shared a
-  moment", each time someone else in the circle a photo went to posts it).
+  their circles posted), since build 37 **Circle Posts** ("Ruby shared a
+  moment", each time someone else in the circle a photo went to posts it),
+  and since build 39 **two reminders a person sets for themselves** (a
+  product decision, 2026-11-11; §10 N6 in `notifications.py`): "Leave a
+  note for your circle today" and "Your circle is waiting for today's
+  moment". Each goes at one of four hours of the person's own day that
+  they pick (9, 14, 18 or 21; note defaults to 9, photo to 18), at most
+  once a day, and only while it's still true (no note of theirs on any
+  board today; no photo of theirs in any circle today). They are the
+  first notices that ask for something, which every earlier round
+  refused: they exist because the person asked for them, go only to that
+  person, and say nothing about what anyone else did.
   No notification may carry a count, deadline, countdown or image, and only
   Circle Posts carries a name: the poster's, to their own circle, and
   nothing else about the photo. **Build 37's notice is a product decision**
@@ -776,14 +786,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   /circles/{id}`; Members; **Invite Code**, one row opening its own page with
   the code, Copy Code, Share Invite and, for the organizer, Reset Code behind
   a confirmation; Join Another Circle; Leave Circle, red and last),
-  **Appearance**, **Quiet** (the three notices, each with a line under it
+  **Appearance**, **Quiet** (the five notices, each with a line under it; the two reminders of build 39 each show a **Time** menu under them when on: Morning 9 AM, Afternoon 2 PM, Evening 6 PM, Night 9 PM, and show only when the server knows them; before build 39 it was the three notices, each with a line under it
   saying what it is, and the reason there are so few; Circle Posts shows
   only when the server knows it, `circle_posts_enabled` in `GET /me`), **Privacy & Security** (Require Face ID or Touch ID, whichever the
   phone has, Export My Memories, and About
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (38)", at the
+  production audit), and the version, "Stanley 0.2.0 (39)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1000,6 +1010,60 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   it (`decay.delete_comments`, pointing the report at the photo instead):
   before, foreign keys refused, and one reported story made its photo's
   deletion, its purge and its author's account deletion fail.
+- **The polish pass** (build 39, November 11, 2026; `Polish.swift`,
+  `HeldViewer.swift`; screenshots in `docs/polish-build39/`). No feature
+  changed but the two reminders above; everything is quick, silent, and
+  still under Reduce Motion.
+  - **A held photo opens** (`HeldViewer`): a tap on a print in Held gives
+    under the thumb (to 97%, `PressedPrint`) and lifts to the whole screen
+    over black, by the system's zoom transition (iOS 18 and up,
+    `matchedTransitionSource` on the print; a plain cover on 17). Under
+    it: caption in the hand, place and date, "Held on … · From Ines" (or
+    Yours), the circle when there's more than one, and on your own photo
+    your journal entry. Swipe sideways through every held photo; pinch to
+    4× and drag, double-tap in and out; swipe down, a tap on the dark, or
+    the ✕ closes, and the print it goes back to is the one showing. The
+    pages size themselves inside the safe areas by hand: the paging scroll
+    view applied the top inset twice and pushed the words off the foot.
+  - **A note is written on the note** (`NoteBoard`, `WritingNote`;
+    `NoteEditor`'s form sheet is gone): a tap on yours, or the blank one,
+    and the note straightens and takes a cursor, the words in the hand on
+    its paper under its tape, Cancel and Done written along its foot. Done
+    pins it once the server has it (the haptic then, as before); a note
+    that didn't pin stays open. Rub out all of your note's words and Done
+    reads Take Down (asked first); a long press on your note offers Edit
+    and Take Down too. The board holds still while you write.
+  - **A story's name is in its writer's tone** (`StoryLine.text`,
+    `MentionDirectory.nameColor`): the same watercolor their mention has,
+    given on first use, in Today, the stories sheet and profile sheets. The
+    words stay secondary. Someone not in the circle on screen keeps ink.
+  - **Small things:** the double-tap heart throws four small hearts up
+    and out (`HeartBurst`); a photo drifts up to 7pt behind its print as
+    Today scrolls (`Drift`, by `onGeometryChange`: `visualEffect` broke
+    the tab bar, below); photos that haven't arrived shimmer in the card
+    color, and Today's first load is two shimmering prints
+    (`Shimmer`, `TodaySkeleton`); a loaded picture fades in over 0.2s;
+    pull to refresh turns a sketched sun in the accent in place of the
+    spinner (`sunRefreshable`, iOS 18 and up); a tab's page fades in over
+    0.15s (`tabFade`); the "+" swells gently every five seconds until
+    today's photo is up (`gentlePulse`); every face has a 1pt ring in the
+    accent (`AvatarView`); the weekly question's top-right corner is
+    folded over (`paperInsert(fold:)`, `SlipShape`, `FoldedCorner`); a
+    sticky note has a second, softer shadow.
+  - **The tab bar, again.** iOS 26's glass decides light or dark from the
+    scrolling page under it, not from what's drawn over that page, so a
+    near-black photo under the bar still turned it dark through build
+    31's band (seen with this pass's test circle; it stayed dark). Each
+    tab's page now stops a point short of the bar (`SolidTabBar`: a 1pt
+    bottom padding, the floor behind it, a 20pt fade above), so nothing
+    scrolls under the glass. Checked with a near-black photo at the bar's
+    edge in light mode and a pale one in dark.
+  - **Not done, and why:** sheets "sliding up with a bounce" and the
+    page behind scaling to 0.98 are the system's own sheet presentation,
+    which SwiftUI gives no control over short of replacing every sheet
+    with a custom overlay (and losing swipe-to-dismiss, detents and
+    keyboard handling); iOS already springs sheets and steps the page
+    behind back. Left as the system's.
 - **One circle's countdown** (build 35, a product decision on 2026-11-06,
   for Ayush's circle going home to India for Thanksgiving). A flag, not a
   feature: `circles.countdown`, a JSON column, null for every circle but the
@@ -1099,7 +1163,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 38** (0.2.0) is committed but not archived; it adds the bigger
+- **Build 39** (0.2.0) is committed but not archived: the polish pass
+  below. **Its server side isn't on Fly yet** (four `users` columns for
+  the reminders, added on startup, off for everyone; the reminder pass in
+  the sweep; `/terms` and `/privacy` dated November 11). Against today's
+  server the app shows no reminder switches, and everything else in the
+  pass works, since it's all on the phone. Build 38 added the bigger
   flip clock and the day itself's note to everything in 37. Build 37
   (Circle Posts) was archived on November 7 at 4:18 PM, build 36 on
   November 6 at 8:21 PM and build 35 at 7:30 PM (Organizer); builds 34
@@ -1318,7 +1387,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**441 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**455 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

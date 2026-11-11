@@ -36,6 +36,10 @@ def test_turning_it_on_leaves_the_other_two_alone(circle):
         "last_light_notice_enabled": False,
         "digest_enabled": False,
         "circle_posts_enabled": True,
+        "note_reminder_enabled": False,
+        "note_reminder_hour": 9,
+        "photo_reminder_enabled": False,
+        "photo_reminder_hour": 18,
     }
     me = circle.ben.client.get("/me", headers=circle.ben.h).json()
     assert me["circle_posts_enabled"] is True

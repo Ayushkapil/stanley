@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, false, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, false, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, UTCDateTime
@@ -47,6 +47,13 @@ class User(Base):
     # Off in the database too, as the column added to older ones is, so a
     # row written without it is off rather than refused.
     circle_posts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # §10 N6 (build 39, a product decision): two reminders a person may set
+    # for themselves, each at an hour of their own day they choose. Off by
+    # default, in the database too.
+    note_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    note_reminder_hour: Mapped[int] = mapped_column(Integer, default=9, server_default=text("9"))
+    photo_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    photo_reminder_hour: Mapped[int] = mapped_column(Integer, default=18, server_default=text("18"))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 

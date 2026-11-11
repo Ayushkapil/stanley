@@ -111,6 +111,15 @@ def tick(app: FastAPI) -> None:
     except Exception:
         log.exception("evening digests failed")
 
+    # The reminders people set for themselves (build 39), apart from the
+    # digests so neither can stop the other.
+    try:
+        with app.state.sessionmaker() as session:
+            notifications.run_reminders(session, app.state.notifier, app.state.clock)
+            session.commit()
+    except Exception:
+        log.exception("reminders failed")
+
     today = app.state.clock.now().date()
     if app.state.last_backup_day != today:
         try:

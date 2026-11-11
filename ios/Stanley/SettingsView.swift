@@ -253,6 +253,13 @@ private struct QuietSection: View {
     /// Whether the server knows Circle Posts. One from before build 37
     /// doesn't, and a switch it can't keep would look on and do nothing.
     @State private var offersCirclePosts = false
+    /// The two reminders a person sets for themselves (build 39), each at
+    /// one of four times of day. Shown only when the server knows them.
+    @State private var noteReminder = false
+    @State private var noteHour = 9
+    @State private var photoReminder = false
+    @State private var photoHour = 18
+    @State private var offersReminders = false
     @State private var loaded = false
     @State private var blocked = false
 
@@ -278,6 +285,30 @@ private struct QuietSection: View {
                     .disabled(!loaded)
                     .onChange(of: circlePosts) { _, on in save("circle_posts_enabled", on) { circlePosts = $0 } }
             }
+            if offersReminders {
+                Toggle(isOn: $noteReminder) {
+                    QuietRow(title: "Daily Note Reminder", detail: "Once a day, if you haven't left a note yet")
+                }
+                    .tint(toggleTint)
+                    .disabled(!loaded)
+                    .onChange(of: noteReminder) { _, on in save("note_reminder_enabled", on) { noteReminder = $0 } }
+                if noteReminder {
+                    ReminderTime(hour: $noteHour)
+                        .disabled(!loaded)
+                        .onChange(of: noteHour) { old, hour in saveHour("note_reminder_hour", hour) { noteHour = old } }
+                }
+                Toggle(isOn: $photoReminder) {
+                    QuietRow(title: "Daily Photo Reminder", detail: "Once a day, if you haven't shared today's photo yet")
+                }
+                    .tint(toggleTint)
+                    .disabled(!loaded)
+                    .onChange(of: photoReminder) { _, on in save("photo_reminder_enabled", on) { photoReminder = $0 } }
+                if photoReminder {
+                    ReminderTime(hour: $photoHour)
+                        .disabled(!loaded)
+                        .onChange(of: photoHour) { old, hour in saveHour("photo_reminder_hour", hour) { photoHour = old } }
+                }
+            }
             if blocked {
                 Button("Allow Notifications in Settings") {
                     if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
@@ -290,7 +321,9 @@ private struct QuietSection: View {
         } footer: {
             Text(blocked
                 ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."
-                : "Stanley is quiet on purpose. Three notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, and one each time someone in your circle shares a moment. No streaks, no nudges, nothing about likes or holds, and never a number.")
+                : offersReminders
+                    ? "Stanley is quiet on purpose. Five notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, one each time someone in your circle shares a moment, and two reminders you can set for yourself. No streaks, nothing about likes or holds, and never a number."
+                    : "Stanley is quiet on purpose. Three notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, and one each time someone in your circle shares a moment. No streaks, no nudges, nothing about likes or holds, and never a number.")
         }
         .task(id: state.reloads) { await load() }
         .onChange(of: scenePhase) { _, phase in
@@ -312,6 +345,11 @@ private struct QuietSection: View {
             digest = me.digestEnabled ?? false
             circlePosts = me.circlePostsEnabled ?? false
             offersCirclePosts = me.circlePostsEnabled != nil
+            noteReminder = me.noteReminderEnabled ?? false
+            noteHour = me.noteReminderHour ?? 9
+            photoReminder = me.photoReminderEnabled ?? false
+            photoHour = me.photoReminderHour ?? 18
+            offersReminders = me.noteReminderEnabled != nil
             answered = true
         }
         await checkBlocked()
@@ -320,7 +358,7 @@ private struct QuietSection: View {
 
     private func checkBlocked() async {
         let status = await Push.shared.authorization()
-        blocked = status == .denied && (lastLight || digest || circlePosts)
+        blocked = status == .denied && (lastLight || digest || circlePosts || noteReminder || photoReminder)
     }
 
     /// Turning a notice on asks iOS first. If iOS says no, the switch goes
@@ -344,6 +382,49 @@ private struct QuietSection: View {
                 state.surface(error)
             }
         }
+    }
+}
+
+extension QuietSection {
+    /// A reminder's time of day changed. Kept as it was if it didn't save.
+    fileprivate func saveHour(_ field: String, _ hour: Int, revert: @escaping () -> Void) {
+        guard loaded else { return }
+        Task {
+            do {
+                let _: MeSettings = try await state.api.send("PATCH", "/me/settings", json: [field: hour])
+            } catch {
+                revert()
+                state.surface(error)
+            }
+        }
+    }
+}
+
+/// When a reminder arrives: one of four times of day, chosen from a menu,
+/// in the person's own time.
+private struct ReminderTime: View {
+    @Binding var hour: Int
+
+    private static let choices: [(hour: Int, name: String)] = [
+        (9, "Morning"), (14, "Afternoon"), (18, "Evening"), (21, "Night"),
+    ]
+
+    private static func clock(_ hour: Int) -> String {
+        var parts = DateComponents()
+        parts.hour = hour
+        let date = Calendar.current.date(from: parts) ?? .now
+        return date.formatted(.dateTime.hour())
+    }
+
+    var body: some View {
+        Picker("Time", selection: $hour) {
+            ForEach(Self.choices, id: \.hour) { choice in
+                Text("\(choice.name), \(Self.clock(choice.hour))").tag(choice.hour)
+            }
+        }
+        .pickerStyle(.menu)
+        .font(.subheadline)
+        .padding(.leading, 2)
     }
 }
 

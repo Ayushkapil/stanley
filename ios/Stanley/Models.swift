@@ -287,6 +287,12 @@ struct MeSettings: Codable {
     let digestEnabled: Bool?
     /// "{name} shared a moment" (build 37). Absent from an older server.
     let circlePostsEnabled: Bool?
+    /// The two reminders (build 39), and the hour of the day each is set
+    /// for. Nil from a server before them, which then offers neither.
+    let noteReminderEnabled: Bool?
+    let noteReminderHour: Int?
+    let photoReminderEnabled: Bool?
+    let photoReminderHour: Int?
 }
 
 /// Own profile (GET /me, PATCH /me/profile). Identity only — the API has no

@@ -36,6 +36,7 @@ struct AvatarView: View {
     var circular: Bool = false
 
     @Environment(AppState.self) private var state
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
 
     private var initial: String {
         String(name?.trimmingCharacters(in: .whitespaces).first ?? "·").uppercased()
@@ -61,7 +62,9 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(clip)
-        .overlay(clip.stroke(.separator, lineWidth: 0.5))
+        // A thin ring in the atmosphere's accent round every face (build
+        // 39; it was a half-point separator gray).
+        .overlay(clip.stroke(Atmosphere.resolve(raw).palette.accent.opacity(0.7), lineWidth: 1).padding(0.5))
     }
 
     private var placeholder: some View {

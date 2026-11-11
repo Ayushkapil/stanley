@@ -10,6 +10,16 @@ struct MemoriesView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
     @State private var showRested = false
+    /// The held photo opened to the whole screen (build 39), and whether
+    /// it's open. The album's prints are where it grows from and goes back to.
+    @State private var opened = ""
+    @State private var viewing = false
+    @Namespace private var album
+
+    private func open(_ memory: Memory) {
+        opened = memory.id
+        viewing = true
+    }
 
     var body: some View {
         NavigationStack {
@@ -21,7 +31,11 @@ struct MemoriesView: View {
             .journalPage()
             .navigationTitle("Held")
             .navigationDestination(isPresented: $showRested) { RestedView() }
-            .refreshable {
+            .fullScreenCover(isPresented: $viewing) {
+                HeldViewer(current: $opened)
+                    .heroZoom(from: opened, in: album)
+            }
+            .sunRefreshable {
                 Haptics.refreshed()
                 await state.refreshMemories()
             }
@@ -116,7 +130,7 @@ struct MemoriesView: View {
                     pageHead(thread)
                         .listRowInsets(EdgeInsets(top: Spacing.chapter, leading: 20, bottom: 0, trailing: 20))
                     ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
-                        MemoryCard(memory: memory, place: position)
+                        MemoryCard(memory: memory, place: position, album: album) { open(memory) }
                             .padding(.leading, position.isMultiple(of: 2) ? 0 : 44)
                             .padding(.trailing, position.isMultiple(of: 2) ? 44 : 0)
                             // A section's room either side: a print is the
@@ -178,7 +192,7 @@ struct MemoriesView: View {
                             spacing: Spacing.chapter
                         ) {
                             ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
-                                MemoryCard(memory: memory, place: position)
+                                MemoryCard(memory: memory, place: position, album: album) { open(memory) }
                                     .padding(.top, position % density.heldColumns == 1 ? 24 : 0)
                                     .contextMenu { restMenu(memory) }
                             }
@@ -263,6 +277,10 @@ struct MemoryCard: View {
     /// alternately toward the left and the right, and each leans with its
     /// side.
     var place: Int = 0
+    /// The album it lies in, so it can lift out of its place; and what a
+    /// tap on the print does (build 39: open it to the whole screen).
+    var album: Namespace.ID?
+    var onOpen: (() -> Void)?
 
     /// Held gathers every circle. Which one a memory is from is worth saying
     /// once there's more than one to tell apart.
@@ -310,13 +328,14 @@ struct MemoryCard: View {
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 if let urls = memory.urls, let url = state.api.absoluteURL(urls.image) {
+                  Button { onOpen?() } label: {
                     Color.clear
                         .frame(height: density.heldPhotoHeight)
                         .overlay {
                             SignedImage(url: url) { image in
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
-                                Rectangle().fill(.quaternary)
+                                Shimmer()
                             }
                         }
                         // Held is the one place nothing fades, so it should feel
@@ -337,8 +356,15 @@ struct MemoryCard: View {
                             .allowsHitTesting(false)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
+                        .heroSource(memory.id, in: album)
                         .asPrint(border: 8, tilt: tilt)
                         .padding(.vertical, 4)
+                  }
+                  // Gives a little under the thumb, then lifts (build 39).
+                  .buttonStyle(PressedPrint())
+                  .disabled(onOpen == nil)
+                  .accessibilityLabel(memory.caption.flatMap { $0.isEmpty ? nil : "Held photo: \($0)" } ?? "Held photo")
+                  .accessibilityHint("Opens it large")
                 }
                 // Written on the page beneath the print, the way an album is
                 // annotated: what it was, then where and when, in smaller ink.

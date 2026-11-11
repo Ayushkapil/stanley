@@ -96,6 +96,11 @@ _LATER_COLUMNS = {
         "digest_enabled": "BOOLEAN DEFAULT 0",
         # Build 37: the circle-post notice, off for everyone already here.
         "circle_posts_enabled": "BOOLEAN DEFAULT 0",
+        # Build 39: the two reminders, off for everyone already here.
+        "note_reminder_enabled": "BOOLEAN DEFAULT 0",
+        "note_reminder_hour": "INTEGER DEFAULT 9",
+        "photo_reminder_enabled": "BOOLEAN DEFAULT 0",
+        "photo_reminder_hour": "INTEGER DEFAULT 18",
     },
     # Build 35: one circle's countdown, null everywhere else.
     "circles": {"countdown": "JSON"},

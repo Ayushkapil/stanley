@@ -8,6 +8,9 @@ struct StanleyApp: App {
     @State private var state = AppState()
 
     init() {
+        // Where a sketched sun turns for pull to refresh, the system's
+        // spinner is drawn in no color (build 39, `Polish.swift`).
+        SunRefresh.prepare()
         // Crash visibility for TestFlight. DSN-gated: empty DSN (every dev
         // build) means Sentry never starts. Crash capture only — no sessions,
         // no tracing, no screenshots, and no user identity is ever attached,
@@ -263,26 +266,31 @@ struct HomeView: View {
     var body: some View {
         TabView(selection: selection) {
             TodayFeedView(capturing: $capturing, sideDock: $sideDock)
+                .tabFade(tab == .today)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
                 .tag(Tab.today)
             MemoriesView()
+                .tabFade(tab == .held)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Held", systemImage: "bookmark") }
                 .tag(Tab.held)
             ProfileView()
+                .tabFade(tab == .you)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("You", systemImage: "person") }
                 .tag(Tab.you)
             WorldTodayView()
+                .tabFade(tab == .world)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("World", systemImage: "globe") }
                 .tag(Tab.world)
             SettingsView()
+                .tabFade(tab == .settings)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
@@ -317,17 +325,28 @@ private struct SolidTabBar: ViewModifier {
     func body(content: Content) -> some View {
         let floor = Atmosphere.resolve(raw).palette.floor
         if #available(iOS 26, *) {
-            content.overlay {
+            content
+                // The page stops a point short of the bar instead of running
+                // under it (build 39). The glass decides light or dark from
+                // the scrolling page beneath it, not from what's drawn over
+                // that page: a near-black photo under the bar turned it dark
+                // straight through the band below, and it stayed dark. With
+                // nothing scrolling under it, the bar sits on the floor.
+                .padding(.bottom, sideDock == nil ? 1 : 0)
+                .background(floor.ignoresSafeArea())
+                .overlay {
                 if sideDock == nil {
                     GeometryReader { geo in
                         VStack(spacing: 0) {
                             Spacer(minLength: 0)
+                            // The page fades into the floor over its last
+                            // 20pt, so it doesn't end on a hard line.
                             LinearGradient(
-                                colors: [floor.opacity(0), floor.opacity(0.95)],
+                                colors: [floor.opacity(0), floor],
                                 startPoint: .top, endPoint: .bottom
                             )
-                            .frame(height: 16)
-                            floor.opacity(0.95)
+                            .frame(height: 20)
+                            floor
                                 .frame(height: geo.safeAreaInsets.bottom)
                         }
                         .ignoresSafeArea(edges: .bottom)

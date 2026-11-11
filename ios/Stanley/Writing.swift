@@ -398,7 +398,8 @@ struct QuestionSlip: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: -0.6)
+        // Dog-eared, like a page someone means to come back to (build 39).
+        .paperInsert(tilt: -0.6, fold: 22)
         .sheet(isPresented: $reading) {
             AnswersSheet(question: question.prompt)
         }
@@ -589,7 +590,7 @@ struct CircleJournalView: View {
         .atmosphereWash()
         .navigationTitle("Circle Journal")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable {
+        .sunRefreshable {
             Haptics.refreshed()
             await Task { await first() }.value
         }

@@ -208,7 +208,7 @@ struct ProfileView: View {
                 await state.loadThisWeek()
                 await state.loadReflections()
             }
-            .refreshable {
+            .sunRefreshable {
                 Haptics.refreshed()
                 await Task {
                     await state.loadProfile()
@@ -304,13 +304,16 @@ private struct CircleCards: View {
     }
 
     private func card(_ member: CircleMember) -> some View {
-        // A hairline of paper around each face in daylight (1pt, where the
-        // print's border was 4); in the dark room, a ring of the black page.
-        let ring = colorScheme == .dark ? Atmosphere.resolve(raw).palette.floor : PrintStock.paper
+        // Each face is ringed in the atmosphere's accent, as every face is
+        // since build 39, with a hairline of the page outside it so one
+        // reads against the next where they overlap.
+        let page = colorScheme == .dark ? Atmosphere.resolve(raw).palette.floor : PrintStock.paper
         let full = member.displayName ?? "New member"
         return VStack(spacing: 4) {
             AvatarView(url: member.avatarUrl, name: member.displayName, size: face, circular: true)
-                .overlay(Circle().strokeBorder(ring, lineWidth: 1))
+                .padding(1)
+                .background(page, in: Circle())
+                .padding(-1)
             Text(full.split(separator: " ").first.map(String.init) ?? full)
                 .font(.hand(13, bold: true, relativeTo: .caption))
                 .lineLimit(1)

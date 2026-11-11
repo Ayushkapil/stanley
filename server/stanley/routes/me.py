@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from .. import physics, wordfilter
+from .. import notifications, physics, wordfilter
 from ..decay import TOMBSTONE, delete_comments, enqueue_purge, owner_hash_for, scrub
 from ..deps import event, get_clock, get_current_user, get_db, get_settings, get_storage, refuse_objectionable
 from ..images import BadImage, process_avatar
@@ -38,6 +38,23 @@ class SettingsPatch(BaseModel):
     last_light_notice_enabled: bool | None = None
     digest_enabled: bool | None = None
     circle_posts_enabled: bool | None = None
+    # Build 39: the two reminders, and the hour of the day each is set for.
+    note_reminder_enabled: bool | None = None
+    note_reminder_hour: int | None = None
+    photo_reminder_enabled: bool | None = None
+    photo_reminder_hour: int | None = None
+
+
+def _notice_settings(user: User) -> dict:
+    return {
+        "last_light_notice_enabled": user.last_light_notice_enabled,
+        "digest_enabled": user.digest_enabled,
+        "circle_posts_enabled": user.circle_posts_enabled,
+        "note_reminder_enabled": user.note_reminder_enabled,
+        "note_reminder_hour": user.note_reminder_hour,
+        "photo_reminder_enabled": user.photo_reminder_enabled,
+        "photo_reminder_hour": user.photo_reminder_hour,
+    }
 
 
 # An APNs device token: hex, 32 bytes today. Room for Apple to lengthen it.
@@ -78,11 +95,8 @@ def me(
         "avatar_url": avatar_url(settings, user.avatar_key, now),
         # join date for "About your account" — nothing else lives there.
         "created_at": iso(user.created_at),
-        "last_light_notice_enabled": user.last_light_notice_enabled,
-        "digest_enabled": user.digest_enabled,
-        "circle_posts_enabled": user.circle_posts_enabled,
         "moments_shared": moments_shared(db, user.id),
-    }
+    } | _notice_settings(user)
 
 
 def moments_shared(db: Session, user_id: str) -> int:
@@ -186,11 +200,19 @@ def patch_settings(
         user.digest_enabled = body.digest_enabled
     if body.circle_posts_enabled is not None:
         user.circle_posts_enabled = body.circle_posts_enabled
-    return {
-        "last_light_notice_enabled": user.last_light_notice_enabled,
-        "digest_enabled": user.digest_enabled,
-        "circle_posts_enabled": user.circle_posts_enabled,
-    }
+    # A reminder's hour is one of the four on offer, nothing in between.
+    for hour in (body.note_reminder_hour, body.photo_reminder_hour):
+        if hour is not None and hour not in notifications.REMINDER_HOURS:
+            raise HTTPException(400, {"code": "bad_reminder_hour"})
+    if body.note_reminder_enabled is not None:
+        user.note_reminder_enabled = body.note_reminder_enabled
+    if body.note_reminder_hour is not None:
+        user.note_reminder_hour = body.note_reminder_hour
+    if body.photo_reminder_enabled is not None:
+        user.photo_reminder_enabled = body.photo_reminder_enabled
+    if body.photo_reminder_hour is not None:
+        user.photo_reminder_hour = body.photo_reminder_hour
+    return _notice_settings(user)
 
 
 def _push_token(body: PushTokenBody) -> str:
@@ -456,4 +478,6 @@ def delete_account(
     user.last_light_notice_enabled = False
     user.digest_enabled = False
     user.circle_posts_enabled = False
+    user.note_reminder_enabled = False
+    user.photo_reminder_enabled = False
     user.deleted_at = now

@@ -90,7 +90,10 @@ extension View {
 
     /// Something tucked into the journal rather than written in it: a sheet
     /// of its own paper, edged in a hairline of ink.
-    func paperInsert(tilt: Double = 0) -> some View { modifier(PaperInsert(tilt: tilt)) }
+    /// `fold` dog-ears its top-right corner by that many points (build 39).
+    func paperInsert(tilt: Double = 0, fold: CGFloat = 0) -> some View {
+        modifier(PaperInsert(tilt: tilt, fold: fold))
+    }
 }
 
 private struct SmallCaps: ViewModifier {
@@ -266,9 +269,10 @@ private struct PaperInsert: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     @Environment(\.colorScheme) private var colorScheme
     let tilt: Double
+    var fold: CGFloat = 0
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
+        let shape = SlipShape(fold: fold)
         let dark = DarkRoom.isDark(colorScheme)
         content
             .background {
@@ -280,7 +284,10 @@ private struct PaperInsert: ViewModifier {
                     PaperGrainView(strength: 0.45)
                         .clipShape(shape)
                 }
-                .overlay(shape.strokeBorder(dark ? DarkRoom.line(1) : DarkRoom.line(0.16), lineWidth: dark ? 1 : 0.5))
+                .overlay(shape.stroke(dark ? DarkRoom.line(1) : DarkRoom.line(0.16), lineWidth: dark ? 1 : 0.5))
+                .overlay(alignment: .topTrailing) {
+                    if fold > 0 { FoldedCorner().frame(width: fold, height: fold) }
+                }
                 .shadow(color: .black.opacity(dark ? 0 : 0.1), radius: 6, y: 2)
             }
             .rotationEffect(.degrees(dark ? 0 : tilt))
