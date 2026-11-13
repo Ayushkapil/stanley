@@ -194,7 +194,7 @@ extension View {
     /// Pull to refresh, with a small sketched sun that turns as you pull
     /// and keeps turning while the page reloads, in place of the system's
     /// spinner. The pull itself is the system's own (`refreshable`).
-    func sunRefreshable(_ action: @escaping @Sendable () async -> Void) -> some View {
+    func sunRefreshable(_ action: @escaping @MainActor @Sendable () async -> Void) -> some View {
         modifier(SunRefreshable(action: action))
     }
 }
@@ -202,7 +202,7 @@ extension View {
 private struct SunRefreshable: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let action: @Sendable () async -> Void
+    let action: @MainActor @Sendable () async -> Void
     @State private var pull: CGFloat = 0
     @State private var refreshing = false
 

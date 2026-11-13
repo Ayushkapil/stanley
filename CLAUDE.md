@@ -82,7 +82,13 @@ guarded by tests; treat a change to any of them as a spec change.
   break this rule.
 - **The subject wins on deletion.** Owner delete purges the image everywhere;
   anchorers keep an honest tombstone ("a memory was here") plus their own comment
-  text only.
+  text only. **One lag, from build 40's widget** (it follows from the brief:
+  a widget that shows the circle's photos and makes no network calls can't
+  hear about a delete): a small copy on a friend's phone can stay in their
+  Home Screen widget until they next open Stanley, a day at most
+  (`WidgetSnapshot.photosKeep`). Both documents say so. It was not asked
+  about as a product decision; shorten the constant, or leave other
+  people's photos out of the widget, if a day is too long.
 - **What a person writes down for themselves stays theirs** (build 26). A
   journal entry on your own photo and a weekly reflection are read by no one
   else, anywhere: the feed never carries an entry (only an owner-only
@@ -210,7 +216,9 @@ The authoritative source for the physics constants is
   (notes deleted at the end of their day; a report keeps a reported note's
   words), so it's November 4. Build 37's Circle Posts changed both (three
   notices, not two; the notice carries your name to your circle), so both
-  are November 7.
+  are November 7. Build 39's reminders made them November 11, and build
+  40's widget (small copies of photos kept on the phone; a deleted photo
+  lingering in a widget for up to a day) November 12.
 
 ## Implemented and working
 
@@ -793,7 +801,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (39)", at the
+  production audit), and the version, "Stanley 0.2.0 (40)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1010,6 +1018,72 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   it (`decay.delete_comments`, pointing the report at the photo instead):
   before, foreign keys refused, and one reported story made its photo's
   deletion, its purge and its author's account deletion fail.
+- **The Home Screen widget** (build 40, November 12, 2026;
+  `ios/StanleyWidgets/`, `ios/Shared/`, `WidgetFeed.swift`; screenshots in
+  `docs/widget-build40/`). One WidgetKit widget, "Your circle", in three
+  sizes, drawn on the atmosphere's paper (grained in light, the dark room's
+  black in dark, the app's own forced appearance if one is set) in the
+  journal's hand and small capitals:
+  - **Small:** with a countdown running, the day's note as a torn slip
+    under tape and the phase's words ("10 days for Home") over the circle's
+    name; with none, the circle's name, the date, and "Today's moment"
+    beside a ticked ring or "One photo waiting" beside a plus. A tap opens
+    Stanley as it was left (`stanley://open`).
+  - **Medium:** on the left your own newest photo still in the light (else
+    the circle's newest) as a small tilted print; on the right the
+    countdown's words and a clock of Days : Hours : Min, or, with no
+    countdown, the circle's name and the newest note on its board. A tap
+    opens Today (`stanley://today`, as the large one does).
+  - **Large:** the countdown and its clock (the day's slip beside them), or
+    the circle and its note, then a rule, then the circle's three newest
+    photos as prints, each signed in the hand ("You" on yours), and the
+    day's status at the foot.
+  **Where it comes from.** The widget makes no network calls and holds no
+  sign-in. The app (`WidgetFeeder`, a zero-size view behind the root)
+  writes `widget.json` (`WidgetSnapshot`: circle name, atmosphere,
+  countdown, the day today's photo went up, the newest note, up to four
+  photos) and 480px copies of those photos into the App Group folder
+  `group.com.ayushkapileshwar.stanley`, whenever what the widget shows
+  changes and each time the app comes to the front or leaves it, then asks
+  WidgetKit to reload. The copies come from `PhotoMemory` when Today has
+  already shown the photo, else from the server's thumb; they're excluded
+  from backups. The timeline (`StanleyTimeline`) re-reads the folder every
+  30 minutes; in between it carries an entry for each whole minute of the
+  next hour while a countdown's clock is running (the clock shows minutes,
+  not seconds, and each entry is drawn as it reads a second in, so its
+  minute is the app's), one at midnight, and one when the photos go stale.
+  **What it won't keep** (the subject wins on deletion, as far as a widget
+  that can't go online is able): photos are shown for at most 24 hours
+  after the app last wrote them and never past their own six days, fading
+  as Today fades them, and the widget deletes the files then; a note only
+  on its own day; nothing of anyone's while the app lock is on (name,
+  countdown and status only); the folder emptied on sign-out; and **no
+  photos or note at all while no Stanley widget is on the Home Screen**
+  (`WidgetCenter.getCurrentConfigurations`), since with no widget nothing
+  would clear them. So a newly added widget says "Open Stanley to see your
+  circle." until the app is next opened, and "Nothing in the light right
+  now." only when the app's last look, within the day, found Today empty
+  (`emptied(at:)`). Signed out, or in no circle, it's "Stanley" and a line.
+  It counts nothing and names only first names, as Today does.
+  **Shared code.** `ios/Shared/` is compiled into both targets:
+  `Countdown.swift` (moved from the app), `AtmospherePalette.swift` (the
+  palettes; the view modifiers stayed in `Atmosphere.swift`),
+  `PaperGrain.swift`, `Hand.swift` (`Font.hand`, `Font.keepsake`),
+  `JournalColors.swift` (`DarkRoom`, `PrintStock`), `NotePaper.swift`
+  (the sticky paper, `Tape`, `TornEdge`), `WidgetSnapshot.swift` and
+  `WidgetViews.swift`. The extension is `com.ayushkapileshwar.stanley.widgets`;
+  both targets carry the App Group entitlement. The app answers the
+  `stanley` URL scheme through `onOpenURL` (no scheme is registered in the
+  plist; only the widget uses it): `today` switches to the Today tab
+  underneath whatever sheet is open and closes nothing. A Debug build
+  launched with `STANLEY_WIDGET_GALLERY=1` draws the three sizes in the
+  app, from the same views. **Checked on the iPhone 17 Pro simulator** with
+  the real widget on the Home Screen, all three sizes, light and dark,
+  against a circle with the `india` countdown: the tap opening Today from
+  the Held tab, the clock's minute matching the app's, the folder emptied
+  with no widget installed and filled again once one was added and the app
+  opened. Not seen: a real phone, the Duo, the Lock Screen (no accessory
+  sizes exist), or a full day passing.
 - **The polish pass** (build 39, November 11, 2026; `Polish.swift`,
   `HeldViewer.swift`; screenshots in `docs/polish-build39/`). No feature
   changed but the two reminders above; everything is quick, silent, and
@@ -1163,12 +1237,22 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
+- **Build 40** (0.2.0) is committed but not archived: the Home Screen
+  widget. It adds a second target, so **the first archive has to register
+  two things with Apple**: the App Group
+  `group.com.ayushkapileshwar.stanley` and the widget's App ID
+  `com.ayushkapileshwar.stanley.widgets`, each with its own provisioning
+  profile. Automatic signing should do both from Xcode's Organizer; an
+  `xcodebuild -exportArchive` with the old `ExportOptions.plist` may need
+  `-allowProvisioningUpdates`. Nothing on the server changed for it but
+  the two documents' words and date (November 12), which go out with the
+  next `fly deploy`.
 - **Build 39** (0.2.0) is committed but not archived: the polish pass
   below. **Its server side isn't on Fly yet** (four `users` columns for
   the reminders, added on startup, off for everyone; the reminder pass in
-  the sweep; `/terms` and `/privacy` dated November 11). Against today's
-  server the app shows no reminder switches, and everything else in the
-  pass works, since it's all on the phone. Build 38 added the bigger
+  the sweep; `/terms` and `/privacy`, dated November 12 since build 40).
+  Against today's server the app shows no reminder switches, and
+  everything else in the pass works, since it's all on the phone. Build 38 added the bigger
   flip clock and the day itself's note to everything in 37. Build 37
   (Circle Posts) was archived on November 7 at 4:18 PM, build 36 on
   November 6 at 8:21 PM and build 35 at 7:30 PM (Organizer); builds 34
@@ -1503,9 +1587,10 @@ live APNs, concurrency under real load.
   `MentionBar`), `Paper.swift` (the paper grain, `.paperPage()`),
   `Journal.swift` (the journal's look: masthead, rules, small capitals,
   prints, paper inserts; `DarkRoom`, the dark mode's colors and rules),
-  `Countdown.swift` + `CountdownRoute.swift` (build 35: one circle's
+  `Shared/Countdown.swift` + `CountdownRoute.swift` (build 35: one circle's
   countdown, its phases and the route under Today's dateline; build 36:
-  the flip clock and the day's reminder slip),
+  the flip clock and the day's reminder slip), `WidgetFeed.swift` (build
+  40: what the app leaves for its widget, and the Debug gallery),
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `Writing.swift` (build 26: the journal entry slip and sheet,
   the question slip, answers and circle journal, the Sunday card, the
@@ -1520,7 +1605,14 @@ live APNs, concurrency under real load.
   link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (also `ChoicePill`), `Prompts.swift`, `AppLock.swift`,
   `Keychain.swift`, `Trail.swift` (the crash report's fixed-word trail),
   `Acknowledgements.swift` (open-source notices)
-- Project gen: `ios/project.yml` (run `xcodegen generate` after adding files)
+- The widget (build 40): `ios/StanleyWidgets/StanleyWidgets.swift` (the
+  bundle, the timeline, the entry view), and `ios/Shared/`, compiled into
+  the app and the extension both (`WidgetSnapshot.swift` and `WidgetStore`,
+  `WidgetViews.swift`, and the look the two share: `Countdown.swift`,
+  `AtmospherePalette.swift`, `PaperGrain.swift`, `Hand.swift`,
+  `JournalColors.swift`, `NotePaper.swift`)
+- Project gen: `ios/project.yml` (two targets, `Stanley` and
+  `StanleyWidgets`; run `xcodegen generate` after adding files)
 - App icon: since build 23 a bookmark, the hold's own mark, sketched as one
   thin pen line in dark brown ink (#3B2F25) on the journal's cream
   (#F6F0E4): an outline, never a fill, a little off true as a hand draws,

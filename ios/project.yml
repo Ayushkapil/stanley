@@ -11,14 +11,20 @@ targets:
   Stanley:
     type: application
     platform: iOS
-    sources: [Stanley]
+    # `Shared` is what the app and its widget both draw with (build 40).
+    sources: [Stanley, Shared]
     dependencies:
       - package: Sentry
         product: Sentry
+      # The home screen widget (build 40), carried inside the app.
+      - target: StanleyWidgets
     entitlements:
       path: Stanley/Stanley.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # Where the app leaves what the widget shows. The widget reads this
+        # folder and nothing else: it makes no network calls of its own.
+        com.apple.security.application-groups: [group.com.ayushkapileshwar.stanley]
         # Push (build 18). "development" here; exporting for TestFlight or the
         # App Store re-signs it as production. Xcode's automatic signing turns
         # Push Notifications on for the App ID the first time it builds this.
@@ -39,7 +45,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "39"
+        CFBundleVersion: "40"
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to
@@ -79,3 +85,32 @@ targets:
           # The deployed pilot server (Fly). A TestFlight build has no localhost
           # to fall back to, so this is the only address it will ever have.
           STANLEY_API_BASE: "https://server-earnest-stream-9793.fly.dev"
+  # The home screen widget (build 40): three sizes of one widget, drawn from
+  # what the app last left in the shared App Group folder.
+  StanleyWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [StanleyWidgets, Shared]
+    entitlements:
+      path: StanleyWidgets/StanleyWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.ayushkapileshwar.stanley]
+    info:
+      path: StanleyWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Stanley
+        # The same two as the app's: the store refuses an extension whose
+        # version differs from the app that carries it.
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "40"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ayushkapileshwar.stanley.widgets
+        DEVELOPMENT_TEAM: 6P882KH9CZ
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        # An extension's own code only: nothing in it may call an API that
+        # isn't allowed outside an app.
+        APPLICATION_EXTENSION_API_ONLY: YES

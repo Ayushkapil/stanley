@@ -789,6 +789,8 @@ final class AppState {
     /// Taps on the tab already showing, for its page to scroll to its top or
     /// refresh (`TabTaps.swift`).
     let tabTaps = TabTaps()
+    /// Bumped when the home screen widget asks for Today (build 40).
+    var todayAsked = 0
 
     /// Post today's photo. True when it's up; false when there was no signal
     /// and it's kept on the phone to go up later.

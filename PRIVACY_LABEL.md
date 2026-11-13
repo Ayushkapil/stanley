@@ -179,6 +179,20 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   anywhere: a place reaches the server only as the label on a photo they post,
   as before. No maps or places service. Account deletion erases them from
   the phone.
+- The Home Screen widget (build 40) collects nothing. While a Stanley widget
+  is on the Home Screen, the app keeps on the phone, in the App Group folder
+  it shares with its widget extension (`group.com.ayushkapileshwar.stanley`),
+  small copies (480px) of up to four of the circle's newest photos, the
+  newest note on the board, the circle's name and its countdown. The widget
+  reads that folder and makes no network requests, so nothing new reaches
+  the server or anyone else and no label category changes. The copies are
+  excluded from device backups. They are replaced each time the app is
+  opened; the widget stops showing a photo and deletes its copy a day after
+  the app last wrote it, or when its six days are up; nothing is kept with
+  no widget installed, with the app lock on, or after sign-out. The one
+  consequence worth saying out loud: a photo its poster deletes can stay in
+  someone's widget until they next open the app, for about a day at most
+  (Privacy Policy §4, Terms §9).
 - Push notifications: when APNs is wired, the server stores a **device push
   token**. Tokens exist to deliver the five notices (the two reminders a person sets for themselves since build 39, last light, the
   digest, and since build 37 the circle-post notice) and are not an Apple

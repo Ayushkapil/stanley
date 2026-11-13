@@ -118,7 +118,9 @@ struct RootView: View {
         @Bindable var state = state
         LockGate {
             Group {
-                if !state.signedIn && !hasSeenOnboarding {
+                if Self.showsWidgetGallery {
+                    widgetGallery
+                } else if !state.signedIn && !hasSeenOnboarding {
                     // First launch, never signed in: introduce Stanley quietly,
                     // then fall through to Welcome. Shown once, ever.
                     OnboardingView {
@@ -216,9 +218,34 @@ struct RootView: View {
                 }
             }
         }
+        // The home screen widget's copy of Today, kept as the app goes
+        // (build 40), and its taps: the medium and large sizes open Today.
+        .background { WidgetFeeder() }
+        .onOpenURL { url in
+            if url.scheme == "stanley", url.host() == "today" { state.todayAsked += 1 }
+        }
         .preferredColorScheme(colorScheme)
         // Ambient seasonal tint — accents, tab bar, card edges (Part 5).
         .tint(Atmosphere.resolve(atmosphere).palette.accent)
+    }
+}
+
+extension RootView {
+    /// A Debug build asked to lay the widget's three sizes out on screen
+    /// (`WidgetGallery`); never in a build anyone is given.
+    fileprivate static var showsWidgetGallery: Bool {
+        #if DEBUG
+        WidgetGallery.asked
+        #else
+        false
+        #endif
+    }
+
+    @ViewBuilder
+    fileprivate var widgetGallery: some View {
+        #if DEBUG
+        WidgetGallery()
+        #endif
     }
 }
 
@@ -296,6 +323,9 @@ struct HomeView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
+        // A tap on the widget's medium or large size: Today, whatever tab
+        // the app was left on (build 40).
+        .onChange(of: state.todayAsked) { tab = .today }
         // A single ink above the tabs, as the dark room always had: the
         // three levels set inside each tab (`darkRoomInk`) reached the tab
         // bar's symbols and drew the selected one in ink instead of the

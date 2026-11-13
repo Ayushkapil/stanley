@@ -145,31 +145,6 @@ private struct ReminderSlip: View {
     }
 }
 
-/// A slip's outline: straight across the top where it was cut and down the
-/// sides, ragged along the bottom where it was torn off. The tears are its
-/// own, from the seed, so a note keeps its edge.
-private struct TornEdge: Shape {
-    let seed: UInt32
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - 2))
-        var state = seed | 1
-        var x = rect.maxX
-        while x > rect.minX {
-            // xorshift: a tooth every 3 to 6pt, up to 3pt deep.
-            state ^= state << 13; state ^= state >> 17; state ^= state << 5
-            x = max(rect.minX, x - CGFloat(3 + state % 4))
-            let depth = CGFloat((state >> 8) % 31) / 10
-            path.addLine(to: CGPoint(x: x, y: rect.maxY - depth))
-        }
-        path.closeSubpath()
-        return path
-    }
-}
-
 // MARK: - The flip clock
 
 /// 16 Days : 05 Hours : 23 Min : 51 Sec, each a little card of the
