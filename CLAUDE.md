@@ -823,7 +823,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (42)", at the
+  production audit), and the version, "Stanley 0.2.0 (43)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1353,10 +1353,23 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
+- **Build 43** (0.2.0) is the number to archive next: nothing new in it,
+  only the bump (November 13), so the next upload carries builds 41 and
+  42 under a number App Store Connect hasn't seen. The last build
+  uploaded is 40.
+- **Fly now** (2026-11-13): release **v25** runs `main` as of `7a2b2a0`:
+  both letters features, build 39's reminders if v24 hadn't already
+  brought them, and the November 13 Terms and Privacy. Checked after the
+  deploy: `/health` ok; `/terms` and `/privacy` say November 13 and the
+  policy has the letters paragraph; the new routes answer 401 without a
+  sign-in (`/circles/{id}/letters/mine`, `/reveal`, `/me/letters/sent`,
+  `/received`); `circle_letters`, `person_letters` and both `reports`
+  columns exist on the volume; `integrity_check.py` is all clear. The
+  older "Fly now" and "Fly before" paragraphs below are history.
 - **Build 42** (0.2.0) holds **two letters features, built by two
   sessions at once on November 13** and joined on the branch
-  `claude/letters-both`. Neither is archived, and neither's server side is
-  on Fly.
+  `claude/letters-both`, since merged into `main`. Neither is archived.
+  Both are on Fly (v25).
   - **Letters to the circle** (above): one unsigned letter a month to the
     whole circle. Built in a worktree on `claude/letters-to-the-circle`.
     New on the server: `circle_letters`, `reports.circle_letter_id`, the
@@ -1372,8 +1385,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   The join kept both whole: where they met (the report sheet's target,
   `AppState.report`, the moderation tool's command) the circle's letters
   took the longer name (`circleLetter`, `circle-letter`) and the sealed
-  ones kept `letter`. Against today's server the app shows neither,
-  quietly.
+  ones kept `letter`.
 - **Build 41** (0.2.0) is committed but not archived: the widget's light
   mode fix, above. Phone only; nothing on the server.
 - **Build 40** (0.2.0), the Home Screen widget, was archived on November
@@ -1387,11 +1399,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   changed for it but the two documents' words and date (November 12),
   which go out with the next `fly deploy`.
 - **Build 39** (0.2.0) was never archived on its own (build 40 carries
-  it): the polish pass below. **Its server side isn't on Fly yet** (four `users` columns for
-  the reminders, added on startup, off for everyone; the reminder pass in
-  the sweep; `/terms` and `/privacy`, dated November 12 since build 40).
-  Against today's server the app shows no reminder switches, and
-  everything else in the pass works, since it's all on the phone. Build 38 added the bigger
+  it): the polish pass below. Its server side (four `users` columns for
+  the reminders, off for everyone; the reminder pass in the sweep) is on
+  Fly as of v25 at the latest. Build 38 added the bigger
   flip clock and the day itself's note to everything in 37. Build 37
   (Circle Posts) was archived on November 7 at 4:18 PM, build 36 on
   November 6 at 8:21 PM and build 35 at 7:30 PM (Organizer); builds 34
