@@ -10,7 +10,7 @@ of editing the database by hand. This is that way, run on the server:
     ... story <story id>          take a story down
     ... answer <answer id>        take down an answer to the circle's question
     ... note <note id>            take a note off a circle's board
-    ... letter <letter id>        take down an anonymous letter to a circle
+    ... circle-letter <letter id> take down an anonymous letter to a circle
     ... resolve <report id>       close a report that needed nothing removed
     ... account <user id>         end an account (the Terms, section 6)
 
@@ -170,7 +170,7 @@ def take_down_note(session: Session, note_id: str, now: datetime) -> bool:
     return True
 
 
-def take_down_letter(session: Session, letter_id: str, now: datetime) -> bool:
+def take_down_circle_letter(session: Session, letter_id: str, now: datetime) -> bool:
     """An anonymous letter to a circle, removed for everyone (build 42). The
     reports about it keep their copy of its words and who wrote them."""
     letter = session.get(CircleLetter, letter_id)
@@ -183,13 +183,13 @@ def take_down_letter(session: Session, letter_id: str, now: datetime) -> bool:
         report.resolved_at = now
     session.delete(letter)
     session.flush()
-    log.warning("event=letter_taken_down reports_resolved=%d", len(reports))
+    log.warning("event=circle_letter_taken_down reports_resolved=%d", len(reports))
     return True
 
 
 def _about(r: Report) -> str:
     if r.circle_letter_id:
-        return f"letter {r.circle_letter_id}"
+        return f"circle letter {r.circle_letter_id}"
     if r.note_id:
         return f"note {r.note_id}"
     if r.comment_id:
@@ -246,8 +246,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     answer.add_argument("answer")
     note = sub.add_parser("note")
     note.add_argument("note")
-    letter = sub.add_parser("letter")
-    letter.add_argument("letter")
+    circle_letter = sub.add_parser("circle-letter")
+    circle_letter.add_argument("letter")
     res = sub.add_parser("resolve")
     res.add_argument("report")
     acct = sub.add_parser("account")
@@ -304,8 +304,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             ok = take_down_answer(session, args.answer, now)
         elif args.cmd == "note":
             ok = take_down_note(session, args.note, now)
-        elif args.cmd == "letter":
-            ok = take_down_letter(session, args.letter, now)
+        elif args.cmd == "circle-letter":
+            ok = take_down_circle_letter(session, args.letter, now)
         elif args.cmd == "account":
             ok = terminate_account(session, storage, args.user, now)
         else:

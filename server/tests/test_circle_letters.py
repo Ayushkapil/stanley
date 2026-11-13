@@ -379,8 +379,8 @@ def test_the_operator_takes_a_letter_down(circle, clock, db):
     shown = {letter["body"]: letter["id"] for letter in reveal(circle.ana, circle.id).json()["letters"]}
     report = circle.ana.report(circle_letter_id=shown["From C."], reason="a threat").json()["id"]
     with db() as s:
-        assert moderation.take_down_letter(s, shown["From C."], clock.now())
-        assert not moderation.take_down_letter(s, shown["From C."], clock.now())
+        assert moderation.take_down_circle_letter(s, shown["From C."], clock.now())
+        assert not moderation.take_down_circle_letter(s, shown["From C."], clock.now())
         s.commit()
     assert bodies(reveal(circle.ben, circle.id)) == ["From A.", "From B."]
     with db() as s:

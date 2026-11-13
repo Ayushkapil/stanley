@@ -163,7 +163,7 @@ enum ReportTarget {
     /// A note on the circle's board (build 27).
     case note(CommunityNote)
     /// An unsigned letter to the circle (build 42).
-    case letter(CircleLetter)
+    case circleLetter(CircleLetter)
 
     /// Whose it is. Nil for a letter: nobody's, as far as the app is told.
     var author: UserBrief? {
@@ -172,7 +172,7 @@ enum ReportTarget {
         case .story(let comment, _): comment.author
         case .answer(let answer): answer.author
         case .note(let note): note.author
-        case .letter: nil
+        case .circleLetter: nil
         }
     }
 
@@ -182,7 +182,7 @@ enum ReportTarget {
         case .story: "story"
         case .answer: "answer"
         case .note: "note"
-        case .letter: "letter"
+        case .circleLetter: "letter"
         }
     }
 }
@@ -228,7 +228,7 @@ struct ReportSheet: View {
     /// that the circle can't.
     private var whoReadsIt: String {
         let line = "Your report goes to the person who runs Stanley, not to \(name), and it's read within a day."
-        guard case .letter = target else { return line }
+        guard case .circleLetter = target else { return line }
         return line + " They can see who wrote a reported letter. You and your circle can't."
     }
 
@@ -318,16 +318,16 @@ struct ReportSheet: View {
         guard !reason.isEmpty, !sending else { return }
         sending = true
         Task {
-            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?, letter: CircleLetter?
+            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?, circleLetter: CircleLetter?
             switch target {
             case .photo(let p): photo = p
             case .story(let c, _): comment = c
             case .answer(let a): answer = a
             case .note(let n): note = n
-            case .letter(let l): letter = l
+            case .circleLetter(let l): circleLetter = l
             }
             let ok = await state.report(
-                photo: photo, comment: comment, answer: answer, note: note, letter: letter, reason: reason
+                photo: photo, comment: comment, answer: answer, note: note, circleLetter: circleLetter, reason: reason
             )
             sending = false
             if ok { withAnimation { sent = true } }

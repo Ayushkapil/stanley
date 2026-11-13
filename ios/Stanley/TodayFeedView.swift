@@ -64,7 +64,7 @@ struct TodayFeedView: View {
                     // Letters to the circle (build 42), in the question's
                     // place on the page: last month's while they're open,
                     // and this month's to write.
-                    if let letters = state.letters, letters.revealed != nil || letters.open {
+                    if let letters = state.circleLetters, letters.revealed != nil || letters.open {
                         CircleLetterCards(letters: letters)
                             .padding(.bottom, Spacing.section)
                             .id("letters")
@@ -161,7 +161,7 @@ struct TodayFeedView: View {
                 await state.loadCircle()
                 await state.refreshToday()
                 await state.loadQuestion()
-                await state.loadLetters()
+                await state.loadCircleLetters()
                 await state.flushPendingCapture()
             }
             .background(SideDockReader(dock: $sideDock))
@@ -196,14 +196,14 @@ struct TodayFeedView: View {
                     await state.loadCircle()
                     await state.refreshToday()
                     await state.loadQuestion()
-                    await state.loadLetters()
+                    await state.loadCircleLetters()
                     await state.flushPendingCapture()
                 }.value
             }
             .task {
                 await state.refreshToday()
                 await state.loadQuestion()
-                await state.loadLetters()
+                await state.loadCircleLetters()
                 await state.flushPendingCapture()
             }
           }

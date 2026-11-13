@@ -1167,7 +1167,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     (`reports.circle_letter_id`, not a foreign key) keeps the letter's
     words and its writer's id in `reason`, since the letter is gone
     within the week; the reporter is told nothing of whose it was.
-    `moderation.py letter <id>` takes one down, and `show` names its
+    `moderation.py circle-letter <id>` takes one down, and `show` names its
     writer. The export carries your own letters that still exist.
   - **In Today**, where the week's question sits (`CircleLetterCards`):
     an envelope drawn in pen (`EnvelopeMark`) beside "Write something
@@ -1186,13 +1186,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     Motion. Each is on a slip of barely tinted paper torn along the
     bottom, a little crooked and a little off the middle, its words in
     the hand. The paper, lean and tilt come from the letter's id
-    (`LetterPaper`), never from a person, and aren't the mention tones.
+    (`CircleLetterPaper`), never from a person, and aren't the mention tones.
     The ink fades over the week as a photo does. A long press reports a
     letter (the sheet says the operator can see who wrote a reported
     letter, and offers no block, there being nobody to name) or, on your
     own, takes it back; the app knows which is its own person's only
     because `/letters/mine` said so. No counts, no replies, no reactions.
-  - A light haptic when a letter is sealed (`Haptics.letterSealed`).
+  - A light haptic when a letter is sealed (`Haptics.circleLetterSealed`).
   - **Checked on the iPhone 17 Pro simulator** against a scratch circle
     with a server whose clock was moved into December: writing, the
     sealed card, the reveal card, the letters opening one by one, a

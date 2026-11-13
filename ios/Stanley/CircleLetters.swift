@@ -77,7 +77,7 @@ enum LetterMonth {
 /// The papers letters are written on: a handful of barely tinted stocks,
 /// chosen by the letter's own id. Not the mention tones, and nothing to do
 /// with who wrote it. Lamplit in the dark room, as a sticky note is.
-enum LetterPaper {
+enum CircleLetterPaper {
     private static let stocks: [(Double, Double, Double)] = [
         (1.00, 0.985, 0.94),  // cream
         (0.94, 0.965, 0.99),  // a little blue
@@ -429,7 +429,7 @@ struct LetterWritingSheet: View {
             .interactiveDismissDisabled(changed || sealing)
             .alert("Take your letter back?", isPresented: $confirmTakeBack) {
                 Button("Take It Back", role: .destructive) {
-                    Task { if await state.takeBackLetter() { dismiss() } }
+                    Task { if await state.takeBackCircleLetter() { dismiss() } }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -445,8 +445,8 @@ struct LetterWritingSheet: View {
     private func seal() {
         sealing = true
         Task {
-            if await state.sealLetter(text.trimmedWords) {
-                Haptics.letterSealed()
+            if await state.sealCircleLetter(text.trimmedWords) {
+                Haptics.circleLetterSealed()
                 dismiss()
             }
             sealing = false
@@ -469,7 +469,7 @@ struct OpenedLettersSheet: View {
     @State private var asked = false
 
     /// Yours among them, as the app last heard: nil once it's taken back.
-    private var mine: String? { state.letters?.revealed?.letter?.id }
+    private var mine: String? { state.circleLetters?.revealed?.letter?.id }
 
     var body: some View {
         NavigationStack {
@@ -534,7 +534,7 @@ struct OpenedLettersSheet: View {
     }
 
     private func load() async {
-        let loaded = await state.openedLetters()
+        let loaded = await state.openedCircleLetters()
         if loaded != nil || opened == nil { opened = loaded }
         asked = true
     }
@@ -565,7 +565,7 @@ struct LetterSlip: View {
     @State private var confirmTakeBack = false
 
     var body: some View {
-        let seed = LetterPaper.seed(letter.id)
+        let seed = CircleLetterPaper.seed(letter.id)
         let dark = DarkRoom.isDark(colorScheme)
         let edge = TornEdge(seed: seed)
         Text(letter.body)
@@ -579,13 +579,13 @@ struct LetterSlip: View {
             .padding(.top, 18)
             .padding(.bottom, 22)
             .background {
-                edge.fill(LetterPaper.color(seed, colorScheme))
+                edge.fill(CircleLetterPaper.color(seed, colorScheme))
                     .overlay(PaperGrainView(strength: 0.35).clipShape(edge))
                     .shadow(color: .black.opacity(dark ? 0.5 : 0.07), radius: 9, x: 0, y: 5)
                     .shadow(color: .black.opacity(dark ? 0.4 : 0.13), radius: 2, x: 0.5, y: 1.5)
             }
-            .rotationEffect(.degrees(LetterPaper.tilt(seed)))
-            .offset(x: LetterPaper.lean(seed))
+            .rotationEffect(.degrees(CircleLetterPaper.tilt(seed)))
+            .offset(x: CircleLetterPaper.lean(seed))
             .opacity(stage == 2 ? 1 : 0)
             .scaleEffect(stage == 2 ? 1 : 0.9, anchor: .top)
             .offset(y: stage == 2 || reduceMotion ? 0 : 26)
@@ -613,11 +613,11 @@ struct LetterSlip: View {
             .accessibilityLabel("A letter. \(letter.body)")
             .onAppear(perform: open)
             .sheet(isPresented: $reporting) {
-                ReportSheet(target: .letter(letter))
+                ReportSheet(target: .circleLetter(letter))
             }
             .alert("Take your letter back?", isPresented: $confirmTakeBack) {
                 Button("Take It Back", role: .destructive) {
-                    Task { if await state.takeBackLetter(month: month) { onTakenBack() } }
+                    Task { if await state.takeBackCircleLetter(month: month) { onTakenBack() } }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {

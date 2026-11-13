@@ -31,7 +31,7 @@ enum Haptics {
     static func answered() { impact(.light, "answered") }
 
     /// Your letter to the circle, sealed (or changed and sealed again).
-    static func letterSealed() { impact(.light, "letter sealed") }
+    static func circleLetterSealed() { impact(.light, "letter sealed") }
 
     /// Today's photo is up: posted, not merely queued for later.
     static func posted() {
