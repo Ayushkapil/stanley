@@ -160,6 +160,13 @@ struct ProfileView: View {
                             }
                         }
                     }
+                    // Letters you can write to someone in the circle for one
+                    // day in the future (build 42). Shown before Journal
+                    // because it's the one thing on this page that leaves
+                    // the page: the rest only you see.
+                    LettersOnYou()
+                        .padding(.top, Spacing.chapter)
+
                     // Your reflections, newest week first (build 26).
                     JournalSectionHead(label: "Only you see this", title: "Journal")
                         .padding(.top, Spacing.chapter)

@@ -10,6 +10,7 @@ of editing the database by hand. This is that way, run on the server:
     ... story <story id>          take a story down
     ... answer <answer id>        take down an answer to the circle's question
     ... note <note id>            take a note off a circle's board
+    ... letter <letter id>        take a letter away (build 42)
     ... resolve <report id>       close a report that needed nothing removed
     ... account <user id>         end an account (the Terms, section 6)
 
@@ -36,7 +37,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .decay import delete_comments, scrub
-from .models import CircleNote, CirclePrompt, Comment, Photo, PromptResponse, Report, User
+from .models import CircleNote, CirclePrompt, Comment, PersonLetter, Photo, PromptResponse, Report, User
 
 log = logging.getLogger("stanley")
 
@@ -153,6 +154,25 @@ def take_down_answer(session: Session, response_id: str, now: datetime) -> bool:
     return True
 
 
+def take_down_letter(session: Session, letter_id: str, now: datetime) -> bool:
+    """A letter (build 42), removed for everyone. The reports about it
+    detach (set null) so a report can still be closed."""
+    letter = session.get(PersonLetter, letter_id)
+    if letter is None:
+        return False
+    reports = session.scalars(
+        select(Report).where(Report.resolved_at.is_(None), Report.letter_id == letter_id)
+    ).all()
+    for report in reports:
+        report.resolved_at = now
+    session.execute(
+        Report.__table__.update().where(Report.letter_id == letter_id).values(letter_id=None)
+    )
+    session.delete(letter)
+    log.warning("event=letter_taken_down reports_resolved=%d", len(reports))
+    return True
+
+
 def take_down_note(session: Session, note_id: str, now: datetime) -> bool:
     """A note off a circle's board, for everyone (build 27). The reports about
     it keep their copy of its words."""
@@ -176,6 +196,8 @@ def _about(r: Report) -> str:
         return f"story {r.comment_id}"
     if r.response_id:
         return f"answer {r.response_id}"
+    if r.letter_id:
+        return f"letter {r.letter_id}"
     if r.photo_id:
         return f"photo {r.photo_id}"
     return "(what it was about is gone)"
@@ -226,6 +248,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     answer.add_argument("answer")
     note = sub.add_parser("note")
     note.add_argument("note")
+    letter = sub.add_parser("letter")
+    letter.add_argument("letter")
     res = sub.add_parser("resolve")
     res.add_argument("report")
     acct = sub.add_parser("account")
@@ -257,6 +281,13 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
                 print(f"answer {r.response_id} by {a.user_id if a else '?'}: {a.body if a else '(gone)'}")
                 if q is not None:
                     print(f"to the question of the week of {q.week_start} in circle {q.circle_id}: {q.prompt}")
+            if r.letter_id:
+                le = session.get(PersonLetter, r.letter_id)
+                if le is None:
+                    print(f"letter {r.letter_id}: (gone)")
+                else:
+                    print(f"letter {r.letter_id} from {le.sender_id} to {le.recipient_id} for {le.deliver_at}")
+                    print(f"occasion: {le.occasion!r}\nbody: {le.body}")
             p = session.get(Photo, r.photo_id) if r.photo_id else None
             if p is not None:
                 print(f"photo {p.id} state {p.state} caption {p.caption!r}")
@@ -271,6 +302,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             ok = take_down_answer(session, args.answer, now)
         elif args.cmd == "note":
             ok = take_down_note(session, args.note, now)
+        elif args.cmd == "letter":
+            ok = take_down_letter(session, args.letter, now)
         elif args.cmd == "account":
             ok = terminate_account(session, storage, args.user, now)
         else:

@@ -460,3 +460,49 @@ struct CircleJournalPage: Codable {
     let prompts: [PastQuestion]
     let nextCursor: String?
 }
+
+// MARK: - Letters to your circle (build 42)
+
+/// One letter the server shows you. A sealed envelope carries sender/date/
+/// occasion and nothing of the words; an opened letter carries the body.
+/// Both shapes decode into the same struct — fields the other side wouldn't
+/// have are optional.
+struct Letter: Codable, Identifiable, Hashable {
+    let id: String
+    /// Set for the recipient: whose words these are. Nil on the sender's own
+    /// sent list (the server sends `recipient` instead).
+    let sender: UserBrief?
+    /// Set for the sender: whom the letter is for.
+    let recipient: UserBrief?
+    /// YYYY-MM-DD, the day the seal may be broken (UTC).
+    let deliverAt: String
+    let occasion: String?
+    let sealed: Bool
+    /// The words, only on an opened letter the recipient is reading.
+    let body: String?
+    /// True once a sealed letter's day has come, for the recipient's view.
+    let deliverable: Bool?
+    /// Set on the sender's view of each letter they wrote: true while nobody
+    /// has opened it.
+    let senderCanDelete: Bool?
+    let createdAt: Date?
+    let openedAt: Date?
+
+    /// `deliverAt` as a calendar day in whoever's reading's zone. The server
+    /// enforces "the day" against UTC; the UI shows it as a plain date.
+    var deliveryDay: Date? {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f.date(from: deliverAt)
+    }
+}
+
+struct SentLetters: Codable {
+    let letters: [Letter]
+}
+
+struct ReceivedLetters: Codable {
+    let sealed: [Letter]
+    let opened: [Letter]
+}

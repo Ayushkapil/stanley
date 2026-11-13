@@ -122,6 +122,13 @@ struct MemoriesView: View {
             Group {
                 masthead
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 8, trailing: 20))
+                // Letters to you (build 42): sealed envelopes, then opened
+                // ones, tucked in at the top of the album the way real
+                // letters sit inside a photo album.
+                if !state.lettersReceived.sealed.isEmpty || !state.lettersReceived.opened.isEmpty {
+                    LettersOnHeld()
+                        .listRowInsets(EdgeInsets(top: Spacing.chapter, leading: 20, bottom: 0, trailing: 20))
+                }
                 if showsEmpty {
                     emptyNote
                         .listRowInsets(EdgeInsets(top: Spacing.section, leading: 22, bottom: 0, trailing: 22))
@@ -177,6 +184,9 @@ struct MemoriesView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Spacing.chapter) {
                 masthead
+                if !state.lettersReceived.sealed.isEmpty || !state.lettersReceived.opened.isEmpty {
+                    LettersOnHeld()
+                }
                 if showsEmpty {
                     emptyNote
                 }

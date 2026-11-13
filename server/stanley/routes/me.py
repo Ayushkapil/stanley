@@ -8,7 +8,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,8 @@ from ..text import clean
 from ..milestones import milestone_payload, surface_due
 from ..models import (
     Anchor, Block, CircleNote, CirclePrompt, Comment, JournalEntry, Like, Membership, Milestone,
-    NotificationLog, Photo, PhotoTag, PromptResponse, PushToken, Rest, ReturnedLog, User, WeeklyReflection,
+    NotificationLog, PersonLetter, Photo, PhotoTag, PromptResponse, PushToken, Report, Rest,
+    ReturnedLog, User, WeeklyReflection,
 )
 from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
 from .journal import delete_answers
@@ -464,6 +465,18 @@ def delete_account(
     db.execute(delete(WeeklyReflection).where(WeeklyReflection.owner_id == user.id))
     db.execute(delete(JournalEntry).where(JournalEntry.owner_id == user.id))
     delete_answers(db, db.scalars(select(PromptResponse).where(PromptResponse.user_id == user.id)).all())
+    # Build 42: letters either way. A letter was written to a person, so
+    # either ending takes it — the words were for them, not for anyone else
+    # who might inherit a half of the thread. Reports about one detach
+    # (set null), so an opened report can still be closed.
+    letters_gone = db.scalars(
+        select(PersonLetter).where(
+            or_(PersonLetter.sender_id == user.id, PersonLetter.recipient_id == user.id)
+        )
+    ).all()
+    for letter in letters_gone:
+        db.execute(update(Report).where(Report.letter_id == letter.id).values(letter_id=None))
+        db.delete(letter)
 
     if user.avatar_key:
         storage.delete(user.avatar_key)
