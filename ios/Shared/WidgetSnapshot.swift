@@ -28,10 +28,9 @@ struct WidgetSnapshot: Codable, Equatable {
     var writtenAt: Date
     var signedIn: Bool
     var circleName: String?
-    /// The atmosphere, and the app's own light or dark if one is forced
-    /// ("system", "light", "dark"), so the widget is the same paper.
+    /// The atmosphere, so the widget is the same paper. Light or dark is the
+    /// home screen's own: the app's Appearance setting isn't carried here.
     var atmosphere: String = "auto"
-    var appearance: String = "system"
     var countdown: Countdown?
     /// The phone's own day ("2026-11-12") on which today's photo is up, or
     /// waiting to go up. Any other day, there's one photo waiting.

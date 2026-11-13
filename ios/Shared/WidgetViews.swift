@@ -45,7 +45,12 @@ struct StanleyWidgetView: View {
     private var dark: Bool { colorScheme == .dark }
     private var palette: Atmosphere.Palette { Atmosphere.resolve(snapshot.atmosphere).palette }
     private var ink: Color { DarkRoom.ink }
-    private var quiet: Color { DarkRoom.ink.opacity(dark ? 0.55 : 0.62) }
+    /// Small capitals and asides. On paper the ink is held back less than
+    /// in the dark room: gray on cream loses more than gray on black.
+    private var quiet: Color { DarkRoom.ink.opacity(dark ? 0.55 : 0.7) }
+    /// A whole sentence the widget says when it has nothing to show. It's
+    /// the only thing to read there, so on paper it's close to full ink.
+    private var said: Color { DarkRoom.ink.opacity(dark ? 0.55 : 0.85) }
     private var phase: Countdown.Phase? { snapshot.phase(at: date) }
     private var note: WidgetSnapshot.Note? { snapshot.note(at: date) }
 
@@ -82,7 +87,7 @@ struct StanleyWidgetView: View {
                 .font(.handFixed(size == .small ? 26 : 30, bold: true))
             Text(snapshot.signedIn ? "Join a circle to begin." : "Open Stanley to see your circle.")
                 .font(.handFixed(15))
-                .foregroundStyle(quiet)
+                .foregroundStyle(said)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             rule
@@ -183,7 +188,7 @@ struct StanleyWidgetView: View {
                      ? "Nothing in the light right now."
                      : "Open Stanley to see your circle.")
                     .font(.handFixed(17))
-                    .foregroundStyle(quiet)
+                    .foregroundStyle(said)
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
             } else {
                 HStack(alignment: .top, spacing: 14) {
@@ -228,7 +233,7 @@ struct StanleyWidgetView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 3)
             if let until = phase.until {
-                WidgetClock(remaining: until.timeIntervalSince(date), card: palette.card)
+                WidgetClock(remaining: until.timeIntervalSince(date))
                     .padding(.top, 8)
             } else {
                 mark(phase).padding(.top, 8)
@@ -370,10 +375,16 @@ struct WidgetPrint: View {
 /// What's left, to the minute: Days, Hours, Min, each on a little card
 /// split by a hairline, as the app's flip clock is. The widget's timeline
 /// turns it over on each whole minute; there are no seconds to watch.
+///
+/// On paper a card is photo paper, the white a print's border is, with a
+/// hairline round it and a print's soft shadow under it. The app's clock
+/// sits on the atmosphere's card color, which on the widget's small page
+/// was all but the paper itself (Fall's is the floor with a little less
+/// tone): the digits looked typed on the page, not set on cards. In the
+/// dark room it's black boxed in the room's gray, as it was.
 struct WidgetClock: View {
     @Environment(\.colorScheme) private var colorScheme
     let remaining: TimeInterval
-    let card: Color
 
     var body: some View {
         let left = Countdown.clock(remaining)
@@ -397,24 +408,24 @@ struct WidgetClock: View {
                 .monospacedDigit()
                 .frame(width: 36, height: 30)
                 .background {
-                    shape.fill(dark ? Color.black : Color.white.opacity(0.55))
-                    shape.fill(dark ? Color.clear : card)
+                    shape.fill(dark ? Color.black : PrintStock.paper)
+                        .shadow(color: .black.opacity(dark ? 0 : 0.16), radius: 1.5, x: 0, y: 1)
                 }
-                .overlay(Rectangle().fill(DarkRoom.line(0.18)).frame(height: 0.5))
-                .overlay(shape.strokeBorder(DarkRoom.line(dark ? 1 : 0.22), lineWidth: dark ? 1 : 0.5))
+                .overlay(Rectangle().fill(DarkRoom.line(dark ? 0.18 : 0.22)).frame(height: 0.5))
+                .overlay(shape.strokeBorder(DarkRoom.line(dark ? 1 : 0.34), lineWidth: dark ? 1 : 0.75))
             Text(name)
                 .font(.handFixed(9, bold: true))
                 .textCase(.uppercase)
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(DarkRoom.ink.opacity(dark ? 0.55 : 0.62))
+                .foregroundStyle(DarkRoom.ink.opacity(dark ? 0.55 : 0.7))
         }
     }
 
     private var colon: some View {
         Text(":")
             .font(.system(size: 16, weight: .semibold, design: .rounded))
-            .foregroundStyle(DarkRoom.ink.opacity(0.5))
+            .foregroundStyle(DarkRoom.ink.opacity(colorScheme == .dark ? 0.5 : 0.62))
             .frame(height: 30)
     }
 }

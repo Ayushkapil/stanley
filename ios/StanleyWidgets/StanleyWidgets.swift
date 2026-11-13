@@ -105,26 +105,16 @@ struct StanleyWidgetEntryView: View {
         }
     }
 
-    /// The app's own light or dark, when the person has set one; otherwise
-    /// the phone's.
-    private var forced: ColorScheme? {
-        switch entry.snapshot.appearance {
-        case "light": .light
-        case "dark": .dark
-        default: nil
-        }
-    }
-
+    /// Light or dark is the home screen's, never the app's own setting.
+    /// Build 40 followed the app when it was set to Light or Dark, but the
+    /// system draws a widget's container background in the home screen's
+    /// appearance whatever the content is told: with the app set to Dark on
+    /// a light phone, the dark room's warm white words landed on cream paper
+    /// and couldn't be read.
     var body: some View {
-        Group {
-            if let forced {
-                page.environment(\.colorScheme, forced)
-            } else {
-                page
-            }
-        }
-        // The small one opens Stanley as it was left; the others open Today.
-        .widgetURL(URL(string: size == .small ? "stanley://open" : "stanley://today"))
+        page
+            // The small one opens Stanley as it was left; the others open Today.
+            .widgetURL(URL(string: size == .small ? "stanley://open" : "stanley://today"))
     }
 
     /// An entry is drawn as it reads a second in: an entry on the whole

@@ -801,7 +801,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (40)", at the
+  production audit), and the version, "Stanley 0.2.0 (41)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1022,8 +1022,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   `ios/StanleyWidgets/`, `ios/Shared/`, `WidgetFeed.swift`; screenshots in
   `docs/widget-build40/`). One WidgetKit widget, "Your circle", in three
   sizes, drawn on the atmosphere's paper (grained in light, the dark room's
-  black in dark, the app's own forced appearance if one is set) in the
-  journal's hand and small capitals:
+  black in dark; light or dark is the Home Screen's, never the app's own
+  Appearance setting, since build 41, below) in the journal's hand and
+  small capitals:
   - **Small:** with a countdown running, the day's note as a torn slip
     under tape and the phase's words ("10 days for Home") over the circle's
     name; with none, the circle's name, the date, and "Today's moment"
@@ -1084,6 +1085,24 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   with no widget installed and filled again once one was added and the app
   opened. Not seen: a real phone, the Duo, the Lock Screen (no accessory
   sizes exist), or a full day passing.
+  **Build 41** (November 13, 2026; screenshots in `docs/widget-build41/`)
+  fixed light mode. Build 40 drew the widget's content in the app's own
+  Appearance when it was set to Light or Dark, but the system draws a
+  widget's container background in the Home Screen's appearance whatever
+  the content's environment says. With the app set to Dark on a light
+  phone, the dark room's warm white words, black clock cards and bare
+  photos landed on cream paper and couldn't be read
+  (`before-app-dark-phone-light.jpg`). Now the widget follows the Home
+  Screen alone: `WidgetSnapshot.appearance` is gone, and nothing overrides
+  `colorScheme`. On paper, small capitals and asides are the ink at 70%
+  (62% before), a sentence the widget says when it has nothing to show
+  ("Open Stanley to see your circle.") at 85%, and the clock's cards are
+  photo paper with a hairline and a print's soft shadow (they were the
+  atmosphere's card color, all but the paper itself). The dark room's
+  values are untouched. Checked on the 17 Pro simulator's real Home
+  Screen: large, medium and small in light, large and medium in dark
+  (the large one with the app still set to Dark, the case that broke),
+  and the no-photos line with the app lock on.
 - **The polish pass** (build 39, November 11, 2026; `Polish.swift`,
   `HeldViewer.swift`; screenshots in `docs/polish-build39/`). No feature
   changed but the two reminders above; everything is quick, silent, and
@@ -1237,18 +1256,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 40** (0.2.0) is committed but not archived: the Home Screen
-  widget. It adds a second target, so **the first archive has to register
-  two things with Apple**: the App Group
+- **Build 41** (0.2.0) is committed but not archived: the widget's light
+  mode fix, above. Phone only; nothing on the server.
+- **Build 40** (0.2.0), the Home Screen widget, was archived on November
+  13 at 12:52 PM and uploaded from Organizer (the archive records an
+  upload with no errors), so the App Group
   `group.com.ayushkapileshwar.stanley` and the widget's App ID
-  `com.ayushkapileshwar.stanley.widgets`, each with its own provisioning
-  profile. Automatic signing should do both from Xcode's Organizer; an
-  `xcodebuild -exportArchive` with the old `ExportOptions.plist` may need
-  `-allowProvisioningUpdates`. Nothing on the server changed for it but
-  the two documents' words and date (November 12), which go out with the
-  next `fly deploy`.
-- **Build 39** (0.2.0) is committed but not archived: the polish pass
-  below. **Its server side isn't on Fly yet** (four `users` columns for
+  `com.ayushkapileshwar.stanley.widgets` are registered. It carries build
+  39's polish pass too, and the widget's light mode bug that build 41
+  fixes. An `xcodebuild -exportArchive` with the old `ExportOptions.plist`
+  may still need `-allowProvisioningUpdates`. Nothing on the server
+  changed for it but the two documents' words and date (November 12),
+  which go out with the next `fly deploy`.
+- **Build 39** (0.2.0) was never archived on its own (build 40 carries
+  it): the polish pass below. **Its server side isn't on Fly yet** (four `users` columns for
   the reminders, added on startup, off for everyone; the reminder pass in
   the sweep; `/terms` and `/privacy`, dated November 12 since build 40).
   Against today's server the app shows no reminder switches, and

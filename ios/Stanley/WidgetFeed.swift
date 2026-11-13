@@ -19,12 +19,11 @@ import WidgetKit
 struct WidgetFeeder: View {
     @Environment(AppState.self) private var state
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.appLock") private var appLock = false
 
     var body: some View {
-        let draft = WidgetFeed.Draft(state, atmosphere: atmosphere, appearance: appearance, locked: appLock)
+        let draft = WidgetFeed.Draft(state, atmosphere: atmosphere, locked: appLock)
         Color.clear
             .frame(width: 0, height: 0)
             .accessibilityHidden(true)
@@ -65,7 +64,6 @@ enum WidgetFeed {
         let signedIn: Bool
         let circleName: String?
         let atmosphere: String
-        let appearance: String
         let locked: Bool
         let countdown: Countdown?
         let posted: Bool
@@ -73,12 +71,11 @@ enum WidgetFeed {
         let shots: [Shot]
 
         @MainActor
-        init(_ state: AppState, atmosphere: String, appearance: String, locked: Bool) {
+        init(_ state: AppState, atmosphere: String, locked: Bool) {
             signedIn = state.signedIn
             pending = state.signedIn && (!state.checkedCircle || (state.circle != nil && !state.todayLoaded))
             circleName = state.circle?.name
             self.atmosphere = atmosphere
-            self.appearance = appearance
             self.locked = locked
             countdown = state.circle?.countdown
             posted = state.sharedToday != nil || state.holdsTheDay
@@ -139,7 +136,6 @@ enum WidgetFeed {
             signedIn: true,
             circleName: draft.circleName,
             atmosphere: draft.atmosphere,
-            appearance: draft.appearance,
             countdown: draft.countdown,
             postedOn: draft.posted ? WidgetSnapshot.day(.now) : nil,
             note: wanted ? draft.note : nil,
