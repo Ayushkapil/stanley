@@ -14,6 +14,7 @@ from ..deps import (
 )
 from ..models import Block, CircleNote, Comment, Photo, Report, User
 from ..ratelimit import per_person
+from .circle_letters import readable_letter
 from .journal import readable_answer
 from ..serialize import blocked_ids, user_brief
 from ..text import clean
@@ -30,6 +31,8 @@ class ReportBody(BaseModel):
     response_id: str | None = Field(default=None, max_length=64)
     # A note on the circle's board (build 27).
     note_id: str | None = Field(default=None, max_length=64)
+    # An anonymous letter to the circle (build 42).
+    circle_letter_id: str | None = Field(default=None, max_length=64)
     # Never run through the word filter: a report may have to quote what
     # it's about.
     reason: str = Field(min_length=1, max_length=2000)
@@ -51,8 +54,8 @@ def report(
     """§15: report with a 24h human-review takedown commitment (App Review
     Guideline 1.2). Pilot-stage review is manual."""
     require_membership(db, user)
-    if not (body.photo_id or body.comment_id or body.response_id or body.note_id):
-        raise HTTPException(400, "photo_id, comment_id, response_id or note_id required")
+    if not (body.photo_id or body.comment_id or body.response_id or body.note_id or body.circle_letter_id):
+        raise HTTPException(400, "photo_id, comment_id, response_id, note_id or circle_letter_id required")
     if body.photo_id:
         photo = db.get(Photo, body.photo_id)
         if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
@@ -80,12 +83,27 @@ def report(
         ):
             raise HTTPException(404, "not found")
         reason = f"{reason}\n\nThe note, by {note.author_id}: {note.body}"
+    if body.circle_letter_id:
+        # Only a letter you could have read: opened, in a circle you were
+        # in when it opened. It's deleted within the week (sooner, if its
+        # writer takes it back), so the report keeps its words, and who
+        # wrote them. A letter is unsigned to the circle, never to the
+        # person who has to act on a report; nothing of this goes back to
+        # the reporter.
+        letter = readable_letter(db, user, body.circle_letter_id, clock.now())
+        if letter is None:
+            raise HTTPException(404, "not found")
+        reason = (
+            f"{reason}\n\nThe letter, by {letter.author_id}, to circle {letter.circle_id} "
+            f"for {letter.month:%Y-%m}: {letter.body}"
+        )
     row = Report(
         reporter_id=user.id,
         photo_id=body.photo_id,
         comment_id=body.comment_id,
         response_id=body.response_id,
         note_id=body.note_id,
+        circle_letter_id=body.circle_letter_id,
         reason=reason,
         created_at=clock.now(),
     )

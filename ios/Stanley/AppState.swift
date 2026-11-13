@@ -41,6 +41,10 @@ final class AppState {
     /// The circle on screen's question of the week, and your answer to it
     /// (build 26). Nil before it's loaded, and from an older server.
     var question: WeekQuestion?
+    /// The circle on screen's letters (build 42): your own for this month,
+    /// and whether last month's are open. Nil before it's loaded, and from
+    /// a server that doesn't have them.
+    var letters: CircleLetterState?
     /// Today's photo, just posted: the one the quiet "Anything else about
     /// today?" slip sits under, until something's written or it's put away.
     /// Doing nothing is skipping it, and it's gone at the next launch.
@@ -219,6 +223,7 @@ final class AppState {
         await loadCircle()
         await refreshToday()
         await loadQuestion()
+        await loadLetters()
         await refreshMemories()
         await loadProfile()
         reloads += 1
@@ -371,6 +376,7 @@ final class AppState {
         mosaic = nil
         returned = nil
         question = nil
+        letters = nil
         journalOffer = nil
         thisWeek = nil
         reflections = []
@@ -464,10 +470,12 @@ final class AppState {
         notes = []
         mosaic = nil
         question = nil
+        letters = nil
         journalOffer = nil
         await loadCircle()
         await refreshToday()
         await loadQuestion()
+        await loadLetters()
     }
 
     /// The circle on screen is gone (left, or removed, on another phone).
@@ -480,6 +488,7 @@ final class AppState {
         notes = []
         mosaic = nil
         question = nil
+        letters = nil
         journalOffer = nil
         await loadCircle()
     }
@@ -940,6 +949,85 @@ final class AppState {
         }
     }
 
+    // MARK: letters to the circle (build 42)
+    //
+    // One unsigned letter each a month, sealed until the month is over and
+    // then read together for seven days. The server never says whose a
+    // letter is; the app knows its own person's only from asking for it.
+
+    /// Your letter this month and whether last month's are open. Loaded
+    /// with Today, like the question.
+    func loadLetters() async {
+        guard let circleId = circle?.id else {
+            letters = nil
+            return
+        }
+        do {
+            let loaded: CircleLetterState = try await api.send(
+                "GET", "/circles/\(circleId)/letters/mine", query: ["tz": TimeZone.current.identifier]
+            )
+            guard circle?.id == circleId else { return }
+            letters = loaded
+        } catch APIError.status(404) {
+            // A server from before the letters.
+            letters = nil
+        } catch {
+            // Keep what was showing; Today says if it's offline.
+        }
+    }
+
+    /// Seal this month's letter, or change it. True once the server has it;
+    /// otherwise the words stay where they were written, with the reason
+    /// said.
+    func sealLetter(_ text: String) async -> Bool {
+        guard let circleId = circle?.id else { return false }
+        do {
+            let sealed: CircleLetterState = try await api.send(
+                "POST", "/circles/\(circleId)/letters",
+                json: ["body": text, "tz": TimeZone.current.identifier]
+            )
+            Trail.note(.sealedLetter)
+            if circle?.id == circleId { letters = sealed }
+            return true
+        } catch {
+            surface(error)
+            // The month's letters opened meanwhile: show it as it is.
+            if case APIError.server = error { await loadLetters() }
+            return false
+        }
+    }
+
+    /// Take your letter back: this month's while it's sealed, or (naming
+    /// its month) one that has opened, which goes for everyone. True once
+    /// it's gone.
+    func takeBackLetter(month: String? = nil) async -> Bool {
+        guard let circleId = circle?.id else { return false }
+        var query = ["tz": TimeZone.current.identifier]
+        if let month { query["month"] = month }
+        do {
+            let _: Empty = try await api.send("DELETE", "/circles/\(circleId)/letters/mine", query: query)
+            await loadLetters()
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// The circle's letters, once they've opened. Nil when they can't be
+    /// had (still sealed, gone, or no connection).
+    func openedLetters() async -> OpenedLetters? {
+        guard let circleId = circle?.id else { return nil }
+        do {
+            let opened: OpenedLetters = try await api.send("GET", "/circles/\(circleId)/letters/reveal")
+            Trail.note(.readLetters)
+            return opened
+        } catch {
+            missed(error)
+            return nil
+        }
+    }
+
     /// A page of the circle journal: past weeks' questions and answers.
     func circleJournal(cursor: String?) async throws -> CircleJournalPage {
         guard let circleId = circle?.id else { return CircleJournalPage(prompts: [], nextCursor: nil) }
@@ -1181,14 +1269,14 @@ final class AppState {
     /// person within a day (Terms §5). True once it's in.
     func report(
         photo: Photo? = nil, comment: Comment? = nil, answer: Answer? = nil, note: CommunityNote? = nil,
-        reason: String
+        letter: CircleLetter? = nil, reason: String
     ) async -> Bool {
         do {
             let _: Empty = try await api.send(
                 "POST", "/reports",
                 json: [
                     "photo_id": photo?.id, "comment_id": comment?.id, "response_id": answer?.id,
-                    "note_id": note?.id, "reason": reason,
+                    "note_id": note?.id, "circle_letter_id": letter?.id, "reason": reason,
                 ]
             )
             Trail.note(.reported)

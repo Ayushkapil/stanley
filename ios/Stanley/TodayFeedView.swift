@@ -61,6 +61,14 @@ struct TodayFeedView: View {
                             .padding(.bottom, Spacing.section)
                             .id("question")
                     }
+                    // Letters to the circle (build 42), in the question's
+                    // place on the page: last month's while they're open,
+                    // and this month's to write.
+                    if let letters = state.letters, letters.revealed != nil || letters.open {
+                        CircleLetterCards(letters: letters)
+                            .padding(.bottom, Spacing.section)
+                            .id("letters")
+                    }
                     // The weekly mosaic sits above the days themselves
                     // (Part 2), Sun/Mon only.
                     if let mosaic = state.mosaic {
@@ -153,6 +161,7 @@ struct TodayFeedView: View {
                 await state.loadCircle()
                 await state.refreshToday()
                 await state.loadQuestion()
+                await state.loadLetters()
                 await state.flushPendingCapture()
             }
             .background(SideDockReader(dock: $sideDock))
@@ -187,12 +196,14 @@ struct TodayFeedView: View {
                     await state.loadCircle()
                     await state.refreshToday()
                     await state.loadQuestion()
+                    await state.loadLetters()
                     await state.flushPendingCapture()
                 }.value
             }
             .task {
                 await state.refreshToday()
                 await state.loadQuestion()
+                await state.loadLetters()
                 await state.flushPendingCapture()
             }
           }

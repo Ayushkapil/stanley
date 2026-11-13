@@ -31,6 +31,8 @@ def run_once(settings: Settings | None = None) -> None:
         advanced = decay.sweep(session, clock, notifier)
         purged = decay.run_purges(session, storage, clock)
         decay.clear_notes(session, clock)
+        decay.open_letters(session, clock)
+        decay.clear_letters(session, clock)
         digests = notifications.run_evening_digests(session, notifier, clock, settings.digest_hour)
         notifications.run_reminders(session, notifier, clock)
         session.commit()

@@ -111,6 +111,8 @@ _LATER_COLUMNS = {
         "response_id": "VARCHAR(32) REFERENCES prompt_responses(id)",
         # Build 27: a report about a note on the circle's board.
         "note_id": "VARCHAR(32)",
+        # Build 42: a report about an anonymous letter to the circle.
+        "circle_letter_id": "VARCHAR(32)",
     },
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]

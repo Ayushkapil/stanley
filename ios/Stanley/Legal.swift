@@ -14,19 +14,19 @@ enum Legal {
     /// Where questions go, as both documents' Contact sections say it; a
     /// link that opens Mail wherever it appears.
     static let contact = "ayushkapileshwar@gmail.com"
-    static let effective = "November 12, 2026"
-    /// The Privacy Policy's own date. Both last changed on November 12, 2026
-    /// (the Home Screen widget and what it keeps on the phone, build 40;
-    /// before that November 11, the two reminders, and November 7, Circle
-    /// Posts). `legal.py` keeps the same two.
-    static let privacyEffective = "November 12, 2026"
+    static let effective = "November 13, 2026"
+    /// The Privacy Policy's own date. Both last changed on November 13, 2026
+    /// (letters to the circle, unsigned to the circle and not to the server,
+    /// build 42; before that November 12, the Home Screen widget, and
+    /// November 11, the two reminders). `legal.py` keeps the same two.
+    static let privacyEffective = "November 13, 2026"
 
     static let terms: [Section] = [
         Section(heading: "1. Introduction and acceptance", lines: [
             "Welcome to Stanley. These Terms of Use are an agreement between you and Ayush Kapileshwar, who builds and runs Stanley (“Stanley”, “we”, “us”). They cover the Stanley app and the server it uses.",
             "By creating an account or using Stanley, you agree to these terms and to our Privacy Policy. If you don't agree, please don't use Stanley.",
             "You must be at least 13 years old to use Stanley. If you're under the age of majority where you live, you need a parent's or guardian's permission, and they agree to these terms for you.",
-            "These terms are effective November 12, 2026.",
+            "These terms are effective November 13, 2026.",
         ]),
         Section(heading: "2. Your account", lines: [
             "- You need Sign in with Apple to create an account. It's the only way in",
@@ -36,7 +36,7 @@ enum Legal {
             "- Use your own name, or the one your circle knows you by. Don't choose a name or username meant to mislead",
         ]),
         Section(heading: "3. Your content", lines: [
-            "“Content” means the photos, captions, stories, place names, community notes, tags, journal entries, reflections, answers to your circle's questions and profile information you create or share on Stanley.",
+            "“Content” means the photos, captions, stories, place names, community notes, tags, journal entries, reflections, answers to your circle's questions, letters to your circle and profile information you create or share on Stanley.",
             "You own your content. Stanley does not claim ownership of anything you post.",
             "To run Stanley, we need your permission to handle it. So you give us a limited, non-exclusive, royalty-free, worldwide license to store your content on our servers, to process it as needed to provide the service (resizing it, cropping it to fit, removing its metadata, and serving it), and to show it to the people Stanley shows it to: the members of the circle you posted it to, the people who hold it, and you.",
             "This license is only for running Stanley. It ends when your content is deleted: when a photo fades and no one has held it, when you delete it, or when you delete your account. Copies that people in your circle exported before then are theirs, and outside our reach.",
@@ -73,6 +73,7 @@ enum Legal {
             "Don't use Stanley to spam, phish or distribute malware, and don't try to break, overload, scrape or get around how Stanley works, or to see what you're not meant to see.",
             "There's no tolerance for objectionable content or abusive behavior. Breaking these guidelines may result in your content being removed or your account being terminated.",
             "If someone's content or behavior bothers you, you can report it or block them. Blocking someone means you no longer see each other's photos. Reported content is reviewed within 24 hours.",
+            "A letter to your circle is unsigned, and it is still yours. These guidelines apply to it as they do to anything else you post, it can be reported like anything else, and the person who runs Stanley can see who wrote a letter that has been reported.",
         ]),
         Section(heading: "6. Content moderation", lines: [
             "- We may remove content that violates these terms or our community guidelines",
@@ -154,7 +155,7 @@ enum Legal {
         Section(heading: "1. Introduction", lines: [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 12, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 13, 2026.",
         ]),
         Section(heading: "2. What we collect", lines: [
             "## Account data",
@@ -173,6 +174,7 @@ enum Legal {
             "- Notes you leave on your circle's board",
             "- Journal entries you write on your own photos, and your reflections on your week. Only you ever see these",
             "- Your answers to your circle's question of the week",
+            "- Letters you write to your circle. Your circle reads them without your name. We keep who wrote each one, as described below",
             "- Who was there: the people you tag on a photo",
             "- The photos you like and hold, and any private note you keep with a held photo",
             "- Reports you make and the people you block",
@@ -219,7 +221,8 @@ enum Legal {
             "- Reflections don't fade. Each is kept until you delete it or your account",
             "- Your note on your circle's board clears at the end of the day you wrote it, and is deleted from our servers then. If someone reports a note, the report keeps a copy of its words so it can be reviewed",
             "- Your answers to your circle's weekly questions are kept in the circle's journal until you delete your account",
-            "- When you delete your account, we delete your data right away: your profile, your photos (including ones other people held), your stories, likes, holds, tags, notes, journal entries, reflections, answers, settings, notification tokens and circle memberships. What's left is a bare record with nothing about you in it, so that the people who held your photos see “a memory was here” instead of an error, and so that reports can still be reviewed",
+            "- A letter to your circle is kept sealed until the month it was written in is over for everyone in the circle, then shown for seven days, then deleted from our servers. You can delete yours at any time, before it opens or after. If someone reports a letter, the report keeps a copy of its words and a record of who wrote it, so it can be reviewed after the letter is gone",
+            "- When you delete your account, we delete your data right away: your profile, your photos (including ones other people held), your stories, likes, holds, tags, notes, journal entries, reflections, answers, letters, settings, notification tokens and circle memberships. What's left is a bare record with nothing about you in it, so that the people who held your photos see “a memory was here” instead of an error, and so that reports can still be reviewed",
             "- Our database is backed up once a day and each backup is kept for seven days, so anything deleted is gone from our backups within seven days",
             "- A notification token is deleted when you sign out on that phone, when you delete your account, or when Apple tells us it no longer works",
             "- Places you've used recently or starred are saved only on your phone, never on our servers, and are erased from your phone when you delete your account there",
@@ -231,6 +234,7 @@ enum Legal {
             "Your photos, captions, places, stories and tags are seen by the members of the circle you post them to, and your profile by the people who share a circle with you. Likes and holds are different: only the person who posted a photo sees who liked or held it, as faces, never as a number.",
             "When you post a photo, the people in that circle who turned on Circle Posts get a notice with your name, saying you shared a moment. It carries nothing else: not the photo, the caption or the place. People you've blocked, and people who have blocked you, don't get it.",
             "Your journal entries and reflections are never shown to anyone but you. Your answer to your circle's question of the week is sealed until that week's answers open, on Saturday at midnight UTC (Friday afternoon or evening in the United States). Then everyone in the circle can read the answers together, whether they answered or not, including anyone who joined that week. People who join later don't see the weeks before they joined.",
+            "Once a month you can write your circle a letter. It is unsigned. When the month's letters open, everyone who was in the circle then reads each letter's words with no name, face or time on it, in an order that says nothing about who wrote it or when, and nobody is told who has written one. A letter is anonymous to your circle, not to us: our server keeps a record of who wrote each letter, so that you can change or delete yours and so that a reported letter can be acted on, and the person who runs Stanley can see who wrote a letter that has been reported. Blocking someone doesn't hide a letter, yours from them or theirs from you, because a letter that disappeared when you blocked someone would tell you who wrote it. If you leave a circle, your letter goes with you only while it is still sealed. And what you write can give you away by itself: a letter is only as anonymous as its words.",
             "People who hold your photo keep it, and can include it when they export their memories. A copy someone has exported is outside Stanley, where we can't delete it. And as with anything you show people, someone could take a screenshot.",
             "## Services that run Stanley",
             "Beyond your circle, we share data only with the services Stanley needs to work:",
@@ -256,7 +260,7 @@ enum Legal {
             "We don't knowingly collect data from children under 13. If you believe a child under 13 has created an account, contact us and we will delete it.",
         ]),
         Section(heading: "8. Your rights and choices", lines: [
-            "- Export: your held memories, with their captions and places and your journal entries on them, your reflections, and your answers to your circle's questions, any time from Settings → Privacy & Security → Export My Memories",
+            "- Export: your held memories, with their captions and places and your journal entries on them, your reflections, your answers to your circle's questions, and the letters you've written to your circles that are still on our servers, any time from Settings → Privacy & Security → Export My Memories",
             "- Change: your name, username, bio and photo, any time, from the You tab",
             "- Delete: a journal entry or a reflection, any time, from where you read it; your account, any time, from Settings → Privacy & Security → About Your Account → Delete Account",
             "- Notifications: all five are off until you turn them on in Settings → Quiet, and you can turn them off there or in iOS Settings. Two of them are reminders you set for yourself, to leave a note or to share a photo, at a time of day you choose; each is sent at most once a day, and only if you haven't already done it",

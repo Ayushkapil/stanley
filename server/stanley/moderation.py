@@ -10,6 +10,7 @@ of editing the database by hand. This is that way, run on the server:
     ... story <story id>          take a story down
     ... answer <answer id>        take down an answer to the circle's question
     ... note <note id>            take a note off a circle's board
+    ... letter <letter id>        take down an anonymous letter to a circle
     ... resolve <report id>       close a report that needed nothing removed
     ... account <user id>         end an account (the Terms, section 6)
 
@@ -36,7 +37,7 @@ from sqlalchemy.orm import Session
 
 from . import physics
 from .decay import delete_comments, scrub
-from .models import CircleNote, CirclePrompt, Comment, Photo, PromptResponse, Report, User
+from .models import CircleLetter, CircleNote, CirclePrompt, Comment, Photo, PromptResponse, Report, User
 
 log = logging.getLogger("stanley")
 
@@ -169,7 +170,26 @@ def take_down_note(session: Session, note_id: str, now: datetime) -> bool:
     return True
 
 
+def take_down_letter(session: Session, letter_id: str, now: datetime) -> bool:
+    """An anonymous letter to a circle, removed for everyone (build 42). The
+    reports about it keep their copy of its words and who wrote them."""
+    letter = session.get(CircleLetter, letter_id)
+    if letter is None:
+        return False
+    reports = session.scalars(
+        select(Report).where(Report.resolved_at.is_(None), Report.circle_letter_id == letter_id)
+    ).all()
+    for report in reports:
+        report.resolved_at = now
+    session.delete(letter)
+    session.flush()
+    log.warning("event=letter_taken_down reports_resolved=%d", len(reports))
+    return True
+
+
 def _about(r: Report) -> str:
+    if r.circle_letter_id:
+        return f"letter {r.circle_letter_id}"
     if r.note_id:
         return f"note {r.note_id}"
     if r.comment_id:
@@ -226,6 +246,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     answer.add_argument("answer")
     note = sub.add_parser("note")
     note.add_argument("note")
+    letter = sub.add_parser("letter")
+    letter.add_argument("letter")
     res = sub.add_parser("resolve")
     res.add_argument("report")
     acct = sub.add_parser("account")
@@ -257,6 +279,17 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
                 print(f"answer {r.response_id} by {a.user_id if a else '?'}: {a.body if a else '(gone)'}")
                 if q is not None:
                     print(f"to the question of the week of {q.week_start} in circle {q.circle_id}: {q.prompt}")
+            if r.circle_letter_id:
+                # Unsigned to its circle; the operator sees who wrote it,
+                # here and in the report's own copy above.
+                letter = session.get(CircleLetter, r.circle_letter_id)
+                if letter is None:
+                    print(f"letter {r.circle_letter_id}: (gone; the report above kept its words and its writer)")
+                else:
+                    print(
+                        f"letter {letter.id} by {letter.author_id} to circle {letter.circle_id} "
+                        f"for {letter.month:%Y-%m}: {letter.body}"
+                    )
             p = session.get(Photo, r.photo_id) if r.photo_id else None
             if p is not None:
                 print(f"photo {p.id} state {p.state} caption {p.caption!r}")
@@ -271,6 +304,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             ok = take_down_answer(session, args.answer, now)
         elif args.cmd == "note":
             ok = take_down_note(session, args.note, now)
+        elif args.cmd == "letter":
+            ok = take_down_letter(session, args.letter, now)
         elif args.cmd == "account":
             ok = terminate_account(session, storage, args.user, now)
         else:

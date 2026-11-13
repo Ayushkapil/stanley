@@ -490,7 +490,7 @@ def test_an_older_database_gets_the_report_column():
             "comment_id VARCHAR(32), reason TEXT, created_at DATETIME, resolved_at DATETIME)"
         ))
     # And build 27's note column with it.
-    assert ensure_schema(engine) == ["reports.response_id", "reports.note_id"]
+    assert ensure_schema(engine) == ["reports.response_id", "reports.note_id", "reports.circle_letter_id"]
     assert ensure_schema(engine) == []
     with engine.begin() as conn:
         indexes = {row[1] for row in conn.execute(text("PRAGMA index_list(reports)"))}

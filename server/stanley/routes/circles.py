@@ -26,7 +26,7 @@ from ..deps import (
 )
 from ..text import clean
 from .. import physics
-from ..models import Circle, CircleNote, Membership, Photo, User, new_id, new_invite_code
+from ..models import Circle, CircleLetter, CircleNote, Membership, Photo, User, new_id, new_invite_code
 from ..physics import CIRCLES_PER_PERSON
 from ..serialize import avatar_url, blocked_ids, circle_notes, iso, note_payload, photo_payload
 
@@ -274,6 +274,22 @@ def remove_member(
     db.delete(target)
     # Their note comes off this circle's board with them.
     db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user_id))
+    _take_sealed_letter(db, circle.id, user_id)
+
+
+def _take_sealed_letter(db: Session, circle_id: str, user_id: str) -> None:
+    """Someone going from a circle takes their sealed letter with them: the
+    circle it was for is no longer theirs. A letter already opened stays for
+    its seven days. If it went with its writer, anyone watching the letters
+    as people came and went (or removing people to see) would learn whose
+    it was."""
+    db.execute(
+        delete(CircleLetter).where(
+            CircleLetter.circle_id == circle_id,
+            CircleLetter.author_id == user_id,
+            CircleLetter.revealed_at.is_(None),
+        )
+    )
 
 
 @router.post("/circles/{circle_id}/leave", status_code=204)
@@ -289,6 +305,7 @@ def leave_circle(
     db.delete(membership)
     # Your note comes off this circle's board as you go.
     db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user.id))
+    _take_sealed_letter(db, circle.id, user.id)
     db.flush()
     if circle.created_by == user.id:
         # user_id breaks ties so "next-earliest" is deterministic even when two

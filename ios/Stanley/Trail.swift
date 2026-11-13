@@ -46,6 +46,8 @@ enum Trail {
         case wroteReflection = "wrote a reflection"
         case answeredQuestion = "answered the circle's question"
         case openedCircleJournal = "opened the circle journal"
+        case sealedLetter = "sealed a letter to the circle"
+        case readLetters = "read the circle's letters"
     }
 
     static func note(_ step: Step) {

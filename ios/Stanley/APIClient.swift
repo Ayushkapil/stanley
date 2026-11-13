@@ -59,6 +59,10 @@ enum APIError: LocalizedError {
             case "already_answered": return "You've already answered this week's question."
             case "question_closed": return "This week's answers are already out, so the question has closed."
             case "not_revealed": return "Everyone's answers aren't out yet."
+            // Letters to the circle (build 42).
+            case "empty_circle_letter": return "A letter needs a few words."
+            case "circle_letters_opened": return "This month's letters are already open, so it's too late to change one."
+            case "circle_letters_sealed": return "The letters aren't open right now."
             default: return Self.words(forStatus: status)
             }
         case .status(let status):

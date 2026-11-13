@@ -12,10 +12,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from . import physics
+from . import circle_letters, physics
 from .clock import Clock
 from .models import (
-    Anchor, CircleNote, Comment, DecayAudit, JournalEntry, Like, Photo, PhotoTag, PurgeQueueItem, Report,
+    Anchor, CircleLetter, CircleNote, Comment, DecayAudit, JournalEntry, Like, Membership, Photo, PhotoTag,
+    PurgeQueueItem, Report, User,
 )
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
@@ -176,6 +177,64 @@ def clear_notes(session: Session, clock: Clock) -> int:
     """The board's notes go at the end of their author's day (build 27):
     deleted, not kept. Every pass, beside the photos' decay."""
     cleared = session.execute(delete(CircleNote).where(CircleNote.expires_at <= clock.now()))
+    return cleared.rowcount or 0
+
+
+def letter_zones(session: Session, circle_id: str) -> list[str]:
+    """The time zones of everyone in a circle, as their phones last gave
+    them: whose midnights a month's letters wait for."""
+    return list(session.scalars(
+        select(User.tz_last_seen)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.circle_id == circle_id, User.tz_last_seen.is_not(None))
+        .distinct()
+    ).all())
+
+
+def open_letters(session: Session, clock: Clock, circle_id: str | None = None) -> int:
+    """Open every month of letters that is over for everyone in its circle
+    (build 42): stamp `revealed_at` on them, together and once. Every pass,
+    and whenever someone asks about a circle's letters, so a month opens on
+    time whether or not the sweep has been by."""
+    now = clock.now()
+    # No month is over anywhere until it's over at UTC+14.
+    sealed = (
+        select(CircleLetter.circle_id, CircleLetter.month)
+        .where(
+            CircleLetter.revealed_at.is_(None),
+            CircleLetter.month < circle_letters.month_of(now, circle_letters.EARLIEST_ZONE),
+        )
+        .distinct()
+    )
+    if circle_id is not None:
+        sealed = sealed.where(CircleLetter.circle_id == circle_id)
+    opened = 0
+    for circle, month in session.execute(sealed).all():
+        at = circle_letters.opens_at(month, letter_zones(session, circle))
+        if at > now:
+            continue
+        stamped = session.execute(
+            update(CircleLetter)
+            .where(
+                CircleLetter.circle_id == circle,
+                CircleLetter.month == month,
+                CircleLetter.revealed_at.is_(None),
+            )
+            .values(revealed_at=at)
+        )
+        opened += stamped.rowcount or 0
+    return opened
+
+
+def clear_letters(session: Session, clock: Clock) -> int:
+    """Opened letters go after their seven days: deleted, not kept. A report
+    about one keeps its own copy of the words."""
+    cleared = session.execute(
+        delete(CircleLetter).where(
+            CircleLetter.revealed_at.is_not(None),
+            CircleLetter.revealed_at <= clock.now() - circle_letters.VISIBLE_FOR,
+        )
+    )
     return cleared.rowcount or 0
 
 

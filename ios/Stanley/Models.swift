@@ -460,3 +460,46 @@ struct CircleJournalPage: Codable {
     let prompts: [PastQuestion]
     let nextCursor: String?
 }
+
+// MARK: - Letters to the circle (build 42)
+
+/// A letter to the circle: its id and its words, which is all the server
+/// ever sends of one. No author, no time, nothing to tell one from another
+/// but what it says.
+struct CircleLetter: Codable, Identifiable, Hashable {
+    let id: String
+    let body: String
+}
+
+/// What Today's letter cards are drawn from: the month being written for,
+/// your own letter for it, when the month's letters open, and whether last
+/// month's are out to read. Nothing in it says who else has written.
+struct CircleLetterState: Codable, Hashable {
+    /// "2026-11".
+    let month: String
+    /// Whether this month can still be written for.
+    let open: Bool
+    let revealsAt: Date
+    /// Yours this month, sealed. Nil until you've written one.
+    let letter: CircleLetter?
+    let revealed: Revealed?
+
+    /// A month of letters that has opened, for the seven days it's read.
+    struct Revealed: Codable, Hashable {
+        let month: String
+        let revealedAt: Date
+        let fadesAt: Date
+        /// Yours among them, if you wrote one: how the app knows which
+        /// letter to offer to delete instead of report. The list everyone
+        /// gets never says.
+        let letter: CircleLetter?
+    }
+}
+
+/// A month's letters, opened: unsigned, in an order that says nothing.
+struct OpenedLetters: Codable, Hashable {
+    let month: String
+    let revealedAt: Date
+    let fadesAt: Date
+    let letters: [CircleLetter]
+}

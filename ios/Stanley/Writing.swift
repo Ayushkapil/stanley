@@ -21,6 +21,8 @@ enum WritingLimit {
     static let entry = 1000
     static let reflection = 500
     static let answer = 300
+    /// A letter to the circle (build 42, `CircleLetters.swift`).
+    static let circleLetter = 500
 
     /// Cut to the server's limit, which counts Unicode scalars, so an emoji
     /// that's several of them can't push a full field over.

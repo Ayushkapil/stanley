@@ -162,13 +162,17 @@ enum ReportTarget {
     case answer(Answer)
     /// A note on the circle's board (build 27).
     case note(CommunityNote)
+    /// An unsigned letter to the circle (build 42).
+    case letter(CircleLetter)
 
-    var author: UserBrief {
+    /// Whose it is. Nil for a letter: nobody's, as far as the app is told.
+    var author: UserBrief? {
         switch self {
         case .photo(let photo): photo.owner
         case .story(let comment, _): comment.author
         case .answer(let answer): answer.author
         case .note(let note): note.author
+        case .letter: nil
         }
     }
 
@@ -178,6 +182,7 @@ enum ReportTarget {
         case .story: "story"
         case .answer: "answer"
         case .note: "note"
+        case .letter: "letter"
         }
     }
 }
@@ -208,14 +213,23 @@ struct ReportSheet: View {
     ]
 
     private var name: String {
-        let full = target.author.displayName
+        guard let full = target.author?.displayName else { return "whoever wrote it" }
         return full.split(separator: " ").first.map(String.init) ?? full
     }
 
-    /// Someone who still has an account and isn't you.
+    /// Someone who still has an account and isn't you. Never for a letter:
+    /// there's nobody to name.
     private var canBlock: Bool {
-        guard let id = target.author.id else { return false }
-        return id != state.myId && target.author.displayName != "departed"
+        guard let author = target.author, let id = author.id else { return false }
+        return id != state.myId && author.displayName != "departed"
+    }
+
+    /// Who reads a report, and for an unsigned letter, what they can see
+    /// that the circle can't.
+    private var whoReadsIt: String {
+        let line = "Your report goes to the person who runs Stanley, not to \(name), and it's read within a day."
+        guard case .letter = target else { return line }
+        return line + " They can see who wrote a reported letter. You and your circle can't."
     }
 
     var body: some View {
@@ -250,7 +264,7 @@ struct ReportSheet: View {
                 } header: {
                     Text("Why are you reporting this \(target.noun)?")
                 } footer: {
-                    Text("Your report goes to the person who runs Stanley, not to \(name), and it's read within a day.")
+                    Text(whoReadsIt)
                 }
                 if writing {
                     Section {
@@ -285,7 +299,7 @@ struct ReportSheet: View {
                         .padding(.top, 18)
                 } else {
                     Button("Block \(name)", role: .destructive) {
-                        Task { blocked = await state.block(target.author) }
+                        Task { if let author = target.author { blocked = await state.block(author) } }
                     }
                     .destructiveInk()
                     .padding(.top, 18)
@@ -304,14 +318,17 @@ struct ReportSheet: View {
         guard !reason.isEmpty, !sending else { return }
         sending = true
         Task {
-            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?
+            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?, letter: CircleLetter?
             switch target {
             case .photo(let p): photo = p
             case .story(let c, _): comment = c
             case .answer(let a): answer = a
             case .note(let n): note = n
+            case .letter(let l): letter = l
             }
-            let ok = await state.report(photo: photo, comment: comment, answer: answer, note: note, reason: reason)
+            let ok = await state.report(
+                photo: photo, comment: comment, answer: answer, note: note, letter: letter, reason: reason
+            )
             sending = false
             if ok { withAnimation { sent = true } }
         }

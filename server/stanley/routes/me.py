@@ -20,7 +20,7 @@ from ..ratelimit import per_person
 from ..text import clean
 from ..milestones import milestone_payload, surface_due
 from ..models import (
-    Anchor, Block, CircleNote, CirclePrompt, Comment, JournalEntry, Like, Membership, Milestone,
+    Anchor, Block, CircleLetter, CircleNote, CirclePrompt, Comment, JournalEntry, Like, Membership, Milestone,
     NotificationLog, Photo, PhotoTag, PromptResponse, PushToken, Rest, ReturnedLog, User, WeeklyReflection,
 )
 from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
@@ -399,6 +399,15 @@ def export_memories(
                 .order_by(CirclePrompt.week_start)
             ).all()
         ]
+        # Build 42: the letters you've written to your circles that are
+        # still there (this month's, and one opened in the last week).
+        # Only yours: the rest are nobody's to name.
+        manifest["letters"] = [
+            {"month": f"{row.month:%Y-%m}", "circle": circle_name(db, row.circle_id), "letter": row.body}
+            for row in db.scalars(
+                select(CircleLetter).where(CircleLetter.author_id == user.id).order_by(CircleLetter.month)
+            ).all()
+        ]
         zf.writestr("memories.json", json.dumps(manifest, indent=2))
 
     return Response(
@@ -464,6 +473,10 @@ def delete_account(
     db.execute(delete(WeeklyReflection).where(WeeklyReflection.owner_id == user.id))
     db.execute(delete(JournalEntry).where(JournalEntry.owner_id == user.id))
     delete_answers(db, db.scalars(select(PromptResponse).where(PromptResponse.user_id == user.id)).all())
+    # Their letters to their circles (build 42), sealed or opened. An opened
+    # one going now may tell the circle whose it was; deleting an account
+    # deletes what the person wrote, and that comes first.
+    db.execute(delete(CircleLetter).where(CircleLetter.author_id == user.id))
 
     if user.avatar_key:
         storage.delete(user.avatar_key)

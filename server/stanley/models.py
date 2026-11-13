@@ -256,6 +256,11 @@ class Report(Base):
     # clears at the end of its day, sooner than a report may be read, so the
     # report keeps a copy of its words in `reason` and names it here.
     note_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # An anonymous letter to the circle (build 42). Not a foreign key either:
+    # a letter is deleted a week after it opens, and its writer can delete it
+    # sooner. The report keeps its words in `reason`, with who wrote it, which
+    # is the one place besides the letter's own row that says so.
+    circle_letter_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -424,3 +429,34 @@ class PromptResponse(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class CircleLetter(Base):
+    """One person's letter to their whole circle for a month (build 42):
+    unsigned, sealed until the month is over for everyone in the circle,
+    then read together for seven days and deleted (`circle_letters.py`).
+
+    `author_id` is here so the writer can change or delete their letter and
+    so a reported one can be acted on. It is never sent to any phone: every
+    payload a letter goes out in is built from `id` and `body` alone
+    (`routes/circle_letters.py`). `id` is random, and is the order letters
+    are shown in, so nothing about when one was written leaves the server.
+    `revealed_at` is stamped on a month's letters together when they open,
+    and nothing about them changes after except their deletion."""
+
+    __tablename__ = "circle_letters"
+    __table_args__ = (
+        UniqueConstraint("circle_id", "author_id", "month", name="uq_circle_letter_month"),
+        Index("ix_circle_letters_author", "author_id"),
+        Index("ix_circle_letters_revealed", "revealed_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"))
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    # The first day of the month it was written for, in its writer's zone.
+    month: Mapped[date] = mapped_column(Date)
+    revealed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)

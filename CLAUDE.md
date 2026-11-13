@@ -6,8 +6,9 @@ Stanley is a small-circle photo app built on two structural laws: each person ma
 post **exactly one photo per day** in each circle they're in, and every photo **decays out of existence
 within six days unless someone deliberately keeps (anchors) it**. The only social
 gestures are *holding* (a private act of keeping, never counted),
-*story-comments* (co-remembering) and, since build 26, the circle's *question
-of the week* (answered privately, read together). The product's identity lives as much in what it
+*story-comments* (co-remembering), since build 26 the circle's *question
+of the week* (answered privately, read together) and, since build 42, a
+monthly *letter to the circle* (unsigned, opened together). The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -105,6 +106,25 @@ guarded by tests; treat a change to any of them as a spec change.
   One note per person per circle per day, changed or taken down only by its
   author, gone at the end of their day (deleted, not archived). No replies,
   no reactions, no notification and no count of how many there are.
+- **A letter to the circle is unsigned, to the circle** (build 42, from
+  the brief of 2026-11-13). One a month each, sealed until the month
+  is over, then read together for seven days and deleted. A letter leaves
+  the server as its id and its words and nothing else: no author, name,
+  face, tone, time written or flag saying whose it is, in any payload to
+  any phone (`routes/circle_letters.py`; a test walks the JSON). The
+  server keeps `author_id` so the writer can change or delete theirs and
+  so a reported letter can be acted on, and the operator can see it; both
+  documents say so. Three things follow, and none may be "fixed" without
+  breaking the anonymity: **blocks don't hide a letter** (block someone,
+  see which letter goes); **a letter already opened stays when its writer
+  leaves or is removed** (the organizer could remove people to find out);
+  and **a month opens at one moment for the whole circle**, the last
+  local midnight among its members, not each reader's own (a letter
+  arriving late, or changing after others had read it, would say where it
+  came from). Those three follow from the brief's "no indication of who
+  wrote what" but weren't each asked about as product decisions. Nothing
+  says who has written or how many, there are no
+  replies or reactions, and nothing notifies.
 - **Up to five circles per person** (build 17, a product decision from pilot
   feedback; it had been one, a permanent non-goal), each mutual by
   construction, each with a **soft cap 100** — a guardrail against an
@@ -201,7 +221,7 @@ The authoritative source for the physics constants is
   age as well as count; `PRAGMA optimize` daily and `VACUUM` on Sundays; a
   daily `event=disk_low` warning; the pool sized to the thread pool.
   Operator tools: `python -m stanley.moderation` (list, show, take a photo,
-  story or (build 26) an answer down, with evidence preserved for a photo,
+  story, (build 26) an answer or (build 42) a letter down, with evidence preserved for a photo,
   resolve, end an account),
   `scripts/integrity_check.py` (read-only), `scripts/pull_backup.sh` (a copy
   off Fly, launchd plist beside it). Screenshots: `scripts/seed_screenshots.py`
@@ -218,7 +238,9 @@ The authoritative source for the physics constants is
   notices, not two; the notice carries your name to your circle), so both
   are November 7. Build 39's reminders made them November 11, and build
   40's widget (small copies of photos kept on the phone; a deleted photo
-  lingering in a widget for up to a day) November 12.
+  lingering in a widget for up to a day) November 12. Build 42's letters
+  (unsigned to the circle, not to the server; a block hides none) made
+  both November 13.
 
 ## Implemented and working
 
@@ -801,7 +823,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (41)", at the
+  production audit), and the version, "Stanley 0.2.0 (42)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1103,6 +1125,81 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Screen: large, medium and small in light, large and medium in dark
   (the large one with the app still set to Dark, the case that broke),
   and the no-photos line with the app lock on.
+- **Letters to the circle** (build 42, November 13, 2026;
+  `circle_letters.py`, `routes/circle_letters.py`, `CircleLetters.swift`;
+  screenshots in `docs/letters-build42/`). Once a month each person may
+  write the whole circle one letter, unsigned, 500 characters at most. All
+  of a month's letters open together when the month ends and are read for
+  seven days, then deleted.
+  - **Server.** `circle_letters` (id, circle, author, body, `month` as its
+    first day, `revealed_at`, created/updated; one row per person per
+    circle per month). `POST /circles/{id}/letters` writes or rewrites
+    this month's (the month is the writer's own, from the zone the phone
+    sends; the word filter and the journal's rate limit on it; 409
+    `circle_letters_opened` once that month's are out). `GET
+    /circles/{id}/letters/mine` is what Today's cards are drawn from: the
+    month, `open`, `reveals_at`, your own `letter`, and `revealed` (the
+    month that's out, when it opened and goes, and your own letter in it)
+    while there's something to read. It is byte for byte the same whether
+    or not anyone else has written. `GET /circles/{id}/letters/reveal`
+    gives `{id, body}` for each letter, ordered by id (random, the same
+    shuffle for everyone, nothing to do with when each was written), or
+    403 `circle_letters_sealed` before the month ends and after the seven
+    days. `DELETE /circles/{id}/letters/mine` takes yours back, this
+    month's by default or `?month=2026-11` for one that has opened, which
+    then goes for everyone.
+  - **When they open** (`circle_letters.opens_at`,
+    `decay.open_letters`): at the first moment the month is over for
+    every member, by the time zone each phone last gave
+    (`users.tz_last_seen`; a zone nobody can read is passed over, none at
+    all is UTC). For a circle in one place that is local midnight as the
+    last day ends. The brief said "midnight (user's local time)"; it is
+    one moment and not each reader's own for the reason in the locked
+    rule. `revealed_at` is stamped on the month's letters together, by
+    the sweep and by any request about the circle's letters, and is the
+    moment they opened, not when it was noticed; from then nothing about
+    them changes but their deletion (`decay.clear_letters`, seven days
+    on; reads stop on the hour without the sweep). Someone who joins after
+    they opened doesn't read them.
+  - **Leaving, deleting, reporting.** Leaving a circle (or being removed)
+    takes a sealed letter and leaves an opened one. Deleting an account
+    deletes every letter, opened ones included. A report
+    (`reports.circle_letter_id`, not a foreign key) keeps the letter's
+    words and its writer's id in `reason`, since the letter is gone
+    within the week; the reporter is told nothing of whose it was.
+    `moderation.py letter <id>` takes one down, and `show` names its
+    writer. The export carries your own letters that still exist.
+  - **In Today**, where the week's question sits (`CircleLetterCards`):
+    an envelope drawn in pen (`EnvelopeMark`) beside "Write something
+    your circle should know" and "Anonymous. Revealed at the end of the
+    month."; once yours is in, a wax seal in the accent on the envelope
+    and "Your letter is sealed" behind a lock, with when it opens. The
+    card is there all month; a tap opens `LetterWritingSheet` (the prompt
+    as the line to write on, what becomes of it said plainly, Seal, and
+    Take It Back once one is in). For the seven days after a month ends
+    a second card sits above it, "Letters from your circle", its seal
+    breaking and flap lifting as it comes onto the page.
+  - **Reading them** (`OpenedLettersSheet`, `LetterSlip`): each letter
+    starts as a sealed envelope and opens as it's scrolled to (the first
+    few one after another): the seal breaks, the flap lifts, and the slip
+    comes out and settles as the envelope goes; only a fade under Reduce
+    Motion. Each is on a slip of barely tinted paper torn along the
+    bottom, a little crooked and a little off the middle, its words in
+    the hand. The paper, lean and tilt come from the letter's id
+    (`LetterPaper`), never from a person, and aren't the mention tones.
+    The ink fades over the week as a photo does. A long press reports a
+    letter (the sheet says the operator can see who wrote a reported
+    letter, and offers no block, there being nobody to name) or, on your
+    own, takes it back; the app knows which is its own person's only
+    because `/letters/mine` said so. No counts, no replies, no reactions.
+  - A light haptic when a letter is sealed (`Haptics.letterSealed`).
+  - **Checked on the iPhone 17 Pro simulator** against a scratch circle
+    with a server whose clock was moved into December: writing, the
+    sealed card, the reveal card, the letters opening one by one, a
+    report reaching the database with the writer's id, taking one's own
+    letter back, light and dark. Not seen: a real phone, the Duo,
+    VoiceOver, a circle across time zones (tests only), or a month
+    actually ending.
 - **The polish pass** (build 39, November 11, 2026; `Polish.swift`,
   `HeldViewer.swift`; screenshots in `docs/polish-build39/`). No feature
   changed but the two reminders above; everything is quick, silent, and
@@ -1256,6 +1353,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
+- **Build 42** (0.2.0), letters to the circle, is committed **on the
+  branch `claude/letters-to-the-circle`, not on `main`**, and not
+  archived. It was built in a worktree because another session was
+  editing the main checkout at the same time with a different letters
+  feature (sealed letters from one person to another, `person_letters`,
+  also calling itself build 42). The two were kept from colliding by
+  name (`circle_letters.py`, `routes/circle_letters.py`,
+  `reports.circle_letter_id`, `CircleLetters.swift`), but both touch
+  `models.py`, `db.py`, `main.py`, `safety.py`, `moderation.py`, `me.py`,
+  this file and the build number, so whichever merges second has those to
+  reconcile and a build number to bump. **Its server side isn't on Fly**
+  (one new table and one `reports` column, made on startup; the sweep's
+  two letter passes; the November 13 Terms and Privacy). Against today's
+  server the app shows no letter cards, quietly.
 - **Build 41** (0.2.0) is committed but not archived: the widget's light
   mode fix, above. Phone only; nothing on the server.
 - **Build 40** (0.2.0), the Home Screen widget, was archived on November
@@ -1492,7 +1603,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**455 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**481 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -1556,6 +1667,20 @@ sealed to the second and then open to everyone, closed once open, nothing
 counted, blocks both ways, the circle journal from the week you joined,
 reporting an answer only once it's readable, account deletion and export,
 the writing rate limit, no notification, and the older database's report
+column), and letters to the circle (`test_circle_letters.py`: written, read
+back and rewritten as one letter a month; what a member is told about the
+month the same to the byte whoever else has written; cleaned, bounded and
+filtered; sealed to the second and then open to everyone who was there,
+whether they wrote or not; nothing in the payload but ids and words, no
+name, id or time of anyone's; shown in id order, not the order written;
+closed once open, the traveller's late letter refused; the reveal waiting
+for the last midnight in the circle; the sweep opening them unasked, stamped
+with the moment they opened; joining afterwards reads nothing; a block
+hiding no letter; seven days and then deleted, a sealed one never; taking
+your own back before and after; leaving taking a sealed letter and leaving
+an opened one; account deletion; the export; a report only once readable,
+keeping the words and the writer and telling the reporter nothing; the
+operator's takedown; no notification; the months, and the older database's
 column).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
@@ -1573,13 +1698,16 @@ live APNs, concurrency under real load.
 - Notifications policy: `notifications.py`; APNs: `apns.py`; report alerts (ntfy): `alerts.py`; Terms and Privacy copy: `legal.py`
 - Writing things down (build 26): the weeks and the forty questions
   `journal.py`; routes `routes/journal.py`
+- Letters to the circle (build 42): the months and when they open
+  `circle_letters.py`; routes `routes/circle_letters.py`; opening and
+  clearing in the sweep `decay.open_letters`, `decay.clear_letters`
 - The production audit: rate limits `ratelimit.py`; text cleaning `text.py`;
   word filter `wordfilter.py` + `blocklist.txt`; the operator's moderation
   tool `moderation.py` (`python -m stanley.moderation`)
 - Auth: `auth.py` (JWT), `apple.py` (SIWA verify)
 - Storage + signed URLs: `storage.py`; image pipeline: `images.py`; backups: `backup.py`
 - Routes (`server/stanley/routes/`): `auth_routes.py`, `circles.py`, `photos.py`,
-  `feed.py`, `me.py`, `journal.py`, `memories.py`, `safety.py`, `blobs.py`, `news.py`
+  `feed.py`, `me.py`, `journal.py`, `circle_letters.py`, `memories.py`, `safety.py`, `blobs.py`, `news.py`
 - Tests: `server/tests/`; deploy notes: `server/DEPLOY.md`; seed/dev tools:
   `server/scripts/seed_demo.py`, `server/scripts/dev_timetravel.py`;
   App Store screenshots `server/scripts/seed_screenshots.py` + `scenes.py`
@@ -1615,7 +1743,9 @@ live APNs, concurrency under real load.
   `MemoriesView.swift` (Held + Rested), `ProfileView.swift` (You +
   milestones), `Writing.swift` (build 26: the journal entry slip and sheet,
   the question slip, answers and circle journal, the Sunday card, the
-  reflection sheet and pages), `SettingsView.swift` (the five groups, invite code, circle
+  reflection sheet and pages), `CircleLetters.swift` (build 42: the
+  envelope, Today's two letter cards, the writing sheet, the opened letters
+  and their slips), `SettingsView.swift` (the five groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`
   (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`

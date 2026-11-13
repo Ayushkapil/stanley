@@ -74,9 +74,13 @@ Personalization, never Other.
   who-was-there tags, and report text. Since build 26, what a person writes
   down: journal entries on their own photos and weekly reflections (both
   read by no one but their writer), and answers to the circle's question of
-  the week (read by the circle once that week's answers open). The same
-  answers as before: collected, linked, used for App Functionality, not for
-  tracking.
+  the week (read by the circle once that week's answers open). Since build
+  42, letters to the circle: read by the circle without a name, but
+  **linked to identity all the same**, because the server keeps who wrote
+  each one (to let the writer change or delete it, and to act on a
+  report). Unsigned to the circle is not anonymous to Stanley, and the
+  label must not claim it. The same answers as before: collected, linked,
+  used for App Functionality, not for tracking.
 - [ ] Emails or Text Messages / Audio / Gameplay / Customer Support — **not collected.**
 
 ### Identifiers
