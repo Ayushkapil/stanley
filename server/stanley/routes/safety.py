@@ -12,7 +12,7 @@ from .. import alerts
 from ..deps import (
     event, get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
 )
-from ..models import Block, CircleNote, Comment, Photo, Report, User
+from ..models import Block, CircleNote, Comment, PersonLetter, Photo, Report, User
 from ..ratelimit import per_person
 from .circle_letters import readable_letter
 from .journal import readable_answer
@@ -33,6 +33,9 @@ class ReportBody(BaseModel):
     note_id: str | None = Field(default=None, max_length=64)
     # An anonymous letter to the circle (build 42).
     circle_letter_id: str | None = Field(default=None, max_length=64)
+    # A letter sent to you, once you've opened it (build 42). A sealed
+    # letter has no words to report yet.
+    letter_id: str | None = Field(default=None, max_length=64)
     # Never run through the word filter: a report may have to quote what
     # it's about.
     reason: str = Field(min_length=1, max_length=2000)
@@ -54,8 +57,13 @@ def report(
     """§15: report with a 24h human-review takedown commitment (App Review
     Guideline 1.2). Pilot-stage review is manual."""
     require_membership(db, user)
-    if not (body.photo_id or body.comment_id or body.response_id or body.note_id or body.circle_letter_id):
-        raise HTTPException(400, "photo_id, comment_id, response_id, note_id or circle_letter_id required")
+    if not (
+        body.photo_id or body.comment_id or body.response_id or body.note_id
+        or body.circle_letter_id or body.letter_id
+    ):
+        raise HTTPException(
+            400, "photo_id, comment_id, response_id, note_id, circle_letter_id or letter_id required"
+        )
     if body.photo_id:
         photo = db.get(Photo, body.photo_id)
         if photo is None or photo.circle_id not in my_circle_ids(db, user.id):
@@ -71,6 +79,12 @@ def report(
         # week you were there for.
         raise HTTPException(404, "not found")
     reason = clean(body.reason, multiline=True) or "(no reason given)"
+    if body.letter_id:
+        # Only a letter addressed to you, and only once you've opened it.
+        # A sealed letter has no words to object to yet.
+        letter = db.get(PersonLetter, body.letter_id)
+        if letter is None or letter.recipient_id != user.id or letter.opened_at is None:
+            raise HTTPException(404, "not found")
     if body.note_id:
         # Only a note you could see: on a board you're on, by someone no
         # block stands between. It clears by midnight, sooner than a report
@@ -104,6 +118,7 @@ def report(
         response_id=body.response_id,
         note_id=body.note_id,
         circle_letter_id=body.circle_letter_id,
+        letter_id=body.letter_id,
         reason=reason,
         created_at=clock.now(),
     )

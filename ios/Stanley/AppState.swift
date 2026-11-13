@@ -63,6 +63,14 @@ final class AppState {
     var threads: [MemoryThread] = []
     /// Held has been fetched once, so an empty album is really empty.
     var memoriesLoaded = false
+    /// Letters to you (build 42): sealed envelopes, then opened ones. Shown
+    /// in Held in a section of its own.
+    var lettersReceived = ReceivedLetters(sealed: [], opened: [])
+    /// Letters you wrote (build 42): sealed status only, never the words.
+    /// Shown on You so you can see what's out there, and withdraw a sealed
+    /// one before the day.
+    var lettersSent: [Letter] = []
+    var lettersLoaded = false
     var profile: MyProfile?
     var myId: String?
     var errorMessage: String?
@@ -701,6 +709,65 @@ final class AppState {
         } catch {
             missed(error)
         }
+        await refreshLetters()
+    }
+
+    // MARK: letters (build 42)
+
+    func refreshLetters() async {
+        async let received: ReceivedLetters = api.send("GET", "/me/letters/received")
+        async let sent: SentLetters = api.send("GET", "/me/letters/sent")
+        do {
+            let (r, s) = try await (received, sent)
+            lettersReceived = r
+            lettersSent = s.letters
+            lettersLoaded = true
+        } catch {
+            missed(error)
+        }
+    }
+
+    @discardableResult
+    func sendLetter(recipientId: String, body: String, occasion: String?, deliverAt: Date) async -> Bool {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(identifier: "UTC")
+        let payload: [String: Any?] = [
+            "recipient_id": recipientId,
+            "body": body,
+            "occasion": occasion?.isEmpty == true ? nil : occasion,
+            "deliver_at": f.string(from: deliverAt),
+        ]
+        do {
+            let _: Letter = try await api.send("POST", "/me/letters/send", json: payload)
+            await refreshLetters()
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// Break the seal on a letter you've been sent. Returns the opened
+    /// letter on success, or nil (an alert is already up).
+    func openLetter(_ letterId: String) async -> Letter? {
+        do {
+            let opened: Letter = try await api.send("POST", "/me/letters/\(letterId)/open")
+            await refreshLetters()
+            return opened
+        } catch {
+            surface(error)
+            return nil
+        }
+    }
+
+    func deleteLetter(_ letterId: String) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/me/letters/\(letterId)")
+            await refreshLetters()
+        } catch {
+            surface(error)
+        }
     }
 
     // MARK: profile
@@ -1269,14 +1336,15 @@ final class AppState {
     /// person within a day (Terms §5). True once it's in.
     func report(
         photo: Photo? = nil, comment: Comment? = nil, answer: Answer? = nil, note: CommunityNote? = nil,
-        circleLetter: CircleLetter? = nil, reason: String
+        circleLetter: CircleLetter? = nil, letter: Letter? = nil, reason: String
     ) async -> Bool {
         do {
             let _: Empty = try await api.send(
                 "POST", "/reports",
                 json: [
                     "photo_id": photo?.id, "comment_id": comment?.id, "response_id": answer?.id,
-                    "note_id": note?.id, "circle_letter_id": circleLetter?.id, "reason": reason,
+                    "note_id": note?.id, "circle_letter_id": circleLetter?.id, "letter_id": letter?.id,
+                    "reason": reason,
                 ]
             )
             Trail.note(.reported)

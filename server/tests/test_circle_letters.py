@@ -452,7 +452,7 @@ def test_an_older_database_gets_the_report_column():
     with engine.begin() as conn:
         conn.execute(text(
             "CREATE TABLE reports (id VARCHAR(32) PRIMARY KEY, reporter_id VARCHAR(32), photo_id VARCHAR(32), "
-            "comment_id VARCHAR(32), response_id VARCHAR(32), note_id VARCHAR(32), reason TEXT, "
+            "comment_id VARCHAR(32), response_id VARCHAR(32), note_id VARCHAR(32), letter_id VARCHAR(32), reason TEXT, "
             "created_at DATETIME, resolved_at DATETIME)"
         ))
     assert ensure_schema(engine) == ["reports.circle_letter_id"]

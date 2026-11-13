@@ -243,6 +243,7 @@ class Report(Base):
         Index("ix_reports_comment", "comment_id"),
         Index("ix_reports_photo", "photo_id"),
         Index("ix_reports_response", "response_id"),
+        Index("ix_reports_letter", "letter_id"),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
@@ -261,6 +262,12 @@ class Report(Base):
     # sooner. The report keeps its words in `reason`, with who wrote it, which
     # is the one place besides the letter's own row that says so.
     circle_letter_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # A sealed or opened letter (build 42). Only the recipient, and only once
+    # it's open, can report one — a sealed letter has no words to object to
+    # yet. A foreign key: a letter outlives the circle it was written in,
+    # and the report follows the letter if it's deleted (set null, like
+    # photo_id and response_id).
+    letter_id: Mapped[str | None] = mapped_column(ForeignKey("person_letters.id"), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -460,3 +467,33 @@ class CircleLetter(Base):
     revealed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class PersonLetter(Base):
+    """A sealed letter from one person in a circle to another, held closed
+    until a day the sender chose. Written to the person: it survives either
+    of them leaving the circle, and only an account ending takes it. The
+    sender gives up their words at the seal — they can take back a letter
+    still sealed, but not reread it. The recipient can't refuse one before
+    the date, and can delete it only once they've opened it: it's a gift.
+    No notification: the sealed envelope in Held is the only signal."""
+
+    __tablename__ = "person_letters"
+    __table_args__ = (
+        Index("ix_person_letters_recipient", "recipient_id", "deliver_at"),
+        Index("ix_person_letters_sender", "sender_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    recipient_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    # A line in the sender's own words, for the front of the envelope: "Open
+    # on graduation day", or nothing. The date alone is shown with no label.
+    occasion: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # The day the seal may be broken, in UTC. A letter's day is the same for
+    # everyone: no local-time dance, because the two people may be anywhere
+    # by the time it opens. The app compares against the phone's own day.
+    deliver_at: Mapped[date] = mapped_column(Date)
+    opened_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)

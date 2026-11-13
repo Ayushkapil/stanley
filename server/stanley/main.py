@@ -21,8 +21,8 @@ from .db import Base, ensure_schema, make_engine, make_sessionmaker
 from .notifications import make_notifier
 from .ratelimit import RateLimiter
 from .routes import (
-    auth_routes, blobs, circle_letters as circle_letter_routes, circles, feed, journal as journal_routes, me, memories,
-    news as news_routes, photos, safety,
+    auth_routes, blobs, circle_letters as circle_letter_routes, circles, feed, journal as journal_routes, letters, me,
+    memories, news as news_routes, photos, safety,
 )
 from .storage import make_blob_store
 
@@ -259,7 +259,8 @@ def create_app(
     app.state.apple_verifier = apple_verifier
 
     for router in (
-        auth_routes, circles, photos, feed, me, journal_routes, circle_letter_routes, memories, safety, blobs, news_routes,
+        auth_routes, circles, photos, feed, me, journal_routes, circle_letter_routes, letters, memories, safety, blobs,
+        news_routes,
     ):
         app.include_router(router.router)
 

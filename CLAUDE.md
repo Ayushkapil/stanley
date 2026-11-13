@@ -1353,20 +1353,27 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 42** (0.2.0), letters to the circle, is committed **on the
-  branch `claude/letters-to-the-circle`, not on `main`**, and not
-  archived. It was built in a worktree because another session was
-  editing the main checkout at the same time with a different letters
-  feature (sealed letters from one person to another, `person_letters`,
-  also calling itself build 42). The two were kept from colliding by
-  name (`circle_letters.py`, `routes/circle_letters.py`,
-  `reports.circle_letter_id`, `CircleLetters.swift`), but both touch
-  `models.py`, `db.py`, `main.py`, `safety.py`, `moderation.py`, `me.py`,
-  this file and the build number, so whichever merges second has those to
-  reconcile and a build number to bump. **Its server side isn't on Fly**
-  (one new table and one `reports` column, made on startup; the sweep's
-  two letter passes; the November 13 Terms and Privacy). Against today's
-  server the app shows no letter cards, quietly.
+- **Build 42** (0.2.0) holds **two letters features, built by two
+  sessions at once on November 13** and joined on the branch
+  `claude/letters-both`. Neither is archived, and neither's server side is
+  on Fly.
+  - **Letters to the circle** (above): one unsigned letter a month to the
+    whole circle. Built in a worktree on `claude/letters-to-the-circle`.
+    New on the server: `circle_letters`, `reports.circle_letter_id`, the
+    sweep's two letter passes, and the November 13 Terms and Privacy.
+  - **Sealed letters to a person** (commit `78d4ff5`, written by the other
+    session straight onto `main`): a letter from one person to another,
+    closed until a day the sender picks, written from the You tab and
+    kept in the recipient's Held (`routes/letters.py`, `person_letters`,
+    `reports.letter_id`, `Letters.swift`, `test_letters.py`). **It has no
+    section in this file, and no words in the Terms, the Privacy Policy or
+    `PRIVACY_LABEL.md`**: its commit message is all there is. It hasn't
+    been looked at on a simulator by the session that wrote this.
+  The join kept both whole: where they met (the report sheet's target,
+  `AppState.report`, the moderation tool's command) the circle's letters
+  took the longer name (`circleLetter`, `circle-letter`) and the sealed
+  ones kept `letter`. Against today's server the app shows neither,
+  quietly.
 - **Build 41** (0.2.0) is committed but not archived: the widget's light
   mode fix, above. Phone only; nothing on the server.
 - **Build 40** (0.2.0), the Home Screen widget, was archived on November
@@ -1603,7 +1610,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**481 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**504 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

@@ -113,6 +113,8 @@ _LATER_COLUMNS = {
         "note_id": "VARCHAR(32)",
         # Build 42: a report about an anonymous letter to the circle.
         "circle_letter_id": "VARCHAR(32)",
+        # Build 42: a report about a sealed letter (only once it's open).
+        "letter_id": "VARCHAR(32) REFERENCES person_letters(id)",
     },
 }
 _LATER_UNIQUE_INDEXES = [("uq_users_username", "users", "username")]
@@ -147,6 +149,11 @@ _LATER_INDEXES = [
     ("ix_reports_comment", "reports", "comment_id"),
     ("ix_reports_photo", "reports", "photo_id"),
     ("ix_reports_response", "reports", "response_id"),
+    # Build 42: reports about a letter.
+    ("ix_reports_letter", "reports", "letter_id"),
+    # Build 42: Held reads a recipient's letters; the cap counts sealed ones.
+    ("ix_person_letters_recipient", "person_letters", "recipient_id, deliver_at"),
+    ("ix_person_letters_sender", "person_letters", "sender_id"),
 ]
 # Tables left behind by a rename. Their data was ephemeral by design, so a drop
 # is safe — "warmth" became "likes" (same mechanic, cosmetic heart), and

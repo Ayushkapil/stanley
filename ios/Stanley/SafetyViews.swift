@@ -164,8 +164,11 @@ enum ReportTarget {
     case note(CommunityNote)
     /// An unsigned letter to the circle (build 42).
     case circleLetter(CircleLetter)
+    /// A letter written to you, once it's open (build 42).
+    case letter(Letter)
 
-    /// Whose it is. Nil for a letter: nobody's, as far as the app is told.
+    /// Whose it is. Nil for a letter to the circle: nobody's, as far as
+    /// the app is told.
     var author: UserBrief? {
         switch self {
         case .photo(let photo): photo.owner
@@ -173,6 +176,8 @@ enum ReportTarget {
         case .answer(let answer): answer.author
         case .note(let note): note.author
         case .circleLetter: nil
+        case .letter(let letter):
+            letter.sender ?? UserBrief(id: nil, displayName: "someone", avatarUrl: nil)
         }
     }
 
@@ -183,6 +188,7 @@ enum ReportTarget {
         case .answer: "answer"
         case .note: "note"
         case .circleLetter: "letter"
+        case .letter: "letter"
         }
     }
 }
@@ -318,16 +324,19 @@ struct ReportSheet: View {
         guard !reason.isEmpty, !sending else { return }
         sending = true
         Task {
-            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?, circleLetter: CircleLetter?
+            var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?
+            var circleLetter: CircleLetter?, letter: Letter?
             switch target {
             case .photo(let p): photo = p
             case .story(let c, _): comment = c
             case .answer(let a): answer = a
             case .note(let n): note = n
             case .circleLetter(let l): circleLetter = l
+            case .letter(let l): letter = l
             }
             let ok = await state.report(
-                photo: photo, comment: comment, answer: answer, note: note, circleLetter: circleLetter, reason: reason
+                photo: photo, comment: comment, answer: answer, note: note,
+                circleLetter: circleLetter, letter: letter, reason: reason
             )
             sending = false
             if ok { withAnimation { sent = true } }
