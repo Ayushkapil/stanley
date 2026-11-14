@@ -546,8 +546,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     bar's chevron) returns to the covers, as does build 52's swipe down
     and VoiceOver's escape. Opening a circle's journal makes that circle
     the one on screen first (the shared journal is the circle on
-    screen's), so Today follows. "Mine" and "Ours" are no longer at the
-    head of a book: the covers choose.
+    screen's), so Today follows. **"Mine" and "Ours"** stay in an open
+    book, in the top bar between back and the icons (the one open in the
+    accent), to move between your book and the circle on screen's
+    without going back to the covers.
   - **The chrome, the same on every Journal screen** (`JournalChrome.
     swift`): the top bar's marks are **34pt circles of glass** (material,
     0.5pt white edge; 8% white in the dark) in 44pt targets: **back** at

@@ -836,7 +836,9 @@ struct BookView: View {
 
             // Along the top: back to the covers, Letters and Prompts, in
             // glass (build 53; they were at the foot of the page).
-            bar(layout, back: { shut() }, tint: accent)
+            bar(layout, back: { shut() }, tint: accent, ours: hasOurs ? shared : nil) { wanted in
+                if wanted != shared { open(ours: wanted) }
+            }
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
 
@@ -872,7 +874,10 @@ struct BookView: View {
     }
 
     /// The bar along the top: back (in a book), Letters, the week, Prompts.
-    private func bar(_ layout: BookLayout, back: (() -> Void)?, tint: Color) -> some View {
+    private func bar(
+        _ layout: BookLayout, back: (() -> Void)?, tint: Color, ours: Bool? = nil,
+        pick: @escaping (Bool) -> Void = { _ in }
+    ) -> some View {
         JournalTopBar(
             layout: layout, tint: tint, back: back,
             sealed: !state.lettersReceived.sealed.isEmpty,
@@ -881,7 +886,8 @@ struct BookView: View {
             week: state.thisWeek,
             openLetters: { readingLetters = true },
             openPrompts: { readingPrompts = true },
-            openWeek: { reflecting = true }
+            openWeek: { reflecting = true },
+            ours: ours, pick: pick
         )
     }
 

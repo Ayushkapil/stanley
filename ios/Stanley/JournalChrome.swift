@@ -98,6 +98,10 @@ struct JournalTopBar: View {
     let openLetters: () -> Void
     let openPrompts: () -> Void
     let openWeek: () -> Void
+    /// In a book with a shared journal beside it: "Mine" and "Ours", the
+    /// one open in the accent (build 51's switch, kept in the bar).
+    var ours: Bool? = nil
+    var pick: (Bool) -> Void = { _ in }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -106,6 +110,11 @@ struct JournalTopBar: View {
                     ChromeButton(symbol: "chevron.left", label: "Back", hint: "Back to the covers", tint: tint, action: back)
                 }
                 Spacer(minLength: 0)
+                if let ours {
+                    word("Mine", on: !ours) { pick(false) }
+                    word("Ours", on: ours) { pick(true) }
+                    Spacer(minLength: 0)
+                }
                 ChromeButton(
                     symbol: "envelope", label: "Letters",
                     hint: ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "",
@@ -127,6 +136,19 @@ struct JournalTopBar: View {
             .frame(width: layout.width, height: 44)
             .offset(y: layout.barY - 22)
         }
+    }
+
+    private func word(_ name: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(name)
+                .font(.system(.subheadline, design: .rounded).weight(on ? .semibold : .regular))
+                .foregroundStyle(on ? tint : BookPaper.quiet)
+                .frame(minWidth: 46, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name == "Mine" ? "My journal" : "The shared journal")
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
