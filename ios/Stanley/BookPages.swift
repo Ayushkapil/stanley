@@ -260,8 +260,8 @@ struct BookPageView: View {
             pasted { tombstone(memory) }
         case .letter(let letter):
             pasted { self.letter(letter) }
-        case .spread(let spread):
-            SpreadView(day: page.date, spread: spread, layout: layout, actions: actions, live: live)
+        case .spread(let spread, let odd):
+            SpreadView(day: page.date, spread: spread, oddOneOut: odd, layout: layout, actions: actions, live: live)
         case .oursEmpty:
             SpreadView(day: page.date, spread: nil, layout: layout, actions: actions, live: live)
         }
@@ -549,11 +549,14 @@ private struct PageMenu: ViewModifier {
 /// same day, facing each other. On a phone the two are one above the other
 /// with a thin rule between; on a screen wide enough for a book lying open
 /// (the Duo's inner display) they're side by side, the fold as the spine.
-/// With `spread` nil it's the shared journal with nothing in it yet.
+/// With `spread` nil it's the shared journal with nothing in it yet. The
+/// page left over when an odd number wrote is alone on its spread,
+/// centered, the page that would face it blank.
 struct SpreadView: View {
     @Environment(\.colorScheme) private var colorScheme
     let day: Date
     let spread: SharedSpread?
+    var oddOneOut = false
     let layout: BookLayout
     let actions: BookActions
     let live: Bool
@@ -568,10 +571,36 @@ struct SpreadView: View {
         return Calendar.current.isDateInToday(day) ? "Waiting for someone else" : nil
     }
 
+    /// Wide enough for a book lying open: two pages side by side.
+    private var sideBySide: Bool {
+        #if DEBUG
+        // For looking at the open spread on a simulator that can't unfold.
+        if ProcessInfo.processInfo.environment["STANLEY_WIDE_SPREAD"] == "1" { return true }
+        #endif
+        return layout.width >= 600
+    }
+
     var body: some View {
         let top = layout.contentTop
         let tall = layout.contentBottom - top
-        if layout.width >= 600 {
+        if oddOneOut, let spread {
+            // The odd one out: one page, alone and centered. Nothing faces it.
+            if sideBySide {
+                let half = ((layout.width - layout.safeLeading) / 2).rounded(.down)
+                SharedHalf(
+                    page: spread.left, note: nil, layout: layout, size: CGSize(width: half, height: tall),
+                    leading: 26, trailing: 26, actions: actions, live: live
+                )
+                .offset(x: layout.safeLeading + ((layout.width - layout.safeLeading - half) / 2).rounded(), y: top)
+            } else {
+                let size = CGSize(width: layout.width, height: ((tall - 13) / 2).rounded(.down))
+                SharedHalf(
+                    page: spread.left, note: nil, layout: layout, size: size,
+                    leading: layout.left, trailing: layout.width - layout.right, actions: actions, live: live
+                )
+                .offset(y: top + ((tall - size.height) / 2).rounded())
+            }
+        } else if sideBySide {
             // A book lying open: two pages, the spine between them.
             let half = ((layout.width - layout.safeLeading) / 2).rounded(.down)
             let size = CGSize(width: half, height: tall)

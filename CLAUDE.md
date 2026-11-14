@@ -523,14 +523,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     writing, each day turns the wheel one place, so each writer faces
     someone different until they've faced everyone; each circle starts
     its wheel somewhere of its own; which of a pair is on the left turns
-    too. **An odd number: one page alone, last, with a blank page facing
-    it. Only one writer: their page, and "Waiting for someone else" in
-    faint handwriting opposite, while the day is still today** (a day
-    that's over is simply a blank facing page; the brief has the words
-    for "only you wrote", and they're shown whoever the lone writer is).
-    A day nobody wrote isn't in the book. The brief also says the lone
-    page is "centered"; it's in its usual place with the blank page
-    facing it, which the same sentence asks for.
+    too. **An odd number: the page left over is last, alone on its
+    spread and centered, with nothing facing it** (`oddOneOut`: a lone
+    page on a day others wrote too). **Only one writer: their page in its
+    usual place, and "Waiting for someone else" in faint handwriting
+    opposite, while the day is still today** (a day that's over is simply
+    a blank facing page; the brief has the words for "only you wrote",
+    and they're shown whoever the lone writer is). A day nobody wrote
+    isn't in the book.
   - **Hearts.** The foot of someone else's page is a button, their name
     at the left and a heart at the right: a tap leaves yours (the soft
     haptic a photo's like has) or takes it back, shown at once and put
@@ -538,8 +538,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     left one: a small heart and their faces, never a number**; nobody
     else is sent them.
   - **Long press on a page of a spread**: someone else's, **Report Page**
-    (the same sheet as a photo, and then the offer to block); your own,
-    Edit and Make Private.
+    (the same sheet as a photo, and then the offer to block; the book is
+    read again as the sheet closes, so a blocked writer's pages leave it);
+    your own, Edit and Make Private.
   - **Empty**: "Ours" with nothing in it is a blank page above and, in
     handwriting below, "Nobody has written here yet. Tap + and choose
     “Write to the shared journal”."
@@ -592,20 +593,28 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Checked on the iPhone 17 Pro simulator** against a local server on
     this code, with two other members writing through the API. In light
     and dark: Mine with a shared page's tag; a spread of two people's
-    pages with a heart's face on mine; a page alone with "Waiting for
-    someone else". In light: the empty Ours; the "+" menu; being asked
-    before today's written page is shared, and before it's made private;
-    writing with SHARED WITH THIRD FLOOR under the date, Done, and
-    landing in Ours; a heart left by a tap on the foot of a page, the
-    writer sent my face and a third member sent nothing; Make Private
-    and Share with Third Floor from the long press, the book re-pairing
-    the other two; Report Page opening the report sheet. **On the Duo's
-    cover**, light: Mine and Ours. The Release configuration compiles.
-    **Not seen:** the side-by-side spread (the simulator can't unfold); a
-    day long enough to scroll on its half page; a report sent from the
-    app (tests cover the server); "Write privately" carried through to
-    Done on a shared day; a block; leaving a circle from the app; a real
-    phone; VoiceOver; large Dynamic Type; and any of it against Fly.
+    pages with a heart's face on mine; the odd one out of three, alone
+    and centered; and the side-by-side spread, forced on the phone
+    (`STANLEY_WIDE_SPREAD=1`, a Debug flag for exactly this). In light:
+    the day's only writer with "Waiting for someone else"; the empty
+    Ours; the "+" menu; being asked before today's written page
+    is shared, and before it's made private; writing with SHARED WITH
+    THIRD FLOOR under the date, Done, and landing in Ours; a heart left
+    by a tap on the foot of a page, the writer sent my face and a third
+    member sent nothing; Make Private and Share with Third Floor from the
+    long press, the book re-pairing the other two; **a report sent from
+    Report Page** (the row in the database with the page's id, its
+    writer and its words); **Block from the report's thank-you** (I was
+    no longer sent her page nor she mine, and the third member's book was
+    as it had been); **Leave Circle from Settings** (my page private and
+    still mine, the hearts on it gone, the circle's book re-paired).
+    **On the Duo's cover**, light: Mine and Ours. The Release
+    configuration compiles. **Not seen:** the side-by-side spread on the
+    Duo's inner display itself (the simulator can't unfold; the layout
+    was seen only forced onto a phone's width); a day long enough to
+    scroll on its half page; "Write privately" carried through to Done
+    on a shared day; a real phone; VoiceOver; large Dynamic Type; and any
+    of it against Fly.
 
 - **A page takes more than one ink** (build 50, November 14, 2026, from
   Ayush on trying it: "choosing ink color also makes the entire preceding

@@ -154,8 +154,9 @@ struct BookPage: Identifiable {
         /// How a week was.
         case reflection(Reflection)
         /// Two facing pages of the circle's shared journal (build 51): two
-        /// people's pages from the same day.
-        case spread(SharedSpread)
+        /// people's pages from the same day. `oddOneOut` is a page left
+        /// over when an odd number wrote: it's shown alone, centered.
+        case spread(SharedSpread, oddOneOut: Bool)
         /// The shared journal with nothing in it yet.
         case oursEmpty
     }
@@ -212,7 +213,7 @@ struct BookPage: Identifiable {
         case .tombstone: return "A memory was here, \(day)"
         case .letter(let letter): return "Letter from \(letter.sender?.displayName ?? "someone")"
         case .reflection: return "Reflection, week ending \(day)"
-        case .spread(let spread):
+        case .spread(let spread, _):
             let names = [spread.left.writer.displayName, spread.right?.writer.displayName].compactMap { $0 }
             return "\(day). Shared pages by \(names.joined(separator: " and "))"
         case .oursEmpty: return "The shared journal, with nothing in it yet"
@@ -455,7 +456,12 @@ enum BookBuilder {
         for day in state.sharedDays {
             guard let date = WeekRange.day(day.day) else { continue }
             for spread in day.spreads {
-                pages.append(BookPage(id: "s-\(spread.left.id)", date: date, kind: .spread(spread)))
+                // One page with nobody facing it: the odd one out when
+                // others wrote that day too; the day's only writer otherwise.
+                let odd = spread.right == nil && day.spreads.count > 1
+                pages.append(BookPage(
+                    id: "s-\(spread.left.id)", date: date, kind: .spread(spread, oddOneOut: odd)
+                ))
             }
         }
         if pages.isEmpty {

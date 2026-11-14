@@ -446,7 +446,9 @@ struct BookView: View {
                 ? "You've already written today's page, and a day has one page. Going on puts all of it in \(circle)'s shared journal, where your circle reads it."
                 : "Today's page is in \(today?.circleName ?? circle)'s shared journal. Writing it privately takes it out of there. It stays in yours.")
         }
-        .sheet(item: $reportingPage) { page in
+        // (Read again as the sheet goes: whoever wrote it may have been
+        // blocked from there, and their pages leave the book with that.)
+        .sheet(item: $reportingPage, onDismiss: { Task { await state.loadShared() } }) { page in
             ReportSheet(target: .page(page))
         }
         .fullScreenCover(isPresented: $viewing) {
