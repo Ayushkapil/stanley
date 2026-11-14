@@ -455,5 +455,6 @@ def test_an_older_database_gets_the_report_column():
             "comment_id VARCHAR(32), response_id VARCHAR(32), note_id VARCHAR(32), letter_id VARCHAR(32), reason TEXT, "
             "created_at DATETIME, resolved_at DATETIME)"
         ))
-    assert ensure_schema(engine) == ["reports.circle_letter_id"]
+    # (And the column build 51 added for a reported shared journal page.)
+    assert ensure_schema(engine) == ["reports.circle_letter_id", "reports.page_id"]
     assert ensure_schema(engine) == []

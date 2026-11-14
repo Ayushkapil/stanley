@@ -25,7 +25,7 @@ from ..deps import (
     shares_a_circle,
 )
 from ..text import clean
-from .. import physics
+from .. import physics, sharing
 from ..models import Circle, CircleLetter, CircleNote, Membership, Photo, User, new_id, new_invite_code
 from ..physics import CIRCLES_PER_PERSON
 from ..serialize import avatar_url, blocked_ids, circle_notes, iso, note_payload, photo_payload
@@ -275,6 +275,9 @@ def remove_member(
     # Their note comes off this circle's board with them.
     db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user_id))
     _take_sealed_letter(db, circle.id, user_id)
+    # Their pages come out of this circle's shared journal (build 51) and
+    # stay in their own.
+    sharing.leave_book(db, circle.id, user_id)
 
 
 def _take_sealed_letter(db: Session, circle_id: str, user_id: str) -> None:
@@ -306,6 +309,9 @@ def leave_circle(
     # Your note comes off this circle's board as you go.
     db.execute(delete(CircleNote).where(CircleNote.circle_id == circle.id, CircleNote.author_id == user.id))
     _take_sealed_letter(db, circle.id, user.id)
+    # Your pages come out of this circle's shared journal (build 51) and
+    # stay in your own.
+    sharing.leave_book(db, circle.id, user.id)
     db.flush()
     if circle.created_by == user.id:
         # user_id breaks ties so "next-earliest" is deterministic even when two

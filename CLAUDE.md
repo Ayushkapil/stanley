@@ -10,7 +10,9 @@ gestures are *holding* (a private act of keeping, never counted),
 of the week* (answered privately, read together) and, since build 42, a
 monthly *letter to the circle* (unsigned, opened together). Beside the circle, since build 45,
 each person has a private **journal kept as a book** (their own pages, what they've held, letters opened,
-weekly reflections; since build 46 the Journal tab is those pages, landing on today's), which nobody else ever sees. The product's identity lives as much in what it
+weekly reflections; since build 46 the Journal tab is those pages, landing on today's), which nobody else ever sees
+unless they choose to share a page: since build 51 a page can be put in the circle's **shared journal**, read there as
+facing pages, two people's pages from the same day. The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -115,6 +117,27 @@ guarded by tests; treat a change to any of them as a spec change.
   decision; put `refuse_objectionable` back in `routes/journal.py` if it
   should be otherwise. Nothing about the book counts anything (no streak,
   no "pages written"); a page's number is its place in the book.
+  **One way out, the writer's own** (build 51, a product decision: the
+  brief of 2026-11-14, "Phase 2"): a page its writer shares with a circle
+  is read by that circle, in its shared journal. Until they do, and again
+  once they take it back, everything above holds: a page that isn't
+  shared is in no payload anyone else is sent.
+- **The shared journal is a book, not a feed** (build 51, from the same
+  brief). A shared page is still the day's one page and still in its
+  writer's own book; it's in one circle's shared journal at a time. Each
+  day there is facing pages: who faces whom is a pure function of the
+  day, the circle and who wrote (`journal.pairings`), the same for every
+  member. **One heart per reader per page**, left or taken back at the
+  foot of the page: the writer is shown who, as faces, never a number,
+  and nobody else is shown anything (the photo payload's A2, again). **No
+  comments, no notification** when someone shares or leaves a heart, and
+  **a shared page never fades**. The word filter is on shared pages (a
+  circle reads them) and still not on private ones. Leaving a circle, or
+  being removed, takes your pages out of its book and leaves them in
+  yours. A shared page can be reported like a photo; the operator's
+  takedown puts it back to private, it doesn't delete someone's journal.
+  A member reads the book **from the day they joined**, as with the
+  circle's questions; not in the brief, and not asked about.
 - **The board's notes are everyone's own and the day's alone** (build 27).
   One note per person per circle per day, changed or taken down only by its
   author, gone at the end of their day (deleted, not archived). No replies,
@@ -452,12 +475,144 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The shared journal: "Mine" and "Ours"** (build 51, November 14, 2026,
+  a product brief from Ayush, "Phase 2 of the Journal redesign";
+  screenshots in `docs/shared-journal-build51/`). The Journal tab holds two
+  books: your own, as it was, and the shared journal of the circle on
+  screen. **Phone and server both; it needs a deploy** (open items).
+  - **The head of the page**: the date at the left; at the right, static
+    while pages turn, **Mine** and **Ours** (SF Rounded; the one being
+    read semibold in the accent, the other quiet) and a **"+"**
+    (`BookSwitch`). A tap on a word opens that book at its newest page,
+    with a 0.15s fade and nothing else. Without a circle, or against a
+    server from before build 51, there are no words and the "+" simply
+    writes.
+  - **"+" is a choice**: a menu, **Write privately** and **Write to the
+    shared journal**. Both open the same writing-in-place on today's page
+    with the three inks. **Under the date a small line says where the
+    page will land**: PRIVATE, or SHARED WITH THIRD FLOOR in the accent
+    (`PageTag`, at `BookLayout.tagY`; the first line moved down 6pt to
+    make room, to 48pt under the status bar). Done keeps it there, and
+    the book it landed in is the one shown.
+  - **One page a day still.** A shared page isn't a second page: it's the
+    day's page, shared (`journal_pages.shared`, `circle_id`). So when
+    today's page is already written and "+" asks for it to land somewhere
+    else, **the app asks first** ("Share today's page? … Going on puts all
+    of it in Third Floor's shared journal", or "Write today's page
+    privately? … takes it out of there"), since what was written for
+    yourself would otherwise go to the circle on Done. A tap on today's
+    page, with no "+", goes on with it where it is. Not in the brief,
+    which reads as if the two were separate pages; the server's "shared
+    boolean on journal entries" and "a page can be toggled" settle it.
+  - **Mine** is the private book exactly as it was, with one addition: a
+    page of yours that's shared says so under its date (SHARED WITH THIRD
+    FLOOR). Its long press has **Share with Third Floor** or **Make
+    Private** beside Edit, Change Ink and Delete.
+  - **Ours** (`SpreadView`, `SharedHalf` in `BookPages.swift`;
+    `BookBuilder.shared`): a page of the book for each spread, oldest
+    first, so the newest is last and the ribbon, the pinch grid and the
+    months along the edge all work as in Mine. A spread is two pages
+    **one above the other with a thin rule between** on a phone; **side
+    by side with a shade down the middle** where the page is 600pt wide
+    or more (the Duo's inner display; not seen). Each is ruled, the words
+    in their writer's inks, **the writer's name small in the hand at the
+    foot**, and the heart. A day too long for half a screen scrolls on
+    its own page. The date is at the head; the page's number at the foot.
+  - **Who faces whom** (`journal.pairings(day, circle_id, writer_ids)`): a
+    round robin over the day's writers, sorted. With the same people
+    writing, each day turns the wheel one place, so each writer faces
+    someone different until they've faced everyone; each circle starts
+    its wheel somewhere of its own; which of a pair is on the left turns
+    too. **An odd number: one page alone, last, with a blank page facing
+    it. Only one writer: their page, and "Waiting for someone else" in
+    faint handwriting opposite, while the day is still today** (a day
+    that's over is simply a blank facing page; the brief has the words
+    for "only you wrote", and they're shown whoever the lone writer is).
+    A day nobody wrote isn't in the book. The brief also says the lone
+    page is "centered"; it's in its usual place with the blank page
+    facing it, which the same sentence asks for.
+  - **Hearts.** The foot of someone else's page is a button, their name
+    at the left and a heart at the right: a tap leaves yours (the soft
+    haptic a photo's like has) or takes it back, shown at once and put
+    back if the server says no. **On your own page the foot shows who
+    left one: a small heart and their faces, never a number**; nobody
+    else is sent them.
+  - **Long press on a page of a spread**: someone else's, **Report Page**
+    (the same sheet as a photo, and then the offer to block); your own,
+    Edit and Make Private.
+  - **Empty**: "Ours" with nothing in it is a blank page above and, in
+    handwriting below, "Nobody has written here yet. Tap + and choose
+    “Write to the shared journal”."
+  - **The server** (`sharing.py`, `routes/journal.py`, `journal.pairings`):
+    - `journal_pages.shared` (false for every page there was) and
+      `circle_id`; `page_hearts` (page, user; one each); `reports.page_id`
+      (not a foreign key: the report keeps who wrote the page and its
+      first 4,000 characters, since the writer can take it back).
+    - `PUT /me/journal/today` takes `shared`: true lands the page in the
+      shared journal of the circle on screen (`X-Stanley-Circle`), false
+      with its writer alone, left out leaves a written page where it is
+      and a new one private. `PATCH /journal/{id}` `{shared}` toggles a
+      page already written. Sharing needs a circle you're in (409
+      `no_circle`, `not_in_circle`), and what's shared goes past the word
+      filter (400 `words_not_allowed`), on sharing and on any rewrite
+      while it's shared. Moving a page to another circle's book, or out,
+      drops the hearts left on it.
+    - `GET /circles/{id}/journal` (`limit` days, 30 by default, 60 at
+      most; `after`): days oldest first, each `{day, spreads: [{left,
+      right}]}`, `left` always a page and `right` a page or null. A page
+      is `{id, day, body, ink, runs, writer, mine, hearted, hearts}`:
+      `hearted` is the reader's own heart, `hearts` is faces and is null
+      for everyone but the writer. Pairing is worked out from everyone
+      who wrote, then a page a block hides (either way) is left out of
+      its spread, so nobody's blocks change anyone else's book. Members
+      only (404 otherwise), from the day they joined on their own
+      calendar.
+    - `POST /journal/{id}/heart` toggles (`{hearted}`; 400 `own_page`;
+      404 for a page you can't read). `GET /journal/{id}/hearts` is the
+      faces, to the writer only (404 to anyone else).
+    - `GET /me/journal` pages carry `shared`, `circle_id`, `circle_name`,
+      and nothing about hearts.
+    - Leaving a circle or being removed: your pages there go back to
+      private, with the hearts on them, and the hearts you left on that
+      circle's pages go too. Deleting an account deletes its pages, the
+      hearts on them and the hearts it left. Tearing out a shared page
+      takes it from the book. The export marks a shared page
+      `shared_with` its circle's name.
+    - `python -m stanley.moderation page <id>` takes a page out of a
+      shared journal (back to private, hearts gone, its reports
+      resolved); `show` prints a reported page.
+    - Nothing notifies, nothing counts, and the sweep never touches a
+      page.
+  - **Both documents changed** (the same date, November 14): a page is
+    seen only by you "except a page you choose to share with a circle";
+    who reads a shared page and from when; that a heart's giver is shown
+    only to the page's writer and never counted; that a report keeps the
+    start of a reported page; hearts in what account deletion removes.
+    `PRIVACY_LABEL.md` says the same.
+  - **Checked on the iPhone 17 Pro simulator** against a local server on
+    this code, with two other members writing through the API. In light
+    and dark: Mine with a shared page's tag; a spread of two people's
+    pages with a heart's face on mine; a page alone with "Waiting for
+    someone else". In light: the empty Ours; the "+" menu; being asked
+    before today's written page is shared, and before it's made private;
+    writing with SHARED WITH THIRD FLOOR under the date, Done, and
+    landing in Ours; a heart left by a tap on the foot of a page, the
+    writer sent my face and a third member sent nothing; Make Private
+    and Share with Third Floor from the long press, the book re-pairing
+    the other two; Report Page opening the report sheet. **On the Duo's
+    cover**, light: Mine and Ours. The Release configuration compiles.
+    **Not seen:** the side-by-side spread (the simulator can't unfold); a
+    day long enough to scroll on its half page; a report sent from the
+    app (tests cover the server); "Write privately" carried through to
+    Done on a shared day; a block; leaving a circle from the app; a real
+    phone; VoiceOver; large Dynamic Type; and any of it against Fly.
+
 - **A page takes more than one ink** (build 50, November 14, 2026, from
   Ayush on trying it: "choosing ink color also makes the entire preceding
   text entirely of that color"; screenshots in `docs/journal-inks-build50/`).
   Until now a page was one ink and picking another set the whole page in
-  it (build 45: "a page is one ink"). **Phone and server both; it needs a
-  deploy** (open items).
+  it (build 45: "a page is one ink"). **Phone and server both; the server
+  side is on Fly as v27** (open items).
   - **The pen in hand.** The three dots are which pen is in hand. Taking
     up another changes nothing already written: what's written next is in
     it, wherever the cursor is put (a text view left alone takes up the
@@ -1419,7 +1574,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (50)", at the
+  production audit), and the version, "Stanley 0.2.0 (51)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -1951,15 +2106,22 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 50** (0.2.0) is the number to archive next: a journal page in
-  more than one ink (above), over build 49's Letters and Prompts at the
-  foot of the page.
-- **Build 50 needs a deploy, and hasn't had one.** Fly is v26. On its
-  first start the new server adds `journal_pages.inks`; nothing changes
-  for older builds. Until then a build 50 phone shows the inks while a
-  page is being written, but Fly keeps only the words and the ink the
-  page begins in, so the page comes back all in that one ink.
-- The next upload carries builds 41 to 50 (43 and 47 were only bumps; 44 is the
+- **Build 51** (0.2.0) is the number to archive next: the shared journal,
+  "Mine" and "Ours" (above), over build 50's inks and build 49's Letters
+  and Prompts at the foot of the page.
+- **Build 51 needs a deploy, and hasn't had one.** Fly is v27. On its
+  first start the new server adds `journal_pages.shared` and `circle_id`,
+  `reports.page_id` and the `page_hearts` table, and `/terms` and
+  `/privacy` gain the shared journal's words; nothing changes for older
+  builds. Until then a build 51 phone gets a 404 for the circle's book,
+  shows no "Mine" and "Ours", and its "+" simply writes privately.
+- **Build 50's server is on Fly** (2026-11-14): release **v27** runs
+  `main` as of `7bc5414`. Checked after the deploy: `/health` ok; the
+  journal's routes answer 401 without a sign-in; `journal_pages.inks`
+  was added on the volume; integrity ok, no foreign-key problems.
+  Nothing changes for older builds. Not yet seen: a real phone keeping a
+  page in more than one ink on it.
+- The next upload carries builds 41 to 51 (43 and 47 were only bumps; 44 is the
   Quiet Warmth design pass, which also removed the filters and
   rest-a-memory from the app; 45 is the journal as a book, never archived
   on its own). The last build uploaded is 40.
@@ -2241,7 +2403,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**542 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**573 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -2336,7 +2498,23 @@ and same-ink neighbours joined, only the three inks, never blank, never
 longer than any page, the day written again in one ink forgetting them, an
 edit ink by ink, a change of ink or new words making it one ink, stretches
 that don't fit the words let go, the export, and the older database's
-column).
+column), and the shared journal (`test_shared_journal.py`: a private page
+only in its writer's book; a shared one in the circle's and still in its
+writer's; private to shared and back; only the writer shares; writing
+again leaving a page where it was unless told; inks kept; sharing needing
+a circle you're in, and the one on screen; the word filter on shared pages
+and rewrites and not on private ones; two writers facing each other and
+every member sent the same spreads; an odd one out alone and last, and no
+day nobody wrote; pairing as a pure function that gives each writer every
+other in turn; days a stretch at a time; reading from the day you joined;
+a block hiding a page both ways and changing nobody else's book; a heart
+shown to the writer as a face and to nobody else; one each, taken back by
+a second tap; none on your own page or a private one; no field that
+counts; taking a page back taking its hearts; leaving and being removed;
+tearing a shared page out; account deletion; reporting, with the report
+keeping how the page began; the operator's takedown leaving the page in
+its writer's journal; no notification; no fading; the export; no sign-in,
+no book; and the older database's columns).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
@@ -2353,6 +2531,10 @@ live APNs, concurrency under real load.
 - Notifications policy: `notifications.py`; APNs: `apns.py`; report alerts (ntfy): `alerts.py`; Terms and Privacy copy: `legal.py`
 - Writing things down (build 26): the weeks and the forty questions
   `journal.py`; routes `routes/journal.py`
+- The shared journal (build 51): `sharing.py` (taking pages out of a
+  circle's book, who may read one), `journal.pairings` (who faces whom),
+  routes in `routes/journal.py` ("The shared journal"), `PageHeart` in
+  `models.py`
 - Letters to the circle (build 42): the months and when they open
   `circle_letters.py`; routes `routes/circle_letters.py`; opening and
   clearing in the sweep `decay.open_letters`, `decay.clear_letters`
@@ -2426,9 +2608,11 @@ live APNs, concurrency under real load.
   size, the kinds of page, `Paginator`, `BookBuilder`, `JournalName`),
   `BookPages.swift` (each page drawn: `BookSheet`, `PageHeading`,
   `InkText`, the blank page's cursor, the tap on today's page, the
-  long-press menu, the small pages of the grid), `BookView.swift` (the
+  long-press menu, the shared journal's `SpreadView` and its two pages,
+  the small pages of the grid), `BookView.swift` (the
   tab: `PageTurner` and `TurnerHost`, `BookEdge` with the ribbon,
-  `BookBar` with the marks for Letters and Prompts at the page's foot, `BookFoot`, the grid),
+  `BookBar` with the marks for Letters and Prompts at the page's foot,
+  `BookSwitch` with "Mine", "Ours" and the "+", `BookFoot`, the grid),
   `BookWriting.swift` (`PageWriting`, the ruled text view, the inks and
   the pen in hand),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)

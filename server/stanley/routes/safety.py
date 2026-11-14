@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from .. import alerts
+from .. import alerts, sharing
 from ..deps import (
     event, get_clock, get_current_user, get_db, get_settings, my_circle_ids, require_membership, shares_a_circle,
 )
@@ -24,6 +24,10 @@ log = logging.getLogger("stanley")
 router = APIRouter(tags=["safety"])
 
 
+# How much of a reported journal page a report keeps: enough to judge it by.
+PAGE_EXCERPT = 4000
+
+
 class ReportBody(BaseModel):
     photo_id: str | None = Field(default=None, max_length=64)
     comment_id: str | None = Field(default=None, max_length=64)
@@ -36,6 +40,8 @@ class ReportBody(BaseModel):
     # A letter sent to you, once you've opened it (build 42). A sealed
     # letter has no words to report yet.
     letter_id: str | None = Field(default=None, max_length=64)
+    # A page in a circle's shared journal (build 51).
+    page_id: str | None = Field(default=None, max_length=64)
     # Never run through the word filter: a report may have to quote what
     # it's about.
     reason: str = Field(min_length=1, max_length=2000)
@@ -59,10 +65,10 @@ def report(
     require_membership(db, user)
     if not (
         body.photo_id or body.comment_id or body.response_id or body.note_id
-        or body.circle_letter_id or body.letter_id
+        or body.circle_letter_id or body.letter_id or body.page_id
     ):
         raise HTTPException(
-            400, "photo_id, comment_id, response_id, note_id, circle_letter_id or letter_id required"
+            400, "photo_id, comment_id, response_id, note_id, circle_letter_id, letter_id or page_id required"
         )
     if body.photo_id:
         photo = db.get(Photo, body.photo_id)
@@ -111,6 +117,19 @@ def report(
             f"{reason}\n\nThe letter, by {letter.author_id}, to circle {letter.circle_id} "
             f"for {letter.month:%Y-%m}: {letter.body}"
         )
+    if body.page_id:
+        # Only a shared page you could read: in a circle's book you're in,
+        # from a day you were there for, by someone no block stands between.
+        # Its writer can take it back or tear it out before a report is
+        # read, so the report keeps who wrote it and how it begins. Never
+        # your own.
+        page = sharing.readable_page(db, user, body.page_id)
+        if page is None or page.owner_id == user.id:
+            raise HTTPException(404, "not found")
+        reason = (
+            f"{reason}\n\nThe shared page, by {page.owner_id}, in circle {page.circle_id} "
+            f"for {page.day:%Y-%m-%d}: {page.body[:PAGE_EXCERPT]}"
+        )
     row = Report(
         reporter_id=user.id,
         photo_id=body.photo_id,
@@ -119,6 +138,7 @@ def report(
         note_id=body.note_id,
         circle_letter_id=body.circle_letter_id,
         letter_id=body.letter_id,
+        page_id=body.page_id,
         reason=reason,
         created_at=clock.now(),
     )

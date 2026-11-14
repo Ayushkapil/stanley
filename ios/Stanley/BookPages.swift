@@ -19,6 +19,17 @@ struct BookActions {
     var deleteReflection: (Reflection) -> Void = { _ in }
     var deleteLetter: (Letter) -> Void = { _ in }
     var reportLetter: (Letter) -> Void = { _ in }
+    /// The circle a page can be shared with (build 51): its name, or nil
+    /// where there's no sharing (no circle, or a server that keeps none).
+    var shareWith: String?
+    var share: (DayPage) -> Void = { _ in }
+    var makePrivate: (DayPage) -> Void = { _ in }
+    /// In the shared journal: a heart left or taken back, a page reported,
+    /// and your own page there edited or taken back.
+    var heart: (SharedPage) -> Void = { _ in }
+    var reportPage: (SharedPage) -> Void = { _ in }
+    var editShared: (SharedPage) -> Void = { _ in }
+    var privateShared: (SharedPage) -> Void = { _ in }
 }
 
 /// Words set by `BookType`, drawn exactly as `Paginator` measured them: the
@@ -118,9 +129,31 @@ struct PageHeading: View {
             .foregroundStyle(color)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .frame(width: layout.textWidth, alignment: .leading)
-            .position(x: layout.middle, y: layout.headY)
+            // Short of the head's right, where "Mine", "Ours" and "+" are.
+            .frame(width: layout.headWidth, alignment: .leading)
+            .position(x: layout.left + layout.headWidth / 2, y: layout.headY)
             .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Under the date, smaller: whether a page is shared, and with whom. On a
+/// page being read it's there only when the page is shared; on a page
+/// being written it always says where the page will land.
+struct PageTag: View {
+    let text: String
+    var color: Color = BookPaper.quiet
+    let layout: BookLayout
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9.5, weight: .semibold))
+            .tracking(0.9)
+            .textCase(.uppercase)
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: layout.textWidth, alignment: .leading)
+            .position(x: layout.middle, y: layout.tagY)
     }
 }
 
@@ -167,6 +200,10 @@ struct BookPageView: View {
             if let heading = page.heading {
                 PageHeading(text: heading, color: headInk, layout: layout)
             }
+            // A page of your own that's in a circle's shared journal says so.
+            if case .written(let written) = page.kind, written.isShared, page.part == 0 {
+                PageTag(text: "Shared with \(written.circleName ?? "your circle")", layout: layout)
+            }
             content
             foot
         }
@@ -194,7 +231,7 @@ struct BookPageView: View {
     @ViewBuilder
     private var foot: some View {
         switch page.kind {
-        case .chapter:
+        case .chapter, .oursEmpty:
             EmptyView()
         case .today where live:
             InkPicker(ink: Binding(get: { Ink.named(inkRaw) }, set: { inkRaw = $0.rawValue }))
@@ -223,6 +260,10 @@ struct BookPageView: View {
             pasted { tombstone(memory) }
         case .letter(let letter):
             pasted { self.letter(letter) }
+        case .spread(let spread):
+            SpreadView(day: page.date, spread: spread, layout: layout, actions: actions, live: live)
+        case .oursEmpty:
+            SpreadView(day: page.date, spread: nil, layout: layout, actions: actions, live: live)
         }
     }
 
@@ -452,9 +493,11 @@ private struct PageMenu: ViewModifier {
     }
 
     private var hasMenu: Bool {
-        if case .chapter = page.kind { return false }
-        if case .tombstone = page.kind { return false }
-        return true
+        switch page.kind {
+        // A spread's two pages each have a menu of their own.
+        case .chapter, .tombstone, .spread, .oursEmpty: return false
+        default: return true
+        }
     }
 
     @ViewBuilder
@@ -476,6 +519,12 @@ private struct PageMenu: ViewModifier {
             } label: {
                 Label("Change Ink", systemImage: "pencil.tip")
             }
+            // Into the circle's shared journal, or back out of it (build 51).
+            if written.isShared {
+                Button { actions.makePrivate(written) } label: { Label("Make Private", systemImage: "lock") }
+            } else if let circle = actions.shareWith {
+                Button { actions.share(written) } label: { Label("Share with \(circle)", systemImage: "person.2") }
+            }
             Button(role: .destructive) { actions.delete(written) } label: { Label("Delete", systemImage: "trash") }
         case .today:
             Button(action: actions.write) { Label("Write Today's Page", systemImage: "pencil") }
@@ -488,8 +537,254 @@ private struct PageMenu: ViewModifier {
             Button(role: .destructive) { actions.deleteReflection(reflection) } label: {
                 Label("Delete Reflection", systemImage: "trash")
             }
-        case .chapter, .tombstone:
+        case .chapter, .tombstone, .spread, .oursEmpty:
             EmptyView()
+        }
+    }
+}
+
+// MARK: - The shared journal's facing pages
+
+/// A spread of the shared journal (build 51): two people's pages from the
+/// same day, facing each other. On a phone the two are one above the other
+/// with a thin rule between; on a screen wide enough for a book lying open
+/// (the Duo's inner display) they're side by side, the fold as the spine.
+/// With `spread` nil it's the shared journal with nothing in it yet.
+struct SpreadView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let day: Date
+    let spread: SharedSpread?
+    let layout: BookLayout
+    let actions: BookActions
+    let live: Bool
+
+    /// What a facing page says when nobody's writing is on it.
+    private var facing: String? {
+        guard spread != nil else {
+            return "Nobody has written here yet. Tap + and choose “Write to the shared journal”."
+        }
+        // Today there's still time for someone to; a day that's over is
+        // simply a blank page.
+        return Calendar.current.isDateInToday(day) ? "Waiting for someone else" : nil
+    }
+
+    var body: some View {
+        let top = layout.contentTop
+        let tall = layout.contentBottom - top
+        if layout.width >= 600 {
+            // A book lying open: two pages, the spine between them.
+            let half = ((layout.width - layout.safeLeading) / 2).rounded(.down)
+            let size = CGSize(width: half, height: tall)
+            ZStack(alignment: .topLeading) {
+                SharedHalf(
+                    page: spread?.left, note: nil, layout: layout, size: size,
+                    leading: 30, trailing: 22, actions: actions, live: live
+                )
+                .offset(x: layout.safeLeading, y: top)
+                SharedHalf(
+                    page: spread?.right, note: facing, layout: layout, size: size,
+                    leading: 22, trailing: 30, actions: actions, live: live
+                )
+                .offset(x: layout.safeLeading + half, y: top)
+                LinearGradient(
+                    colors: [.clear, .black.opacity(colorScheme == .dark ? 0.45 : 0.09), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 34, height: layout.height)
+                .offset(x: layout.safeLeading + half - 17)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        } else {
+            let gap: CGFloat = 13
+            let size = CGSize(width: layout.width, height: ((tall - gap) / 2).rounded(.down))
+            let inset = layout.width - layout.right
+            ZStack(alignment: .topLeading) {
+                SharedHalf(
+                    page: spread?.left, note: nil, layout: layout, size: size,
+                    leading: layout.left, trailing: inset, actions: actions, live: live
+                )
+                .offset(y: top)
+                // The thin rule between the two pages.
+                Rectangle()
+                    .fill(BookPaper.quiet.opacity(0.45))
+                    .frame(width: layout.textWidth, height: 0.5)
+                    .offset(x: layout.left, y: top + size.height + gap / 2)
+                    .accessibilityHidden(true)
+                SharedHalf(
+                    page: spread?.right, note: facing, layout: layout, size: size,
+                    leading: layout.left, trailing: inset, actions: actions, live: live
+                )
+                .offset(y: top + size.height + gap)
+            }
+        }
+    }
+}
+
+/// One page of a spread: someone's words on ruled paper, in their inks,
+/// their name small at the foot, and the heart. The foot is the heart's:
+/// a tap there leaves yours or takes it back. On your own page it shows who
+/// left one, as faces, never a number; nobody else is shown them. A day
+/// too long for the page scrolls on it.
+private struct SharedHalf: View {
+    static let foot: CGFloat = 36
+
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    let page: SharedPage?
+    /// What a page with nobody's writing on it says, if anything.
+    let note: String?
+    let layout: BookLayout
+    /// The whole of this page, margins and all; the words sit inside
+    /// `leading` and `trailing`.
+    let size: CGSize
+    let leading: CGFloat
+    let trailing: CGFloat
+    let actions: BookActions
+    let live: Bool
+
+    private var column: CGFloat { size.width - leading - trailing }
+    private var area: CGFloat { size.height - (page == nil ? 0 : Self.foot) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            words
+                .frame(width: size.width, height: area, alignment: .topLeading)
+                .clipped()
+            if let page {
+                footer(page)
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+                    .frame(width: size.width, height: Self.foot)
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .modifier(HalfMenu(page: page, actions: actions, live: live))
+    }
+
+    /// The ruled lines of this page: as many as show, or as the words need.
+    private func rules(_ rows: Int) -> some View {
+        Canvas { context, canvas in
+            var path = Path()
+            for row in 1...max(rows, 1) {
+                let y = (CGFloat(row) * layout.pitch - layout.ruleRise).rounded() + 0.25
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: canvas.width, y: y))
+            }
+            context.stroke(path, with: .color(BookPaper.rule), lineWidth: 0.5)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var words: some View {
+        let showing = Int(area / layout.pitch)
+        if let page {
+            let text = BookType.shared(page, layout: layout)
+            let tall = Paginator.height(text, width: column)
+            let rows = max(showing, Int((tall / layout.pitch).rounded(.up)))
+            ScrollView(.vertical, showsIndicators: false) {
+                ZStack(alignment: .topLeading) {
+                    rules(rows)
+                    InkText(text: text)
+                        .frame(width: column, height: max(tall, layout.pitch), alignment: .topLeading)
+                        .offset(x: leading)
+                        .accessibilityLabel(page.body)
+                }
+                .frame(width: size.width, height: CGFloat(rows) * layout.pitch, alignment: .topLeading)
+            }
+            .scrollDisabled(!live || tall <= area)
+            .scrollBounceBehavior(.basedOnSize)
+        } else {
+            ZStack(alignment: .topLeading) {
+                rules(showing)
+                if let note {
+                    Text(note)
+                        .font(.custom(layout.font.fontName, fixedSize: layout.fontSize))
+                        .foregroundStyle(BookPaper.quiet.opacity(0.85))
+                        .lineSpacing(layout.pitch - layout.font.lineHeight)
+                        .frame(width: column, alignment: .leading)
+                        .offset(x: leading, y: (layout.pitch - layout.font.lineHeight) / 2)
+                }
+            }
+        }
+    }
+
+    /// The foot of the page: whose it is, and the heart.
+    @ViewBuilder
+    private func footer(_ page: SharedPage) -> some View {
+        let accent = Atmosphere.resolve(raw).palette.accent
+        let name = Text("— \(page.writer.displayName)")
+            .font(.custom(layout.font.fontName, fixedSize: layout.headSize))
+            .foregroundStyle(Ink.black.color.opacity(0.62))
+            .lineLimit(1)
+        if page.mine {
+            // Your own page: who left a heart, as faces. Nobody else is
+            // sent these, and there's never a number.
+            HStack(spacing: 8) {
+                name
+                Spacer(minLength: 8)
+                let faces = (page.hearts ?? []).filter { $0.id != nil }
+                if !faces.isEmpty {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(accent.opacity(0.8))
+                        .accessibilityHidden(true)
+                    HStack(spacing: -7) {
+                        ForEach(faces.prefix(8), id: \.id) { face in
+                            AvatarView(url: face.avatarUrl, name: face.displayName, size: 20, circular: true)
+                                .overlay(Circle().stroke(BookPaper.page, lineWidth: 1.5))
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Hearts from " + faces.map(\.displayName).formatted(.list(type: .and)))
+                }
+            }
+        } else {
+            // Someone else's: the foot of the page is the heart's.
+            Button { actions.heart(page) } label: {
+                HStack(spacing: 8) {
+                    name
+                    Spacer(minLength: 8)
+                    Image(systemName: page.hearted ? "heart.fill" : "heart")
+                        .font(.system(size: 15, weight: .light))
+                        .foregroundStyle(page.hearted ? accent : BookPaper.quiet)
+                        .frame(width: 24)
+                }
+                .frame(maxWidth: .infinity, minHeight: Self.foot)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!live)
+            .accessibilityLabel("Page by \(page.writer.displayName)")
+            .accessibilityValue(page.hearted ? "Your heart is on it" : "")
+            .accessibilityHint(page.hearted ? "Takes your heart back" : "Leaves a heart. Only they see who.")
+        }
+    }
+}
+
+/// A long press on one page of a spread: someone else's can be reported;
+/// your own can be gone on with, or taken back to being yours alone.
+private struct HalfMenu: ViewModifier {
+    let page: SharedPage?
+    let actions: BookActions
+    let live: Bool
+
+    func body(content: Content) -> some View {
+        if live, let page {
+            content.contextMenu {
+                if page.mine {
+                    Button { actions.editShared(page) } label: { Label("Edit", systemImage: "pencil") }
+                    Button { actions.privateShared(page) } label: { Label("Make Private", systemImage: "lock") }
+                } else {
+                    Button { actions.reportPage(page) } label: {
+                        Label("Report Page", systemImage: "exclamationmark.bubble")
+                    }
+                }
+            }
+        } else {
+            content
         }
     }
 }

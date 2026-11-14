@@ -296,13 +296,26 @@ struct InkPicker: View {
 /// A page being written, laid exactly over the page it is: the same sheet,
 /// the same date, the first line where the first line was. Cancel and Done
 /// are at the head, on the date's line, only while it's being written.
+/// Where a page being written will land (build 51).
+enum PageLanding {
+    /// Where it already is: a page being gone on with. A new page, with
+    /// you alone.
+    case asIs
+    /// With you alone, whatever it was.
+    case privately
+    /// In the shared journal of the circle on screen.
+    case shared
+}
+
 struct PageWriting: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let target: WritingTarget
+    var landing = PageLanding.asIs
     let layout: BookLayout
-    /// Writing is over: kept, torn out, or let go.
-    let close: () -> Void
+    /// Writing is over. True when the page was kept; false when it was
+    /// torn out, let go, or left as it was.
+    let close: (Bool) -> Void
 
     @State private var text = ""
     /// The pen in hand: what's written next is in it. Taking up another
@@ -334,6 +347,27 @@ struct PageWriting: View {
     private var words: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// The page as it stands, ink by ink.
     private var written: [InkRun] { handle.view?.stretches() ?? [] }
+    /// Whether the page will be in a circle's shared journal once kept,
+    /// and which circle's.
+    private var sharing: String? {
+        switch landing {
+        case .shared: state.circle?.name ?? "your circle"
+        case .privately: nil
+        case .asIs: existing?.isShared == true ? (existing?.circleName ?? "your circle") : nil
+        }
+    }
+
+    /// Whether keeping it would move a page already written between your
+    /// own book and the shared one, or from one circle's to another's.
+    private var moves: Bool {
+        guard let existing else { return false }
+        switch landing {
+        case .asIs: return false
+        case .privately: return existing.isShared
+        case .shared: return !existing.isShared || existing.circleId != state.circle?.id
+        }
+    }
+
     /// The date is in the ink the page begins in, as it is when the page
     /// is read: the pen in hand on a page with nothing on it yet.
     private var headInk: Ink { written.first.map { Ink.named($0.ink) } ?? ink }
@@ -362,6 +396,11 @@ struct PageWriting: View {
         .overlay(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 PageHeading(text: BookType.dayTitle(date), color: headInk.color.opacity(0.7), layout: layout)
+                // Where this page will land, so there's never any doubt.
+                PageTag(
+                    text: sharing.map { "Shared with \($0)" } ?? "Private",
+                    color: sharing == nil ? BookPaper.quiet : accent, layout: layout
+                )
                 HStack(spacing: 18) {
                     Button("Cancel") { cancel() }
                         .wordButton(.subheadline, bold: false)
@@ -398,7 +437,7 @@ struct PageWriting: View {
             start = held
         }
         .alert("Leave this page unwritten?", isPresented: $confirmDiscard) {
-            Button("Discard", role: .destructive) { close() }
+            Button("Discard", role: .destructive) { close(false) }
             Button("Keep Writing", role: .cancel) {}
         } message: {
             Text(existing == nil ? "What you've written here won't be kept." : "Your changes won't be kept.")
@@ -410,7 +449,7 @@ struct PageWriting: View {
                 Task {
                     await state.deletePage(existing)
                     saving = false
-                    close()
+                    close(false)
                 }
             }
             Button("Keep Writing", role: .cancel) {}
@@ -422,14 +461,15 @@ struct PageWriting: View {
     }
 
     private func cancel() {
-        if changed && !words.isEmpty { confirmDiscard = true } else { close() }
+        if changed && !words.isEmpty { confirmDiscard = true } else { close(false) }
     }
 
     private func done() {
         // The ink is the next page's to start with, whatever happens to this one.
         InkWell.last = ink
         let runs = written
-        guard runs != (existing?.stretches ?? []) else { close(); return }
+        // Nothing rewritten and nowhere new to land: as it was.
+        guard runs != (existing?.stretches ?? []) || moves else { close(false); return }
         // Every word rubbed out of a page that was there: it's being torn out.
         if runs.isEmpty {
             confirmDelete = true
@@ -441,12 +481,15 @@ struct PageWriting: View {
             if case .page(let page) = target {
                 kept = await state.editPage(existing ?? page, runs: runs)
             } else {
-                kept = await state.writeToday(runs)
+                // Where it lands is said only when it was chosen: a page
+                // gone on with stays where it is.
+                let shared: Bool? = landing == .asIs ? nil : landing == .shared
+                kept = await state.writeToday(runs, shared: shared)
             }
             saving = false
             if kept {
                 Haptics.pageKept()
-                close()
+                close(true)
             }
         }
     }

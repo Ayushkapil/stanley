@@ -24,6 +24,7 @@ None of them counts anything, and none sends a notification.
 """
 from __future__ import annotations
 
+import hashlib
 import random
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -153,3 +154,37 @@ def pick_question(recent: list[str], rng: random.Random | None = None) -> str:
     used = set(recent[: len(QUESTIONS) - 1])
     fresh = [q for q in QUESTIONS if q not in used]
     return rng.choice(fresh or QUESTIONS)
+
+
+def pairings(day: date, circle_id: str, writer_ids: list[str]) -> list[tuple[str, str | None]]:
+    """Who faces whom in a circle's shared journal on a day (build 51): a
+    pure function of the day, the circle and who wrote, so every member is
+    shown the same spreads. A round robin: with the same people writing,
+    each day turns the wheel one place, so a writer faces someone different
+    each day until they've faced everyone. With an odd number one page is
+    alone (a different person each day), and that spread comes last."""
+    writers = sorted(set(writer_ids))
+    if not writers:
+        return []
+    seats: list[str | None] = list(writers)
+    if len(seats) % 2:
+        seats.append(None)
+    count = len(seats)
+    if count == 2:
+        lineup = seats
+    else:
+        # Each circle starts its wheel somewhere of its own.
+        start = int(hashlib.sha256(circle_id.encode()).hexdigest()[:8], 16)
+        turn = (day.toordinal() + start) % (count - 1)
+        rest = seats[1:]
+        lineup = [seats[0]] + rest[turn:] + rest[:turn]
+    pairs: list[tuple[str, str | None]] = []
+    alone: tuple[str, None] | None = None
+    for i in range(count // 2):
+        a, b = lineup[i], lineup[count - 1 - i]
+        if a is None or b is None:
+            alone = (a or b, None)
+        else:
+            # Which of the two is on the left turns with the days as well.
+            pairs.append((a, b) if (day.toordinal() + i) % 2 == 0 else (b, a))
+    return pairs + ([alone] if alone else [])

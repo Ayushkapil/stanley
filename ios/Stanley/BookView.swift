@@ -305,6 +305,17 @@ struct BookView: View {
     /// A keyboard is up, or on its way.
     @State private var typing = false
 
+    /// Which book is open: your own ("Mine"), or the shared journal of the
+    /// circle on screen ("Ours", build 51).
+    @State private var ours = false
+    /// Where the page being written will land: as it was, with you alone,
+    /// or in the shared journal.
+    @State private var landing = PageLanding.asIs
+    /// Today's page is already written, and "+" asked for it to land
+    /// somewhere else: asked about before anything is opened.
+    @State private var moving: PageLanding?
+    @State private var reportingPage: SharedPage?
+
     @State private var grid = false
     @State private var scrubbing = false
     @State private var writing: WritingTarget?
@@ -324,7 +335,12 @@ struct BookView: View {
     /// (writing, or a sheet with a field in it), or one is showing.
     private var held: Bool {
         writing != nil || typing || readingLetters || readingPrompts || reflecting || reporting != nil
+            || reportingPage != nil
     }
+
+    /// There is a shared journal to read: a circle, and a server that
+    /// keeps one.
+    private var hasOurs: Bool { state.circle != nil && state.sharedAvailable }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -350,7 +366,8 @@ struct BookView: View {
                 // while there could be one, the page is the size it was.
                 let layout = (held ? shown : nil) ?? measured
                 let full = CGSize(width: room.width, height: layout.height)
-                let book = BookBuilder.book(state, layout: layout)
+                let shared = ours && hasOurs
+                let book = shared ? BookBuilder.shared(state, layout: layout) : BookBuilder.book(state, layout: layout)
                 let ids = book.pages.map(\.id)
                 let found = currentID.flatMap(book.index(id:))
                 // Where the page in view is; or, for the moment after it has
@@ -382,6 +399,8 @@ struct BookView: View {
                 // for a day's.
                 .onChange(of: state.journalAsked, initial: true) { _, _ in
                     start = state.journalDay.map { .day($0) } ?? .today
+                    // A day's page is in your own book.
+                    if state.journalDay != nil { ours = false }
                     state.journalDay = nil
                     // A page half written stays where it is.
                     guard writing == nil else { return }
@@ -402,9 +421,33 @@ struct BookView: View {
             .ignoresSafeArea(.keyboard)
 
             if let target = writing, let shown {
-                PageWriting(target: target, layout: shown) { writing = nil }
-                    .tint(palette.accent)
+                PageWriting(target: target, landing: landing, layout: shown) { kept in
+                    let landed = landing
+                    writing = nil
+                    landing = .asIs
+                    guard kept else { return }
+                    // The page is shown where it landed: in the shared
+                    // journal, or today's page of your own.
+                    if landed == .shared, hasOurs { open(ours: true) } else if landed != .asIs { openToday() }
+                }
+                .tint(palette.accent)
             }
+        }
+        .alert(
+            moving == .shared ? "Share today's page?" : "Write today's page privately?",
+            isPresented: present($moving), presenting: moving
+        ) { wanted in
+            Button(wanted == .shared ? "Share This Page" : "Write Privately") { begin(wanted) }
+            Button("Cancel", role: .cancel) {}
+        } message: { wanted in
+            let circle = state.circle?.name ?? "your circle"
+            let today = state.journalPages.first { $0.day == WidgetSnapshot.day(.now) }
+            Text(wanted == .shared
+                ? "You've already written today's page, and a day has one page. Going on puts all of it in \(circle)'s shared journal, where your circle reads it."
+                : "Today's page is in \(today?.circleName ?? circle)'s shared journal. Writing it privately takes it out of there. It stays in yours.")
+        }
+        .sheet(item: $reportingPage) { page in
+            ReportSheet(target: .page(page))
         }
         .fullScreenCover(isPresented: $viewing) {
             HeldViewer(current: $openedPhoto)
@@ -470,7 +513,53 @@ struct BookView: View {
 
     private func load() async {
         await state.loadBook()
+        await state.loadShared()
         await state.loadThisWeek()
+    }
+
+    // MARK: two books
+
+    /// Open one book or the other, at its newest page. Instant but for a
+    /// quick fade.
+    private func open(ours wanted: Bool) {
+        withAnimation(.easeInOut(duration: 0.15)) { ours = wanted }
+        grid = false
+        touched = false
+        start = .today
+        // The page in view was the other book's; `follow` finds this
+        // one's newest as soon as its pages are in hand.
+        currentID = nil
+    }
+
+    /// Your own book, at today's page.
+    private func openToday() {
+        ours = false
+        grid = false
+        touched = false
+        start = .today
+        guard let shown else { return }
+        let book = BookBuilder.book(state, layout: shown)
+        go(to: book.todayIndex, in: book)
+    }
+
+    /// "+": write today's page, to land privately or in the shared
+    /// journal. A page already written that would move from one to the
+    /// other is asked about first; there's one page a day, so it's that
+    /// page that would move.
+    private func wants(_ wanted: PageLanding) {
+        let today = state.journalPages.first { $0.day == WidgetSnapshot.day(.now) }
+        if let today, today.isShared != (wanted == .shared) {
+            moving = wanted
+        } else {
+            begin(wanted)
+        }
+    }
+
+    private func begin(_ wanted: PageLanding) {
+        landing = wanted
+        // Written on today's page of your own book, wherever it lands.
+        openToday()
+        write(.today)
     }
 
     private func present<Item>(_ item: Binding<Item?>) -> Binding<Bool> {
@@ -499,7 +588,23 @@ struct BookView: View {
             },
             deleteReflection: { forgetting = $0 },
             deleteLetter: { discarding = $0 },
-            reportLetter: { reporting = $0 }
+            reportLetter: { reporting = $0 },
+            shareWith: hasOurs ? state.circle?.name : nil,
+            share: { page in Task { _ = await state.sharePage(page, shared: true) } },
+            makePrivate: { page in Task { _ = await state.sharePage(page, shared: false) } },
+            heart: { page in
+                if !page.hearted { Haptics.liked() }
+                Task { await state.heartPage(page) }
+            },
+            reportPage: { reportingPage = $0 },
+            editShared: { shared in
+                if let page = state.journalPages.first(where: { $0.id == shared.id }) { write(.page(page)) }
+            },
+            privateShared: { shared in
+                if let page = state.journalPages.first(where: { $0.id == shared.id }) {
+                    Task { _ = await state.sharePage(page, shared: false) }
+                }
+            }
         )
         let accent = palette.accent
         let state = self.state
@@ -509,8 +614,12 @@ struct BookView: View {
         hasher.combine(state.lettersReceived.opened)
         hasher.combine(state.reflections)
         hasher.combine(state.journalTitle)
+        hasher.combine(state.sharedDays)
+        hasher.combine(state.circle?.name)
+        hasher.combine(ours)
         hasher.combine(layout)
         let version = hasher.finalize()
+        let shared = ours && hasOurs
         let whole = CGSize(width: layout.width + BookLayout.edge, height: layout.height)
         let count = book.pages.count
 
@@ -545,9 +654,10 @@ struct BookView: View {
                     }
                 }
             )
-            // Made again if Reduce Motion changes: curl or slide is decided
-            // when the page controller is.
-            .id(reduceMotion)
+            // Made again if Reduce Motion changes (curl or slide is decided
+            // when the page controller is), and for the other book.
+            .id("\(reduceMotion)-\(shared)")
+            .transition(.opacity)
             .frame(width: whole.width, height: whole.height)
             .accessibilityHidden(grid)
 
@@ -577,6 +687,17 @@ struct BookView: View {
                 openLetters: { readingLetters = true },
                 openPrompts: { readingPrompts = true },
                 openWeek: { reflecting = true }
+            )
+            .opacity(grid ? 0 : 1)
+            .accessibilityHidden(grid)
+
+            // The head's right: which book, and the "+".
+            BookSwitch(
+                layout: layout, accent: accent, ours: shared, showsOurs: hasOurs,
+                canWrite: state.journalWritable,
+                pick: { wanted in if wanted != shared { open(ours: wanted) } },
+                writePrivately: { wants(.privately) },
+                writeShared: { wants(.shared) }
             )
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
@@ -743,8 +864,12 @@ private struct BookEdge: View {
         // (The newest starts a little down, clear of the ribbon's bead
         // when it's at the top, on today's page.)
         var above = layout.trackTop + 5
+        let calendar = Calendar.current
         for (at, page) in book.pages.enumerated().reversed() {
-            guard case .chapter = page.kind else { continue }
+            // A month begins at its first page (its opening page, in your
+            // own book; the shared one has none).
+            guard at == 0 || !calendar.isDate(page.date, equalTo: book.pages[at - 1].date, toGranularity: .month)
+            else { continue }
             let here = y(at)
             made.append(Mark(
                 y: here,
@@ -862,6 +987,76 @@ private struct BookEdge: View {
         }
         .frame(width: x0 + wide, height: layout.height, alignment: .topLeading)
         .animation(.easeOut(duration: 0.15), value: scrubbing)
+    }
+}
+
+// MARK: - Which book, and the "+"
+
+/// The right of the page's head (build 51): "Mine" and "Ours", the one
+/// being read in the accent and the other quiet, and a "+" that asks where
+/// today's page should land. They stay put while pages turn.
+private struct BookSwitch: View {
+    let layout: BookLayout
+    let accent: Color
+    let ours: Bool
+    /// Whether there's a shared journal to switch to.
+    let showsOurs: Bool
+    let canWrite: Bool
+    let pick: (Bool) -> Void
+    let writePrivately: () -> Void
+    let writeShared: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if showsOurs {
+                word("Mine", on: !ours) { pick(false) }
+                word("Ours", on: ours) { pick(true) }
+            }
+            if canWrite {
+                if showsOurs {
+                    Menu {
+                        Button(action: writePrivately) { Label("Write privately", systemImage: "lock") }
+                        Button(action: writeShared) {
+                            Label("Write to the shared journal", systemImage: "person.2")
+                        }
+                    } label: {
+                        plus
+                    }
+                    .accessibilityLabel("Write today's page")
+                } else {
+                    // Nowhere to share to: the "+" simply writes.
+                    Button(action: writePrivately) { plus }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Write today's page")
+                }
+            }
+        }
+        // The "+" itself ends on the writing's right margin; its target
+        // reaches a little past that.
+        .padding(.trailing, layout.width - layout.right - 11)
+        .frame(width: layout.width, height: 44, alignment: .trailing)
+        .offset(y: layout.headY - 22)
+    }
+
+    private var plus: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 20, weight: .light))
+            .foregroundStyle(accent)
+            .frame(width: 40, height: 44)
+            .contentShape(Rectangle())
+    }
+
+    private func word(_ name: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(name)
+                .font(.system(.subheadline, design: .rounded).weight(on ? .semibold : .regular))
+                .foregroundStyle(on ? accent : BookPaper.quiet)
+                .frame(minWidth: 46, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name == "Mine" ? "My journal" : "The shared journal")
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 

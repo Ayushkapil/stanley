@@ -82,7 +82,9 @@ Personalization, never Other.
   label must not claim it. Since build 45, the pages of the
   journal: a page a day in the person's own words, the ink chosen for
   each, and the name given to the journal, read by no one but their
-  writer. The same answers as before: collected, linked,
+  writer, unless the writer shares a page with a circle (build 51), and
+  then by that circle. Since build 51 also the hearts left on shared
+  pages (who, shown only to the page's writer; never a count). The same answers as before: collected, linked,
   used for App Functionality, not for tracking.
 - [ ] Emails or Text Messages / Audio / Gameplay / Customer Support — **not collected.**
 

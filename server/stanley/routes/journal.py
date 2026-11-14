@@ -12,19 +12,22 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from .. import journal, physics
+from .. import journal, physics, sharing
 from ..decay import forget_journal
-from ..deps import get_clock, get_current_user, get_db, get_settings, membership_in, refuse_objectionable
+from ..deps import (
+    active_circle_id, event, get_clock, get_current_user, get_db, get_settings, membership_in,
+    refuse_objectionable, require_membership,
+)
 from ..models import (
-    Anchor, CirclePrompt, JournalEntry, JournalPage, Membership, Photo, PromptResponse, Report, User,
-    WeeklyReflection, new_id,
+    Anchor, CirclePrompt, JournalEntry, JournalPage, Membership, PageHeart, Photo, PromptResponse, Report,
+    User, WeeklyReflection, new_id,
 )
 from ..ratelimit import per_person
-from ..serialize import blocked_ids, iso, user_brief
+from ..serialize import blocked_ids, circle_name, iso, user_brief
 from ..storage import read_url
 from ..text import clean, clean_optional
 from .photos import valid_timezone
@@ -59,6 +62,11 @@ class TodaysPageBody(BaseModel):
     # The page ink by ink, when it's in more than one. When it's sent, it
     # is the page: `body` and `ink` are for a server that doesn't know it.
     runs: list[InkRun] | None = Field(default=None, max_length=journal.RUNS_MAX)
+    # Where the page lands (build 51): true puts it in the shared journal of
+    # the circle on screen, false keeps it (or takes it back to being) the
+    # writer's alone. Left out, a page already written stays where it is and
+    # a new one is private.
+    shared: bool | None = None
     # The phone's zone, so the day is the writer's own.
     tz: str | None = Field(default=None, max_length=64)
 
@@ -67,6 +75,10 @@ class PagePatch(BaseModel):
     body: str | None = Field(default=None, min_length=1, max_length=journal.PAGE_MAX)
     ink: str | None = Field(default=None, max_length=8)
     runs: list[InkRun] | None = Field(default=None, max_length=journal.RUNS_MAX)
+
+
+class ShareBody(BaseModel):
+    shared: bool
 
 
 class JournalTitleBody(BaseModel):
@@ -387,13 +399,18 @@ def page_runs(row: JournalPage) -> list[dict] | None:
     return runs
 
 
-def _page_payload(row: JournalPage) -> dict:
+def _page_payload(db: Session, row: JournalPage) -> dict:
+    """A page as its writer is sent it: with whether it's in a circle's
+    shared journal, and whose."""
     return {
         "id": row.id,
         "day": row.day.isoformat(),
         "body": row.body,
         "ink": row.ink,
         "runs": page_runs(row),
+        "shared": bool(row.shared),
+        "circle_id": row.circle_id if row.shared else None,
+        "circle_name": circle_name(db, row.circle_id) if row.shared else None,
         "created_at": iso(row.created_at),
         "updated_at": iso(row.updated_at),
     }
@@ -470,7 +487,7 @@ def my_journal(
     stretch, more = rows[:limit], len(rows) > limit
     return {
         "title": user.journal_title,
-        "pages": [_page_payload(r) for r in stretch],
+        "pages": [_page_payload(db, r) for r in stretch],
         "next_after": stretch[-1].day.isoformat() if more else None,
     }
 
@@ -481,10 +498,13 @@ def write_today(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
+    active: str | None = Depends(active_circle_id),
 ):
     """Today's page: the server says which day (the writer's own, from the
     zone the phone sends). One a day: writing again replaces what was
-    there, it doesn't add to it."""
+    there, it doesn't add to it. `shared` says where it lands (build 51):
+    in the shared journal of the circle on screen, or with its writer
+    alone; left out, a page stays where it was."""
     tz = _zone(user, body.tz)
     if body.runs:
         words, ink, inks = _inked(body.runs)
@@ -492,21 +512,41 @@ def write_today(
         words, ink, inks = _words(body.body), _ink(body.ink), None
     now = clock.now()
     day = journal.local_day(now, tz)
+    mine = (JournalPage.owner_id == user.id, JournalPage.day == day)
+    was = db.scalars(select(JournalPage).where(*mine)).first()
+    if body.shared:
+        _, circle = require_membership(db, user, active)
+        shared, circle_id = True, circle.id
+    elif body.shared is None and was is not None and was.shared:
+        shared, circle_id = True, was.circle_id
+    else:
+        shared, circle_id = False, None
+    if shared:
+        # What a circle reads goes past the word filter; a private page
+        # doesn't.
+        refuse_objectionable(words)
+    if was is not None and was.shared and (not shared or was.circle_id != circle_id):
+        # Out of the book it was in: the hearts left on it there go.
+        sharing.unshare(db, [was.id])
     db.execute(
         sqlite_insert(JournalPage)
         .values(
-            id=new_id(), owner_id=user.id, day=day, body=words, ink=ink, inks=inks, created_at=now, updated_at=now
+            id=new_id(), owner_id=user.id, day=day, body=words, ink=ink, inks=inks,
+            shared=shared, circle_id=circle_id, created_at=now, updated_at=now,
         )
         .on_conflict_do_update(
             index_elements=["owner_id", "day"],
-            set_={"body": words, "ink": ink, "inks": inks, "updated_at": now},
+            set_={
+                "body": words, "ink": ink, "inks": inks, "shared": shared, "circle_id": circle_id,
+                "updated_at": now,
+            },
         )
     )
-    row = db.scalars(
-        select(JournalPage).where(JournalPage.owner_id == user.id, JournalPage.day == day)
-    ).one()
+    row = db.scalars(select(JournalPage).where(*mine)).one()
     db.refresh(row)
-    return _page_payload(row)
+    if shared and (was is None or not was.shared):
+        event("page_shared", circle=circle_id, user=user.id)
+    return _page_payload(db, row)
 
 
 @router.patch("/me/journal/pages/{page_id}", dependencies=[per_person("journal")])
@@ -531,8 +571,12 @@ def edit_page(
         if body.ink is not None:
             row.ink = _ink(body.ink)
             row.inks = None
+    if row.shared:
+        # A page in a circle's book is still read by the circle once it's
+        # rewritten.
+        refuse_objectionable(row.body)
     row.updated_at = clock.now()
-    return _page_payload(row)
+    return _page_payload(db, row)
 
 
 @router.delete("/me/journal/pages/{page_id}", status_code=204)
@@ -541,8 +585,178 @@ def delete_page(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ):
-    """A page never fades, but its writer can always tear it out."""
-    db.delete(_own_page(db, user, page_id))
+    """A page never fades, but its writer can always tear it out. Out of
+    a circle's book too, if it was in one."""
+    row = _own_page(db, user, page_id)
+    db.execute(delete(PageHeart).where(PageHeart.page_id == row.id))
+    db.delete(row)
+
+
+# --- The shared journal ---------------------------------------------------------
+#
+# Build 51. A page is its writer's alone until they put it in a circle's
+# shared journal; then the circle reads it, in a book of facing pages: two
+# people's pages from the same day, side by side. Who faces whom is
+# `journal.pairings`, the same for every member. A reader may leave one
+# heart on a page; only its writer is told who, as faces, and nobody is
+# told how many. No comments, no notification, and a shared page doesn't
+# fade. The word filter is on shared pages (a circle reads them), never on
+# private ones.
+
+SPREAD_DAYS = 30
+SPREAD_DAYS_MAX = 60
+
+
+def _heart_faces(db: Session, settings, now: datetime, row: JournalPage, blocked: set[str]) -> list[dict]:
+    """Who left a heart on a page, for its writer: faces, never a number,
+    in the order they were left, minus anyone a block stands between."""
+    who = db.scalars(
+        select(PageHeart.user_id).where(PageHeart.page_id == row.id).order_by(PageHeart.created_at, PageHeart.user_id)
+    ).all()
+    return [user_brief(db, uid, settings, now) for uid in who if uid not in blocked]
+
+
+def _shared_payload(
+    db: Session, settings, now: datetime, row: JournalPage, viewer: User, blocked: set[str]
+) -> dict:
+    """A page as a circle's book shows it: its words in their inks and who
+    wrote it. The reader's own heart is theirs to see; who else left one is
+    only ever sent to the writer."""
+    mine = row.owner_id == viewer.id
+    return {
+        "id": row.id,
+        "day": row.day.isoformat(),
+        "body": row.body,
+        "ink": row.ink,
+        "runs": page_runs(row),
+        "writer": user_brief(db, row.owner_id, settings, now),
+        "mine": mine,
+        "hearted": (not mine) and db.get(PageHeart, (row.id, viewer.id)) is not None,
+        "hearts": _heart_faces(db, settings, now, row, blocked) if mine else None,
+    }
+
+
+@router.patch("/journal/{page_id}", dependencies=[per_person("journal")])
+def share_page(
+    page_id: str,
+    body: ShareBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    active: str | None = Depends(active_circle_id),
+):
+    """Put a page you've written into the shared journal of the circle on
+    screen, or take it back. Either way it stays in your own book."""
+    row = _own_page(db, user, page_id)
+    if body.shared:
+        _, circle = require_membership(db, user, active)
+        refuse_objectionable(row.body)
+        if not row.shared or row.circle_id != circle.id:
+            # Into this circle's book (from another's, perhaps: the hearts
+            # left on it there don't come with it).
+            db.execute(delete(PageHeart).where(PageHeart.page_id == row.id))
+            event("page_shared", circle=circle.id, user=user.id)
+        row.shared, row.circle_id = True, circle.id
+    elif row.shared:
+        db.execute(delete(PageHeart).where(PageHeart.page_id == row.id))
+        row.shared, row.circle_id = False, None
+    return _page_payload(db, row)
+
+
+@router.get("/circles/{circle_id}/journal")
+def shared_journal(
+    circle_id: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    settings=Depends(get_settings),
+    clock=Depends(get_clock),
+    limit: int = Query(default=SPREAD_DAYS, ge=1, le=SPREAD_DAYS_MAX),
+    after: date | None = Query(default=None),
+):
+    """A circle's shared journal: its days oldest first, a stretch at a time
+    (`after` is the last day of the stretch before), each day as spreads of
+    two facing pages. A day nobody wrote isn't there. A member reads from
+    the day they joined. Who faces whom is worked out from everyone who
+    wrote that day, so it's the same for every reader; a page a block hides
+    is simply missing from its spread."""
+    membership, circle = membership_in(db, user, circle_id)
+    since = sharing.joined_day(membership, user)
+    in_book = (JournalPage.circle_id == circle.id, JournalPage.shared.is_(True), JournalPage.day >= since)
+    days = db.scalars(
+        select(JournalPage.day)
+        .where(*in_book, True if after is None else JournalPage.day > after)
+        .distinct()
+        .order_by(JournalPage.day)
+        .limit(limit + 1)
+    ).all()
+    stretch, more = days[:limit], len(days) > limit
+    rows = db.scalars(select(JournalPage).where(*in_book, JournalPage.day.in_(stretch))).all() if stretch else []
+    by_day: dict[date, dict[str, JournalPage]] = {}
+    for row in rows:
+        by_day.setdefault(row.day, {})[row.owner_id] = row
+    blocked = blocked_ids(db, user.id)
+    now = clock.now()
+
+    def page(day: date, writer: str | None) -> dict | None:
+        if writer is None or writer in blocked:
+            return None
+        return _shared_payload(db, settings, now, by_day[day][writer], user, blocked)
+
+    out = []
+    for day in stretch:
+        spreads = []
+        for left, right in journal.pairings(day, circle.id, list(by_day[day])):
+            a, b = page(day, left), page(day, right)
+            if a is None and b is None:
+                continue
+            # Whatever can be read is on the left; the right is its facing
+            # page, or nothing.
+            spreads.append({"left": a or b, "right": b if a else None})
+        if spreads:
+            out.append({"day": day.isoformat(), "spreads": spreads})
+    return {"days": out, "next_after": stretch[-1].isoformat() if more else None}
+
+
+@router.post("/journal/{page_id}/heart")
+def heart_page(
+    page_id: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """Leave your heart on a shared page, or take it back: one each. Not on
+    your own."""
+    row = sharing.readable_page(db, user, page_id)
+    if row is None:
+        raise HTTPException(404, "not found")
+    if row.owner_id == user.id:
+        raise HTTPException(400, {"code": "own_page"})
+    mine = (PageHeart.page_id == row.id, PageHeart.user_id == user.id)
+    if db.scalars(select(PageHeart).where(*mine)).first() is not None:
+        db.execute(delete(PageHeart).where(*mine))
+        return {"hearted": False}
+    # A double tap arrives as two requests; the second finds it there.
+    db.execute(
+        sqlite_insert(PageHeart)
+        .values(page_id=row.id, user_id=user.id, created_at=clock.now())
+        .on_conflict_do_nothing()
+    )
+    return {"hearted": True}
+
+
+@router.get("/journal/{page_id}/hearts")
+def page_hearts(
+    page_id: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    settings=Depends(get_settings),
+    clock=Depends(get_clock),
+):
+    """Who left a heart on your page: faces, to its writer only. To anyone
+    else there's no such thing."""
+    row = db.get(JournalPage, page_id)
+    if row is None or row.owner_id != user.id or not row.shared:
+        raise HTTPException(404, "not found")
+    return {"hearts": _heart_faces(db, settings, clock.now(), row, blocked_ids(db, user.id))}
 
 
 @router.put("/me/journal/title")

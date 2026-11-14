@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from .. import notifications, physics, wordfilter
+from .. import notifications, physics, sharing, wordfilter
 from ..decay import TOMBSTONE, delete_comments, enqueue_purge, owner_hash_for, scrub
 from ..deps import event, get_clock, get_current_user, get_db, get_settings, get_storage, refuse_objectionable
 from ..images import BadImage, process_avatar
@@ -393,6 +393,9 @@ def export_memories(
             # how many characters of the page are in it.)
             {"day": page.day.isoformat(), "ink": page.ink, "page": page.body}
             | ({"inks": json.loads(page.inks)} if page.inks else {})
+            # (`shared_with`, build 51: the circle whose shared journal the
+            # page is in.)
+            | ({"shared_with": circle_name(db, page.circle_id)} if page.shared else {})
             for page in db.scalars(
                 select(JournalPage).where(JournalPage.owner_id == user.id).order_by(JournalPage.day)
             ).all()
@@ -484,7 +487,9 @@ def delete_account(
     # above didn't already take.
     db.execute(delete(WeeklyReflection).where(WeeklyReflection.owner_id == user.id))
     db.execute(delete(JournalEntry).where(JournalEntry.owner_id == user.id))
-    # The pages of their journal (build 45), and what they called it.
+    # The pages of their journal (build 45), and what they called it; the
+    # hearts on any they'd shared, and the hearts they left (build 51).
+    sharing.forget_person(db, user.id)
     db.execute(delete(JournalPage).where(JournalPage.owner_id == user.id))
     user.journal_title = None
     delete_answers(db, db.scalars(select(PromptResponse).where(PromptResponse.user_id == user.id)).all())

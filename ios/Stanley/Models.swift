@@ -438,21 +438,74 @@ struct DayPage: Codable, Identifiable, Hashable {
     /// The page ink by ink, when it's in more than one (build 50). Nil
     /// for a page in one ink, and from a server that keeps only one.
     let runs: [InkRun]?
+    /// Whether its writer has put it in a circle's shared journal (build
+    /// 51), and whose. Nil from a server that keeps only private pages.
+    let shared: Bool?
+    let circleId: String?
+    let circleName: String?
     let createdAt: Date
     let updatedAt: Date
 
     /// The page as stretches of ink, whichever way it was kept: one
     /// stretch for a page in one ink.
-    var stretches: [InkRun] {
-        if let runs, runs.count > 1, runs.map(\.text).joined() == body { return runs }
-        return [InkRun(ink: ink, text: body)]
-    }
+    var stretches: [InkRun] { InkRun.stretches(body: body, ink: ink, runs: runs) }
+    var isShared: Bool { shared == true }
+}
+
+/// A page in a circle's shared journal (build 51), as the circle reads it:
+/// its words in their inks and who wrote it. `hearted` is the reader's own
+/// heart; `hearts` is who left one, as faces, and is only ever sent to the
+/// page's writer.
+struct SharedPage: Codable, Identifiable, Hashable {
+    let id: String
+    let day: String
+    let body: String
+    let ink: String
+    let runs: [InkRun]?
+    let writer: UserBrief
+    let mine: Bool
+    var hearted: Bool
+    let hearts: [UserBrief]?
+
+    var stretches: [InkRun] { InkRun.stretches(body: body, ink: ink, runs: runs) }
+}
+
+/// Two facing pages of the shared journal: two people's pages from the
+/// same day. The right is nil when someone's page has nobody facing it.
+struct SharedSpread: Codable, Hashable {
+    var left: SharedPage
+    var right: SharedPage?
+}
+
+/// A day of the shared journal. A day nobody wrote isn't one.
+struct SharedDay: Codable, Hashable {
+    let day: String
+    var spreads: [SharedSpread]
+}
+
+/// A stretch of a circle's shared journal, oldest first, and the day to ask
+/// after for the next.
+struct SharedStretch: Codable {
+    let days: [SharedDay]
+    let nextAfter: String?
+}
+
+/// Whether a heart is on a shared page now.
+struct HeartState: Codable {
+    let hearted: Bool
 }
 
 /// A stretch of a page written in one ink.
 struct InkRun: Codable, Hashable {
     let ink: String
     let text: String
+
+    /// A page as stretches of ink, whichever way it was kept: its runs
+    /// when they add up to its words, else all of it in its one ink.
+    static func stretches(body: String, ink: String, runs: [InkRun]?) -> [InkRun] {
+        if let runs, runs.count > 1, runs.map(\.text).joined() == body { return runs }
+        return [InkRun(ink: ink, text: body)]
+    }
 }
 
 /// A stretch of the journal: its name, pages oldest first, and the day to

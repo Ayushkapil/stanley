@@ -12,6 +12,8 @@ of editing the database by hand. This is that way, run on the server:
     ... note <note id>            take a note off a circle's board
     ... circle-letter <letter id> take down an anonymous letter to a circle
     ... letter <letter id>        take a letter away (build 42)
+    ... page <page id>            take a page out of a shared journal (build
+                                  51): it goes back to its writer's own book
     ... resolve <report id>       close a report that needed nothing removed
     ... account <user id>         end an account (the Terms, section 6)
 
@@ -36,10 +38,11 @@ from pathlib import Path
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from . import physics
+from . import physics, sharing
 from .decay import delete_comments, scrub
 from .models import (
-    CircleLetter, CircleNote, CirclePrompt, Comment, PersonLetter, Photo, PromptResponse, Report, User,
+    CircleLetter, CircleNote, CirclePrompt, Comment, JournalPage, PersonLetter, Photo, PromptResponse, Report,
+    User,
 )
 
 log = logging.getLogger("stanley")
@@ -209,7 +212,28 @@ def take_down_circle_letter(session: Session, letter_id: str, now: datetime) -> 
     return True
 
 
+def take_down_page(session: Session, page_id: str, now: datetime) -> bool:
+    """A page taken out of a circle's shared journal (build 51). It isn't
+    deleted: it goes back to being its writer's alone, in their own book,
+    and the hearts left on it go. The reports about it keep who wrote it
+    and how it began."""
+    page = session.get(JournalPage, page_id)
+    if page is None:
+        return False
+    reports = session.scalars(
+        select(Report).where(Report.resolved_at.is_(None), Report.page_id == page_id)
+    ).all()
+    for report in reports:
+        report.resolved_at = now
+    sharing.unshare(session, [page.id])
+    session.flush()
+    log.warning("event=page_taken_down reports_resolved=%d", len(reports))
+    return True
+
+
 def _about(r: Report) -> str:
+    if r.page_id:
+        return f"shared page {r.page_id}"
     if r.circle_letter_id:
         return f"circle letter {r.circle_letter_id}"
     if r.note_id:
@@ -274,6 +298,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
     circle_letter.add_argument("letter")
     letter = sub.add_parser("letter")
     letter.add_argument("letter")
+    page = sub.add_parser("page")
+    page.add_argument("page")
     res = sub.add_parser("resolve")
     res.add_argument("report")
     acct = sub.add_parser("account")
@@ -316,6 +342,13 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
                         f"letter {letter.id} by {letter.author_id} to circle {letter.circle_id} "
                         f"for {letter.month:%Y-%m}: {letter.body}"
                     )
+            if r.page_id:
+                pg = session.get(JournalPage, r.page_id)
+                if pg is None or not pg.shared:
+                    print(f"shared page {r.page_id}: (taken back or torn out; the report above kept how it began)")
+                else:
+                    print(f"shared page {pg.id} by {pg.owner_id} in circle {pg.circle_id} for {pg.day}")
+                    print(f"body: {pg.body}")
             if r.letter_id:
                 le = session.get(PersonLetter, r.letter_id)
                 if le is None:
@@ -341,6 +374,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
             ok = take_down_circle_letter(session, args.letter, now)
         elif args.cmd == "letter":
             ok = take_down_letter(session, args.letter, now)
+        elif args.cmd == "page":
+            ok = take_down_page(session, args.page, now)
         elif args.cmd == "account":
             ok = terminate_account(session, storage, args.user, now)
         else:

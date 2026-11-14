@@ -66,6 +66,12 @@ final class AppState {
     /// The day the Journal widget asked for ("2026-11-14"), until the
     /// journal has gone there; nil is today's page.
     var journalDay: String?
+    /// The shared journal of the circle on screen (build 51): its days,
+    /// oldest first, each as spreads of two facing pages.
+    var sharedDays: [SharedDay] = []
+    /// The server keeps a shared journal. False against one from before
+    /// build 51: there's "Mine" and nothing else.
+    var sharedAvailable = false
     var news: [NewsArticle] = []
     /// Headlines from the town the phone is in, and that town's name. Empty
     /// without location permission.
@@ -404,6 +410,8 @@ final class AppState {
         journalTitle = nil
         journalWritable = false
         journalDay = nil
+        sharedDays = []
+        sharedAvailable = false
         news = []
         nearby = []
         nearbyTown = nil
@@ -495,10 +503,12 @@ final class AppState {
         question = nil
         circleLetters = nil
         journalOffer = nil
+        sharedDays = []
         await loadCircle()
         await refreshToday()
         await loadQuestion()
         await loadCircleLetters()
+        await loadShared()
     }
 
     /// The circle on screen is gone (left, or removed, on another phone).
@@ -1300,13 +1310,19 @@ final class AppState {
     }
 
     /// Today's page: written, or written again in place of what was there.
-    func writeToday(_ runs: [InkRun]) async -> Bool {
+    /// `shared` says where it lands: true in the shared journal of the
+    /// circle on screen, false with you alone; nil leaves a page already
+    /// written where it is.
+    func writeToday(_ runs: [InkRun], shared: Bool? = nil) async -> Bool {
         do {
             var fields = inked(runs)
             fields["tz"] = TimeZone.current.identifier
+            if let shared { fields["shared"] = shared }
+            let was = journalPages.first { $0.day == WidgetSnapshot.day(.now) }
             let page: DayPage = try await api.send("PUT", "/me/journal/today", json: fields)
             place(page)
             Trail.note(.wroteJournal)
+            if page.isShared || was?.isShared == true { await loadShared() }
             return true
         } catch {
             surface(error)
@@ -1322,6 +1338,7 @@ final class AppState {
         do {
             let changed: DayPage = try await api.send("PATCH", "/me/journal/pages/\(page.id)", json: fields)
             place(changed)
+            if changed.isShared { await loadShared() }
             return true
         } catch {
             surface(error)
@@ -1333,7 +1350,75 @@ final class AppState {
         do {
             let _: Empty = try await api.send("DELETE", "/me/journal/pages/\(page.id)")
             journalPages.removeAll { $0.id == page.id }
+            if page.isShared { await loadShared() }
         } catch {
+            surface(error)
+        }
+    }
+
+    // MARK: the shared journal (build 51)
+
+    /// The shared journal of the circle on screen, all of it, a stretch of
+    /// days at a time.
+    func loadShared() async {
+        guard let circle else {
+            sharedDays = []
+            return
+        }
+        do {
+            var gathered: [SharedDay] = []
+            var after: String?
+            for _ in 0..<400 {
+                let stretch: SharedStretch = try await api.send(
+                    "GET", "/circles/\(circle.id)/journal", query: after.map { ["after": $0] } ?? [:]
+                )
+                gathered += stretch.days
+                guard let next = stretch.nextAfter else { break }
+                after = next
+            }
+            // The circle may have changed while this was on its way.
+            guard circle.id == self.circle?.id else { return }
+            sharedDays = gathered
+            sharedAvailable = true
+        } catch APIError.status(404) {
+            sharedDays = []
+            sharedAvailable = false
+        } catch {
+            missed(error)
+        }
+    }
+
+    /// Put a page in the shared journal of the circle on screen, or take
+    /// it back. It stays in your own book either way. True once it's done.
+    func sharePage(_ page: DayPage, shared: Bool) async -> Bool {
+        do {
+            let changed: DayPage = try await api.send("PATCH", "/journal/\(page.id)", json: ["shared": shared])
+            place(changed)
+            await loadShared()
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// Leave your heart on a shared page, or take it back. Shown at once,
+    /// and put back as it was if it didn't go through.
+    func heartPage(_ page: SharedPage) async {
+        func set(_ hearted: Bool) {
+            for d in sharedDays.indices {
+                for s in sharedDays[d].spreads.indices {
+                    if sharedDays[d].spreads[s].left.id == page.id { sharedDays[d].spreads[s].left.hearted = hearted }
+                    if sharedDays[d].spreads[s].right?.id == page.id { sharedDays[d].spreads[s].right?.hearted = hearted }
+                }
+            }
+        }
+        set(!page.hearted)
+        do {
+            let now: HeartState = try await api.send("POST", "/journal/\(page.id)/heart")
+            set(now.hearted)
+        } catch {
+            set(page.hearted)
             surface(error)
         }
     }
@@ -1467,7 +1552,7 @@ final class AppState {
     /// person within a day (Terms §5). True once it's in.
     func report(
         photo: Photo? = nil, comment: Comment? = nil, answer: Answer? = nil, note: CommunityNote? = nil,
-        circleLetter: CircleLetter? = nil, letter: Letter? = nil, reason: String
+        circleLetter: CircleLetter? = nil, letter: Letter? = nil, page: SharedPage? = nil, reason: String
     ) async -> Bool {
         do {
             let _: Empty = try await api.send(
@@ -1475,7 +1560,7 @@ final class AppState {
                 json: [
                     "photo_id": photo?.id, "comment_id": comment?.id, "response_id": answer?.id,
                     "note_id": note?.id, "circle_letter_id": circleLetter?.id, "letter_id": letter?.id,
-                    "reason": reason,
+                    "page_id": page?.id, "reason": reason,
                 ]
             )
             Trail.note(.reported)

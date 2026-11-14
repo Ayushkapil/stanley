@@ -166,6 +166,8 @@ enum ReportTarget {
     case circleLetter(CircleLetter)
     /// A letter written to you, once it's open (build 42).
     case letter(Letter)
+    /// A page in the circle's shared journal (build 51).
+    case page(SharedPage)
 
     /// Whose it is. Nil for a letter to the circle: nobody's, as far as
     /// the app is told.
@@ -178,6 +180,7 @@ enum ReportTarget {
         case .circleLetter: nil
         case .letter(let letter):
             letter.sender ?? UserBrief(id: nil, displayName: "someone", avatarUrl: nil)
+        case .page(let page): page.writer
         }
     }
 
@@ -189,6 +192,7 @@ enum ReportTarget {
         case .note: "note"
         case .circleLetter: "letter"
         case .letter: "letter"
+        case .page: "page"
         }
     }
 }
@@ -325,7 +329,7 @@ struct ReportSheet: View {
         sending = true
         Task {
             var photo: Photo?, comment: Comment?, answer: Answer?, note: CommunityNote?
-            var circleLetter: CircleLetter?, letter: Letter?
+            var circleLetter: CircleLetter?, letter: Letter?, page: SharedPage?
             switch target {
             case .photo(let p): photo = p
             case .story(let c, _): comment = c
@@ -333,10 +337,11 @@ struct ReportSheet: View {
             case .note(let n): note = n
             case .circleLetter(let l): circleLetter = l
             case .letter(let l): letter = l
+            case .page(let p): page = p
             }
             let ok = await state.report(
                 photo: photo, comment: comment, answer: answer, note: note,
-                circleLetter: circleLetter, letter: letter, reason: reason
+                circleLetter: circleLetter, letter: letter, page: page, reason: reason
             )
             sending = false
             if ok { withAnimation { sent = true } }

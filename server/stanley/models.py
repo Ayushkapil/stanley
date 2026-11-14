@@ -271,6 +271,10 @@ class Report(Base):
     # and the report follows the letter if it's deleted (set null, like
     # photo_id and response_id).
     letter_id: Mapped[str | None] = mapped_column(ForeignKey("person_letters.id"), nullable=True)
+    # A page in a circle's shared journal (build 51). Not a foreign key: its
+    # writer can take it back or tear it out at any time, so the report
+    # keeps who wrote it and the start of its words in `reason`.
+    page_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -414,7 +418,10 @@ class JournalPage(Base):
     it. It doesn't fade: kept until they delete it or their account."""
 
     __tablename__ = "journal_pages"
-    __table_args__ = (UniqueConstraint("owner_id", "day", name="uq_journal_page_day"),)
+    __table_args__ = (
+        UniqueConstraint("owner_id", "day", name="uq_journal_page_day"),
+        Index("ix_journal_pages_circle_day", "circle_id", "day"),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
@@ -426,8 +433,27 @@ class JournalPage(Base):
     # many characters of `body` are in it, in order: [["black", 40],
     # ["blue", 12]]. Null for a page that's all in `ink`.
     inks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Build 51: a page its writer has put in a circle's shared journal, and
+    # which circle's. Until then (and again if they take it back) nobody
+    # else reads it. It's still the day's one page, and still in their own
+    # book.
+    shared: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    circle_id: Mapped[str | None] = mapped_column(ForeignKey("circles.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class PageHeart(Base):
+    """One reader's heart on a shared journal page (build 51): one each, left
+    or taken back by a tap. Only the page's writer is ever told who, as
+    faces; nobody is told how many. It goes when the page leaves the
+    circle's book."""
+
+    __tablename__ = "page_hearts"
+
+    page_id: Mapped[str] = mapped_column(ForeignKey("journal_pages.id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class CirclePrompt(Base):

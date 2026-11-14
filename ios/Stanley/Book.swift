@@ -103,8 +103,14 @@ struct BookLayout: Hashable {
     var headY: CGFloat { safeTop + 20 }
     /// The hand's size for the date at the head.
     var headSize: CGFloat { fontSize - 4 }
-    /// Where the first line begins: under the date.
-    var contentTop: CGFloat { safeTop + 42 }
+    /// How much of the head's width the date may take: the rest, at the
+    /// right, is "Mine", "Ours" and the "+" (build 51).
+    var headWidth: CGFloat { max(90, textWidth - 150) }
+    /// Under the date, smaller still: where a page says it's shared, and
+    /// the writing view says where the page will land (build 51).
+    var tagY: CGFloat { safeTop + 37 }
+    /// Where the first line begins: under the date and that line.
+    var contentTop: CGFloat { safeTop + 48 }
     /// Where the last line may end: above the page's number (or the inks).
     var contentBottom: CGFloat { height - safeBottom - Self.foot }
     var rows: Int { max(4, Int((contentBottom - contentTop) / pitch)) }
@@ -147,6 +153,11 @@ struct BookPage: Identifiable {
         case letter(Letter)
         /// How a week was.
         case reflection(Reflection)
+        /// Two facing pages of the circle's shared journal (build 51): two
+        /// people's pages from the same day.
+        case spread(SharedSpread)
+        /// The shared journal with nothing in it yet.
+        case oursEmpty
     }
 
     let id: String
@@ -165,6 +176,7 @@ struct BookPage: Identifiable {
     var lined: Bool {
         switch kind {
         case .written, .today, .reflection: true
+        // A spread rules its own two pages.
         default: false
         }
     }
@@ -175,6 +187,7 @@ struct BookPage: Identifiable {
         switch kind {
         case .chapter: nil
         case .reflection(let reflection): BookType.weekTitle(reflection)
+        case .oursEmpty: nil
         default: BookType.dayTitle(date)
         }
     }
@@ -199,6 +212,10 @@ struct BookPage: Identifiable {
         case .tombstone: return "A memory was here, \(day)"
         case .letter(let letter): return "Letter from \(letter.sender?.displayName ?? "someone")"
         case .reflection: return "Reflection, week ending \(day)"
+        case .spread(let spread):
+            let names = [spread.left.writer.displayName, spread.right?.writer.displayName].compactMap { $0 }
+            return "\(day). Shared pages by \(names.joined(separator: " and "))"
+        case .oursEmpty: return "The shared journal, with nothing in it yet"
         }
     }
 }
@@ -269,6 +286,20 @@ enum Paginator {
             laid = NSMaxRange(glyphs)
         }
         return pieces.filter { $0.text.length > 0 }
+    }
+
+    /// How tall some words stand, laid out the way a page draws them.
+    static func height(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
+        guard text.length > 0, width > 10 else { return 0 }
+        let storage = NSTextStorage(attributedString: text)
+        let manager = NSLayoutManager()
+        manager.usesFontLeading = false
+        storage.addLayoutManager(manager)
+        let container = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        manager.addTextContainer(container)
+        manager.ensureLayout(for: container)
+        return ceil(manager.usedRect(for: container).height)
     }
 
     /// A page that begins where a paragraph ended would open on a blank
@@ -346,6 +377,16 @@ enum BookType {
         return text
     }
 
+    /// Someone's page in the shared journal, each stretch in the ink they
+    /// wrote it in: you see their blue, they see your red.
+    static func shared(_ page: SharedPage, layout: BookLayout) -> NSAttributedString {
+        let text = NSMutableAttributedString()
+        for run in page.stretches {
+            text.append(NSAttributedString(string: run.text, attributes: writing(layout, ink: Ink.named(run.ink).ui)))
+        }
+        return text
+    }
+
     /// A week's reflection: the words. Its week is at the head of the page.
     static func reflection(_ reflection: Reflection, layout: BookLayout) -> NSAttributedString {
         NSAttributedString(string: reflection.body, attributes: writing(layout, ink: Ink.black.ui))
@@ -396,6 +437,32 @@ enum BookBuilder {
         if let last, last.key == key { return last.book }
         let made = build(state, layout: layout, now: now, today: today)
         last = (key, made)
+        return made
+    }
+
+    private static var lastShared: (key: Int, book: Book)?
+
+    /// The circle's shared journal as a book (build 51): a page for each
+    /// spread, oldest first, so the newest is the last and turning back
+    /// goes back. With nothing in it, one page that says so.
+    static func shared(_ state: AppState, layout: BookLayout) -> Book {
+        var hasher = Hasher()
+        hasher.combine(layout)
+        hasher.combine(state.sharedDays)
+        let key = hasher.finalize()
+        if let lastShared, lastShared.key == key { return lastShared.book }
+        var pages: [BookPage] = []
+        for day in state.sharedDays {
+            guard let date = WeekRange.day(day.day) else { continue }
+            for spread in day.spreads {
+                pages.append(BookPage(id: "s-\(spread.left.id)", date: date, kind: .spread(spread)))
+            }
+        }
+        if pages.isEmpty {
+            pages = [BookPage(id: "ours-empty", date: Calendar.current.startOfDay(for: .now), kind: .oursEmpty)]
+        }
+        let made = Book(pages: pages)
+        lastShared = (key, made)
         return made
     }
 

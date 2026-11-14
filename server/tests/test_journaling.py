@@ -509,9 +509,11 @@ def test_an_older_database_gets_the_report_column():
             "CREATE TABLE reports (id VARCHAR(32) PRIMARY KEY, reporter_id VARCHAR(32), photo_id VARCHAR(32), "
             "comment_id VARCHAR(32), reason TEXT, created_at DATETIME, resolved_at DATETIME)"
         ))
-    # And build 27's note column, plus build 42's two letter columns.
+    # And build 27's note column, build 42's two letter columns, and build
+    # 51's for a shared journal page.
     assert ensure_schema(engine) == [
         "reports.response_id", "reports.note_id", "reports.circle_letter_id", "reports.letter_id",
+        "reports.page_id",
     ]
     assert ensure_schema(engine) == []
     with engine.begin() as conn:
