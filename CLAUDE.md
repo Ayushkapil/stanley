@@ -607,14 +607,25 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     writer and its words); **Block from the report's thank-you** (I was
     no longer sent her page nor she mine, and the third member's book was
     as it had been); **Leave Circle from Settings** (my page private and
-    still mine, the hearts on it gone, the circle's book re-paired).
-    **On the Duo's cover**, light: Mine and Ours. The Release
-    configuration compiles. **Not seen:** the side-by-side spread on the
-    Duo's inner display itself (the simulator can't unfold; the layout
-    was seen only forced onto a phone's width); a day long enough to
-    scroll on its half page; "Write privately" carried through to Done
-    on a shared day; a real phone; VoiceOver; large Dynamic Type; and any
-    of it against Fly.
+    still mine, the hearts on it gone, the circle's book re-paired);
+    **"Write privately" on a day whose page was shared**, through the
+    question, PRIVATE under the date, and Done (the page private with no
+    tag in Mine, the circle's book re-paired without it).
+    **On the Duo's cover**, light: Mine and Ours. **The two-page spread
+    at its real width, on an iPad mini simulator** (744pt across, where
+    the Duo's inner display is 669pt; light and dark): two people's pages
+    side by side with the shade down the spine, their names and the heart
+    at the foot of each, and the odd one out alone and centered. Done as
+    the regular size class was looked at before: the device family
+    widened to `"1,2"` for the run, with two Debug hooks to sign in and
+    open Ours without taps, none of it kept. Seen there and left: on a
+    spread that wide the date, "Mine", "Ours" and the marks at the foot
+    keep to the 520pt column a single page uses, a little in from the
+    spread's own margins. The Release configuration compiles. **Not
+    seen:** the Duo's inner display itself (this simulator has no way to
+    unfold it; `simctl` has no fold control, as before); a day long
+    enough to scroll on its half page; a real phone; VoiceOver; large
+    Dynamic Type; and any of it against Fly.
 
 - **A page takes more than one ink** (build 50, November 14, 2026, from
   Ayush on trying it: "choosing ink color also makes the entire preceding
