@@ -59,7 +59,8 @@ guarded by tests; treat a change to any of them as a spec change.
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
-- **Notifications are almost nothing.** Five exist, and all are **off until
+- **Notifications are almost nothing.** Six exist (the sixth, build 57's
+  **Journal Entries**, at the end of this rule), and all are **off until
   the person turns them on** in Settings → Quiet: the owner's single
   LAST_LIGHT notice for their own photo, at most one evening digest a day
   ("Something new from your circle today.", when someone else in one of
@@ -83,6 +84,20 @@ guarded by tests; treat a change to any of them as a spec change.
   goes to the poster, across a block either way, or twice for one person's
   day in one circle (a retake after the redo is quiet), and it's handed to
   Apple only after the post's response, so posting never waits on a push.
+  **Build 57's Journal Entries is a product decision** (the brief of
+  2026-11-14, "Four changes"; §10 N7 in `notifications.py`): when a page
+  lands in a circle's shared journal, the others in that circle who
+  turned it on get "{name} wrote in {circle}"; a page for one person
+  sends "{name} wrote to you in {circle}" to that person alone. Never
+  the page's words, never a number, never to the writer, never for a
+  private page, nothing for a rewrite in place or a page made private,
+  across a block neither way, none while that person has muted that
+  circle's journal (from its cover, `memberships.journal_muted`), and
+  **at most one an hour for each journal for each person**: one inside
+  the hour is skipped, never stacked. The brief didn't say off or on;
+  it said to respect the existing preferences, so it's off until turned
+  on like the rest. It carries a name and a circle's name, which only
+  Circle Posts did before.
   Likes, holds, stories, mentions and notes still notify nobody. Build 18
   made them real pushes (APNs, `apns.py`) and, because of that, made the
   digest opt-in (it had gone to everyone back when it was only logged). A
@@ -133,7 +148,9 @@ guarded by tests; treat a change to any of them as a spec change.
   member. **One heart per reader per page**, left or taken back at the
   foot of the page: the writer is shown who, as faces, never a number,
   and nobody else is shown anything (the photo payload's A2, again). **No
-  comments, no notification** when someone shares or leaves a heart, and
+  comments**, and **no notification when someone leaves a heart**; since
+  build 57 a page landing in the book can notify, if the reader asked
+  (the notifications rule, above; until then nothing did), and
   **a shared page never fades**. The word filter is on shared pages (a
   circle reads them) and still not on private ones. Leaving a circle, or
   being removed, takes your pages out of its book and leaves them in
@@ -516,6 +533,66 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **Journal Entries, one capsule, inks at night** (build 57, November 14,
+  2026, a product brief from Ayush, "Four changes"; screenshots in
+  `docs/journal-notices-build57/`).
+  - **Journal Entries** (the notifications rule, above, has what it
+    sends and to whom). **On the phone**: a switch in Settings → Quiet,
+    "Journal Entries" (off; shown only when the server knows it), and the
+    footer counts six; **Mute This Journal** / Unmute in a circle's
+    cover's long-press menu, and "· muted" under the cover. Off the app,
+    it's a system notification; **with Stanley open it's Stanley's own
+    banner** (`JournalBanner`), a glass capsule sliding down from the top
+    with the words and nothing else, gone after seven seconds or a swipe
+    up (`Push.willPresent` keeps the system's away for these). **A tap on
+    either opens the page**: the payload carries `journal_page` and
+    `circle_id`; the app makes that circle the one on screen, fetches
+    its book again and opens it at the spread or single holding that
+    page (`Push.onOpenJournalPage`, `AppState.openJournalPage`,
+    `BookView.openNoticed`); a tap that arrives on a cold launch waits
+    for the app.
+  - **One control for Letters and Prompts** (`ChromeCapsule`): a single
+    capsule of the same glass with both glyphs (and the week's moon on
+    Sunday evening) inside, a 0.5pt hairline between, each part a 44pt
+    target, the red dot on Letters. It sits right-aligned **on the
+    date's line**: in a book the page's date at the left and the
+    capsule's right edge on the writing's margin (back and "Mine"/"Ours"
+    on the line above); on the covers the day's date at the left with
+    both edges on the card's, so the three line up.
+  - **The words' colors are tokens** (`TextTone` in `Atmosphere.swift`,
+    which moved to `ios/Shared/` so the widget has them too): by day
+    `#1A1A1A`, `#8A8580`, `#B5B1AC` as they were; **at night `#F2EADC`
+    and `#ABA294`**, a tertiary `#6E675D`, labels at 70% of the first;
+    `onPhoto` (`#F2EADC` in both rooms) for words laid on a photograph.
+    `DarkRoom.ink`, `.quiet`, `.quietest` are these, so every screen has
+    them through `darkRoomInk()`; the white text there was (the held
+    photo's viewer, the double-tap heart, the avatar crop, onboarding's
+    faces, capture's hint, the covers) is `onPhoto` now, and the
+    journal's black ink at night is `#F2EADC`. Nothing written is
+    `#FFFFFF` in the dark. **The night's secondary is brighter than it
+    was** (`#ABA294` for `#6B6560`), across the app.
+  - **The cover reads its colors from there** (`CoverTone`: the slab, its
+    edge, sheen and hairline, the scrims, the empty journal's ground and
+    light, the shadow); `JournalCovers.swift` holds none of its own.
+  - **Checked**: on the iPhone 17 Pro and iPhone 17 simulators with two
+    accounts against a local server on this code. Ruby turned Journal
+    Entries on in Settings (iOS asked, she allowed); Maya moved today's
+    page into Third Floor's book from her phone; the server logged one
+    notice, "Maya Chen wrote in Third Floor", for Ruby alone. That
+    payload, sent to Ruby's phone with `simctl push`: with Stanley open,
+    the banner, and a tap on it opened Ours at the spread with Maya's
+    page; with Stanley in the background, the system notification on the
+    lock screen. With the first notice moved two hours back, Theo
+    sharing notified Ruby; Priya writing inside the hour did not. Ruby
+    muted Third Floor from its cover ("· muted"), and Theo sharing after
+    the hour sent nothing; unmuted, it did again. Light and dark: the
+    covers and a book with the capsule on the 17 Pro and the Duo's cover,
+    and the covers at the inner display's width (669pt) on the iPad
+    proxy. **Not seen**: a tap on the system notification opening the
+    page (the simulator tool's taps don't reach Notification Center; the
+    code path is the banner's), a real push from APNs, the Duo's inner
+    display itself, VoiceOver.
 
 - **The cover screen, fixed** (build 56, November 14, 2026, a product
   brief from Ayush, "Five fixes to the Journal cover screen"; screenshots
@@ -1901,7 +1978,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (56)", at the
+  production audit), and the version, "Stanley 0.2.0 (57)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2433,12 +2510,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 56** (0.2.0) is the number to archive next: the cover screen
-  fixed (above), over build 54's glass chrome with "Mine" and "Ours" in
+- **Build 57** (0.2.0) is the number to archive next: Journal Entries,
+  the capsule and the inks at night (above), over build 56's cover
+  screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
-- **Builds 52 to 56 need a deploy, and haven't had one.** Fly is v28
-  (build 51's server). Against it every cover is the warm field (no
+- **Builds 52 to 57 need a deploy, and haven't had one.** Fly is v28
+  (build 51's server). Against it no journal notice goes, and the
+  Journal Entries switch isn't shown. Against it every cover is the warm field (no
   `cover_url`) and every journal shows no dates. On its first start the new server adds
   `journal_pages.recipient_id`, `photos.score` and the `day_moods`
   table, and `/terms` and `/privacy` gain the words for both. Until then
@@ -2764,7 +2843,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**611 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**644 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

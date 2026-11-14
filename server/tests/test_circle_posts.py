@@ -40,6 +40,7 @@ def test_turning_it_on_leaves_the_other_two_alone(circle):
         "note_reminder_hour": 9,
         "photo_reminder_enabled": False,
         "photo_reminder_hour": 18,
+        "journal_posts_enabled": False,
     }
     me = circle.ben.client.get("/me", headers=circle.ben.h).json()
     assert me["circle_posts_enabled"] is True

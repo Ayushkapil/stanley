@@ -350,6 +350,23 @@ struct HomeView: View {
         // bar's symbols and drew the selected one in ink instead of the
         // accent (the HCI audit, build 32).
         .foregroundStyle(DarkRoomInk.words)
+        // A journal's notice with Stanley open (build 57): a banner sliding
+        // down from the top; a tap opens its page.
+        .overlay(alignment: .top) {
+            if let notice = state.journalBanner {
+                JournalBanner(notice: notice) { state.openJournalPage(notice) } dismiss: {
+                    withAnimation(.easeOut(duration: 0.25)) { state.journalBanner = nil }
+                }
+                .id(notice.id)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.journalBanner)
+        .onAppear {
+            let state = self.state
+            Push.shared.onJournalNotice = { notice in state.journalBanner = notice }
+            Push.shared.onOpenJournalPage = { notice in state.openJournalPage(notice) }
+        }
     }
 }
 

@@ -310,6 +310,8 @@ private struct QuietSection: View {
     /// Whether the server knows Circle Posts. One from before build 37
     /// doesn't, and a switch it can't keep would look on and do nothing.
     @State private var offersCirclePosts = false
+    @State private var journalPosts = false
+    @State private var offersJournalPosts = false
     /// The two reminders a person sets for themselves (build 39), each at
     /// one of four times of day. Shown only when the server knows them.
     @State private var noteReminder = false
@@ -341,6 +343,19 @@ private struct QuietSection: View {
                     .tint(toggleTint)
                     .disabled(!loaded)
                     .onChange(of: circlePosts) { _, on in save("circle_posts_enabled", on) { circlePosts = $0 } }
+            }
+            // Build 57: "{name} wrote in {journal}", muted per journal on
+            // its cover.
+            if offersJournalPosts {
+                Toggle(isOn: $journalPosts) {
+                    QuietRow(
+                        title: "Journal Entries",
+                        detail: "When someone writes in a journal you share, at most once an hour for each"
+                    )
+                }
+                    .tint(toggleTint)
+                    .disabled(!loaded)
+                    .onChange(of: journalPosts) { _, on in save("journal_posts_enabled", on) { journalPosts = $0 } }
             }
             if offersReminders {
                 Toggle(isOn: $noteReminder) {
@@ -378,6 +393,8 @@ private struct QuietSection: View {
         } footer: {
             Text(blocked
                 ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."
+                : offersJournalPosts
+                    ? "Stanley is quiet on purpose. Six notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, one each time someone in your circle shares a moment, one when someone writes in a journal you share (at most once an hour for each, and you can mute a journal from its cover), and two reminders you can set for yourself. No streaks, nothing about likes or holds, and never a number."
                 : offersReminders
                     ? "Stanley is quiet on purpose. Five notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, one each time someone in your circle shares a moment, and two reminders you can set for yourself. No streaks, nothing about likes or holds, and never a number."
                     : "Stanley is quiet on purpose. Three notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, and one each time someone in your circle shares a moment. No streaks, no nudges, nothing about likes or holds, and never a number.")
@@ -402,6 +419,8 @@ private struct QuietSection: View {
             digest = me.digestEnabled ?? false
             circlePosts = me.circlePostsEnabled ?? false
             offersCirclePosts = me.circlePostsEnabled != nil
+            journalPosts = me.journalPostsEnabled ?? false
+            offersJournalPosts = me.journalPostsEnabled != nil
             noteReminder = me.noteReminderEnabled ?? false
             noteHour = me.noteReminderHour ?? 9
             photoReminder = me.photoReminderEnabled ?? false
@@ -415,7 +434,7 @@ private struct QuietSection: View {
 
     private func checkBlocked() async {
         let status = await Push.shared.authorization()
-        blocked = status == .denied && (lastLight || digest || circlePosts || noteReminder || photoReminder)
+        blocked = status == .denied && (lastLight || digest || circlePosts || journalPosts || noteReminder || photoReminder)
     }
 
     /// Turning a notice on asks iOS first. If iOS says no, the switch goes

@@ -118,7 +118,7 @@ struct HeldViewer: View {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(TextTone.onPhoto.opacity(0.85))
                     .frame(width: 44, height: 44)
                     .background(.white.opacity(0.12), in: Circle())
                     .contentShape(Circle())
@@ -195,7 +195,7 @@ private struct HeldPageView: View {
                 // In a hand on your own photo; plain on anyone else's.
                 Text(caption)
                     .font(whose == "Yours" ? .hand(21, bold: true, relativeTo: .title3) : .title3.weight(.medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(TextTone.onPhoto)
                     .lineLimit(3)
             }
             if let whereAndWhen {
@@ -228,7 +228,7 @@ private struct HeldPageView: View {
                         .foregroundStyle(.secondary)
                     Text(journal)
                         .font(.hand(18, relativeTo: .body))
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(TextTone.onPhoto.opacity(0.92))
                         .lineLimit(7)
                 }
             }

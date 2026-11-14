@@ -10,26 +10,15 @@ import UIKit
 enum DarkRoom {
     /// The words: warm white in the dark; in daylight the label color, so
     /// nothing in light mode moves.
-    static let ink = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1)   // #F0EBE3
-            : UIColor(red: 26 / 255, green: 26 / 255, blue: 26 / 255, alpha: 1)      // #1A1A1A
-    })
+    /// (Since build 57 the words' colors are `TextTone`, in Atmosphere.swift.)
+    static let ink = TextTone.primary
 
     /// The quieter words: warm gray in daylight (#8A8580), dim warm in the
     /// dark (#6B6560).
-    static let quiet = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 107 / 255, green: 101 / 255, blue: 96 / 255, alpha: 1)
-            : UIColor(red: 138 / 255, green: 133 / 255, blue: 128 / 255, alpha: 1)
-    })
+    static let quiet = TextTone.secondary
 
     /// Quieter still: a placeholder, a hint.
-    static let quietest = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 74 / 255, green: 70 / 255, blue: 66 / 255, alpha: 1)
-            : UIColor(red: 181 / 255, green: 177 / 255, blue: 172 / 255, alpha: 1)
-    })
+    static let quietest = TextTone.tertiary
 
     /// A rule's gray in the dark: #2A2A2A, barely there.
     private static let ruleGray = UIColor(red: 42 / 255, green: 42 / 255, blue: 42 / 255, alpha: 1)

@@ -445,7 +445,9 @@ struct BookView: View {
                                 // beneath it.
                                 width: layout.width + BookLayout.edge,
                                 height: full.height,
-                                bar: AnyView(bar(layout, back: nil, tint: palette.accent)),
+                                bar: { left, right, y in
+                                    AnyView(bar(layout, back: nil, tint: palette.accent, line: (left, right, y)))
+                                },
                                 open: { journal in openBook(journal, layout: layout) },
                                 page: $coverPage
                             )
@@ -475,7 +477,12 @@ struct BookView: View {
                     guard writing == nil else { return }
                     touched = false
                     grid = false
-                    if let day {
+                    if let notice = state.journalPageAsked {
+                        // A journal's notice (build 57): that circle's shared
+                        // journal, at the page it's about.
+                        state.journalPageAsked = nil
+                        Task { await openNoticed(notice, layout: layout) }
+                    } else if let day {
                         // The widget asked for a day: straight into your own
                         // book at its page.
                         ours = false
@@ -636,6 +643,21 @@ struct BookView: View {
         Task {
             await state.switchCircle(to: circleId)
             openBook(ours: true, layout: layout)
+        }
+    }
+
+    /// The page a notice is about: its circle on screen, its shared journal
+    /// fetched again (the page is new), open at that page.
+    private func openNoticed(_ notice: Push.JournalNotice, layout: BookLayout) async {
+        if notice.circleId != state.circle?.id { await state.switchCircle(to: notice.circleId) }
+        await state.loadShared()
+        coverPage = notice.circleId
+        ours = hasOurs
+        let book = BookBuilder.shared(state, layout: layout)
+        touched = true
+        go(to: book.index(sharedPage: notice.pageId) ?? max(book.pages.count - 1, 0), in: book)
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) {
+            opened = true
         }
     }
 
@@ -880,6 +902,7 @@ struct BookView: View {
     /// The bar along the top: back (in a book), Letters, the week, Prompts.
     private func bar(
         _ layout: BookLayout, back: (() -> Void)?, tint: Color, ours: Bool? = nil,
+        line: (left: CGFloat, right: CGFloat, y: CGFloat)? = nil,
         pick: @escaping (Bool) -> Void = { _ in }
     ) -> some View {
         JournalTopBar(
@@ -891,7 +914,17 @@ struct BookView: View {
             openLetters: { readingLetters = true },
             openPrompts: { readingPrompts = true },
             openWeek: { reflecting = true },
-            ours: ours, pick: pick
+            ours: ours, pick: pick,
+            lineY: line?.y, rightEdge: line?.right,
+            // On the covers, the day at the left of the line.
+            leading: line == nil ? nil : AnyView(
+                Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                    .smallCaps()
+                    .foregroundStyle(TextTone.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            ),
+            leftEdge: line?.left
         )
     }
 

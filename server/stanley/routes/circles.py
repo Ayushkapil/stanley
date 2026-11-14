@@ -57,6 +57,10 @@ class RenameBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
 
 
+class MuteBody(BaseModel):
+    muted: bool
+
+
 def _members_payload(db: Session, circle: Circle, settings=None, now=None) -> list[dict]:
     """The circle as people — faces and names. Rendered as a cluster of avatars
     in the client, never a count."""
@@ -190,7 +194,7 @@ def my_circles(
     build 54 each carries its journal's cover photo for this reader (an id
     and a signed link, `sharing.cover`), the day the reader joined, and
     (build 56) the first day of its journal they can read, or None while
-    it's empty."""
+    it's empty, and (build 57) whether they muted its journal's notices."""
     now = clock.now()
     rows = db.execute(
         select(Membership, Circle)
@@ -207,10 +211,26 @@ def my_circles(
                 **sharing.cover(db, user, settings, now, c.id),
                 "since": sharing.joined_day(m, user).isoformat(),
                 "first_day": (lambda d: d and d.isoformat())(sharing.first_day(db, user, m)),
+                "journal_muted": bool(m.journal_muted),
             }
             for m, c in rows
         ]
     }
+
+
+@router.put("/circles/{circle_id}/journal/mute")
+def mute_journal(
+    circle_id: str,
+    body: MuteBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """Build 57: this circle's shared journal sends you no notices (§10 N7),
+    or does again. Yours alone: nobody is told, and nothing else about the
+    journal changes. Members only."""
+    membership, _ = membership_in(db, user, circle_id)
+    membership.journal_muted = body.muted
+    return {"muted": bool(membership.journal_muted)}
 
 
 @router.get("/circles/mine")

@@ -428,7 +428,7 @@ struct CaptureView: View {
                     if movable && !framed {
                         Text("Drag to frame it")
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(TextTone.onPhoto)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(.black.opacity(0.35), in: Capsule())

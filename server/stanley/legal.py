@@ -25,7 +25,9 @@ CONTACT = "ayushkapileshwar@gmail.com"
 # heart on it is shown to the writer alone; and, still the same day (build
 # 52), a page shared with one person in a circle, read by that person and
 # its writer alone, and the mark a person may leave on their day after
-# posting a photo, kept for them alone. Before that, November 13: letters to the circle (build
+# posting a photo, kept for them alone; and, the same day again (build 57),
+# a sixth notice, when a page lands in a shared journal you read, carrying
+# the writer's name and the circle's, mutable per journal. Before that, November 13: letters to the circle (build
 # 42), which the circle reads unsigned while the server keeps who wrote each;
 # November 12:
 # the Home Screen widget (build 40), which keeps small copies of a few photos
@@ -57,7 +59,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Your profile photo, if you add one",
             "- Your bio, if you write one",
             "- The circles you're in, when you joined them, and which ones you started",
-            "- Your settings, such as which notifications you've turned on",
+            "- Your settings, such as which notifications you've turned on and which circles' shared journals you've muted",
             "## Content you create",
             "- Photos you post. We keep each one at full size, with smaller copies for the app to show",
             "- When each photo was taken. That's the only photo metadata we keep: everything else, including any location, is removed before a photo is stored",
@@ -139,7 +141,8 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "## Your circle",
             "Your photos, captions, places, stories and tags are seen by the members of the circle you post them to, and your profile by the people who share a circle with you. Likes and holds are different: only the person who posted a photo sees who liked or held it, as faces, never as a number.",
             "When you post a photo, the people in that circle who turned on Circle Posts get a notice with your name, saying you shared a moment. It carries nothing else: not the photo, the caption or the place. People you've blocked, and people who have blocked you, don't get it.",
-            "Your journal entries, your reflections and the mark you may leave on your day after posting a photo (one of five, with no labels) are never shown to anyone but you, and neither are the pages of your journal unless you share one. A page you share with a circle goes into that circle's shared journal, where its members can read it with your name on it, from the day they joined the circle. A page you share with one person in a circle is read by that person and you only: nobody else in the circle sees it. You can make a page private again at any time. A reader can leave one heart on a shared page: only the person who wrote the page sees who left one, and Stanley never counts them. Sharing a page and leaving a heart notify nobody. Your answer to your circle's question of the week is sealed until that week's answers open, on Saturday at midnight UTC (Friday afternoon or evening in the United States). Then everyone in the circle can read the answers together, whether they answered or not, including anyone who joined that week. People who join later don't see the weeks before they joined.",
+            "When a page you write goes into a circle's shared journal, the others in that circle who turned on Journal Entries get a notice with your name and the circle's name, saying you wrote in it. A page you share with one person sends that notice to that person alone, saying you wrote to them. It never carries the words of your page. People you've blocked, and people who have blocked you, don't get it, nor does anyone who has muted that circle's journal, and nobody gets more than one an hour about the same journal. Rewriting a page where it already is, or making it private, notifies nobody.",
+            "Your journal entries, your reflections and the mark you may leave on your day after posting a photo (one of five, with no labels) are never shown to anyone but you, and neither are the pages of your journal unless you share one. A page you share with a circle goes into that circle's shared journal, where its members can read it with your name on it, from the day they joined the circle. A page you share with one person in a circle is read by that person and you only: nobody else in the circle sees it. You can make a page private again at any time. A reader can leave one heart on a shared page: only the person who wrote the page sees who left one, and Stanley never counts them. Leaving a heart notifies nobody. Your answer to your circle's question of the week is sealed until that week's answers open, on Saturday at midnight UTC (Friday afternoon or evening in the United States). Then everyone in the circle can read the answers together, whether they answered or not, including anyone who joined that week. People who join later don't see the weeks before they joined.",
             "Once a month you can write your circle a letter. It is unsigned. When the month's letters open, everyone who was in the circle then reads each letter's words with no name, face or time on it, in an order that says nothing about who wrote it or when, and nobody is told who has written one. A letter is anonymous to your circle, not to us: our server keeps a record of who wrote each letter, so that you can change or delete yours and so that a reported letter can be acted on, and the person who runs Stanley can see who wrote a letter that has been reported. Blocking someone doesn't hide a letter, yours from them or theirs from you, because a letter that disappeared when you blocked someone would tell you who wrote it. If you leave a circle, your letter goes with you only while it is still sealed. And what you write can give you away by itself: a letter is only as anonymous as its words.",
             "People who hold your photo keep it, and can include it when they export their memories. A copy someone has exported is outside Stanley, where we can't delete it. And as with anything you show people, someone could take a screenshot.",
             "## Services that run Stanley",
@@ -178,7 +181,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Export: your held memories, with their captions and places and your journal entries on them, the pages of your journal, the marks you left on your days, your reflections, your answers to your circle's questions, and the letters you've written to your circles that are still on our servers, any time from Settings → Privacy & Security → Export My Memories",
             "- Change: your name, username, bio and photo, any time, from the You tab",
             "- Delete: a page of your journal, a journal entry or a reflection, any time, from where you read it; your account, any time, from Settings → Privacy & Security → About Your Account → Delete Account",
-            "- Notifications: all five are off until you turn them on in Settings → Quiet, and you can turn them off there or in iOS Settings. Two of them are reminders you set for yourself, to leave a note or to share a photo, at a time of day you choose; each is sent at most once a day, and only if you haven't already done it",
+            "- Notifications: all six are off until you turn them on in Settings → Quiet, and you can turn them off there or in iOS Settings. Two of them are reminders you set for yourself, to leave a note or to share a photo, at a time of day you choose; each is sent at most once a day, and only if you haven't already done it. One tells you when someone writes in a shared journal you read, and you can mute it for any one circle's journal",
             "- Location: you can say no, or change your mind in iOS Settings. Stanley works without it; you type your own places and see national news",
             "- Ask us: for a copy of the data we hold about you, or to correct or delete something, write to us. We'll answer within 30 days",
             "California residents: we do not sell or share personal information as the California Consumer Privacy Act defines those words, and we don't use it for targeted advertising. You have the right to know what we collect, to have it corrected or deleted, and not to be treated differently for asking.",
@@ -253,7 +256,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
             "- Likes and holds are private: only the person who posted a photo sees who liked or held it, and Stanley never counts them",
             "- You can be in up to 5 circles, and each circle has a soft cap of 100 members",
             "- Anyone with a circle's invite code can join it, so share it only with people you'd want there. The person who started a circle can reset its code and remove members",
-            "- Notifications are off until you turn them on, and there are only five, two of them reminders you set for yourself",
+            "- Notifications are off until you turn them on, and there are only six, two of them reminders you set for yourself",
             "These mechanics may be adjusted as we improve the service. If a change matters to how you use Stanley, we'll tell you in the app.",
         ],
     ),

@@ -238,6 +238,8 @@ struct CircleSummary: Codable, Identifiable, Hashable {
     /// of its journal you can read (nil while it's empty).
     var coverUrl: String? = nil
     var firstDay: String? = nil
+    /// Build 57: whether you've muted this journal's notices.
+    var journalMuted: Bool? = nil
 }
 
 struct CirclesResponse: Codable {
@@ -295,6 +297,8 @@ struct MeSettings: Codable {
     let digestEnabled: Bool?
     /// "{name} shared a moment" (build 37). Absent from an older server.
     let circlePostsEnabled: Bool?
+    /// "{name} wrote in {journal}" (build 57). Absent from an older server.
+    let journalPostsEnabled: Bool?
     /// The two reminders (build 39), and the hour of the day each is set
     /// for. Nil from a server before them, which then offers neither.
     let noteReminderEnabled: Bool?
@@ -529,6 +533,10 @@ struct DayMoods: Codable {
 
 struct ScoreState: Codable {
     let score: Int?
+}
+
+struct MuteState: Codable {
+    let muted: Bool
 }
 
 /// A stretch of a circle's shared journal, oldest first, and the day to ask

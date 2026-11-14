@@ -28,6 +28,21 @@ N6: (build 39, a product decision on 2026-11-11 by the person who builds
     circle today. They carry no name, count, deadline or image (N4), and
     nothing about what anyone else did.
 
+N7: (build 57, a product decision on 2026-11-14 by the person who builds
+    Stanley.) A page landing in a shared journal: "{name} wrote in {circle}"
+    to the others in that circle who turned it on, or, for a page written to
+    one person, "{name} wrote to you in {circle}" to that person alone. The
+    second notice that carries a name, and like N5 the name is all it
+    carries of the writer, with the circle's name to say which journal: no
+    words of the page, no ink, no count. It goes when a page lands somewhere
+    it wasn't (written there, shared from private, or moved to another
+    circle or person), never for a rewrite in place, never for a page made
+    private or kept private, never to the writer, never across a block
+    either way, never into a journal its reader muted, and at most once an
+    hour per journal per person: a second page within the hour is quiet,
+    not "2 new". Beside the words it carries the page's id and its circle's,
+    so the app can open the page; nothing else. Hearts still notify nobody.
+
 There is deliberately no generic "send a push" endpoint anywhere else in the
 codebase; everything funnels through the functions below.
 
@@ -46,7 +61,7 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from .clock import Clock
-from .models import Block, CircleNote, Membership, NotificationLog, Photo, User
+from .models import Block, Circle, CircleNote, JournalPage, Membership, NotificationLog, Photo, User
 
 
 def make_notifier(settings, sessionmaker) -> "Notifier":
@@ -83,32 +98,54 @@ class Notifier:
         event.listen(sessionmaker, "after_soft_rollback", self._forget)
 
     def send(
-        self, session: Session, user_id: str, kind: str, body: str, now: datetime, later=None
+        self,
+        session: Session,
+        user_id: str,
+        kind: str,
+        body: str,
+        now: datetime,
+        later=None,
+        data: dict | None = None,
+        circle_id: str | None = None,
     ) -> None:
         """`later`, a request's BackgroundTasks: deliver after the response
         rather than inside the commit, so a request never waits on Apple.
         Still only after the commit: a route's session commits before its
         response, and a request whose commit fails has no response to run
-        its background tasks after."""
-        session.add(NotificationLog(user_id=user_id, kind=kind, body=body, sent_at=now))
+        its background tasks after.
+
+        `data` (build 57, N7 alone): ids the app needs to open what the
+        notice is about, set beside the alert, never shown. `circle_id`
+        is logged with the notice, for N7's one an hour."""
+        session.add(
+            NotificationLog(user_id=user_id, kind=kind, body=body, sent_at=now, circle_id=circle_id)
+        )
         if self._transport is None:
             return
         if later is not None:
-            later.add_task(self._deliver_one, user_id, kind, body)
+            later.add_task(self._deliver_one, user_id, kind, body, data)
         else:
-            session.info.setdefault(self._pending, []).append((user_id, kind, body))
+            session.info.setdefault(self._pending, []).append((user_id, kind, body, data))
 
-    def _deliver_one(self, user_id: str, kind: str, body: str) -> None:
-        try:
+    def _hand_over(self, user_id: str, kind: str, body: str, data: dict | None) -> None:
+        # Only a notice that carries ids passes them on, so every other
+        # notice reaches the transport exactly as it always has.
+        if data:
+            self._transport(user_id, kind, body, data=data)
+        else:
             self._transport(user_id, kind, body)
+
+    def _deliver_one(self, user_id: str, kind: str, body: str, data: dict | None = None) -> None:
+        try:
+            self._hand_over(user_id, kind, body, data)
         except Exception:
             logging.getLogger("stanley").exception("notice delivery failed")
 
     def _deliver(self, session: Session) -> None:
         pending = session.info.pop(self._pending, [])
-        for user_id, kind, body in pending:
+        for user_id, kind, body, data in pending:
             try:
-                self._transport(user_id, kind, body)
+                self._hand_over(user_id, kind, body, data)
             except Exception:
                 # The notice is logged and the pass is committed; a push that
                 # didn't go is a missed notice, never a failed sweep.
@@ -244,6 +281,81 @@ def send_circle_post_notices(
         if user.id in blocked:
             continue
         notifier.send(session, user.id, CIRCLE_POST_KIND, body, now, later=later)
+        sent += 1
+    return sent
+
+
+# --- §10 N7: a page landing in a shared journal ------------------------------
+
+JOURNAL_POST_KIND = "journal_page"
+# At most one shared-journal notice per journal per person in this long.
+JOURNAL_POST_QUIET = timedelta(minutes=60)
+
+
+def journal_post_body(writer: User, circle_name: str, to_one: bool) -> str:
+    """The writer's name and which journal: nothing of the page, and no
+    number (N4, N7)."""
+    name = (writer.display_name or "").strip() or "Someone"
+    return f"{name} wrote to you in {circle_name}" if to_one else f"{name} wrote in {circle_name}"
+
+
+def send_journal_page_notices(
+    session: Session,
+    notifier: Notifier,
+    page: JournalPage,
+    writer: User,
+    now: datetime,
+    later=None,
+) -> int:
+    """§10 N7. Called only when a page has just landed in a shared journal
+    (a circle's, or one person's in it): never for a rewrite where it
+    already was, nor for a private page. A circle's page goes to everyone
+    else in the circle; a page for one person, to that person. Either way
+    only to someone who turned the notice on, hasn't muted this circle's
+    journal, has no block with the writer either way, and hasn't had one
+    about this journal within the hour. Returns sends."""
+    if not page.shared or page.circle_id is None:
+        return 0
+    circle = session.get(Circle, page.circle_id)
+    if circle is None:
+        return 0
+    query = (
+        select(User)
+        .join(Membership, Membership.user_id == User.id)
+        .where(
+            Membership.circle_id == circle.id,
+            Membership.journal_muted.is_not(True),
+            User.id != writer.id,
+            User.deleted_at.is_(None),
+            User.journal_posts_enabled.is_(True),
+        )
+    )
+    if page.recipient_id is not None:
+        query = query.where(User.id == page.recipient_id)
+    recipients = session.scalars(query).all()
+    blocked = set(
+        session.scalars(select(Block.blocked_id).where(Block.blocker_id == writer.id)).all()
+    ) | set(session.scalars(select(Block.blocker_id).where(Block.blocked_id == writer.id)).all())
+    body = journal_post_body(writer, circle.name, page.recipient_id is not None)
+    data = {"journal_page": page.id, "circle_id": circle.id}
+    sent = 0
+    for user in recipients:
+        if user.id in blocked:
+            continue
+        recent = session.scalars(
+            select(NotificationLog.id).where(
+                NotificationLog.user_id == user.id,
+                NotificationLog.kind == JOURNAL_POST_KIND,
+                NotificationLog.circle_id == circle.id,
+                NotificationLog.sent_at > now - JOURNAL_POST_QUIET,
+            ).limit(1)
+        ).first()
+        if recent is not None:
+            # No stacking: the page is there when they open the journal.
+            continue
+        notifier.send(
+            session, user.id, JOURNAL_POST_KIND, body, now, later=later, data=data, circle_id=circle.id
+        )
         sent += 1
     return sent
 

@@ -2,8 +2,78 @@ import SwiftUI
 import UIKit
 
 // The atmosphere's colors are in `Shared/AtmospherePalette.swift`, where the
-// home screen widget reads them too (build 40). What follows is how the app
-// lays them on its own screens.
+// home screen widget reads them too (build 40). What follows is the words'
+// colors (build 57), and how the app lays the palette on its own screens.
+// Shared with the widget since build 57, so its words are the same inks.
+
+/// The words' colors, everywhere (build 57, from the brief of 2026-11-14):
+/// warm and ink-like in both rooms. In daylight a near black and a warm
+/// gray, as they were; at night the same idea inverted, a warm off-white
+/// and a warm gray, so nothing is ever #FFFFFF. Every screen takes them
+/// through `darkRoomInk()` at its root; `DarkRoom.ink`, `.quiet` and
+/// `.quietest` are these.
+enum TextTone {
+    private static func tone(_ light: UInt32, _ dark: UInt32) -> Color {
+        Color(UIColor { $0.userInterfaceStyle == .dark ? rgb(dark) : rgb(light) })
+    }
+
+    static func rgb(_ hex: UInt32, alpha: CGFloat = 1) -> UIColor {
+        UIColor(
+            red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255, alpha: alpha
+        )
+    }
+
+    /// The words: #1A1A1A by day, #F2EADC at night.
+    static let primary = tone(0x1A1A1A, 0xF2EADC)
+    /// The quieter words: #8A8580 by day, #ABA294 at night.
+    static let secondary = tone(0x8A8580, 0xABA294)
+    /// Quieter still, a placeholder or a hint: #B5B1AC by day, #6E675D at
+    /// night.
+    static let tertiary = tone(0xB5B1AC, 0x6E675D)
+    /// Small capitals and labels set over the room: the words at 70% at
+    /// night, the quieter words by day.
+    static let label = Color(UIColor {
+        $0.userInterfaceStyle == .dark ? rgb(0xF2EADC, alpha: 0.7) : rgb(0x8A8580)
+    })
+    /// Words laid on a photograph, in either room (the cover's title, a
+    /// held photo's caption): the warm off-white, never pure white.
+    static let onPhoto = Color(rgb(0xF2EADC))
+    /// Small capitals on a photograph: that at 70%.
+    static let onPhotoLabel = Color(rgb(0xF2EADC, alpha: 0.7))
+}
+
+/// The journal's covers (build 57: their colors are here, not in the
+/// cover's own code).
+enum CoverTone {
+    /// The slab's glass: a little white by day, less at night, where
+    /// material over black goes muddy and the edge carries it.
+    static func slab(_ scheme: ColorScheme) -> Color { .white.opacity(scheme == .dark ? 0.08 : 0.2) }
+    /// The slab's edge: a thin line of the words' off-white.
+    static let edge = TextTone.onPhoto.opacity(0.55)
+    /// The sheen across the slab's top left.
+    static let sheen = TextTone.onPhoto.opacity(0.4)
+    /// The hairline at the slab's foot.
+    static let hairline = TextTone.onPhoto.opacity(0.45)
+    /// Under the words on a photo: dark at the head and the foot.
+    static let scrimHead = Color.black.opacity(0.38)
+    static let scrimFoot = Color.black.opacity(0.5)
+    /// A journal with no photo yet: a warm ground, light from the top left,
+    /// a little deeper at the foot.
+    static func ground(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(TextTone.rgb(0x402B1F)) : Color(TextTone.rgb(0xCC946B))
+    }
+    static func light(_ scheme: ColorScheme) -> Color {
+        Color(TextTone.rgb(0xFFD199)).opacity(scheme == .dark ? 0.22 : 0.55)
+    }
+    static func deep(_ scheme: ColorScheme) -> Color {
+        Color(TextTone.rgb(0x593324)).opacity(scheme == .dark ? 0.35 : 0.3)
+    }
+    /// How much of the palette's accent is laid over that ground.
+    static func accentWash(_ scheme: ColorScheme) -> Double { scheme == .dark ? 0.22 : 0.18 }
+    /// The card's shadow.
+    static func shadow(_ scheme: ColorScheme) -> Color { .black.opacity(scheme == .dark ? 0.5 : 0.22) }
+}
 
 /// Paint the atmosphere's floor behind a scrolling surface: flat, no grain
 /// (Quiet Warmth, build 44; from build 20 every page was grained paper).

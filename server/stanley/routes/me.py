@@ -44,6 +44,8 @@ class SettingsPatch(BaseModel):
     note_reminder_hour: int | None = None
     photo_reminder_enabled: bool | None = None
     photo_reminder_hour: int | None = None
+    # Build 57: a page landing in a shared journal you read (§10 N7).
+    journal_posts_enabled: bool | None = None
 
 
 def _notice_settings(user: User) -> dict:
@@ -55,6 +57,7 @@ def _notice_settings(user: User) -> dict:
         "note_reminder_hour": user.note_reminder_hour,
         "photo_reminder_enabled": user.photo_reminder_enabled,
         "photo_reminder_hour": user.photo_reminder_hour,
+        "journal_posts_enabled": user.journal_posts_enabled,
     }
 
 
@@ -213,6 +216,8 @@ def patch_settings(
         user.photo_reminder_enabled = body.photo_reminder_enabled
     if body.photo_reminder_hour is not None:
         user.photo_reminder_hour = body.photo_reminder_hour
+    if body.journal_posts_enabled is not None:
+        user.journal_posts_enabled = body.journal_posts_enabled
     return _notice_settings(user)
 
 
@@ -549,4 +554,5 @@ def delete_account(
     user.circle_posts_enabled = False
     user.note_reminder_enabled = False
     user.photo_reminder_enabled = False
+    user.journal_posts_enabled = False
     user.deleted_at = now

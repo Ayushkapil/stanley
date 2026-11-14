@@ -299,6 +299,18 @@ struct Book {
 
     func index(id: String) -> Int? { pages.firstIndex { $0.id == id } }
 
+    /// A page of the shared journal by the id of what's written on it: the
+    /// spread it faces on, or the page of its own for one person.
+    func index(sharedPage id: String) -> Int? {
+        pages.firstIndex { page in
+            switch page.kind {
+            case .spread(let spread, _): spread.left.id == id || spread.right?.id == id
+            case .single(let single): single.id == id
+            default: false
+            }
+        }
+    }
+
     /// Where a day is (a row of a month's dots, tapped): its written page,
     /// or the first thing from that day, or the nearest page after it.
     func index(near day: String) -> Int? {

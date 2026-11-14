@@ -107,7 +107,7 @@ Personalization, never Other.
   Since build 18, only for someone who turns on a notice (Settings → Quiet):
   the phone's APNs device token is sent to the server (`POST
   /me/push-token`) and kept with the account (`push_tokens`) so the
-  last-light notice and the evening note can reach that phone. Purpose: App
+  notices they turned on can reach that phone. Purpose: App
   Functionality. It's removed when they sign out on that phone, when they
   delete the account, and when Apple reports it dead. Apple's guidance on
   whether a push token counts as a Device ID isn't explicit; declaring it is
@@ -221,13 +221,22 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   kept with no Journal widget installed, with the app lock on, or after
   sign-out. No label category changes.
 - Push notifications: when APNs is wired, the server stores a **device push
-  token**. Tokens exist to deliver the five notices (the two reminders a person sets for themselves since build 39, last light, the
-  digest, and since build 37 the circle-post notice) and are not an Apple
+  token**. Tokens exist to deliver the six notices (the two reminders a person sets for themselves since build 39, last light, the
+  digest, since build 37 the circle-post notice, and since build 57 the
+  shared-journal notice) and are not an Apple
   label category by themselves. The circle-post notice carries the poster's
   display name to the people in their circle who turned it on: the same
   name those people already see in the app, so Name stays as declared
   (Linked, App Functionality) and Device ID's purpose is unchanged
-  (re-derived for build 37, 2026-11-07).
+  (re-derived for build 37, 2026-11-07). The shared-journal notice carries
+  the writer's display name and the circle's name to the members of that
+  journal who turned it on (or, for a page written to one person, to that
+  person), never the page's words; beside the words it carries the page's
+  and the circle's opaque ids so the app can open the page. The same names
+  those readers already see on the page, so nothing above changes
+  (re-derived for build 57, 2026-11-14). Which circles' journals a person
+  muted is kept with their membership: App Functionality, nothing new to
+  declare.
 - Data deletion: account deletion cascades — photos, blobs, comments, holds
   all purge. Owner-deleted photos purge everywhere immediately.
 
@@ -241,10 +250,12 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   Precise Location again.
 
 - `.email` is added to SIWA `requestedScopes` → Email becomes Collected.
-- A notice ever carries a photo or a count, or a name to anyone outside
-  the poster's circle, or push is used for anything but the five notices
-  → revisit Device ID's purpose, and §10. (A name to the circle, build 37,
-  was re-derived and changes nothing above.)
+- A notice ever carries a photo, a page's words or a count, or a name to
+  anyone outside the poster's or writer's circle, or push is used for
+  anything but the six notices → revisit Device ID's purpose, and §10. (A
+  name to the circle, build 37, and a writer's and circle's name to a
+  shared journal's readers, build 57, were re-derived and change nothing
+  above.)
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no
   counts, no engagement signals" product rules deserve a second look anyway.
 - `SentrySDK.setUser` or custom Sentry events, or a `Trail` step carrying an

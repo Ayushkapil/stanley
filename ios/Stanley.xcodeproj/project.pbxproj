@@ -29,11 +29,11 @@
 		42274D43662E15B9CDBC11AD /* TabTaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7996693C098F3CB199D03DB5 /* TabTaps.swift */; };
 		4417A0D50E18CC231F775453 /* LibraryPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA2B6537E9B17BD17EB16A5 /* LibraryPhoto.swift */; };
 		44A14010F7A701664493B74A /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D985F23D96D5CE5746525A /* Hand.swift */; };
+		4C9E2C1E8CE33030EB655695 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636C83C3D3D660B14E60D9BC /* Atmosphere.swift */; };
 		4D7B10A56B450756E7CB89E3 /* Acknowledgements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4885E2268DC6C00B5529E694 /* Acknowledgements.swift */; };
 		4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */; };
 		4F00CC9A39C25078D5C20C31 /* JournalCovers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E1530F3914BF87D9FD0079 /* JournalCovers.swift */; };
 		4F135F394D4624710874F567 /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D985F23D96D5CE5746525A /* Hand.swift */; };
-		4F53B77262DFC4F2B0FB4972 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = E323BCEF8A28432A187DE505 /* Atmosphere.swift */; };
 		4F757909B3B8A62FB338AC0C /* JournalColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */; };
 		4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DB333BECC60813C685C4A7 /* ProfileView.swift */; };
 		55C2CC0CA04F401FAA78335E /* JournalChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2B311BA072840C57A99246 /* JournalChrome.swift */; };
@@ -68,6 +68,7 @@
 		A7F7AF0C0BB4FF3433DEE086 /* JournalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */; };
 		A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */; };
 		A89E8EBBE150361E5A1D48C9 /* JournalInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD47418CFF8A076A7B864619 /* JournalInk.swift */; };
+		A8CED4FF1D069C1DEBB696E6 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636C83C3D3D660B14E60D9BC /* Atmosphere.swift */; };
 		ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B910D5D0535C57C080D6460 /* Keychain.swift */; };
 		B2F6DB4DA1B7888FFCE2FA1C /* StanleyWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB37B70B453BD197952E7525 /* StanleyWidgets.swift */; };
 		B70470B18621E67B9CC8343F /* Countdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D8A5CF25BBCE7C3BF926A /* Countdown.swift */; };
@@ -133,6 +134,7 @@
 		4F315219FA2D96398B7CA7B6 /* CircleLetters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleLetters.swift; sourceTree = "<group>"; };
 		54B7A0448179C1D07FE2922B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		59A4482F0EEC4500194DB4B1 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
+		636C83C3D3D660B14E60D9BC /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		65E5AD82A467F941E84D908A /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
 		6651E84FAC14531BCD5F1A6F /* Writing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Writing.swift; sourceTree = "<group>"; };
 		7076D62BCAF8F97CC12051C7 /* Mentions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mentions.swift; sourceTree = "<group>"; };
@@ -175,7 +177,6 @@
 		E137B196869A47ACE289A041 /* WorldTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldTodayView.swift; sourceTree = "<group>"; };
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E237A15BDE57446BB210AB40 /* BookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookView.swift; sourceTree = "<group>"; };
-		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
 		E5CDD4A42801C110D1E00C6C /* Trail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trail.swift; sourceTree = "<group>"; };
 		E73E1722ECC586EAD8BAA1DB /* SafetyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyViews.swift; sourceTree = "<group>"; };
@@ -217,7 +218,6 @@
 				59A4482F0EEC4500194DB4B1 /* AppLock.swift */,
 				1401F690E1241EB4B8D190DC /* AppState.swift */,
 				8B9C29C3CAA06BA510C076FD /* Assets.xcassets */,
-				E323BCEF8A28432A187DE505 /* Atmosphere.swift */,
 				9BB8427334A459A620854705 /* AvatarPicker.swift */,
 				0D713EC95A1BA95F6043E0E8 /* Book.swift */,
 				39FC79B48BB2EA062F8B6E65 /* BookPages.swift */,
@@ -275,6 +275,7 @@
 		65E05696A9F374BE01E31C23 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				636C83C3D3D660B14E60D9BC /* Atmosphere.swift */,
 				B2296FB39842563CF1F4E2B2 /* AtmospherePalette.swift */,
 				101D8A5CF25BBCE7C3BF926A /* Countdown.swift */,
 				47D985F23D96D5CE5746525A /* Hand.swift */,
@@ -406,6 +407,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A8CED4FF1D069C1DEBB696E6 /* Atmosphere.swift in Sources */,
 				BDC9EE6C3B9C785A5ECA5E38 /* AtmospherePalette.swift in Sources */,
 				D8071F47E9D8249B8B0B20BC /* Countdown.swift in Sources */,
 				4F135F394D4624710874F567 /* Hand.swift in Sources */,
@@ -429,7 +431,7 @@
 				4D7B10A56B450756E7CB89E3 /* Acknowledgements.swift in Sources */,
 				9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */,
 				F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */,
-				4F53B77262DFC4F2B0FB4972 /* Atmosphere.swift in Sources */,
+				4C9E2C1E8CE33030EB655695 /* Atmosphere.swift in Sources */,
 				6A7483A75FBDC6102F5DC4C3 /* AtmospherePalette.swift in Sources */,
 				118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */,
 				785FAFD68215F38893B3A3DB /* Book.swift in Sources */,

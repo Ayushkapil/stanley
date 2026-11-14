@@ -893,7 +893,7 @@ struct PhotoImageView: View {
     private var likeHeart: some View {
         Image(systemName: "heart.fill")
             .font(.system(size: 80))
-            .foregroundStyle(.white)
+            .foregroundStyle(TextTone.onPhoto)
             .shadow(color: .black.opacity(0.25), radius: 8)
             .keyframeAnimator(
                 initialValue: HeartPop(scale: reduceMotion ? 1 : 0.7), trigger: heartPops

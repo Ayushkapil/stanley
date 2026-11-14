@@ -1282,6 +1282,38 @@ final class AppState {
         _ = await (pages, kept, weeks, dots)
     }
 
+    /// A journal's notice, showing as Stanley's own banner (build 57).
+    var journalBanner: Push.JournalNotice?
+    /// A journal page asked for by a notice: its circle's shared journal,
+    /// at that page.
+    var journalPageAsked: Push.JournalNotice?
+
+    /// Open the page a notice is about: the Journal tab, that circle's
+    /// shared journal, that page.
+    func openJournalPage(_ notice: Push.JournalNotice) {
+        journalBanner = nil
+        journalPageAsked = notice
+        journalDay = nil
+        journalAsked += 1
+    }
+
+    /// Mute a circle's journal, or unmute it (build 57): its "… wrote in …"
+    /// notices stop for you alone. Shown at once, put back if refused.
+    func setJournalMuted(_ circleId: String, _ muted: Bool) async {
+        func set(_ value: Bool) {
+            if let at = circles.firstIndex(where: { $0.id == circleId }) { circles[at].journalMuted = value }
+        }
+        let was = circles.first { $0.id == circleId }?.journalMuted ?? false
+        set(muted)
+        do {
+            let now: MuteState = try await api.send("PUT", "/circles/\(circleId)/journal/mute", json: ["muted": muted])
+            set(now.muted)
+        } catch {
+            set(was)
+            surface(error)
+        }
+    }
+
     /// A held photo's picture, by its id, for a journal's cover (build 53):
     /// covers are always your own keeps, so it's among what you've held.
     func coverURL(_ photoId: String?) -> URL? {

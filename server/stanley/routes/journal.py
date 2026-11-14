@@ -2,7 +2,8 @@
 photo, your reflection on the week, and the circle's question of the week.
 The weeks and the questions are in `journal.py`; who may read and write
 what is here, route by route. Nothing here counts anything, and nothing
-here sends a notification."""
+here sends a notification, except a page landing in a shared journal
+(build 57, §10 N7 in `notifications.py`), to those who asked for it."""
 from __future__ import annotations
 
 import base64
@@ -10,7 +11,7 @@ import binascii
 import json
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -19,9 +20,10 @@ from sqlalchemy.orm import Session
 from .. import journal, physics, sharing
 from ..decay import forget_journal
 from ..deps import (
-    active_circle_id, event, get_clock, get_current_user, get_db, get_settings, membership_in,
+    active_circle_id, event, get_clock, get_current_user, get_db, get_notifier, get_settings, membership_in,
     refuse_objectionable, require_membership,
 )
+from ..notifications import send_journal_page_notices
 from ..models import (
     Anchor, CirclePrompt, JournalEntry, JournalPage, Membership, PageHeart, Photo, PromptResponse, Report,
     User, WeeklyReflection, new_id,
@@ -531,11 +533,13 @@ def my_journal(
 @router.put("/me/journal/today", dependencies=[per_person("journal")])
 def write_today(
     body: TodaysPageBody,
+    background: BackgroundTasks,
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
     active: str | None = Depends(active_circle_id),
+    notifier=Depends(get_notifier),
 ):
     """Today's page: the server says which day (the writer's own, from the
     zone the phone sends). One a day: writing again replaces what was
@@ -543,7 +547,9 @@ def write_today(
     in the shared journal of the circle on screen, or with its writer
     alone; left out, a page stays where it was. With `shared` true,
     `recipient_id` (build 52) makes it one member's of that circle rather
-    than the whole circle's."""
+    than the whole circle's. A page that lands somewhere it wasn't tells
+    the people who read it there, if they asked (§10 N7, build 57); a
+    rewrite in place tells nobody."""
     tz = _zone(user, body.tz)
     if body.runs:
         words, ink, inks = _inked(body.runs)
@@ -567,6 +573,9 @@ def write_today(
     moved = was is not None and was.shared and (
         not shared or (was.circle_id, was.recipient_id) != (circle_id, recipient_id)
     )
+    # Decided before the upsert: `was` is the same row as the one read back
+    # after it, refreshed to what it is now.
+    landed = shared and (was is None or not was.shared or moved)
     if moved:
         # Out of where it was: the hearts left on it there go.
         sharing.drop_hearts(db, was.id)
@@ -586,8 +595,9 @@ def write_today(
     )
     row = db.scalars(select(JournalPage).where(*mine)).one()
     db.refresh(row)
-    if shared and (was is None or not was.shared or moved):
+    if landed:
         event("page_shared", circle=circle_id, user=user.id)
+        send_journal_page_notices(db, notifier, row, user, now, later=background)
     return _page_payload(db, row, settings, now)
 
 
@@ -642,8 +652,9 @@ def delete_page(
 # people's pages from the same day, side by side. Who faces whom is
 # `journal.pairings`, the same for every member. A reader may leave one
 # heart on a page; only its writer is told who, as faces, and nobody is
-# told how many. No comments, no notification, and a shared page doesn't
-# fade. The word filter is on shared pages (a circle reads them), never on
+# told how many. No comments, no notification for a heart, and a shared
+# page doesn't fade. Since build 57 a page landing in a shared journal is a
+# notice to those who read it there and asked for one (§10 N7). The word filter is on shared pages (a circle reads them), never on
 # private ones.
 #
 # Build 52: a page can be shared with one person in the circle instead
@@ -691,29 +702,37 @@ def _shared_payload(
 def share_page(
     page_id: str,
     body: ShareBody,
+    background: BackgroundTasks,
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     settings=Depends(get_settings),
     clock=Depends(get_clock),
     active: str | None = Depends(active_circle_id),
+    notifier=Depends(get_notifier),
 ):
     """Put a page you've written into the shared journal of the circle on
     screen, or give it to one person in that circle (`recipient_id`, build
-    52), or take it back. Either way it stays in your own book."""
+    52), or take it back. Either way it stays in your own book. Landing
+    somewhere new tells the people who read it there, if they asked (§10
+    N7, build 57); taking it back tells nobody."""
     row = _own_page(db, user, page_id)
+    now = clock.now()
     if body.shared:
         circle_id, recipient_id = _destination(db, user, active, body.recipient_id)
         refuse_objectionable(row.body)
-        if not row.shared or (row.circle_id, row.recipient_id) != (circle_id, recipient_id):
+        landed = not row.shared or (row.circle_id, row.recipient_id) != (circle_id, recipient_id)
+        if landed:
             # Somewhere new (from another book or person, perhaps: the
             # hearts left on it there don't come with it).
             sharing.drop_hearts(db, row.id)
             event("page_shared", circle=circle_id, user=user.id)
         row.shared, row.circle_id, row.recipient_id = True, circle_id, recipient_id
+        if landed:
+            send_journal_page_notices(db, notifier, row, user, now, later=background)
     elif row.shared:
         sharing.drop_hearts(db, row.id)
         row.shared, row.circle_id, row.recipient_id = False, None, None
-    return _page_payload(db, row, settings, clock.now())
+    return _page_payload(db, row, settings, now)
 
 
 @router.get("/circles/{circle_id}/journal")

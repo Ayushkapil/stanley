@@ -57,6 +57,11 @@ class User(Base):
     note_reminder_hour: Mapped[int] = mapped_column(Integer, default=9, server_default=text("9"))
     photo_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     photo_reminder_hour: Mapped[int] = mapped_column(Integer, default=18, server_default=text("18"))
+    # §10 N7 (build 57, a product decision): a notice when a page lands in a
+    # shared journal you read (a circle's, or one written to you). Off by
+    # default, in the database too; each circle's can be muted on its own
+    # (`Membership.journal_muted`).
+    journal_posts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -85,6 +90,9 @@ class Membership(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     joined_at: Mapped[datetime] = mapped_column(UTCDateTime)
     role: Mapped[str] = mapped_column(String(16), default="member")
+    # Build 57: this circle's shared journal sends this person no notices
+    # (§10 N7), whatever their own switch says. Off by default.
+    journal_muted: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class Photo(Base):
@@ -344,6 +352,10 @@ class NotificationLog(Base):
     kind: Mapped[str] = mapped_column(String(24))
     body: Mapped[str] = mapped_column(Text)
     sent_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # Build 57: the circle a shared-journal notice was about (§10 N7), so
+    # there's at most one an hour per journal per person. Null for every
+    # other kind. Not a foreign key: a log row outlives nothing it names.
+    circle_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class PushToken(Base):

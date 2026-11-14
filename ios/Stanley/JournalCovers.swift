@@ -39,6 +39,9 @@ struct CoverJournal: Identifiable, Hashable {
     /// The first real entry; nil while the journal is empty, and then no
     /// dates are shown at all.
     let since: Date?
+    /// A circle's journal whose notices you've muted (build 57); nil for
+    /// your own, or a server that has no such thing.
+    var muted: Bool? = nil
 }
 
 struct JournalCovers: View {
@@ -50,8 +53,10 @@ struct JournalCovers: View {
     /// (to the tab bar).
     let width: CGFloat
     let height: CGFloat
-    /// Letters, the week, Prompts, along the top.
-    let bar: AnyView
+    /// The date's line along the top, with Letters and Prompts at its
+    /// right: drawn for a left edge, a right edge and a middle (the card's
+    /// edges, so the three line up).
+    let bar: (_ left: CGFloat, _ right: CGFloat, _ y: CGFloat) -> AnyView
     let open: (CoverJournal) -> Void
     @Binding var page: String
     @State private var shown: String?
@@ -67,9 +72,11 @@ struct JournalCovers: View {
                 all.append(CoverJournal(
                     id: circle.id, circleId: circle.id,
                     place: circle.name, title: "Ours",
-                    name: circle.name, subtitle: "Shared with your circle",
+                    name: circle.name,
+                    subtitle: circle.journalMuted == true ? "Shared with your circle · muted" : "Shared with your circle",
                     cover: circle.coverUrl.flatMap { state.api.absoluteURL($0) } ?? state.coverURL(circle.coverPhotoId),
-                    since: circle.firstDay.flatMap(WeekRange.day)
+                    since: circle.firstDay.flatMap(WeekRange.day),
+                    muted: circle.journalMuted
                 ))
             }
         }
@@ -97,7 +104,7 @@ struct JournalCovers: View {
     /// the bar and above what's written under it.
     private var card: CGSize {
         let below: CGFloat = 150
-        let tallest = height - layout.safeTop - 64 - below - 16
+        let tallest = height - layout.safeTop - 76 - below - 16
         let across = min(420, (width * 0.74).rounded())
         let down = (across * 416 / 290).rounded()
         guard down > tallest else { return CGSize(width: across, height: down) }
@@ -122,7 +129,7 @@ struct JournalCovers: View {
                 .frame(width: width, height: height)
                 .ignoresSafeArea()
             VStack(alignment: .leading, spacing: 0) {
-                Spacer(minLength: layout.safeTop + 60)
+                Spacer(minLength: layout.safeTop + 72)
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: gap) {
                         ForEach(journals) { journal in
@@ -134,6 +141,20 @@ struct JournalCovers: View {
                                     renaming = true
                                 } : nil
                             )
+                            // The journal's own settings: its notices, muted
+                            // or not (build 57).
+                            .contextMenu {
+                                if let circleId = journal.circleId, let muted = journal.muted {
+                                    Button {
+                                        Task { await state.setJournalMuted(circleId, !muted) }
+                                    } label: {
+                                        muted
+                                            ? Label("Unmute This Journal", systemImage: "bell")
+                                            : Label("Mute This Journal", systemImage: "bell.slash")
+                                    }
+                                }
+                                Button { open(journal) } label: { Label("Open", systemImage: "book") }
+                            }
                             .id(journal.id)
                         }
                     }
@@ -158,7 +179,7 @@ struct JournalCovers: View {
                 Spacer(minLength: 16)
             }
             .frame(width: width, height: height, alignment: .topLeading)
-            bar
+            bar(leading, leading + card.width, layout.safeTop + 30)
         }
         .frame(width: width, height: height, alignment: .topLeading)
         .onAppear { shown = page }
@@ -178,7 +199,7 @@ struct JournalCovers: View {
     /// Under the cards: the journal in view, its name and a line, the pips,
     /// and the arrow that opens it. In the room's own ink.
     private func underneath(_ journal: CoverJournal, at: Int, of: Int, width: CGFloat, scale: CGFloat) -> some View {
-        let ink = colorScheme == .dark ? DarkRoom.ink : Color(red: 0.10, green: 0.10, blue: 0.10)
+        let ink = TextTone.primary
         return HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(journal.name)
@@ -187,7 +208,7 @@ struct JournalCovers: View {
                     .lineLimit(1)
                 Text(journal.subtitle)
                     .font(.system(size: 14 * min(scale, 1.2)))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(TextTone.secondary)
                     .lineLimit(1)
                 Pips(at: at, of: of, ink: ink)
                     .padding(.top, 8)
@@ -244,32 +265,31 @@ private struct CoverCard: View {
     private var scale: CGFloat { size.width / 290 }
 
     var body: some View {
-        let dark = colorScheme == .dark
         let shape = cardShape(scale)
         ZStack(alignment: .topLeading) {
             picture
             // Dark only where words sit on the photo: under the head and
             // under the foot.
             VStack(spacing: 0) {
-                LinearGradient(colors: [.black.opacity(0.38), .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [CoverTone.scrimHead, .clear], startPoint: .top, endPoint: .bottom)
                     .frame(height: size.height * 0.42)
                 Spacer(minLength: 0)
-                LinearGradient(colors: [.black.opacity(0), .black.opacity(0.5)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [.clear, CoverTone.scrimFoot], startPoint: .top, endPoint: .bottom)
                     .frame(height: size.height * 0.26)
             }
             // The slab: a little white, a sheen across its top left, a thin
             // white edge.
-            shape.fill(Color.white.opacity(dark ? 0.08 : 0.2))
+            shape.fill(CoverTone.slab(colorScheme))
             shape.fill(LinearGradient(
-                colors: [.white.opacity(0.4), .white.opacity(0)],
+                colors: [CoverTone.sheen, .clear],
                 startPoint: .topLeading, endPoint: UnitPoint(x: 0.45, y: 0.35)
             ))
             words
         }
         .frame(width: size.width, height: size.height)
         .clipShape(shape)
-        .overlay(shape.strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5))
-        .shadow(color: .black.opacity(dark ? 0.5 : 0.22), radius: 18 * scale, x: 8 * scale, y: 12 * scale)
+        .overlay(shape.strokeBorder(CoverTone.edge, lineWidth: 0.5))
+        .shadow(color: CoverTone.shadow(colorScheme), radius: 18 * scale, x: 8 * scale, y: 12 * scale)
         .contentShape(shape)
         .onTapGesture(perform: open)
         .accessibilityElement(children: .ignore)
@@ -302,20 +322,13 @@ private struct CoverCard: View {
     /// The atmosphere's accent warmed and graded: a field, never flat gray.
     private var field: some View {
         let accent = Atmosphere.resolve(raw).palette.accent
-        let dark = colorScheme == .dark
         return ZStack {
             // A warm ground, the palette's accent laid lightly over it, and
-            // light coming in from the top left.
-            Color(red: dark ? 0.25 : 0.80, green: dark ? 0.17 : 0.58, blue: dark ? 0.12 : 0.42)
-            accent.opacity(dark ? 0.22 : 0.18)
-            LinearGradient(
-                colors: [Color(red: 1.0, green: 0.82, blue: 0.6).opacity(dark ? 0.22 : 0.55), .clear],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-            LinearGradient(
-                colors: [.clear, Color(red: 0.35, green: 0.2, blue: 0.14).opacity(dark ? 0.35 : 0.3)],
-                startPoint: .center, endPoint: .bottom
-            )
+            // light coming in from the top left (`CoverTone`).
+            CoverTone.ground(colorScheme)
+            accent.opacity(CoverTone.accentWash(colorScheme))
+            LinearGradient(colors: [CoverTone.light(colorScheme), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [.clear, CoverTone.deep(colorScheme)], startPoint: .center, endPoint: .bottom)
         }
         .frame(width: size.width, height: size.height)
     }
@@ -328,18 +341,18 @@ private struct CoverCard: View {
                 .font(label)
                 .tracking(2.6 * scale)
                 .textCase(.uppercase)
-                .foregroundStyle(.white.opacity(0.92))
+                .foregroundStyle(TextTone.onPhotoLabel)
                 .lineLimit(1)
             Text(journal.title)
                 .font(.custom(BookHand.font(44, bold: true).fontName, fixedSize: 44 * scale).leading(.tight))
-                .foregroundStyle(.white)
+                .foregroundStyle(TextTone.onPhoto)
                 .lineLimit(3)
                 .minimumScaleFactor(0.5)
                 .padding(.top, 10 * scale)
                 .onLongPressGesture(minimumDuration: 0.45) { rename?() }
             Spacer(minLength: 12)
             Rectangle()
-                .fill(.white.opacity(0.45))
+                .fill(CoverTone.hairline)
                 .frame(height: max(0.5, 0.5 * scale))
             HStack {
                 // Only once there's a first entry: an empty journal says
@@ -351,7 +364,7 @@ private struct CoverCard: View {
             .font(label)
             .tracking(2.6 * scale)
             .textCase(.uppercase)
-            .foregroundStyle(.white.opacity(0.88))
+            .foregroundStyle(TextTone.onPhotoLabel)
             .padding(.top, 12 * scale)
         }
         .padding(inset)

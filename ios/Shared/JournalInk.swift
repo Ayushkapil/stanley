@@ -29,7 +29,7 @@ enum Ink: String, CaseIterable, Codable, Identifiable {
         case (.black, false): UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1)   // #1A1A1A
         case (.blue, false): UIColor(red: 0.169, green: 0.298, blue: 0.494, alpha: 1)    // #2B4C7E
         case (.red, false): UIColor(red: 0.608, green: 0.173, blue: 0.173, alpha: 1)     // #9B2C2C
-        case (.black, true): UIColor(red: 0.941, green: 0.922, blue: 0.890, alpha: 1)    // #F0EBE3
+        case (.black, true): UIColor(red: 0.949, green: 0.918, blue: 0.863, alpha: 1)    // #F2EADC, `TextTone.primary`
         case (.blue, true): UIColor(red: 0.482, green: 0.639, blue: 0.851, alpha: 1)     // #7BA3D9
         case (.red, true): UIColor(red: 0.878, green: 0.522, blue: 0.522, alpha: 1)      // #E08585
         }

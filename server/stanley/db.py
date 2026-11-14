@@ -103,7 +103,13 @@ _LATER_COLUMNS = {
         "photo_reminder_hour": "INTEGER DEFAULT 18",
         # Build 45: what the person calls their journal; null is the default.
         "journal_title": "VARCHAR(60)",
+        # Build 57: the shared-journal notice, off for everyone already here.
+        "journal_posts_enabled": "BOOLEAN DEFAULT 0",
     },
+    # Build 57: a circle's shared journal muted by one member; none is.
+    "memberships": {"journal_muted": "BOOLEAN DEFAULT 0"},
+    # Build 57: the circle a shared-journal notice was about; null for the rest.
+    "notification_log": {"circle_id": "VARCHAR(32)"},
     # Build 50: a journal page in more than one ink; null is all one ink.
     # Build 51: a page shared with a circle; private for every page there is.
     "journal_pages": {

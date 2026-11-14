@@ -117,7 +117,7 @@ struct AvatarCropView: View {
                 .toolbarBackground(.black, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
         }
-        .tint(.white)
+        .tint(TextTone.onPhoto)
         .preferredColorScheme(.dark)
     }
 
@@ -136,7 +136,7 @@ struct AvatarCropView: View {
             }
             Text("Drag to move, pinch to zoom.")
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(TextTone.onPhoto.opacity(0.6))
                 .padding(.vertical, 14)
         }
         .background(Color.black.ignoresSafeArea())

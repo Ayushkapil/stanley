@@ -169,7 +169,7 @@ struct OnboardingView: View {
     private func face(_ initial: String, tone: Color) -> some View {
         Text(initial)
             .font(.system(.title3, design: .rounded).weight(.semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(TextTone.onPhoto)
             .frame(width: 56, height: 56)
             .background(tone, in: Circle())
             .overlay(Circle().strokeBorder(.background, lineWidth: 2))

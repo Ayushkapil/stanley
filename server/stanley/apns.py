@@ -1,11 +1,13 @@
 """Apple Push Notification service, directly (build 18): token auth over
 HTTP/2, no third party in between.
 
-Only three notices ever travel this way, and only to someone who turned
-them on (§10): the owner's last-light notice, the evening digest, and since
-build 37 "{name} shared a moment" (N5). The text is the notice's own, with
-no count, deadline or countdown (N4), no sound, and nothing in it but the
-words.
+Only the §10 notices travel this way, and only to someone who turned them
+on: the owner's last-light notice, the evening digest, since build 37
+"{name} shared a moment" (N5), since build 39 the two reminders (N6), and
+since build 57 "{name} wrote in {circle}" (N7). The text is the notice's
+own, with no count, deadline or countdown (N4), no sound, and nothing in it
+but the words; N7 alone carries two ids beside them (the page and its
+circle) so the app can open the page.
 
 Token auth: an ES256 JWT signed with the team's APNs key (a .p8 from Apple
 Developer → Keys), naming the key and the team. Apple accepts one for up to
@@ -69,17 +71,23 @@ class APNs:
             return self._jwt[0]
 
     @staticmethod
-    def payload(body: str) -> dict:
-        """The words and nothing else: no sound, no badge, no data."""
-        return {"aps": {"alert": {"body": body}}}
+    def payload(body: str, data: dict | None = None) -> dict:
+        """The words and nothing else: no sound, no badge. Only a
+        shared-journal notice (N7, build 57) adds `data`, the ids the app
+        needs to open the page it's about, as keys beside `aps`; no words
+        of the page, no count."""
+        payload = {"aps": {"alert": {"body": body}}}
+        if data:
+            payload.update({k: v for k, v in data.items() if k != "aps"})
+        return payload
 
-    def send(self, device_token: str, environment: str, body: str) -> str:
+    def send(self, device_token: str, environment: str, body: str, data: dict | None = None) -> str:
         """SENT, GONE (drop the token) or FAILED (keep it, try another day)."""
         host = HOSTS.get(environment, HOSTS["production"])
         try:
             response = self._http().post(
                 f"{host}/3/device/{device_token}",
-                json=self.payload(body),
+                json=self.payload(body, data),
                 headers={
                     "authorization": f"bearer {self.bearer()}",
                     "apns-topic": self._topic,
@@ -114,7 +122,7 @@ class PushDelivery:
         self._apns = apns
         self._sessionmaker = sessionmaker
 
-    def __call__(self, user_id: str, kind: str, body: str) -> None:
+    def __call__(self, user_id: str, kind: str, body: str, data: dict | None = None) -> None:
         from sqlalchemy import select
 
         from .models import PushToken
@@ -122,6 +130,7 @@ class PushDelivery:
         with self._sessionmaker() as session:
             tokens = session.scalars(select(PushToken).where(PushToken.user_id == user_id)).all()
             for token in tokens:
-                if self._apns.send(token.token, token.environment, body) == GONE:
+                extra = (data,) if data else ()
+                if self._apns.send(token.token, token.environment, body, *extra) == GONE:
                     session.delete(token)
             session.commit()

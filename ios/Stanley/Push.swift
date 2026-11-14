@@ -57,11 +57,62 @@ final class Push: NSObject, UNUserNotificationCenterDelegate {
         #endif
     }
 
-    // A notice that arrives while Stanley is open still shows, quietly.
+    /// A journal's notice (build 57), "{name} wrote in {journal}": its
+    /// words, and the page it's about.
+    struct JournalNotice: Equatable, Identifiable {
+        let id = UUID()
+        let text: String
+        let circleId: String
+        let pageId: String
+
+        init?(_ content: UNNotificationContent) {
+            guard let page = content.userInfo["journal_page"] as? String,
+                  let circle = content.userInfo["circle_id"] as? String else { return nil }
+            text = content.body.isEmpty ? content.title : content.body
+            circleId = circle
+            pageId = page
+        }
+    }
+
+    /// Set by the app: a journal's notice arrived with Stanley open (shown
+    /// as Stanley's own banner), or was tapped (its page opened).
+    var onJournalNotice: ((JournalNotice) -> Void)? {
+        didSet { if let waiting = waitingBanner { waitingBanner = nil; onJournalNotice?(waiting) } }
+    }
+    var onOpenJournalPage: ((JournalNotice) -> Void)? {
+        didSet { if let waiting = waitingOpen { waitingOpen = nil; onOpenJournalPage?(waiting) } }
+    }
+    /// A tap that arrived before the app was ready for it (a cold launch).
+    private var waitingOpen: JournalNotice?
+    private var waitingBanner: JournalNotice?
+
+    fileprivate func banner(_ notice: JournalNotice) {
+        if let onJournalNotice { onJournalNotice(notice) } else { waitingBanner = notice }
+    }
+
+    fileprivate func open(_ notice: JournalNotice) {
+        if let onOpenJournalPage { onOpenJournalPage(notice) } else { waitingOpen = notice }
+    }
+
+    // A notice that arrives while Stanley is open still shows, quietly. A
+    // journal's is Stanley's own banner, sliding down from the top, which
+    // opens its page (build 57).
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list]
+        if let notice = JournalNotice(notification.request.content) {
+            await MainActor.run { Push.shared.banner(notice) }
+            return []
+        }
+        return [.banner, .list]
+    }
+
+    // A notice tapped: a journal's opens its page.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+    ) async {
+        guard let notice = JournalNotice(response.notification.request.content) else { return }
+        await MainActor.run { Push.shared.open(notice) }
     }
 }
 

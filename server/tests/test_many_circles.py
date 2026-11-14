@@ -43,7 +43,7 @@ def test_a_second_circle_is_joined_and_listed_in_join_order(two):
     # Names, nothing that ranks or counts a circle. (Build 53 adds the
     # reader's own cover photo, if any, and the day they joined.)
     assert all(
-        set(c) == {"id", "name", "is_creator", "cover_photo_id", "cover_url", "since", "first_day"} for c in circles
+        set(c) == {"id", "name", "is_creator", "cover_photo_id", "cover_url", "since", "first_day", "journal_muted"} for c in circles
     )
     assert all(c["is_creator"] for c in circles)
 
