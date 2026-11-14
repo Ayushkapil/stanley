@@ -872,7 +872,7 @@ final class AppState {
     /// and it's kept on the phone to go up later.
     @discardableResult
     func capture(
-        jpeg: Data, caption: String?, location: String?, tagged: [String], filter: String? = nil
+        jpeg: Data, caption: String?, location: String?, tagged: [String]
     ) async throws -> Bool {
         let circleId = circle?.id
         // The day is already spoken for by something waiting to go up. The
@@ -882,7 +882,7 @@ final class AppState {
         }
         do {
             let posted = try await api.uploadPhoto(
-                jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
+                jpeg: jpeg, caption: caption, location: location, tagged: tagged,
                 circleId: circleId
             )
             Trail.note(.postedPhoto)
@@ -905,7 +905,7 @@ final class AppState {
             }
             // No signal: keep the moment, claim the day, send it later.
             queue.enqueue(
-                jpeg: jpeg, caption: caption, location: location, tagged: tagged, filter: filter,
+                jpeg: jpeg, caption: caption, location: location, tagged: tagged,
                 circleId: circleId
             )
             Trail.note(.keptPhotoForLater)
@@ -1417,42 +1417,7 @@ final class AppState {
         }
     }
 
-    /// Rest a memory — one tap, no confirmation (§14). Works from a Returned
-    /// card or any held row. Gentle, unexplaining confirmation after.
-    func rest(photoId: String) async {
-        do {
-            let _: Empty = try await api.send("POST", "/memories/\(photoId)/rest")
-            flash = "Rested. It won't come back on its own."
-        } catch {
-            surface(error)
-        }
-    }
-
-    /// "Let it return" — undo a rest from the Rested view.
-    func unrest(photoId: String) async {
-        do {
-            let _: Empty = try await api.send("DELETE", "/memories/\(photoId)/rest")
-        } catch {
-            surface(error)
-        }
-    }
-
-    func loadRested() async -> [Memory] {
-        do {
-            return (try await api.send("GET", "/memories/rested") as RestedResponse).memories
-        } catch {
-            missed(error)
-            return []
-        }
-    }
-
     // MARK: Returned card actions
-
-    /// Rest from the Returned card: stop it ever resurfacing, clear the card.
-    func restReturned(photoId: String) async {
-        await rest(photoId: photoId)
-        returned = nil
-    }
 
     /// Keep (rescue): anchor the photo so it survives, then refresh — the card
     /// clears because a kept photo no longer needs rescuing.

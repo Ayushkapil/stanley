@@ -48,7 +48,8 @@ struct OnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             Text("Stanley")
-                .smallCaps(11)
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundStyle(.secondary)
                 .padding(.top, 14)
                 .accessibilityHidden(true)
             TabView(selection: $page) {
@@ -93,19 +94,13 @@ struct OnboardingView: View {
             // One line, written across the page: two lines of a hand this
             // size pushed the words into the dots on the Duo's cover.
             Text(page.headline)
-                .font(.hand(44, bold: true, relativeTo: .largeTitle))
+                .font(.system(.largeTitle, design: .rounded).weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .accessibilityAddTraits(.isHeader)
-            VStack(spacing: 2) {
-                Rule(weight: 1.5)
-                Rule(weight: 0.5)
-            }
-            .frame(maxWidth: 240)
-            .padding(.top, 10)
-            .padding(.bottom, 20)
+                .padding(.bottom, 14)
             Text(page.body)
-                .font(.title3)
+                .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
@@ -124,24 +119,22 @@ struct OnboardingView: View {
         case .print:
             // One print, the day's.
             snapshot(width: 112)
-                .asPrint(border: 7, tilt: -3)
+                .asPrint()
         case .fading:
             // The same moment over the days: each print paler than the last.
             HStack(alignment: .bottom, spacing: 18) {
-                ForEach(Array([1.0, 0.5, 0.16].enumerated()), id: \.offset) { index, strength in
+                ForEach(Array([1.0, 0.5, 0.16].enumerated()), id: \.offset) { _, strength in
                     snapshot(width: 70)
                         .saturation(strength)
                         .opacity(0.25 + 0.75 * strength)
-                        .asPrint(border: 5, tilt: [-2.5, 1.5, -1][index])
+                        .asPrint(corner: 6)
                 }
             }
         case .faces:
             // A few people, as faces: never a number of them.
-            HStack(spacing: 14) {
+            HStack(spacing: -10) {
                 ForEach(Array(["A", "B", "K", "M"].enumerated()), id: \.offset) { index, initial in
                     face(initial, tone: Self.tones[index])
-                        .rotationEffect(.degrees([-3, 2, -1.5, 3][index]))
-                        .offset(y: index.isMultiple(of: 2) ? 0 : 10)
                 }
             }
         }
@@ -161,7 +154,6 @@ struct OnboardingView: View {
             endPoint: .bottom
         )
         .frame(width: width, height: width / PhotoShape.aspect)
-        .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
     }
 
     /// Watercolor tones, the kind a person's name wears in a story: coral,
@@ -176,10 +168,10 @@ struct OnboardingView: View {
 
     private func face(_ initial: String, tone: Color) -> some View {
         Text(initial)
-            .font(.hand(26, bold: true, relativeTo: .title2))
+            .font(.system(.title3, design: .rounded).weight(.semibold))
             .foregroundStyle(.white)
             .frame(width: 56, height: 56)
-            .background(tone, in: RoundedRectangle(cornerRadius: 56 * 0.28, style: .continuous))
-            .shadow(color: .black.opacity(0.12), radius: 3, y: 1.5)
+            .background(tone, in: Circle())
+            .overlay(Circle().strokeBorder(.background, lineWidth: 2))
     }
 }

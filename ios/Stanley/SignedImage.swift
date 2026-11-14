@@ -51,7 +51,7 @@ struct SignedImage<Content: View, Placeholder: View>: View {
         }
         // A picture comes up out of its placeholder rather than replacing
         // it in one frame (build 39). One already in memory is there at once.
-        .animation(.easeOut(duration: 0.2), value: shown?.path)
+        .animation(.easeOut(duration: 0.25), value: shown?.path)
         // A new link, or Stanley reachable again, is another try.
         .task(id: Attempt(url: url, reloads: state.reloads)) { await load() }
     }

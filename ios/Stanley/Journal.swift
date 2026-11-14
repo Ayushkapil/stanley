@@ -1,11 +1,18 @@
 import SwiftUI
 
-// The journal's visual language (build 20), shared by Today, Held, You and
-// Settings so they sit on the same paper as the World tab's morning paper:
-// ink on a grained page, thin rules where other apps draw boxes, a masthead
-// with a dateline in small capitals, a person's own hand for anything they'd
-// write themselves, and photos as prints laid on the page rather than cards.
-// The paper keeps the serif; the journal keeps the hand.
+// Stanley's surfaces and type, shared by every screen (Quiet Warmth, build
+// 44). One spectrum: the more personal the content, the more handmade it
+// looks; the more functional the screen, the more it's plain iOS. Photos are
+// always the hero. Three kinds of surface:
+//   - a card (`card()`): white, a warm hairline, the faintest shadow. In the
+//     dark there are no cards and content sits on the black.
+//   - paper (`creamPaper()`): cream, grained, the same in the dark. Only for
+//     things a person made by hand: a note, a letter, a journal page.
+//   - glass (`glass(in:)`): a translucent surface for something you press
+//     that sits over a photo or the page.
+// Three kinds of type: a hand (`Font.hand`) only for a person's own words,
+// the serif only for the World tab and the week's question, and the system
+// font (rounded for names of things and buttons) for everything else.
 
 /// A rule: ink, thin, edge to edge. A heavy one under a masthead. In the
 /// dark room, every rule is the same barely-there gray.
@@ -30,37 +37,84 @@ extension View {
         modifier(SmallCaps(size: size))
     }
 
+    /// A quiet label: small, in the secondary color, the system font. What
+    /// most of the small capitals became (build 44); those are kept for a
+    /// masthead's dateline and Settings' section heads.
+    func quietLabel() -> some View {
+        font(.footnote).foregroundStyle(.secondary)
+    }
+
+    /// The week's question, and any question the circle is asked: serif
+    /// italic, the one place outside the World tab the serif goes.
+    func questionType(_ style: Font.TextStyle = .title3) -> some View {
+        font(.system(style, design: .serif).italic())
+    }
+
+    /// A button written out in words on a page (Answer, Keep it, Not now):
+    /// the system's rounded face.
+    func wordButton(_ style: Font.TextStyle = .callout, bold: Bool = true) -> some View {
+        font(.system(style, design: .rounded).weight(bold ? .semibold : .regular))
+    }
+
     /// A main page of the journal: the paper edge to edge, its own masthead
     /// instead of a navigation bar, and a strip of the page under the status
     /// bar so the paper slides beneath the clock instead of through it.
     func journalPage() -> some View { modifier(JournalPage()) }
 
-    /// A photo as a print laid on the page: a border of photo paper, corners
-    /// barely rounded, a soft shadow where it lifts off the page, and a
-    /// little off square. In the dark room (build 24) there is no print: the
-    /// photo itself, cut with a small radius, straight, on black.
-    func asPrint(border: CGFloat = 7, tilt: Double = 0) -> some View {
-        modifier(PrintPaper(border: border, tilt: tilt))
+    /// A photo, the way every photo in Stanley sits on its page: cut with
+    /// 8pt corners; in daylight a warm hairline and the faintest shadow; in
+    /// the dark nothing at all, the image on black. `tilt` is for the
+    /// album in the Journal tab only (daylight only); Today's are straight.
+    func asPrint(corner: CGFloat = PhotoCut.corner, tilt: Double = 0) -> some View {
+        modifier(PhotoCardStyle(corner: corner, tilt: tilt))
     }
 
-    /// A face pasted in as a print, when there's a photo of them. An initial
-    /// on photo paper is a gray square in a gray square, so a face without
-    /// a photo is left as it is, only a little crooked.
-    @ViewBuilder
-    func pastedFace(_ url: String?, border: CGFloat = 4, tilt: Double = 0) -> some View {
-        if url != nil {
-            asPrint(border: border, tilt: tilt)
-        } else {
-            rotationEffect(.degrees(tilt))
-        }
+    /// A card: something set apart on the page. White with a warm hairline
+    /// and a soft shadow in daylight. In the dark there are no cards: the
+    /// content sits straight on the black at the page's own margin, with
+    /// only its vertical room. The padding is the card's own, so the dark
+    /// can drop it.
+    func card(h: CGFloat = 18, v: CGFloat = 16, corner: CGFloat = 12) -> some View {
+        modifier(CardStyle(h: h, v: v, corner: corner))
     }
 
-    /// Something tucked into the journal rather than written in it: a sheet
-    /// of its own paper, edged in a hairline of ink.
-    /// `fold` dog-ears its top-right corner by that many points (build 39).
-    func paperInsert(tilt: Double = 0, fold: CGFloat = 0) -> some View {
-        modifier(PaperInsert(tilt: tilt, fold: fold))
+    /// Paper: cream, grained, a little lifted, for the things a person made
+    /// by hand (a letter, a journal page, the day's slip). It keeps its
+    /// materiality in the dark: the same cream under a lamp, with dark ink
+    /// on it, so everything inside is drawn as in daylight.
+    func creamPaper(corner: CGFloat = 4, tilt: Double = 0) -> some View {
+        modifier(CreamPaper(corner: corner, tilt: tilt))
     }
+
+    /// Whatever's drawn on cream paper by something that draws its own
+    /// paper (an envelope): dark ink, and everything inside resolved as in
+    /// daylight, in either room.
+    func onCream() -> some View {
+        foregroundStyle(Cream.ink, Cream.ink.opacity(0.62), Cream.ink.opacity(0.4))
+            .environment(\.colorScheme, .light)
+    }
+
+    /// Glass: a translucent surface for something you press. The material
+    /// with a wash over it (white at 85% in daylight, white at 8% in the
+    /// dark) and a thin edge. Glass casts no shadow.
+    func glass<S: InsettableShape>(in shape: S) -> some View {
+        modifier(Glass(shape: shape))
+    }
+}
+
+/// How a photo is cut, everywhere.
+enum PhotoCut {
+    static let corner: CGFloat = 8
+}
+
+/// Cream paper, and the ink on it.
+enum Cream {
+    static let paper = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.925, green: 0.895, blue: 0.83, alpha: 1)   // under a lamp
+            : UIColor(red: 0.992, green: 0.972, blue: 0.925, alpha: 1)  // #FDF8EC
+    })
+    static let ink = Color(red: 0.16, green: 0.14, blue: 0.11)
 }
 
 private struct SmallCaps: ViewModifier {
@@ -96,29 +150,27 @@ private struct JournalPage: ViewModifier {
     }
 }
 
-/// A page's masthead, the journal's answer to the paper's: the page's name
-/// in a hand, a double rule, the dateline in small capitals, a hairline.
-/// Whatever the page needs to hand (Edit, Rested) sits at the end of the
-/// title, where a navigation bar's button would have been.
+/// A page's masthead: its name, large, and a line under it in small
+/// capitals, with whatever the page needs to hand (Edit) at the end of the
+/// name where a navigation bar's button would be. The name is SF Rounded,
+/// medium; the Journal tab's is in a hand, because that page is the
+/// person's own. One hairline beneath (it was the paper's double rule).
 struct JournalMasthead<Trailing: View>: View {
     let title: String
     var line: String = Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
+    var hand = false
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .lastTextBaseline) {
                 Text(title)
-                    .font(.hand(40, bold: true, relativeTo: .largeTitle))
+                    .font(hand ? .hand(36, bold: true, relativeTo: .largeTitle) : .pageTitle)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 12)
                 trailing()
-            }
-            VStack(spacing: 2) {
-                Rule(weight: 1.5)
-                Rule(weight: 0.5)
             }
             Text(line)
                 .smallCaps()
@@ -126,6 +178,7 @@ struct JournalMasthead<Trailing: View>: View {
                 .minimumScaleFactor(0.8)
             OfflineLine()
             Rule(weight: 0.5)
+                .padding(.top, 4)
         }
         .padding(.top, 8)
         // Room under the rule before the page begins (build 22).
@@ -155,105 +208,151 @@ struct OfflineLine: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: state.offline)
+        .animation(.easeInOut(duration: 0.25), value: state.offline)
     }
 }
 
 extension JournalMasthead where Trailing == EmptyView {
-    init(title: String, line: String = Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year())) {
-        self.init(title: title, line: line) { EmptyView() }
+    init(title: String, line: String = Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()), hand: Bool = false) {
+        self.init(title: title, line: line, hand: hand) { EmptyView() }
     }
 }
 
-/// A section of a page: its label in small capitals and its name in a hand,
-/// between a heavy rule and a hairline, the way the paper heads "Near
-/// Bloomington". Anything at the end of the name (a face) sits inside the
-/// rules with it.
+/// A section of a page: a quiet label over its name. The name is SF
+/// Rounded; in the Journal tab it's in a hand (`hand`), because that page
+/// is the person's own. No rules: the space above it does the dividing.
 struct JournalSectionHead<Trailing: View>: View {
     var label: String?
     let title: String
+    var hand = false
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Rule(weight: 1.5)
-            if let label {
-                Text(label).smallCaps()
-                    .padding(.top, 2)
-            }
-            HStack(alignment: .center) {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                if let label {
+                    Text(label)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Text(title)
-                    .font(.hand(26, bold: true, relativeTo: .title2))
+                    .font(hand ? .hand(24, bold: true, relativeTo: .title2) : .sectionTitle)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 8)
-                trailing()
             }
-            Rule(weight: 0.5)
+            Spacer(minLength: 8)
+            trailing()
         }
     }
 }
 
 extension JournalSectionHead where Trailing == EmptyView {
-    init(label: String? = nil, title: String) {
-        self.init(label: label, title: title) { EmptyView() }
+    init(label: String? = nil, title: String, hand: Bool = false) {
+        self.init(label: label, title: title, hand: hand) { EmptyView() }
     }
 }
 
-private struct PrintPaper: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-    let border: CGFloat
-    let tilt: Double
-
-    func body(content: Content) -> some View {
-        let dark = DarkRoom.isDark(colorScheme)
-        content
-            // The dark room hangs the photo itself: no paper, no lift, no lean.
-            .clipShape(RoundedRectangle(cornerRadius: dark ? DarkRoom.photoCorner : 0, style: .continuous))
-            .padding(dark ? 0 : border)
-            .background(dark ? .clear : PrintStock.paper, in: RoundedRectangle(cornerRadius: 2.5, style: .continuous))
-            .shadow(color: .black.opacity(dark ? 0 : 0.16), radius: 5, x: 0.5, y: 2.5)
-            .rotationEffect(.degrees(dark ? 0 : tilt))
-    }
-}
-
-private struct PaperInsert: ViewModifier {
+private struct PhotoCardStyle: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     @Environment(\.colorScheme) private var colorScheme
+    let corner: CGFloat
     let tilt: Double
-    var fold: CGFloat = 0
 
     func body(content: Content) -> some View {
-        let shape = SlipShape(fold: fold)
         let dark = DarkRoom.isDark(colorScheme)
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
         content
-            .background {
-                // In the dark room there's no sheet of paper to tuck in: the
-                // same black, boxed in a rule, straight.
-                ZStack {
-                    shape.fill(dark ? .clear : Atmosphere.resolve(raw).palette.floor)
-                    shape.fill(dark ? .clear : Atmosphere.resolve(raw).palette.card)
-                    PaperGrainView(strength: 0.45)
-                        .clipShape(shape)
+            .clipShape(shape)
+            // The dark room hangs the photo itself: no edge, no lift, no lean.
+            .overlay {
+                if !dark {
+                    shape.strokeBorder(Atmosphere.resolve(raw).palette.edge, lineWidth: 0.5)
                 }
-                .overlay(shape.stroke(dark ? DarkRoom.line(1) : DarkRoom.line(0.16), lineWidth: dark ? 1 : 0.5))
-                .overlay(alignment: .topTrailing) {
-                    if fold > 0 { FoldedCorner().frame(width: fold, height: fold) }
-                }
-                .shadow(color: .black.opacity(dark ? 0 : 0.1), radius: 6, y: 2)
             }
+            .shadow(color: .black.opacity(dark ? 0 : 0.06), radius: 4, y: 1)
             .rotationEffect(.degrees(dark ? 0 : tilt))
     }
 }
 
-/// Who and when, written in ink beneath a print the way you'd write on an
-/// album page: a first name and the time, in a hand. A tap on it opens their
-/// profile.
+private struct CardStyle: ViewModifier {
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    @Environment(\.colorScheme) private var colorScheme
+    let h: CGFloat
+    let v: CGFloat
+    let corner: CGFloat
+
+    func body(content: Content) -> some View {
+        let palette = Atmosphere.resolve(raw).palette
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        if DarkRoom.isDark(colorScheme) {
+            content.padding(.vertical, min(v, 8))
+        } else {
+            content
+                .padding(.horizontal, h)
+                .padding(.vertical, v)
+                .background {
+                    shape.fill(palette.card)
+                        .overlay(shape.strokeBorder(palette.edge, lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
+                }
+        }
+    }
+}
+
+private struct CreamPaper: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let corner: CGFloat
+    let tilt: Double
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        content
+            .foregroundStyle(Cream.ink, Cream.ink.opacity(0.62), Cream.ink.opacity(0.4))
+            // Ink on paper, whatever the room: everything inside is drawn
+            // as it is in daylight.
+            .environment(\.colorScheme, .light)
+            .background {
+                ZStack {
+                    shape.fill(Cream.paper)
+                    PaperGrainView(strength: 0.4)
+                        .environment(\.colorScheme, .light)
+                        .clipShape(shape)
+                }
+                .overlay(shape.strokeBorder(.black.opacity(0.07), lineWidth: 0.5))
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0 : 0.08), radius: 5, y: 2)
+            }
+            .rotationEffect(.degrees(tilt))
+    }
+}
+
+private struct Glass<S: InsettableShape>: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let shape: S
+
+    func body(content: Content) -> some View {
+        let dark = colorScheme == .dark
+        content.background {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(shape.fill(.white.opacity(dark ? 0.08 : 0.85)))
+                .overlay(shape.strokeBorder(.white.opacity(dark ? 0.10 : 0.15), lineWidth: 0.5))
+                .overlay {
+                    // On a white page a white edge is no edge: a warm
+                    // hairline in daylight so the shape can be found.
+                    if !dark { shape.strokeBorder(Color(red: 0.91, green: 0.90, blue: 0.88), lineWidth: 0.5) }
+                }
+        }
+    }
+}
+
+/// Who and when, under a photo: a first name and the time, small, in the
+/// system font and the secondary color (they were in a hand until build
+/// 44; a hand is for a person's own words, not a label). A tap on it opens
+/// their profile.
 struct PrintByline: View {
     let owner: UserBrief
     let time: Date
-    var size: CGFloat = 18
     /// A tiny drawn plane after the time: the countdown's, on a photo posted
     /// on the day itself (build 35; an emoji until build 36). Off everywhere
     /// else.
@@ -264,20 +363,18 @@ struct PrintByline: View {
         let full = owner.displayName
         let first = full.split(separator: " ").first.map(String.init) ?? full
         Button { onOwner?() } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(first)
-                    .font(.hand(size, bold: true, relativeTo: .subheadline))
-                    .foregroundStyle(.primary)
+                    .font(.footnote.weight(.semibold))
                 Text(time, format: .dateTime.hour().minute())
-                    .font(.hand(size - 3, relativeTo: .subheadline))
-                    .foregroundStyle(.secondary)
+                    .font(.footnote)
                 if plane {
                     Image(systemName: "airplane")
-                        .font(.system(size: size - 8, weight: .light))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 10, weight: .light))
                         .accessibilityHidden(true)
                 }
             }
+            .foregroundStyle(.secondary)
             .lineLimit(1)
             .contentShape(Rectangle())
         }

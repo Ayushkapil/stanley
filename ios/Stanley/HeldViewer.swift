@@ -55,7 +55,7 @@ struct PressedPrint: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.22, dampingFraction: 0.62), value: configuration.isPressed)
+            .animation(.spring(response: 0.22, dampingFraction: 0.85), value: configuration.isPressed)
     }
 }
 
@@ -192,19 +192,20 @@ private struct HeldPageView: View {
     private var words: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let caption = memory.caption, !caption.isEmpty {
+                // In a hand on your own photo; plain on anyone else's.
                 Text(caption)
-                    .font(.hand(22, bold: true, relativeTo: .title3))
+                    .font(whose == "Yours" ? .hand(21, bold: true, relativeTo: .title3) : .title3.weight(.medium))
                     .foregroundStyle(.white)
                     .lineLimit(3)
             }
             if let whereAndWhen {
-                Text(whereAndWhen).smallCaps(11).lineLimit(1)
+                Text(whereAndWhen).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
             }
             HStack(spacing: 6) {
                 Image(systemName: "bookmark.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
-                Text([heldOn, whose].compactMap { $0 }.joined(separator: " · ")).smallCaps(11).lineLimit(1)
+                Text([heldOn, whose].compactMap { $0 }.joined(separator: " · ")).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
             }
             if let circle = memory.circleName, state.circles.count > 1 {
                 CircleTag(name: circle)
@@ -223,7 +224,8 @@ private struct HeldPageView: View {
                         .padding(.vertical, 6)
                     Label("Only you see this", systemImage: "lock")
                         .labelStyle(.titleAndIcon)
-                        .smallCaps(9)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     Text(journal)
                         .font(.hand(18, relativeTo: .body))
                         .foregroundStyle(.white.opacity(0.92))
@@ -330,7 +332,7 @@ private struct ZoomablePhoto: View {
     }
 
     private func toggle(in fitted: CGSize) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
             if scale > 1.01 {
                 reset()
             } else {
@@ -342,7 +344,7 @@ private struct ZoomablePhoto: View {
     }
 
     private func reset() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
             scale = 1
             offset = .zero
         }

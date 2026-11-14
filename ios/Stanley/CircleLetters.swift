@@ -152,6 +152,7 @@ private struct EnvelopeFolds: Shape {
 /// lifts. Sized by its width; it keeps room above itself for the flap.
 struct EnvelopeMark: View {
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     /// 0 closed, 1 open.
     var openness: CGFloat = 0
     /// 0 to 1: how far the slip has come out.
@@ -163,8 +164,10 @@ struct EnvelopeMark: View {
             let width = proxy.size.width
             let height = width * 0.64
             let dark = DarkRoom.isDark(colorScheme)
-            let paper: Color = dark ? .black : PrintStock.paper
-            let line = DarkRoom.ink.opacity(dark ? 0.8 : 0.72)
+            // Cream paper in both rooms: an envelope keeps its materiality
+            // on the black (build 44).
+            let paper: Color = Cream.paper
+            let line = Cream.ink.opacity(0.72)
             let stroke = StrokeStyle(lineWidth: max(1, width / 56), lineCap: .round, lineJoin: .round)
             let pocket = RoundedRectangle(cornerRadius: width / 36, style: .continuous)
             ZStack(alignment: .bottom) {
@@ -200,8 +203,10 @@ struct EnvelopeMark: View {
                     .frame(width: width, height: height)
                     .opacity(openness > 0.5 ? 0 : 1)
                 if wax {
+                    // The palette's own accent, not the tint: the tint
+                    // doesn't follow the daylight this is drawn in.
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(Atmosphere.resolve(raw).palette.accent)
                         .frame(width: width * 0.2, height: width * 0.2)
                         .offset(y: -height * 0.48 + width * 0.1)
                         // It breaks as the flap lifts: gone before the
@@ -213,6 +218,9 @@ struct EnvelopeMark: View {
             .frame(width: width, height: proxy.size.height, alignment: .bottom)
         }
         .aspectRatio(1 / 0.98, contentMode: .fit)
+        // The seal is the accent as it is in daylight: on cream, the dark
+        // room's warm white accent would vanish.
+        .environment(\.colorScheme, .light)
         .accessibilityHidden(true)
     }
 }
@@ -252,30 +260,28 @@ struct LetterWritingCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     if sealed {
                         Label("Your letter is sealed", systemImage: "lock.fill")
-                            .font(.hand(20, bold: true, relativeTo: .title3))
+                            .font(.system(.body, design: .rounded).weight(.medium))
                         Text("Opens \(LetterMonth.opens(letters.revealsAt)) · tap to change it")
-                            .smallCaps()
+                            .quietLabel()
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text("Write something your circle should know")
-                            .font(.hand(20, bold: true, relativeTo: .title3))
+                            .font(.system(.body, design: .rounded).weight(.medium))
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                         Text("Anonymous. Revealed at the end of the month.")
-                            .smallCaps()
+                            .quietLabel()
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .paperInsert(tilt: 0.5)
+        .card(h: 18, v: 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             sealed
@@ -305,11 +311,11 @@ struct OpenedLettersCard: View {
                     .frame(width: 58)
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Letters from your circle")
-                        .font(.hand(21, bold: true, relativeTo: .title3))
+                        .font(.system(.body, design: .rounded).weight(.medium))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("\(LetterMonth.name(revealed.month)) · unsigned · here through \(LetterMonth.lastDay(revealed.fadesAt))")
-                        .smallCaps()
+                        .quietLabel()
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -318,13 +324,11 @@ struct OpenedLettersCard: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .paperInsert(tilt: -0.5)
+        .card(h: 18, v: 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Letters from your circle, from \(LetterMonth.name(revealed.month)). Unsigned. Here through \(LetterMonth.lastDay(revealed.fadesAt)).")
         .accessibilityHint("Opens the letters")
@@ -334,7 +338,7 @@ struct OpenedLettersCard: View {
             if reduceMotion {
                 open = true
             } else {
-                withAnimation(.spring(response: 0.7, dampingFraction: 0.72).delay(0.45)) { open = true }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85).delay(0.25)) { open = true }
             }
         }
         .sheet(isPresented: $reading) {
@@ -375,7 +379,7 @@ struct LetterWritingSheet: View {
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.7)
                             Text("\(LetterMonth.name(letters.month)) · unsigned")
-                                .smallCaps()
+                                .quietLabel()
                         }
                         Spacer(minLength: 0)
                     }
@@ -397,7 +401,7 @@ struct LetterWritingSheet: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Anonymous. Revealed at the end of the month.")
-                            .smallCaps()
+                            .font(.footnote.weight(.medium))
                         Text("No name goes on it, and nobody is told who has written one. It opens for the whole circle on \(LetterMonth.opens(letters.revealsAt)), with everyone else's, and stays a week. You can change it until then.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -477,26 +481,22 @@ struct OpenedLettersSheet: View {
                 LazyVStack(alignment: .leading, spacing: 28) {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("\(LetterMonth.name(revealed.month)) · unsigned")
-                            .smallCaps()
+                            .quietLabel()
                         Text("Letters from your circle")
-                            .font(.hand(28, bold: true, relativeTo: .title))
+                            .font(.system(.title, design: .rounded).weight(.medium))
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 6)
+                            .padding(.top, 4)
                             .accessibilityAddTraits(.isHeader)
-                        VStack(spacing: 2) {
-                            Rule(weight: 1.5)
-                            Rule(weight: 0.5)
-                        }
-                        .padding(.vertical, 12)
                         Text("Nobody knows who wrote which, and they're in no order. They're here through \(LetterMonth.lastDay(revealed.fadesAt)), then gone.")
-                            .font(.hand(17, relativeTo: .callout))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .padding(.top, 8)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let opened {
                         if opened.letters.isEmpty {
                             Text("There are none left to read.")
-                                .font(.hand(19, relativeTo: .body))
+                                .font(.body)
                                 .foregroundStyle(.secondary)
                         }
                         let fade = LetterMonth.fade(from: opened.revealedAt, to: opened.fadesAt)
@@ -511,7 +511,7 @@ struct OpenedLettersSheet: View {
                         }
                     } else if asked {
                         Text("The letters couldn't be opened just now.")
-                            .font(.hand(19, relativeTo: .body))
+                            .font(.body)
                             .foregroundStyle(.secondary)
                     } else {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30)
@@ -580,9 +580,11 @@ struct LetterSlip: View {
             .padding(.bottom, 22)
             .background {
                 edge.fill(CircleLetterPaper.color(seed, colorScheme))
-                    .overlay(PaperGrainView(strength: 0.35).clipShape(edge))
-                    .shadow(color: .black.opacity(dark ? 0.5 : 0.07), radius: 9, x: 0, y: 5)
-                    .shadow(color: .black.opacity(dark ? 0.4 : 0.13), radius: 2, x: 0.5, y: 1.5)
+                    // Paper keeps its grain in the dark (it draws none there
+                    // unless told it's daylight).
+                    .overlay(PaperGrainView(strength: 0.35).environment(\.colorScheme, .light).clipShape(edge))
+                    .shadow(color: .black.opacity(dark ? 0 : 0.06), radius: 8, x: 0, y: 4)
+                    .shadow(color: .black.opacity(dark ? 0 : 0.10), radius: 2, x: 0.5, y: 1.5)
             }
             .rotationEffect(.degrees(CircleLetterPaper.tilt(seed)))
             .offset(x: CircleLetterPaper.lean(seed))
@@ -628,10 +630,10 @@ struct LetterSlip: View {
     private func open() {
         guard stage == 0 else { return }
         if reduceMotion {
-            withAnimation(.easeOut(duration: 0.3)) { stage = 2 }
+            withAnimation(.easeOut(duration: 0.25)) { stage = 2 }
         } else {
-            withAnimation(.easeOut(duration: 0.38).delay(0.2 + wait)) { stage = 1 }
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.66 + wait)) { stage = 2 }
+            withAnimation(.easeOut(duration: 0.25).delay(0.15 + wait)) { stage = 1 }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85).delay(0.45 + wait)) { stage = 2 }
         }
     }
 }

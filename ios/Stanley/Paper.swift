@@ -19,28 +19,3 @@ struct PaperGrainView: View {
     }
 }
 
-extension View {
-    /// A screen that's a page of the journal: the atmosphere's card color with
-    /// the paper's grain, edge to edge, instead of the flat floor. With `card`
-    /// off it's the floor itself with the grain (the morning paper).
-    func paperPage(card: Bool = true) -> some View { modifier(PaperPage(card: card)) }
-}
-
-private struct PaperPage: ViewModifier {
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
-    @Environment(\.colorScheme) private var colorScheme
-    let card: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .scrollContentBackground(.hidden)
-            .background {
-                ZStack {
-                    let palette = Atmosphere.resolve(raw).palette
-                    card ? palette.card : palette.floor
-                    PaperGrainView(strength: 0.45)
-                }
-                .ignoresSafeArea()
-            }
-    }
-}

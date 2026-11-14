@@ -5,36 +5,67 @@ import UIKit
 // home screen widget reads them too (build 40). What follows is how the app
 // lays them on its own screens.
 
-/// Paint the atmosphere's floor behind a scrolling surface, as paper: the
-/// floor with the paper's grain over it (build 20), so every page of the
-/// journal is the same stock as the morning paper's.
+/// Paint the atmosphere's floor behind a scrolling surface: flat, no grain
+/// (Quiet Warmth, build 44; from build 20 every page was grained paper).
+/// Paper is now only what a person made by hand: a note, a letter, a
+/// journal page.
 struct AtmosphereWash: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
-    @Environment(\.colorScheme) private var colorScheme
     func body(content: Content) -> some View {
         content
             .scrollContentBackground(.hidden)
-            .background {
-                ZStack {
-                    Atmosphere.resolve(raw).palette.floor
-                    PaperGrainView(strength: 0.45)
-                }
-                .ignoresSafeArea()
-            }
+            .background { Atmosphere.resolve(raw).palette.floor.ignoresSafeArea() }
     }
 }
 
-/// A card's fill: the system's hierarchical shade with the atmosphere's tone
-/// laid over it, so a card is the same temperature as the floor it sits on.
-/// Every card in Today uses this, so they all shift together.
+/// The three looks Settings offers, over the two things stored: whether
+/// light or dark is forced (`stanley.appearance`) and the palette
+/// (`stanley.atmosphere`). Light and Dark are the plain palette held to one
+/// appearance; Rain is the rain palette in whichever the phone is in. With
+/// none chosen Stanley matches the phone, which is the default.
+enum Look: String, CaseIterable, Identifiable {
+    case light, dark, rain
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .light: "Light"
+        case .dark: "Dark"
+        case .rain: "Rain"
+        }
+    }
+
+    /// What's chosen, from what's stored; nil is matching the phone.
+    static func current(appearance: String, atmosphere: String) -> Look? {
+        if Atmosphere.resolve(atmosphere) == .rain { return .rain }
+        switch appearance {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
+
+    /// What to store for a look, or for matching the phone (nil).
+    static func stored(_ look: Look?) -> (appearance: String, atmosphere: String) {
+        switch look {
+        case .light: ("light", Atmosphere.plain.rawValue)
+        case .dark: ("dark", Atmosphere.plain.rawValue)
+        case .rain: ("system", Atmosphere.rain.rawValue)
+        case nil: ("system", Atmosphere.plain.rawValue)
+        }
+    }
+}
+
+/// A field's or a tile's fill inside a form: the card color with the
+/// card's hairline.
 struct CardSurface: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let corner: CGFloat
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: corner)
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        let palette = Atmosphere.resolve(raw).palette
         content.background {
-            shape.fill(.quinary)
-                .overlay(shape.fill(Atmosphere.resolve(raw).palette.card))
+            shape.fill(palette.row).overlay(shape.strokeBorder(palette.edge, lineWidth: 0.5))
         }
     }
 }
@@ -65,41 +96,4 @@ extension View {
     func cardSurface(corner: CGFloat) -> some View { modifier(CardSurface(corner: corner)) }
     func accentInk() -> some View { modifier(AccentInk()) }
     func atmosphereRows() -> some View { modifier(AtmosphereRows()) }
-}
-
-/// One named pill in a row of choices. The one that is on wears the
-/// palette's accent with its ink for the word; the others are quiet
-/// capsules. The capture filters are a row of these.
-struct ChoicePill: View {
-    let label: String
-    let on: Bool
-    let palette: Atmosphere.Palette
-    let action: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .font(.footnote.weight(.medium))
-                .lineLimit(1)
-                .foregroundStyle(on ? palette.ink : Color.primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background {
-                    ZStack {
-                        Capsule().fill(on ? palette.accent : Color(.tertiarySystemFill))
-                        // A gray fill all but vanishes into a dark, tinted
-                        // row. A hairline keeps every pill a shape you can
-                        // find; light mode needs none.
-                        if !on && colorScheme == .dark {
-                            Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                        }
-                    }
-                }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(on ? .isSelected : [])
-    }
 }

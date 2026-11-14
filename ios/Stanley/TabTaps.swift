@@ -30,9 +30,10 @@ extension View {
     /// the scroll view itself, which is where its top is read from.
     func onTabTap(
         _ taps: Int, scroll proxy: ScrollViewProxy, to top: String,
+        position: Binding<String?>? = nil,
         orRefresh refresh: @escaping () async -> Void
     ) -> some View {
-        modifier(TabTapToTop(taps: taps, proxy: proxy, top: top, refresh: refresh))
+        modifier(TabTapToTop(taps: taps, proxy: proxy, top: top, position: position, refresh: refresh))
     }
 }
 
@@ -40,6 +41,11 @@ private struct TabTapToTop: ViewModifier {
     let taps: Int
     let proxy: ScrollViewProxy
     let top: String
+    /// The page's own `scrollPosition(id:)`, where it keeps one (Today). A
+    /// page that does is moved through it: scrolled by the proxy alone it
+    /// still held the entry it had been on, and went back to it at the
+    /// next redraw (seen on iOS 26.5, build 44).
+    var position: Binding<String?>?
     let refresh: () async -> Void
     /// Whether the page is at its top. Known from iOS 18
     /// (`onScrollGeometryChange`); before that it's never known, so a tap
@@ -54,8 +60,20 @@ private struct TabTapToTop: ViewModifier {
                     Haptics.refreshed()
                     Task { await refresh() }
                 } else {
-                    withAnimation(.easeInOut(duration: 0.45)) {
+                    withAnimation(.easeInOut(duration: 0.28)) {
+                        if let position { position.wrappedValue = top }
                         proxy.scrollTo(top, anchor: .top)
+                    }
+                    // From far down a lazy page the animated scroll can
+                    // stop short of a top it hasn't laid out (seen on iOS
+                    // 26.5: it settled on the entry in view). If it hasn't
+                    // arrived once the animation is over, go there.
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(380))
+                        if atTop != true {
+                            position?.wrappedValue = top
+                            proxy.scrollTo(top, anchor: .top)
+                        }
                     }
                 }
             }

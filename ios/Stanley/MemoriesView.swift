@@ -1,15 +1,18 @@
 import SwiftUI
 
-/// The kept archive, as a personal photo album (build 20): a page per
-/// friend, headed with their name, and each memory a print slipped into
-/// four black photo corners, laid by hand (staggered, a little crooked),
-/// with its words written beneath it. Tombstones are honest: the corners
-/// stay where the print was, around "a memory was here" (§8.2).
+/// The Journal tab (build 44; "Held" until then): the person's own space.
+/// What they've kept, a page per friend, each photo cut as in Today but
+/// laid a little crooked, the album's way; the letters written to them;
+/// the pages of their own journal (the weekly reflections, which were at
+/// the foot of the You tab); and the circle's questions. Its headings are
+/// in a hand, because this page is theirs. Tombstones are honest: "a
+/// memory was here" where the photo was (§8.2). Resting a memory was
+/// removed in build 44.
 struct MemoriesView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
-    @State private var showRested = false
+    @State private var readingQuestions = false
     /// The held photo opened to the whole screen (build 39), and whether
     /// it's open. The album's prints are where it grows from and goes back to.
     @State private var opened = ""
@@ -29,35 +32,111 @@ struct MemoriesView: View {
             }
             .foldAnimated(hSizeClass)
             .journalPage()
-            .navigationTitle("Held")
-            .navigationDestination(isPresented: $showRested) { RestedView() }
+            .navigationTitle("Journal")
+            .navigationDestination(isPresented: $readingQuestions) { CircleJournalView() }
             .fullScreenCover(isPresented: $viewing) {
                 HeldViewer(current: $opened)
                     .heroZoom(from: opened, in: album)
             }
             .sunRefreshable {
                 Haptics.refreshed()
-                await state.refreshMemories()
+                await Task {
+                    await state.refreshMemories()
+                    await state.loadThisWeek()
+                    await state.loadReflections()
+                }.value
             }
-            .task { await state.refreshMemories() }
+            .task {
+                await state.refreshMemories()
+                await state.loadThisWeek()
+                await state.loadReflections()
+            }
           }
         }
     }
 
-    /// "Held", as the album's title page: the masthead, with Rested at its end.
+    /// The page's name, in a hand: this one is the person's own.
     private var masthead: some View {
-        JournalMasthead(title: "Held", line: "The one place nothing fades") {
-            Button { showRested = true } label: {
-                Label("Rested", systemImage: "moon.zzz")
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+        JournalMasthead(title: "Journal", line: "Kept, written, and yours", hand: true)
+            .id("masthead")
+    }
+
+    /// Sunday evening: "How was your week?", until midnight or until it's
+    /// written (it sat atop the You tab until build 44).
+    @ViewBuilder
+    private var sundayCard: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            if ReflectionWindow.isOpen(context.date), let week = state.thisWeek, week.reflection == nil {
+                ReflectionCard(week: week)
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Rested")
         }
-        .id("masthead")
+    }
+
+    /// The pages of your own journal: each week's reflection, newest
+    /// first, on cream paper in your hand.
+    @ViewBuilder
+    private var pages: some View {
+        if !state.reflections.isEmpty {
+            VStack(alignment: .leading, spacing: Spacing.section) {
+                JournalSectionHead(label: "Only you see this", title: "Pages", hand: true)
+                if density.isRoom {
+                    LazyVGrid(
+                        columns: [GridItem(.flexible(), spacing: Spacing.section), GridItem(.flexible())],
+                        alignment: .leading, spacing: Spacing.section
+                    ) {
+                        ForEach(state.reflections) { ReflectionPage(reflection: $0) }
+                    }
+                } else {
+                    ForEach(state.reflections) { ReflectionPage(reflection: $0) }
+                }
+                if state.reflectionsCursor != nil {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .task(id: state.reflectionsCursor) { await state.loadMoreReflections() }
+                }
+            }
+        }
+    }
+
+    /// The circle's questions: this week's in serif, and the way to every
+    /// week whose answers are out (the circle journal).
+    @ViewBuilder
+    private var questions: some View {
+        if state.circle != nil {
+            VStack(alignment: .leading, spacing: Spacing.section) {
+                JournalSectionHead(label: state.circle?.name, title: "Questions", hand: true)
+                Button { readingQuestions = true } label: {
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            if let question = state.question {
+                                Text(question.prompt.text)
+                                    .questionType(.body)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let mine = question.response {
+                                    Text(mine.body)
+                                        .font(.hand(17, relativeTo: .callout))
+                                        .multilineTextAlignment(.leading)
+                                        .lineLimit(3)
+                                }
+                            }
+                            Text("Every week's question, and what everyone said")
+                                .quietLabel()
+                                .multilineTextAlignment(.leading)
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .card()
+                .accessibilityHint("Opens the circle journal")
+            }
+        }
     }
 
     /// Held has answered and holds nothing, or can't answer yet. Before the
@@ -66,42 +145,29 @@ struct MemoriesView: View {
         state.threads.isEmpty && (state.memoriesLoaded || state.offline)
     }
 
-    /// An empty album: a page with a blank print waiting for its first
-    /// picture, and what it's for, in a hand. Offline, an empty album may
-    /// only be one that hasn't loaded yet, so it says that instead.
+    /// Nothing kept yet: what this page is for. Offline, an empty album
+    /// may only be one that hasn't loaded yet, so it says that instead.
     private var emptyNote: some View {
-        HStack(alignment: .top, spacing: 20) {
-            Color.clear
-                .aspectRatio(PhotoShape.aspect, contentMode: .fit)
-                .frame(width: 72)
-                .overlay(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous).fill(.quaternary))
-                .asPrint(border: 6, tilt: -1.4)
-                .padding(.top, 8)
-                .padding(.leading, 4)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 8) {
-                if state.offline && !state.memoriesLoaded {
-                    Text("Not here yet.")
-                        .font(.hand(28, bold: true, relativeTo: .title2))
-                    Text("What you've held comes back with the connection.")
-                        .font(.hand(20, relativeTo: .body))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Nothing held yet.")
-                        .font(.hand(28, bold: true, relativeTo: .title2))
-                    // Not "forever": the person in a photo can still take it
-                    // back (the subject wins on deletion). Fading can't.
-                    Text("When you press and hold someone's moment, it lives here, long after it fades.")
-                        .font(.hand(20, relativeTo: .body))
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 6) {
+            if state.offline && !state.memoriesLoaded {
+                Text("Not here yet.")
+                    .font(.hand(24, bold: true, relativeTo: .title2))
+                Text("What you've held comes back with the connection.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Nothing held yet.")
+                    .font(.hand(24, bold: true, relativeTo: .title2))
+                // Not "forever": the person in a photo can still take it
+                // back (the subject wins on deletion). Fading can't.
+                Text("When you press and hold someone's moment, or tap its bookmark, it lives here, long after it fades.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 26)
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: 0.7)
+        .card(h: 20, v: 20)
         .accessibilityElement(children: .combine)
     }
 
@@ -109,81 +175,67 @@ struct MemoriesView: View {
     /// own photos, kept by you, are "Me" (the polish pass): you know who you are.
     private func pageHead(_ thread: MemoryThread) -> some View {
         let isMe = state.myId != nil && thread.friend.id == state.myId
-        return JournalSectionHead(label: "Kept from", title: isMe ? "Me" : thread.friend.displayName) {
+        return JournalSectionHead(label: "Kept from", title: isMe ? "Me" : thread.friend.displayName, hand: true) {
             AvatarView(url: thread.friend.avatarUrl, name: thread.friend.displayName, size: 32)
         }
     }
 
-    /// The outer display (and every ordinary iPhone): one print to a line,
+    /// The outer display (and every ordinary iPhone): one photo to a line,
     /// laid alternately toward the left and the right of the page the way
-    /// an album is filled by hand. Swipe a print to rest it.
+    /// an album is filled by hand.
     private func column(_ proxy: ScrollViewProxy) -> some View {
-        List {
-            Group {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 masthead
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 8, trailing: 20))
+                sundayCard
+                    .padding(.top, Spacing.section)
                 // Letters to you (build 42): sealed envelopes, then opened
-                // ones, tucked in at the top of the album the way real
-                // letters sit inside a photo album.
+                // ones, at the top of the page.
                 if !state.lettersReceived.sealed.isEmpty || !state.lettersReceived.opened.isEmpty {
                     LettersOnHeld()
-                        .listRowInsets(EdgeInsets(top: Spacing.chapter, leading: 20, bottom: 0, trailing: 20))
+                        .padding(.top, Spacing.chapter)
                 }
                 if showsEmpty {
                     emptyNote
-                        .listRowInsets(EdgeInsets(top: Spacing.section, leading: 22, bottom: 0, trailing: 22))
+                        .padding(.top, Spacing.section)
                 }
                 ForEach(state.threads) { thread in
                     pageHead(thread)
-                        .listRowInsets(EdgeInsets(top: Spacing.chapter, leading: 20, bottom: 0, trailing: 20))
+                        .padding(.top, Spacing.chapter)
+                    let mine = state.myId != nil && thread.friend.id == state.myId
                     ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
-                        MemoryCard(memory: memory, place: position, album: album) { open(memory) }
-                            .padding(.leading, position.isMultiple(of: 2) ? 0 : 44)
-                            .padding(.trailing, position.isMultiple(of: 2) ? 44 : 0)
-                            // A section's room either side: a print is the
-                            // same distance from the next as a page head is
-                            // from its first.
-                            .listRowInsets(EdgeInsets(
-                                top: Spacing.section, leading: 26, bottom: Spacing.section, trailing: 26
-                            ))
-                            // The swipe had no sign it was there; the long
-                            // press offers the same, as on the Duo (the HCI
-                            // audit, build 32).
-                            .contextMenu { restMenu(memory) }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if !memory.isTombstone {
-                                    Button {
-                                        Task { await state.rest(photoId: memory.id) }
-                                    } label: {
-                                        Label("Rest this memory", systemImage: "moon.zzz")
-                                    }
-                                    .tint(.indigo)
-                                }
-                            }
+                        MemoryCard(memory: memory, place: position, mine: mine, album: album) { open(memory) }
+                            .padding(.leading, position.isMultiple(of: 2) ? 0 : 36)
+                            .padding(.trailing, position.isMultiple(of: 2) ? 36 : 0)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, Spacing.section)
                     }
                 }
+                pages
+                    .padding(.top, Spacing.chapter)
+                questions
+                    .padding(.top, Spacing.chapter)
             }
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+            .padding(.horizontal, 20)
+            // The same room above the tab bar as every page.
+            .padding(.bottom, Spacing.chapter)
         }
-        .listStyle(.plain)
-        // The same room above the tab bar as every page.
-        .contentMargins(.bottom, Spacing.chapter, for: .scrollContent)
-        // A tap on the Held tab: back to the top, or at the top the pull's
-        // own refresh (`TabTaps`).
+        // A tap on the Journal tab: back to the top, or at the top the
+        // pull's own refresh (`TabTaps`).
         .onTabTap(state.tabTaps.held, scroll: proxy, to: "masthead") {
             await state.refreshMemories()
+            await state.loadReflections()
         }
     }
 
-    /// The inner display: an open album, two prints to a line with room
-    /// between them, the second set a little lower, as if pasted in by hand.
-    /// Resting is a long press, because a print in a spread has no edge to
-    /// swipe — the action itself is unchanged.
+    /// The inner display: an open album, two photos to a line with room
+    /// between them, the second set a little lower, as if pasted in by
+    /// hand; the journal's pages two to a line as well.
     private func magazine(_ proxy: ScrollViewProxy) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Spacing.chapter) {
                 masthead
+                sundayCard
                 if !state.lettersReceived.sealed.isEmpty || !state.lettersReceived.opened.isEmpty {
                     LettersOnHeld()
                 }
@@ -191,6 +243,7 @@ struct MemoriesView: View {
                     emptyNote
                 }
                 ForEach(state.threads) { thread in
+                    let mine = state.myId != nil && thread.friend.id == state.myId
                     VStack(alignment: .leading, spacing: Spacing.section) {
                         pageHead(thread)
                         LazyVGrid(
@@ -202,82 +255,30 @@ struct MemoriesView: View {
                             spacing: Spacing.chapter
                         ) {
                             ForEach(Array(thread.memories.enumerated()), id: \.element.id) { position, memory in
-                                MemoryCard(memory: memory, place: position, album: album) { open(memory) }
+                                MemoryCard(memory: memory, place: position, mine: mine, album: album) { open(memory) }
                                     .padding(.top, position % density.heldColumns == 1 ? 24 : 0)
-                                    .contextMenu { restMenu(memory) }
                             }
                         }
                     }
                 }
+                pages
+                questions
             }
             .padding(.horizontal, 28)
             .padding(.bottom, Spacing.chapter)
         }
         .onTabTap(state.tabTaps.held, scroll: proxy, to: "masthead") {
             await state.refreshMemories()
-        }
-    }
-
-    @ViewBuilder
-    private func restMenu(_ memory: Memory) -> some View {
-        if !memory.isTombstone {
-            Button {
-                Task { await state.rest(photoId: memory.id) }
-            } label: {
-                Label("Rest this memory", systemImage: "moon.zzz")
-            }
+            await state.loadReflections()
         }
     }
 }
 
-/// Rested memories (§14): set never to resurface, but not deleted — still here,
-/// each with a gentle "let it return" undo.
-struct RestedView: View {
-    @Environment(AppState.self) private var state
-    @State private var memories: [Memory] = []
-    @State private var loaded = false
-
-    var body: some View {
-        List {
-            if loaded && memories.isEmpty {
-                Text("Nothing rested. Memories you rest stay in Held but never resurface on their own.")
-                    .font(.hand(19, relativeTo: .body))
-                    .foregroundStyle(.secondary)
-                    .listRowBackground(Color.clear)
-            }
-            ForEach(memories) { memory in
-                HStack(spacing: 12) {
-                    MemoryRow(memory: memory)
-                    Button("Let it return") {
-                        Task {
-                            await state.unrest(photoId: memory.id)
-                            await reload()
-                        }
-                    }
-                    .font(.caption)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.tint)
-                }
-                .atmosphereRows()
-            }
-        }
-        .atmosphereWash()
-        .navigationTitle("Rested")
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: state.reloads) { await reload() }
-    }
-
-    private func reload() async {
-        memories = await state.loadRested()
-        loaded = true
-    }
-}
-
-/// A kept memory on the album page (Held tab): the print at full saturation,
-/// on its photo paper as in Today, laid a little crooked, with its words
-/// written beneath it. A tombstone is a blank print with the words on it,
-/// where the picture was. (Builds 20 to 23 slipped each print into four
-/// photo corners; pilot users called them cringe.)
+/// A kept memory in the Journal tab: the photo at full saturation, cut as
+/// in Today, laid a little crooked in daylight (the album's way), with its
+/// words beneath it: the caption in a hand on your own photo, plain on
+/// anyone else's. A tombstone is an empty frame with the words in it,
+/// where the picture was.
 struct MemoryCard: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -287,6 +288,8 @@ struct MemoryCard: View {
     /// alternately toward the left and the right, and each leans with its
     /// side.
     var place: Int = 0
+    /// Your own photo, kept by you: its caption is your own words.
+    var mine = false
     /// The album it lies in, so it can lift out of its place; and what a
     /// tap on the print does (build 39: open it to the whole screen).
     var album: Namespace.ID?
@@ -300,7 +303,7 @@ struct MemoryCard: View {
 
     private var heldTrace: String? {
         guard let taken = memory.takenAt else { return nil }
-        return "held · \(taken.formatted(date: .abbreviated, time: .omitted))"
+        return "Held · \(taken.formatted(date: .abbreviated, time: .omitted))"
     }
 
     /// Laid by hand: a Today print's slight lean, by its own amount, and
@@ -325,14 +328,18 @@ struct MemoryCard: View {
             // monument, so it's smaller than a print.
             VStack(spacing: 4) {
                 Text("A memory was here")
-                    .font(.hand(18, relativeTo: .body))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 if let date = memory.date {
-                    Text(date).smallCaps()
+                    Text(date).font(.caption).foregroundStyle(.tertiary)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 92)
-            .asPrint(border: 8, tilt: tilt)
+            .overlay {
+                RoundedRectangle(cornerRadius: PhotoCut.corner, style: .continuous)
+                    .strokeBorder(DarkRoom.line(0.14), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            }
+            .rotationEffect(.degrees(tilt * 0.5))
             .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
         } else {
@@ -365,9 +372,9 @@ struct MemoryCard: View {
                             .blendMode(.softLight)
                             .allowsHitTesting(false)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: PhotoCut.corner, style: .continuous))
                         .heroSource(memory.id, in: album)
-                        .asPrint(border: 8, tilt: tilt)
+                        .asPrint(tilt: tilt)
                         .padding(.vertical, 4)
                   }
                   // Gives a little under the thumb, then lifts (build 39).
@@ -376,18 +383,17 @@ struct MemoryCard: View {
                   .accessibilityLabel(memory.caption.flatMap { $0.isEmpty ? nil : "Held photo: \($0)" } ?? "Held photo")
                   .accessibilityHint("Opens it large")
                 }
-                // Written on the page beneath the print, the way an album is
-                // annotated: what it was, then where and when, in smaller ink.
+                // Beneath the photo: what it was, then where and when, small.
                 VStack(alignment: .leading, spacing: 3) {
                     if let caption = memory.caption, !caption.isEmpty {
                         Text(caption)
-                            .font(.hand(19, relativeTo: .body))
+                            .font(mine ? .hand(18, relativeTo: .body) : .body)
                     } else if let takenAt = memory.takenAt {
                         Text(takenAt, style: .date)
-                            .font(.hand(19, relativeTo: .body))
+                            .font(.body)
                     }
                     if let line = whereAndWhen {
-                        Text(line).smallCaps()
+                        Text(line).quietLabel()
                     }
                     if showsCircle, let circleName = memory.circleName {
                         CircleTag(name: circleName)
@@ -406,14 +412,13 @@ struct MemoryCard: View {
                             .padding(.top, 6)
                     }
                 }
-                .padding(.horizontal, 4)
             }
         }
     }
 }
 
-/// Which circle a held memory is from: its name, in small capitals, after a
-/// dotted circle.
+/// Which circle a held memory is from: its name, small, after a dotted
+/// circle.
 struct CircleTag: View {
     let name: String
 
@@ -422,71 +427,10 @@ struct CircleTag: View {
             Image(systemName: "circle.dotted")
             Text(name)
         }
-        .smallCaps()
+        .font(.caption)
+        .foregroundStyle(.secondary)
         .lineLimit(1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("From \(name)")
-    }
-}
-
-struct MemoryRow: View {
-    @Environment(AppState.self) private var state
-    let memory: Memory
-
-    private var heldTrace: String? {
-        guard let taken = memory.takenAt else { return nil }
-        return "held · \(taken.formatted(date: .abbreviated, time: .omitted))"
-    }
-
-    var body: some View {
-        HStack(spacing: 14) {
-            if memory.isTombstone {
-                Color.clear
-                    .frame(width: 48, height: 56)
-                    .asPrint(border: 3, tilt: PrintTilt.degrees(memory.id) * 2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("A memory was here")
-                        .font(.hand(17, relativeTo: .callout))
-                        .foregroundStyle(.secondary)
-                    if let date = memory.date {
-                        Text(date).smallCaps()
-                    }
-                }
-            } else {
-                if let urls = memory.urls, let url = state.api.absoluteURL(urls.thumb) {
-                    SignedImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(.quaternary)
-                    }
-                    .frame(width: 48, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner))
-                    .asPrint(border: 3, tilt: PrintTilt.degrees(memory.id) * 2)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    if let caption = memory.caption, !caption.isEmpty {
-                        Text(caption).font(.hand(17, relativeTo: .callout)).lineLimit(1)
-                    } else if let takenAt = memory.takenAt {
-                        Text(takenAt, style: .date).font(.hand(17, relativeTo: .callout))
-                    }
-                    if let location = memory.location, !location.isEmpty {
-                        Text(location)
-                            .smallCaps()
-                            .lineLimit(1)
-                    }
-                    if let note = memory.note, !note.isEmpty {
-                        Text(note)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    if let heldTrace {
-                        Text(heldTrace)
-                            .smallCaps(9)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 4)
     }
 }

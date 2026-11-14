@@ -11,8 +11,15 @@ extension Font {
         .system(size: size, weight: weight, design: .rounded)
     }
 
+    /// A page's name atop it: SF Rounded, medium (Today's circle, You).
+    static var pageTitle: Font { .system(.largeTitle, design: .rounded).weight(.medium) }
+    /// A section's name: SF Rounded, semibold.
+    static var sectionTitle: Font { .system(.title3, design: .rounded).weight(.semibold) }
+
     /// Handwriting, for the words that are a person's own hand on the page:
-    /// a name on a photo, a sticky note. Noteworthy is built into iOS; the
+    /// their note, their journal, their letter, the caption on their own
+    /// photo. Never a label, a button, someone else's name or a time (the
+    /// Quiet Warmth pass, build 44). Noteworthy is built into iOS; the
     /// system's rounded face stands in if it's ever missing. Scales with
     /// Dynamic Type from `size`.
     static func hand(_ size: CGFloat, bold: Bool = false, relativeTo style: Font.TextStyle = .body) -> Font {

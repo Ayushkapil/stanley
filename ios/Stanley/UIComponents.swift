@@ -39,9 +39,9 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(clip)
-        // A thin ring in the atmosphere's accent round every face (build
-        // 39; it was a half-point separator gray).
-        .overlay(clip.stroke(Atmosphere.resolve(raw).palette.accent.opacity(0.7), lineWidth: 1).padding(0.5))
+        // A hairline in the atmosphere's accent round every face (a 1pt
+        // ring in build 39; quieter since build 44).
+        .overlay(clip.stroke(Atmosphere.resolve(raw).palette.accent.opacity(0.35), lineWidth: 0.5).padding(0.25))
     }
 
     private var placeholder: some View {
@@ -57,6 +57,7 @@ struct AvatarView: View {
 /// A "who's here" stack: overlapping circular avatars, tucked into each other so
 /// the eye reads people, not buttons (and never a count). Faces, not numbers.
 struct FaceCluster: View {
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let faces: [(id: String, url: String?, name: String?)]
     var size: CGFloat = 30
 
@@ -64,7 +65,7 @@ struct FaceCluster: View {
         HStack(spacing: -size * 0.42) {
             ForEach(faces, id: \.id) { face in
                 AvatarView(url: face.url, name: face.name, size: size, circular: true)
-                    .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                    .overlay(Circle().stroke(Atmosphere.resolve(raw).palette.floor, lineWidth: 2))
             }
         }
     }
@@ -94,11 +95,11 @@ struct WideButton: View {
                     Text(title)
                 }
             }
-            .font(.headline)
+            .font(.system(.headline, design: .rounded))
             .foregroundStyle(palette.ink)
             .frame(maxWidth: .infinity, minHeight: 52)
-            .background(palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(palette.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .opacity(enabled || busy ? 1 : 0.4)
         }
         .buttonStyle(.plain)

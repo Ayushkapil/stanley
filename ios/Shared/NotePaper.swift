@@ -14,6 +14,18 @@ enum NotePaper {
         scheme == .dark ? Color(red: 0.80, green: 0.72, blue: 0.40) : Color(red: 0.99, green: 0.93, blue: 0.62)
     }
 
+    /// A note on the circle's board (build 44): warm cream in daylight; in
+    /// the dark a step up from the black, not paper under a lamp.
+    static func board(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(red: 0.115, green: 0.11, blue: 0.10) : Color(red: 0.995, green: 0.975, blue: 0.925)
+    }
+
+    /// The words on a board note: the note's ink in daylight, warm white in
+    /// the dark.
+    static func boardInk(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(red: 240 / 255, green: 235 / 255, blue: 227 / 255) : ink
+    }
+
     static let ink = Color(red: 0.22, green: 0.18, blue: 0.10)
     static let tint = 0.15
 

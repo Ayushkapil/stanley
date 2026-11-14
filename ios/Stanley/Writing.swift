@@ -164,7 +164,7 @@ struct JournalOfferSlip: View {
                 Button("Not now") {
                     withAnimation(.easeOut(duration: 0.2)) { state.journalOffer = nil }
                 }
-                .font(.hand(16, relativeTo: .callout))
+                .wordButton(.footnote, bold: false)
                 .foregroundStyle(.secondary)
                 .buttonStyle(.plain)
                 .frame(minHeight: 44)
@@ -172,19 +172,20 @@ struct JournalOfferSlip: View {
             HandField(prompt: "What happened, in a few lines", text: $text, limit: WritingLimit.entry, size: 18) {
                 if text.hasWords {
                     Button(saving ? "Keeping…" : "Keep it") { save() }
-                        .font(.hand(18, bold: true, relativeTo: .body))
+                        .wordButton()
                         .fixedSize()
                         .disabled(saving)
                 }
             }
             Label("Only you see this", systemImage: "lock")
                 .labelStyle(.titleAndIcon)
-                .smallCaps()
+                .quietLabel()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: 0.4)
+        // A page of your journal: paper, in both rooms.
+        .creamPaper()
         .transition(.opacity)
     }
 
@@ -229,8 +230,7 @@ struct JournalEntrySheet: View {
                                         Rectangle().fill(.quaternary)
                                     }
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                                .asPrint(border: 4, tilt: PrintTilt.degrees(photoId) * 2)
+                                .asPrint(corner: 5)
                                 .accessibilityHidden(true)
                         }
                         VStack(alignment: .leading, spacing: 4) {
@@ -240,7 +240,7 @@ struct JournalEntrySheet: View {
                             }
                             Label("Only you see this", systemImage: "lock")
                                 .labelStyle(.titleAndIcon)
-                                .smallCaps()
+                                .quietLabel()
                         }
                         Spacer(minLength: 0)
                     }
@@ -318,7 +318,8 @@ struct HeldJournalNote: View {
             VStack(alignment: .leading, spacing: 3) {
                 Label("Only you see this", systemImage: "lock")
                     .labelStyle(.titleAndIcon)
-                    .smallCaps(9)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Text(words)
                     .font(.hand(17, relativeTo: .callout))
                     .foregroundStyle(.primary)
@@ -338,8 +339,8 @@ struct HeldJournalNote: View {
 
 // MARK: - The circle's question of the week
 
-/// This week's question, as a slip of paper tucked into the journal under
-/// the note: the question in a hand, and under it a line to answer on, or
+/// This week's question, as a clean card under the notes: the question in
+/// serif italic, and under it a line to answer on in your own hand, or
 /// "You answered" behind a lock until the answers open, then the way to
 /// read them. Never how many have answered.
 struct QuestionSlip: View {
@@ -354,15 +355,15 @@ struct QuestionSlip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("This week's question")
-                .smallCaps()
+                .quietLabel()
             Text(question.prompt.text)
-                .font(.hand(22, bold: true, relativeTo: .title3))
+                .questionType()
                 .fixedSize(horizontal: false, vertical: true)
             if question.revealed {
                 Button { reading = true } label: {
                     HStack(spacing: 8) {
                         Text("See what everyone said")
-                            .font(.hand(19, bold: true, relativeTo: .body))
+                            .wordButton(.body)
                         Image(systemName: "arrow.right")
                             .font(.footnote.weight(.semibold))
                     }
@@ -374,34 +375,31 @@ struct QuestionSlip: View {
             } else if let mine = question.response {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("You answered", systemImage: "lock.fill")
-                        .font(.hand(18, bold: true, relativeTo: .body))
+                        .font(.subheadline.weight(.medium))
                     Text(mine.body)
-                        .font(.hand(17, relativeTo: .callout))
-                        .foregroundStyle(.secondary)
+                        .font(.hand(18, relativeTo: .callout))
                         .fixedSize(horizontal: false, vertical: true)
                     Text("Responses revealed \(reveal)")
-                        .smallCaps()
+                        .quietLabel()
                         .padding(.top, 2)
                 }
             } else {
                 HandField(prompt: "Your answer", text: $text, limit: WritingLimit.answer, lines: 1...8) {
                     if text.hasWords {
                         Button(sending ? "Sending…" : "Answer") { send() }
-                            .font(.hand(18, bold: true, relativeTo: .body))
+                            .wordButton()
                             .fixedSize()
                             .disabled(sending)
                     }
                 }
                 Text("Your answer is private until \(reveal)")
-                    .smallCaps()
+                    .quietLabel()
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Dog-eared, like a page someone means to come back to (build 39).
-        .paperInsert(tilt: -0.6, fold: 22)
+        // A clean card (build 44; a dog-eared slip of paper before).
+        .card()
         .sheet(isPresented: $reading) {
             AnswersSheet(question: question.prompt)
         }
@@ -419,8 +417,9 @@ struct QuestionSlip: View {
     }
 }
 
-/// One person's answer: their name in their own tone, as a mention of them
-/// is, and their words in a hand. A long press reports it.
+/// One person's answer: their name small in their own tone, as a mention of
+/// them is, and their words in a hand, as they wrote them. A long press
+/// reports it.
 struct AnswerLine: View {
     @Environment(AppState.self) private var state
     let answer: Answer
@@ -436,7 +435,7 @@ struct AnswerLine: View {
     var body: some View {
         let line = VStack(alignment: .leading, spacing: 4) {
             Text(answer.author.displayName)
-                .font(.hand(19, bold: true, relativeTo: .headline))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(tone)
             Text(answer.body)
                 .font(.hand(19, relativeTo: .body))
@@ -479,20 +478,17 @@ struct AnswersSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(WeekRange.text(question.weekStart, question.weekEnd))
-                        .smallCaps()
+                        .quietLabel()
                     Text(question.text)
-                        .font(.hand(26, bold: true, relativeTo: .title2))
+                        .questionType(.title2)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 6)
-                    VStack(spacing: 2) {
-                        Rule(weight: 1.5)
-                        Rule(weight: 0.5)
-                    }
-                    .padding(.vertical, 14)
+                    Rule(weight: 0.5)
+                        .padding(.vertical, 14)
                     if let answers {
                         if answers.isEmpty {
                             Text("No one wrote this week.")
-                                .font(.hand(19, relativeTo: .body))
+                                .font(.body)
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(Array(answers.enumerated()), id: \.element.id) { index, answer in
@@ -539,31 +535,28 @@ struct CircleJournalView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(state.circle?.name ?? "Your circle")
-                        .font(.hand(34, bold: true, relativeTo: .largeTitle))
+                        .font(.pageTitle)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     Text("Each week's question, and what everyone said")
-                        .smallCaps()
+                        .quietLabel()
                 }
                 .padding(.bottom, 18)
                 if loaded && weeks.isEmpty {
                     Text("Nothing here yet. Once a week's answers are read together, they're kept here.")
-                        .font(.hand(19, relativeTo: .body))
+                        .font(.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 6)
                 }
                 ForEach(weeks) { week in
                     VStack(alignment: .leading, spacing: 0) {
-                        VStack(spacing: 2) {
-                            Rule(weight: 1.5)
-                            Rule(weight: 0.5)
-                        }
+                        Rule(weight: 0.5)
                         Text(WeekRange.text(week.weekStart, week.weekEnd))
-                            .smallCaps()
-                            .padding(.top, 10)
+                            .quietLabel()
+                            .padding(.top, 12)
                         Text(week.text)
-                            .font(.hand(23, bold: true, relativeTo: .title3))
+                            .questionType()
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 4)
                             .padding(.bottom, 14)
@@ -653,10 +646,9 @@ struct WeekPhotoThumb: View {
                     Rectangle().fill(.quaternary)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
             .saturation(1 - 0.85 * fade)
             .opacity(1 - (colorScheme == .dark ? 0.62 : 0.82) * fade)
-            .asPrint(border: width > 60 ? 5 : 3, tilt: PrintTilt.degrees(photo.id) * 2)
+            .asPrint(corner: width > 60 ? 6 : 4)
             .accessibilityLabel(photo.caption ?? "Your photo from \(photo.takenAt.formatted(.dateTime.weekday(.wide)))")
     }
 }
@@ -675,7 +667,7 @@ struct ReflectionCard: View {
                     Text("How was your week?")
                         .font(.hand(26, bold: true, relativeTo: .title2))
                     Text(WeekRange.text(week.weekStart, week.weekEnd))
-                        .smallCaps()
+                        .quietLabel()
                 }
                 if !week.photos.isEmpty {
                     HStack(spacing: 10) {
@@ -686,15 +678,14 @@ struct ReflectionCard: View {
                     .padding(.vertical, 4)
                 }
                 Text("A few lines for yourself. Only you see this.")
-                    .font(.hand(17, relativeTo: .callout))
-                    .foregroundStyle(.secondary)
+                    .quietLabel()
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .paperInsert(tilt: 0.5)
+        .creamPaper()
         .accessibilityHint("Write about your week")
         .sheet(isPresented: $writing) { ReflectionSheet(week: week) }
     }
@@ -715,7 +706,7 @@ struct ReflectionSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WeekRange.text(week.weekStart, week.weekEnd))
-                            .smallCaps()
+                            .quietLabel()
                         Text("How was your week?")
                             .font(.hand(30, bold: true, relativeTo: .largeTitle))
                     }
@@ -736,8 +727,7 @@ struct ReflectionSheet: View {
                         size: 20, lines: 4...16
                     )
                     Label("Only you see this. It's kept in your journal, and it doesn't fade.", systemImage: "lock")
-                        .font(.hand(15, relativeTo: .footnote))
-                        .foregroundStyle(.secondary)
+                        .quietLabel()
                 }
                 .padding(20)
             }
@@ -775,7 +765,7 @@ struct ReflectionPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(WeekRange.text(reflection.weekStart, reflection.weekEnd))
-                .smallCaps()
+                .quietLabel()
             Text(reflection.body)
                 .font(.hand(19, relativeTo: .body))
                 .fixedSize(horizontal: false, vertical: true)
@@ -790,7 +780,8 @@ struct ReflectionPage: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: PrintTilt.degrees(reflection.id) * 0.6)
+        // A page of the journal: cream paper, the words in your hand.
+        .creamPaper()
         .contextMenu {
             Button(role: .destructive) { confirmDelete = true } label: {
                 Label("Delete Reflection", systemImage: "trash")

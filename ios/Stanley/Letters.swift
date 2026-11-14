@@ -45,7 +45,7 @@ struct LettersOnYou: View {
         VStack(alignment: .leading, spacing: Spacing.section) {
             JournalSectionHead(label: "Only you see this", title: "Letters")
             Text("Write a letter now; Stanley holds it closed until the day you choose.")
-                .font(.hand(18, relativeTo: .callout))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Button { composing = true } label: {
@@ -56,7 +56,7 @@ struct LettersOnYou: View {
 
             if !state.lettersSent.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("On their way").smallCaps()
+                    Text("On their way").quietLabel()
                     ForEach(state.lettersSent) { letter in
                         SentLetterRow(letter: letter)
                     }
@@ -70,25 +70,23 @@ struct LettersOnYou: View {
     /// The slip itself: a scrap of paper with "Write to someone" in the
     /// hand, an inkwell pen, a line to remind you what this is.
     private var writeSlip: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .center, spacing: 14) {
             Image(systemName: "pencil.and.scribble")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(.primary)
-                .frame(width: 44, height: 44)
+                .font(.system(size: 24, weight: .light))
+                .foregroundStyle(.tint)
+                .frame(width: 40, height: 40)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Write to someone")
-                    .font(.hand(24, bold: true, relativeTo: .title3))
+                    .font(.system(.body, design: .rounded).weight(.medium))
                 Text("A letter for one day in the future.")
-                    .font(.hand(16, relativeTo: .footnote))
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: -0.6)
+        .card(h: 18, v: 14)
     }
 }
 
@@ -106,13 +104,14 @@ private struct SentLetterRow: View {
             MiniEnvelope()
             VStack(alignment: .leading, spacing: 3) {
                 Text("For \(letter.recipient?.displayName ?? "someone")")
-                    .font(.hand(18, bold: true, relativeTo: .subheadline))
+                    .font(.subheadline.weight(.medium))
                 Text(face.inscription)
-                    .font(.hand(15, relativeTo: .caption))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Text(letter.sealed ? "Sealed · opens \(face.dateLabel)" : "Opened")
-                    .smallCaps(9)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
         }
@@ -150,23 +149,24 @@ private struct MiniEnvelope: View {
         let accent = Atmosphere.resolve(raw).palette.accent
         return ZStack {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(dark ? .clear : PrintStock.paper)
+                .fill(Cream.paper)
                 .overlay(
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .stroke(DarkRoom.line(dark ? 1 : 0.4), lineWidth: 0.5)
+                        .stroke(Cream.ink.opacity(0.28), lineWidth: 0.5)
                 )
             Path { p in
                 p.move(to: CGPoint(x: 1, y: 2))
                 p.addLine(to: CGPoint(x: 20, y: 14))
                 p.addLine(to: CGPoint(x: 39, y: 2))
             }
-            .stroke(DarkRoom.line(dark ? 1 : 0.5), lineWidth: 0.5)
+            .stroke(Cream.ink.opacity(0.28), lineWidth: 0.5)
             Circle()
                 .fill(accent)
                 .frame(width: 8, height: 8)
                 .offset(x: 10, y: 6)
         }
         .frame(width: 40, height: 28)
+        .onCream()
         .accessibilityHidden(true)
     }
 }
@@ -179,6 +179,7 @@ private struct MiniEnvelope: View {
 /// on the day it opens the reader with the seal-break animation.
 struct LettersOnHeld: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @State private var reading: Letter?
 
     var body: some View {
@@ -186,12 +187,22 @@ struct LettersOnHeld: View {
         if received.sealed.isEmpty && received.opened.isEmpty { EmptyView() }
         else {
             VStack(alignment: .leading, spacing: Spacing.section) {
-                JournalSectionHead(label: "Written to you", title: "Letters")
-                ForEach(received.sealed) { letter in
-                    SealedEnvelopeView(letter: letter) { reading = letter }
-                }
-                ForEach(received.opened) { letter in
-                    OpenedEnvelopeView(letter: letter) { reading = letter }
+                JournalSectionHead(label: "Written to you", title: "Letters", hand: true)
+                // One to a line on a phone; side by side on the Duo's
+                // inner display.
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.flexible(), spacing: Spacing.chapter),
+                        count: Density(hSizeClass).isRoom ? 2 : 1
+                    ),
+                    alignment: .leading, spacing: Spacing.section
+                ) {
+                    ForEach(received.sealed) { letter in
+                        SealedEnvelopeView(letter: letter) { reading = letter }
+                    }
+                    ForEach(received.opened) { letter in
+                        OpenedEnvelopeView(letter: letter) { reading = letter }
+                    }
                 }
             }
             .sheet(item: $reading) { letter in
@@ -224,11 +235,13 @@ struct SealedEnvelopeView: View {
 
         Button(action: tap) {
             ZStack {
-                EnvelopeShape(flapOpen: 0, flapAngle: 0)
-                    .fill(dark ? .clear : PrintStock.paper)
+                // The whole front, filled: filling the shape itself left
+                // the flap's V as a hole the page showed through.
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Cream.paper)
                     .overlay(
                         EnvelopeShape(flapOpen: 0, flapAngle: 0)
-                            .stroke(DarkRoom.line(dark ? 1 : 0.35), lineWidth: 0.6)
+                            .stroke(Cream.ink.opacity(0.28), lineWidth: 0.6)
                     )
                     .shadow(color: .black.opacity(dark ? 0 : 0.14), radius: 5, x: 0.5, y: 3)
 
@@ -237,7 +250,7 @@ struct SealedEnvelopeView: View {
                     Spacer(minLength: 32)
                     Text("From \(sender)")
                         .font(.hand(22, bold: true, relativeTo: .title3))
-                        .foregroundStyle(dark ? DarkRoom.ink : .primary)
+                        .foregroundStyle(.primary)
                     Text(face.inscription)
                         .font(.hand(17, relativeTo: .callout))
                         .foregroundStyle(.secondary)
@@ -256,9 +269,10 @@ struct SealedEnvelopeView: View {
                     .accessibilityHidden(true)
             }
             .aspectRatio(1.55, contentMode: .fit)
+            .onCream()
             .rotationEffect(.degrees(nudging ? -1.2 : 0))
             .rotationEffect(.degrees(PrintTilt.degrees(letter.id) * 0.4))
-            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: nudging)
+            .animation(.spring(response: 0.25, dampingFraction: 0.85), value: nudging)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -305,11 +319,13 @@ struct OpenedEnvelopeView: View {
 
         Button(action: onTap) {
             ZStack {
-                EnvelopeShape(flapOpen: 1, flapAngle: 24)
-                    .fill(dark ? .clear : PrintStock.paper)
+                // The whole front, filled: filling the shape itself left
+                // the flap's V as a hole the page showed through.
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Cream.paper)
                     .overlay(
                         EnvelopeShape(flapOpen: 1, flapAngle: 24)
-                            .stroke(DarkRoom.line(dark ? 1 : 0.35), lineWidth: 0.6)
+                            .stroke(Cream.ink.opacity(0.28), lineWidth: 0.6)
                     )
                     .shadow(color: .black.opacity(dark ? 0 : 0.1), radius: 4, x: 0.5, y: 2)
                 VStack(alignment: .leading, spacing: 4) {
@@ -319,7 +335,7 @@ struct OpenedEnvelopeView: View {
                     Text(face.inscription)
                         .font(.hand(15, relativeTo: .caption))
                         .foregroundStyle(.secondary)
-                    Text("Opened").smallCaps(9)
+                    Text("Opened").font(.caption2).foregroundStyle(.secondary)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -327,6 +343,7 @@ struct OpenedEnvelopeView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .aspectRatio(1.55, contentMode: .fit)
+            .onCream()
             .rotationEffect(.degrees(PrintTilt.degrees(letter.id) * 0.4))
         }
         .buttonStyle(.plain)
@@ -481,11 +498,13 @@ struct LetterReaderSheet: View {
         let flapAngle = phase == .sealed ? 0.0 : 26.0
 
         return ZStack {
-            EnvelopeShape(flapOpen: flapOpen, flapAngle: flapAngle)
-                .fill(dark ? .clear : PrintStock.paper)
+            // The whole front, filled: filling the shape itself left the
+            // flap's V as a hole the page showed through.
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Cream.paper)
                 .overlay(
                     EnvelopeShape(flapOpen: flapOpen, flapAngle: flapAngle)
-                        .stroke(DarkRoom.line(dark ? 1 : 0.4), lineWidth: 0.7)
+                        .stroke(Cream.ink.opacity(0.28), lineWidth: 0.7)
                 )
                 .shadow(color: .black.opacity(dark ? 0 : 0.12), radius: 5, x: 0.5, y: 3)
             VStack(alignment: .leading, spacing: 6) {
@@ -507,10 +526,11 @@ struct LetterReaderSheet: View {
                     .offset(y: 52)
                     .opacity(phase == .breaking ? 0.25 : 1)
                     .scaleEffect(phase == .breaking ? 1.25 : 1)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.45), value: phase)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: phase)
             }
         }
         .aspectRatio(1.55, contentMode: .fit)
+        .onCream()
     }
 
     private func begin() async {
@@ -528,14 +548,14 @@ struct LetterReaderSheet: View {
             phase = .revealed
             return
         }
-        try? await Task.sleep(nanoseconds: 350_000_000)
-        withAnimation(.easeOut(duration: 0.45)) { phase = .breaking }
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        withAnimation(.easeOut(duration: 0.25)) { phase = .breaking }
         Haptics.held()
         // The server call runs while the seal cracks.
         async let served = state.openLetter(letter.id)
-        try? await Task.sleep(nanoseconds: 500_000_000)
+        try? await Task.sleep(nanoseconds: 300_000_000)
         let got = await served
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
             opened = got
             phase = .revealed
         }
@@ -560,7 +580,7 @@ struct LetterPaper: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(body)
                 .font(.hand(21, relativeTo: .body))
-                .foregroundStyle(dark ? DarkRoom.ink : .primary)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
             Rule(weight: 0.5)
@@ -568,14 +588,14 @@ struct LetterPaper: View {
                 Text("— \(sender)")
                     .font(.hand(22, bold: true, relativeTo: .title3))
                 if let written {
-                    Text("Written on \(written)").smallCaps(9)
+                    Text("Written on \(written)").font(.caption2).foregroundStyle(.secondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 26)
-        .paperInsert(tilt: 0)
+        .creamPaper()
     }
 }
 

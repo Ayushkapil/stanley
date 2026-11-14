@@ -63,7 +63,7 @@ Stanley is a photo journal for a small circle: your floor, your house, your team
 That's most of it. The rest is what Stanley leaves out.
 
 ONE PHOTO A DAY
-Each day you get one photo in each circle you're in, taken with the camera or chosen from your library. Frame it, add a look if you want one (Mono, Grain, Dusk or Clean), say where it was and who was there, and post it. Then it's today's. Delete it the same day and you get one more try.
+Each day you get one photo in each circle you're in, taken with the camera or chosen from your library. Frame it, say where it was and who was there, and post it. Then it's today's. Delete it the same day and you get one more try.
 
 EVERYTHING FADES
 Today is your circle's journal, newest first, and nothing else decides the order. Photos grow quieter as the days pass and are gone after six, unless someone keeps them. Keeping is the heart of Stanley: tap the bookmark on a photo and it lives on in your Held album at full light. The person who posted it sees the faces of who kept it. Nobody sees a number.
@@ -187,10 +187,19 @@ was there?" is below the fold anyway, since the photo stops shrinking at its
 
 Each set, in upload order:
 
+**Stale since build 44 (the Quiet Warmth pass, November 13, 2026).** Every
+screenshot in `ios/AppStoreScreenshots/` shows the journal look that build
+replaced (grained paper, prints with paper borders, names in a hand, the
+Held tab, the filter pills), and the description's length changed with the
+filters line. Retake all of them from `seed_screenshots.py` before
+submitting; `docs/quiet-warmth-build44/` shows what the screens look like
+now. The plan below is the old one, kept for its scenes.
+
 1. `01-today.jpg`: Today, with the circle's board (Maya's note first, four
    more to swipe), this week's question answered and sealed until Friday at
    7 PM, and the first of today's prints.
-2. `02-capture.jpg`: the capture sheet. A sunset field with Grain on, the
+2. `02-capture.jpg`: the capture sheet. A sunset field (shot with the Grain
+   filter, which build 44 removed, so this one must be retaken), the
    place filled in from the phone ("Indiana University"), a caption, and
    Jonah and Ines tagged.
 3. `03-held.jpg`: Held, the album. "Kept from Ines Moreau", a rooftop print

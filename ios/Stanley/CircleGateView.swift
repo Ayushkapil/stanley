@@ -44,7 +44,7 @@ struct CircleGateView: View {
                     Text(another
                         ? "One photo a day in each, up to five circles."
                         : "Stanley is kept with a few people you actually know: a floor, a house, a team.")
-                        .font(.hand(20, relativeTo: .body))
+                        .font(.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.bottom, Spacing.chapter)
@@ -52,10 +52,9 @@ struct CircleGateView: View {
                     GateSlip(
                         label: "Have an invite code?",
                         title: another ? "Join with a code" : "Join your circle",
-                        tilt: -0.7
                     ) {
                         TextField("", text: $inviteCode, prompt: Text("NECR-7KX4").foregroundColor(.secondary.opacity(0.6)))
-                            .font(.hand(26, bold: true, relativeTo: .title2))
+                            .font(.system(.title2, design: .monospaced).weight(.medium))
                             .tracking(2)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.characters)
@@ -65,7 +64,7 @@ struct CircleGateView: View {
                             .accessibilityLabel("Invite code")
                         Rule(weight: 0.5)
                         Text("Anyone in the circle can find it in Settings.")
-                            .smallCaps()
+                            .quietLabel()
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 2)
                         WideButton(title: "Join", busy: running == .code, action: join)
@@ -76,22 +75,22 @@ struct CircleGateView: View {
                     // Between the two slips, the way a page says "or".
                     HStack(spacing: 12) {
                         Rule(weight: 0.5)
-                        Text("or").font(.hand(18, relativeTo: .body)).foregroundStyle(.secondary)
+                        Text("or").font(.subheadline).foregroundStyle(.secondary)
                         Rule(weight: 0.5)
                     }
                     .padding(.vertical, Spacing.chapter)
                     .accessibilityHidden(true)
 
-                    GateSlip(label: "No code yet?", title: "Start a circle", tilt: 0.6) {
+                    GateSlip(label: "No code yet?", title: "Start a circle") {
                         TextField("", text: $circleName, prompt: Text("Your floor, your house…").foregroundColor(.secondary.opacity(0.6)))
-                            .font(.hand(24, relativeTo: .title3))
+                            .font(.title3)
                             .submitLabel(.done)
                             .focused($field, equals: .name)
                             .onSubmit(create)
                             .accessibilityLabel("A name for the circle")
                         Rule(weight: 0.5)
                         Text("You'll get a code to pass around.")
-                            .smallCaps()
+                            .quietLabel()
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 2)
                         WideButton(title: "Start it", busy: running == .name, action: create)
@@ -102,7 +101,7 @@ struct CircleGateView: View {
                     Text(another
                         ? "Stanley works best with people you actually know."
                         : "Photos live for six days, then they're gone, unless someone keeps them.")
-                        .smallCaps()
+                        .quietLabel()
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
@@ -156,36 +155,25 @@ struct CircleGateView: View {
     }
 }
 
-/// One of the gate's two slips: a sheet tucked into the page (`paperInsert`)
-/// under a strip of tape, a little off square, its label in small capitals
-/// and its title in a hand over whatever it asks for. In the dark room
-/// there's no paper to tape, so no tape: the same black, boxed in a rule.
+/// One of the gate's two cards: a quiet label and a title over whatever it
+/// asks for. Slips of paper under tape until build 44; joining a circle is
+/// a tool, so it's a plain card (and in the dark, nothing but its content).
 private struct GateSlip<Content: View>: View {
-    @Environment(\.colorScheme) private var colorScheme
     let label: String
     let title: String
-    let tilt: Double
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).smallCaps()
+            Text(label).quietLabel()
             Text(title)
-                .font(.hand(28, bold: true, relativeTo: .title))
+                .font(.sectionTitle)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.bottom, 4)
             content()
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 26)
-        .padding(.bottom, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: tilt)
-        .overlay(alignment: .top) {
-            if !DarkRoom.isDark(colorScheme) {
-                Tape().offset(y: -11)
-            }
-        }
+        .card(h: 20, v: 20)
     }
 }

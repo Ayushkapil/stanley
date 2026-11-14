@@ -84,6 +84,9 @@ struct WorldTodayView: View {
             }
             // The paper, no navigation bar, and a strip of the page under the
             // status bar so the paper slides beneath the clock (`Journal.swift`).
+            // The paper keeps its grain (the one page that does, build 44:
+            // the newspaper stays as it was), under the page's own floor.
+            .background { PaperGrainView(strength: 0.45).ignoresSafeArea() }
             .journalPage()
             .sunRefreshable {
                 Haptics.refreshed()

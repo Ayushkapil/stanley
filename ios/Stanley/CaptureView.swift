@@ -4,19 +4,18 @@ import PhotosUI
 import SwiftUI
 import UIKit
 
-/// Capture is a commitment (§8.4): one photo, a look at it (with a filter, if
-/// you want one), then Post. The photo is taken with the camera or chosen
+/// Capture is a commitment (§8.4): one photo, a look at it, then Post. The photo is taken with the camera or chosen
 /// from the library (since build 16; the library picker needs no Photos
 /// permission), and either way it's today's one: the day law is the same.
 /// On the simulator (no camera) a stand-in frame is used so the flow stays
 /// testable end to end.
 ///
-/// Laid out like composing a memory rather than filling in a form: the photo
-/// first and largest, where it was right under it, its looks beneath that,
-/// then the words and who was there, and one wide button at the foot of the
-/// sheet that is always within reach. Since build 21 it's a page of the
-/// journal like the rest: the photo a print on photo paper, and the place and
-/// the words written by hand on ruled lines rather than typed into boxes.
+/// The photo is the hero (build 44): first and largest, cut as it will be
+/// in Today, with as little around it as there can be. Where it was is
+/// right under it, then the words (in your hand: they're yours) and who was
+/// there, and one wide button at the foot of the sheet that is always
+/// within reach. The four filters were removed in build 44: a photo posts
+/// as it was taken, cropped to its frame.
 /// With today's photo already posted in this circle, the sheet says so, warmly,
 /// instead of offering a camera whose photo would be refused.
 struct CaptureView: View {
@@ -39,10 +38,8 @@ struct CaptureView: View {
     @State private var uploading = false
     /// The frame between the shutter and Post.
     @State private var shot: Shot?
-    @State private var filter: PhotoFilter = .none
-    /// The looks rendered so far for this shot, at preview size, so going
-    /// back to one is instant.
-    @State private var looks: [PhotoFilter: UIImage] = [:]
+    /// The shot at preview size, once rendered.
+    @State private var look: UIImage?
     @State private var pickingPlace = false
     /// Where the photo sits in its frame, which is what's posted.
     @State private var framing = Framing()
@@ -53,7 +50,7 @@ struct CaptureView: View {
     @State private var framed = false
     /// The sheet's height between the navigation bar and the footer, and
     /// the height of everything under the photo once it's taken (build 31):
-    /// the photo gives up height so the place, the looks, the words and who
+    /// the photo gives up height so the place, the words and who
     /// was there all sit above Post without scrolling.
     @State private var viewport: CGFloat = 0
     @State private var below: CGFloat = 0
@@ -65,13 +62,13 @@ struct CaptureView: View {
         (state.circle?.members ?? []).filter { $0.id != state.myId }
     }
 
-    /// The print's border of photo paper around the frame.
-    private static let border: CGFloat = 8
+    /// Nothing round the frame (a print's paper border until build 44).
+    private static let border: CGFloat = 0
 
     /// The photo's frame in the sheet, before the shutter and after it: a
     /// print, `PhotoShape` inside its paper border, the shape of every photo
     /// in Today, as wide as the sheet allows and no taller than
-    /// `capturePhotoMaxHeight`, so the place and the looks beneath it are in
+    /// `capturePhotoMaxHeight`, so the place and the words beneath it are in
     /// view without scrolling, even on the Duo's cover. Centered when the
     /// height is what limits it. The border is outside the frame, so the
     /// frame, which is the crop, stays exactly 3:4. Never tilted: it's being
@@ -82,7 +79,7 @@ struct CaptureView: View {
         let maxHeight = maxHeight ?? density.capturePhotoMaxHeight
         return content()
             .aspectRatio(PhotoShape.aspect, contentMode: .fit)
-            .asPrint(border: Self.border)
+            .asPrint()
             .frame(maxWidth: maxHeight * PhotoShape.aspect + 2 * Self.border)
             .frame(maxWidth: .infinity)
     }
@@ -95,11 +92,9 @@ struct CaptureView: View {
                         preview(shot)
                         VStack(spacing: 0) {
                             placeLine
-                                .padding(.top, 14)
-                            FilterPills(selection: $filter)
-                                .padding(.top, 16)
+                                .padding(.top, 12)
                             details
-                                .padding(.top, 24)
+                                .padding(.top, 20)
                         }
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { below = $0 }
                     } else if let mine = state.sharedToday {
@@ -162,7 +157,7 @@ struct CaptureView: View {
                 libraryItem = nil
                 Task { await chose(item) }
             }
-            .task(id: DevelopKey(shot: shot?.id, filter: filter)) { await develop() }
+            .task(id: shot?.id) { await develop() }
             .task(id: shot?.id) { await suggestPlace() }
             .sheet(isPresented: $pickingPlace) {
                 PlacePicker(userId: state.myId, current: location) { location = $0 }
@@ -189,10 +184,9 @@ struct CaptureView: View {
         VStack(spacing: 0) {
             Button(action: openCamera) {
                 photoFrame(maxHeight: fittedPhotoHeight) {
-                    // A print not yet developed: the paper, a shade deeper.
+                    // Where the photo will be: a quiet shape.
                     Rectangle()
                         .fill(.primary.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
                         .overlay {
                             VStack(spacing: 16) {
                                 if opening {
@@ -204,7 +198,7 @@ struct CaptureView: View {
                                 }
                                 // The day's prompt — a whisper, not an instruction (Part 1).
                                 Text(DailyPrompt.forToday())
-                                    .font(.hand(20, relativeTo: .callout))
+                                    .font(.callout)
                                     .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 24)
@@ -217,7 +211,7 @@ struct CaptureView: View {
             .accessibilityLabel("Open the camera")
             VStack(spacing: 6) {
                 Text("One photo. This is today's.")
-                    .font(.hand(24, bold: true, relativeTo: .title3))
+                    .font(.sectionTitle)
                 Text("From the camera or your library. It fades in six days unless someone keeps it.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -246,16 +240,15 @@ struct CaptureView: View {
                         }
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                .asPrint(border: 6, tilt: -2.5)
+                .asPrint()
                 .padding(.top, 30)
                 .accessibilityLabel("Today's photo")
             VStack(spacing: 10) {
                 Text("Today's moment is out there.")
-                    .font(.hand(30, bold: true, relativeTo: .title2))
+                    .font(.system(.title2, design: .rounded).weight(.semibold))
                     .multilineTextAlignment(.center)
                 Text("Come back tomorrow.")
-                    .font(.hand(22, relativeTo: .title3))
+                    .font(.body)
                     .foregroundStyle(.secondary)
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -267,7 +260,7 @@ struct CaptureView: View {
     private var spent: Bool { shot == nil && state.sharedToday != nil }
 
     /// Where it was, right under the photo, where pilot users looked for it
-    /// (on the card below the looks it was out of sight on the Duo's cover).
+    /// (lower down it was out of sight on the Duo's cover).
     /// A place name, as you'd say it. With location allowed, where the phone
     /// is fills it in after the shutter; for a library photo, where the photo
     /// was taken. A filled place shows a pencil, because it's still the
@@ -282,10 +275,8 @@ struct CaptureView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.accentColor)
                         .frame(width: 22)
-                    // Written under the print, the way a place is on an
-                    // album page.
                     Text(location.isEmpty ? "Add a place" : location)
-                        .font(.hand(21, bold: !location.isEmpty, relativeTo: .body))
+                        .font(.body)
                         .foregroundStyle(location.isEmpty ? .secondary : .primary)
                         .lineLimit(1)
                     if !location.isEmpty {
@@ -319,10 +310,8 @@ struct CaptureView: View {
                 .accessibilityLabel("Clear the place")
             }
         }
-        .padding(.leading, 4)
-        .padding(.trailing, location.isEmpty ? 4 : 0)
         .frame(height: 48)
-        // A ruled line to write on, not a box to fill in.
+        // A hairline under it, not a box round it.
         .overlay(alignment: .bottom) { Rule(weight: 0.5) }
     }
 
@@ -330,7 +319,7 @@ struct CaptureView: View {
     /// The words, written by hand on a ruled line, and who was there.
     /// The photo's height, before the shutter and after: whatever's left once
     /// what's under it has its room (the rule's two lines before; the place,
-    /// the looks, the words and who was there after), so none of it starts
+    /// the words and who was there after), so none of it starts
     /// under the footer (the QA audit found "In your words" under Post).
     /// Never taller than before, and never smaller than a photo you can
     /// frame by hand; a large circle's names can still scroll past that.
@@ -343,24 +332,24 @@ struct CaptureView: View {
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: 26) {
+        VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("In your words").smallCaps()
+                // The caption is the person's own: in a hand, the
+                // placeholder too.
                 TextField(
                     "", text: $caption,
-                    prompt: Text("A few words, if you like").font(.hand(21, relativeTo: .body)).foregroundColor(.secondary),
+                    prompt: Text("In your words…").font(.hand(20, relativeTo: .body)).foregroundColor(.secondary),
                     axis: .vertical
                 )
-                .font(.hand(21, relativeTo: .body))
+                .font(.hand(20, relativeTo: .body))
                 .lineLimit(1...5)
                 .focused($writing)
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
+                .accessibilityLabel("Caption, in your words")
                 Rule(weight: 0.5)
             }
-            .padding(.horizontal, 4)
             if !members.isEmpty {
                 WhoWasThere(members: members, selected: $tagged)
-                    .padding(.horizontal, 4)
             }
         }
     }
@@ -423,7 +412,7 @@ struct CaptureView: View {
         return photoFrame(maxHeight: fittedPhotoHeight) {
             Color.clear
                 .overlay {
-                    if let image = looks[filter] ?? looks[.none] {
+                    if let image = look {
                         Image(uiImage: image)
                             .resizable()
                             .frame(width: filled.width * framing.zoom, height: filled.height * framing.zoom)
@@ -448,7 +437,6 @@ struct CaptureView: View {
                             .transition(.opacity)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
                     window = size
                     framing = framing.clamped(photo, size)
@@ -459,7 +447,7 @@ struct CaptureView: View {
             if now { withAnimation(.easeOut(duration: 0.2)) { framed = true } }
         }
         .accessibilityElement()
-        .accessibilityLabel(filter == .none ? "Your photo" : "Your photo, \(filter.label)")
+        .accessibilityLabel("Your photo")
         .accessibilityHint(movable ? "Drag to choose what's in the frame" : "")
     }
 
@@ -498,69 +486,65 @@ struct CaptureView: View {
     }
 
     private func took(_ image: UIImage, library: LibraryPhoto? = nil) {
-        guard let source = FilterRenderer.upright(image) else {
+        guard let source = PhotoRenderer.upright(image) else {
             // CoreImage can't read this frame, so there's no preview to
             // offer. Post it as it was taken, the way capture always did.
             guard let jpeg = image.jpegData(compressionQuality: 0.9) else { return }
             uploading = true
-            Task { await send(jpeg: jpeg, filter: .none) }
+            Task { await send(jpeg: jpeg) }
             return
         }
-        looks = [:]
-        filter = .none
+        look = nil
         framing = Framing()
         framed = false
         shot = Shot(
-            original: image, source: source, preview: FilterRenderer.preview(of: source),
+            original: image, source: source, preview: PhotoRenderer.preview(of: source),
             fromLibrary: library != nil, takenAt: library?.location
         )
     }
 
-    /// Renders the chosen look at preview size, off the main thread.
+    /// Renders the shot at preview size, off the main thread.
     private func develop() async {
-        guard let shot, looks[filter] == nil else { return }
-        let filter = self.filter
+        guard let shot, look == nil else { return }
         let image = await Task.detached(priority: .userInitiated) {
-            FilterRenderer.image(shot.preview, filter)
+            PhotoRenderer.image(shot.preview)
         }.value
         guard self.shot?.id == shot.id, let image else { return }
-        looks[filter] = image
+        look = image
     }
 
     private func post(_ shot: Shot) {
         uploading = true
-        let filter = self.filter
         let pixels = shot.source.extent.size
         // What's in the frame, in the photo's own pixels. Nil when the frame
         // takes the whole photo, as it does a camera shot left as it was.
         let crop: CGRect? = framing.isWhole(pixels: pixels, window: window)
             ? nil : framing.crop(pixels: pixels, window: window)
         Task {
-            // The look goes into the pixels here, at full size, then the
-            // frame is cut from it: what was on screen is what's posted. None,
-            // uncropped, sends the frame exactly as the camera took it.
+            // The frame is cut from the photo at full size: what was on
+            // screen is what's posted. Uncropped, the frame goes exactly as
+            // the camera took it.
             let jpeg = await Task.detached(priority: .userInitiated) {
-                filter == .none && crop == nil
+                crop == nil
                     ? shot.original.jpegData(compressionQuality: 0.9)
-                    : FilterRenderer.jpeg(shot.source, filter, crop: crop)
+                    : PhotoRenderer.jpeg(shot.source, crop: crop)
             }.value
             guard let jpeg else {
                 state.surface(APIError.message(APIError.photoNotPosted))
                 uploading = false
                 return
             }
-            await send(jpeg: jpeg, filter: filter)
+            await send(jpeg: jpeg)
         }
     }
 
-    private func send(jpeg: Data, filter: PhotoFilter) async {
+    private func send(jpeg: Data) async {
         do {
             let posted = try await state.capture(
                 jpeg: jpeg,
                 caption: caption.trimmingCharacters(in: .whitespaces),
                 location: location.trimmingCharacters(in: .whitespaces),
-                tagged: Array(tagged),
-                filter: filter.serverName
+                tagged: Array(tagged)
             )
             // Posted, or kept to post later: either way the place was used,
             // so it's the first thing the picker offers next time.
@@ -577,7 +561,7 @@ struct CaptureView: View {
     #if targetEnvironment(simulator)
     /// The simulator has no camera. A photo saved as SampleCapture.jpg or
     /// SampleCapture.heic in the app's Documents folder stands in for one,
-    /// so the filters can be tried on a real picture. Otherwise the frame is
+    /// so capture can be tried on a real picture. Otherwise the frame is
     /// generated.
     private static func simulatorFrame() -> UIImage {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -622,41 +606,6 @@ private struct Shot {
     var takenAt: CLLocation?
 }
 
-private struct DevelopKey: Equatable {
-    let shot: UUID?
-    let filter: PhotoFilter
-}
-
-/// The four filters, and none, as a row of pills under the preview. A tap
-/// shows the look at once; there is nothing to adjust. The pills are the
-/// atmosphere's, like the picker in Settings.
-struct FilterPills: View {
-    @Binding var selection: PhotoFilter
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            row
-            ScrollView(.horizontal, showsIndicators: false) { row }
-        }
-        .animation(.easeInOut(duration: 0.2), value: selection)
-    }
-
-    private var row: some View {
-        HStack(spacing: 4) {
-            ForEach(PhotoFilter.allCases) { filter in
-                ChoicePill(
-                    label: filter.label,
-                    on: selection == filter,
-                    palette: Atmosphere.resolve(raw).palette
-                ) {
-                    selection = filter
-                }
-            }
-        }
-    }
-}
-
 /// 'Who was there?' (Part 3): tap circle members present in the moment. A
 /// memory detail — no notifications, no mentions.
 struct WhoWasThere: View {
@@ -666,7 +615,7 @@ struct WhoWasThere: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Who was there?")
-                .smallCaps()
+                .quietLabel()
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(members) { member in
@@ -682,7 +631,7 @@ struct WhoWasThere: View {
                                     )
                                     .opacity(on ? 1 : 0.7)
                                 Text(member.displayName ?? "—")
-                                    .font(.hand(15, relativeTo: .caption))
+                                    .font(.caption)
                                     .foregroundStyle(on ? Color.accentColor : .secondary)
                                     .lineLimit(1)
                             }

@@ -252,7 +252,8 @@ final class APIClient: Sendable {
         if let caption, !caption.isEmpty { field("caption", caption) }
         if let location, !location.isEmpty { field("location", location) }
         for uid in tagged { field("tagged", uid) }  // repeated form fields
-        // The filter's name only: the look is already in the JPEG below.
+        // Only a capture queued by a build before 44 carries one (filters
+        // were removed): its name, since the look is in the JPEG below.
         if let filter { field("filter", filter) }
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n")

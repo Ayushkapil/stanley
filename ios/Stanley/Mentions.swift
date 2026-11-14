@@ -175,7 +175,7 @@ struct MentionBar: View {
                             .padding(.leading, 4)
                             .padding(.trailing, 12)
                             .padding(.vertical, 5)
-                            .background(.quinary, in: Capsule())
+                            .glass(in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Mention \(member.displayName ?? "New member")")
@@ -184,7 +184,7 @@ struct MentionBar: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
-            .background(.bar)
+            .background(.ultraThinMaterial)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
@@ -242,8 +242,9 @@ struct StoryComposer: View {
         HStack {
             // `storyField()`'s look, with the focus kept here, where the
             // picker needs it (one focus binding per field, not two).
+            // In a hand: what you remember is yours to write (build 44).
             TextField("", text: $text, prompt: .fieldPrompt(StoryLine.prompt))
-                .font(.callout)
+                .font(.hand(17, relativeTo: .callout))
                 .textFieldStyle(.plain)
                 .focused($focused)
                 // Return used to close the keyboard and leave the words
@@ -256,7 +257,7 @@ struct StoryComposer: View {
                 .onTapGesture { focused = true }
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Button("Add", action: send)
-                    .font(.callout)
+                    .font(.system(.callout, design: .rounded).weight(.medium))
             }
         }
         .onChange(of: focused) { refreshOffer() }

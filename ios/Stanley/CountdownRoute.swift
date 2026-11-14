@@ -39,7 +39,7 @@ struct CountdownRoute: View {
                             .frame(height: RouteSketch.height)
                     }
                     Text(phase.text)
-                        .font(.hand(16, relativeTo: .subheadline))
+                        .font(.system(.subheadline, design: .rounded).weight(.medium))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)

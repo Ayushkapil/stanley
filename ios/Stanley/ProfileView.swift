@@ -41,39 +41,34 @@ struct ProfileView: View {
     private var bioView: some View {
         if let bio = state.profile?.bio, !bio.isEmpty {
             Text(bio)
-                .font(.hand(19, relativeTo: .body))
-                .lineSpacing(1)
+                .font(.subheadline)
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             Button("Write a little about yourself") { showEdit = true }
-                .font(.hand(19, relativeTo: .body))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .buttonStyle(.plain)
         }
     }
 
-    /// The bookplate inside the cover: "This journal belongs to", your photo
-    /// pasted in a little crooked (a tap changes it), your name written on
-    /// the line, and your words beneath. Framed in a double rule, like the
-    /// plate a book is signed on.
+    /// Who you are, on a card: your photo (a tap changes it), your name
+    /// in the system's rounded face (it's your identity, not a journal
+    /// entry), your username and your words. A bookplate in a double rule
+    /// with the name in a hand until build 44.
     private var bookplate: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("This journal belongs to")
-                .smallCaps(11)
-                .frame(maxWidth: .infinity)
-            HStack(alignment: density.profileIsHorizontal ? .top : .center, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: density.profileIsHorizontal ? .top : .center, spacing: 16) {
                 AvatarEditor()
-                    .pastedFace(state.profile?.avatarUrl, border: 5, tilt: -2.5)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(state.profile?.displayName ?? " ")
-                        .font(.hand(34, bold: true, relativeTo: .largeTitle))
+                        .font(.system(.title2, design: .rounded).weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    // The line it's signed on.
-                    Rule(weight: 0.5)
                     if let username = state.profile?.username {
-                        Text("@\(username)").smallCaps()
-                            .padding(.top, 2)
+                        Text("@\(username)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                     // Inner display: the words flow beside the face
                     // instead of stacking under it.
@@ -87,15 +82,8 @@ struct ProfileView: View {
                 bioView
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 22)
-        .overlay {
-            ZStack {
-                Rectangle().strokeBorder(DarkRoom.line(0.55), lineWidth: 1.2)
-                Rectangle().strokeBorder(DarkRoom.line(0.3), lineWidth: 0.5).padding(4)
-            }
-            .allowsHitTesting(false)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(h: 18, v: 18)
     }
 
     var body: some View {
@@ -105,26 +93,16 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     JournalMasthead(title: "You", line: begun) {
                         Button("Edit") { showEdit = true }
-                            .font(.hand(20, bold: true, relativeTo: .body))
+                            .font(.system(.body, design: .rounded).weight(.medium))
                             .frame(minHeight: 44)
                     }
                     .id("masthead")
-                    // Sunday evening (build 26): how was the week? Gone at
-                    // midnight, and once it's written. Checked each minute,
-                    // so it leaves on time with the page open.
-                    TimelineView(.everyMinute) { context in
-                        if ReflectionWindow.isOpen(context.date), let week = state.thisWeek, week.reflection == nil {
-                            ReflectionCard(week: week)
-                                .padding(.top, Spacing.section)
-                        }
-                    }
                     bookplate
                         .padding(.top, Spacing.section)
                     if let shared = state.profile?.momentsShared, shared > 0 {
                         Text("You've shared \(shared == 1 ? "one moment" : "\(shared) moments"). Only you see this.")
-                            .font(.hand(16, relativeTo: .footnote))
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
                             .padding(.top, Spacing.section)
                     }
                     // The circle's faces, and at their end the way to add one
@@ -132,7 +110,7 @@ struct ProfileView: View {
                     // when inviting is the one thing to do.
                     if let circle = state.circle {
                         VStack(alignment: .leading, spacing: Spacing.section) {
-                            JournalSectionHead(label: "Kept with", title: circle.name)
+                            JournalSectionHead(label: "Your circle", title: circle.name)
                             CircleCards(members: others) { inviting = true }
                         }
                         .padding(.top, Spacing.chapter)
@@ -151,7 +129,7 @@ struct ProfileView: View {
                         .padding(.bottom, Spacing.section)
                     if kept.isEmpty {
                         Text("Moments you hold will gather here at full light. Only you see this — nothing here fades.")
-                            .font(.hand(18, relativeTo: .callout))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         LazyVGrid(columns: columns, spacing: Spacing.section) {
@@ -161,33 +139,11 @@ struct ProfileView: View {
                         }
                     }
                     // Letters you can write to someone in the circle for one
-                    // day in the future (build 42). Shown before Journal
-                    // because it's the one thing on this page that leaves
-                    // the page: the rest only you see.
+                    // day in the future (build 42). Your weekly reflections
+                    // were under this until build 44; they're the Journal
+                    // tab's pages now.
                     LettersOnYou()
                         .padding(.top, Spacing.chapter)
-
-                    // Your reflections, newest week first (build 26).
-                    JournalSectionHead(label: "Only you see this", title: "Journal")
-                        .padding(.top, Spacing.chapter)
-                        .padding(.bottom, Spacing.section)
-                    if state.reflections.isEmpty {
-                        Text("On Sunday evenings, Stanley asks how your week was. What you write is kept here, and it doesn't fade.")
-                            .font(.hand(18, relativeTo: .callout))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        LazyVStack(alignment: .leading, spacing: Spacing.section) {
-                            ForEach(state.reflections) { reflection in
-                                ReflectionPage(reflection: reflection)
-                            }
-                            if state.reflectionsCursor != nil {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, Spacing.section)
-                                    .task(id: state.reflectionsCursor) { await state.loadMoreReflections() }
-                            }
-                        }
-                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, Spacing.chapter)
@@ -201,8 +157,6 @@ struct ProfileView: View {
                 await state.loadProfile()
                 await state.refreshMemories()
                 milestones = await state.loadMilestones()
-                await state.loadThisWeek()
-                await state.loadReflections()
             }
             .journalPage()
             .navigationTitle("You")
@@ -212,8 +166,6 @@ struct ProfileView: View {
                 await state.loadProfile()
                 await state.refreshMemories()
                 milestones = await state.loadMilestones()
-                await state.loadThisWeek()
-                await state.loadReflections()
             }
             .sunRefreshable {
                 Haptics.refreshed()
@@ -221,17 +173,13 @@ struct ProfileView: View {
                     await state.loadProfile()
                     await state.refreshMemories()
                     milestones = await state.loadMilestones()
-                    await state.loadThisWeek()
-                    await state.loadReflections()
                 }.value
             }
             // The profile and Held are fetched again by `AppState`; the
-            // milestones and the journal are this page's to ask for.
+            // milestones are this page's to ask for.
             .onChange(of: state.reloads) {
                 Task {
                     milestones = await state.loadMilestones()
-                    await state.loadThisWeek()
-                    await state.loadReflections()
                 }
             }
           }
@@ -296,7 +244,7 @@ private struct CircleCards: View {
                     .frame(width: face, height: face)
                     .overlay(Circle().strokeBorder(accent, lineWidth: 1))
                 Text("Invite")
-                    .font(.hand(13, bold: true, relativeTo: .caption))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(accent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -314,7 +262,7 @@ private struct CircleCards: View {
         // Each face is ringed in the atmosphere's accent, as every face is
         // since build 39, with a hairline of the page outside it so one
         // reads against the next where they overlap.
-        let page = colorScheme == .dark ? Atmosphere.resolve(raw).palette.floor : PrintStock.paper
+        let page = Atmosphere.resolve(raw).palette.floor
         let full = member.displayName ?? "New member"
         return VStack(spacing: 4) {
             AvatarView(url: member.avatarUrl, name: member.displayName, size: face, circular: true)
@@ -322,14 +270,15 @@ private struct CircleCards: View {
                 .background(page, in: Circle())
                 .padding(-1)
             Text(full.split(separator: " ").first.map(String.init) ?? full)
-                .font(.hand(13, bold: true, relativeTo: .caption))
+                .font(.caption)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(width: face - overlap)
             // Who started it, said quietly: a word, not a crown.
             if marksOrganizer {
                 Text("organizer")
-                    .smallCaps(7)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
                     .opacity(member.isCreator == true ? 1 : 0)
             }
         }
@@ -357,7 +306,7 @@ struct MilestoneCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 Text(milestone.title)
-                    .font(.hand(22, bold: true, relativeTo: .title3))
+                    .font(.sectionTitle)
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
@@ -371,7 +320,7 @@ struct MilestoneCard: View {
             }
             if let body = milestone.body, !body.isEmpty {
                 Text(body)
-                    .font(.hand(17, relativeTo: .callout))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             if let faces = milestone.faces, !faces.isEmpty {
@@ -394,15 +343,13 @@ struct MilestoneCard: View {
                                     }
                                 }
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                            .asPrint(border: 3)
+                            .asPrint(corner: 4)
                     }
                 }
             }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: 0.6)
+        .card(h: 16, v: 16)
     }
 }
 
@@ -416,7 +363,7 @@ struct HeldTile: View {
 
     private var trace: String? {
         guard let taken = memory.takenAt else { return nil }
-        return "held · \(taken.formatted(.dateTime.month(.abbreviated).day()))"
+        return "Held · \(taken.formatted(.dateTime.month(.abbreviated).day()))"
     }
 
     var body: some View {
@@ -425,13 +372,16 @@ struct HeldTile: View {
                 Color.clear
                     .aspectRatio(PhotoShape.aspect, contentMode: .fit)
                     .overlay {
-                        Text("a memory was here")
-                            .font(.hand(12, relativeTo: .caption2))
+                        Text("A memory was here")
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(6)
                     }
-                    .asPrint(border: 4, tilt: PrintTilt.degrees(memory.id) * 2)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(DarkRoom.line(0.14), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    }
             } else {
                 Color.clear
                     .aspectRatio(PhotoShape.aspect, contentMode: .fit)
@@ -444,12 +394,12 @@ struct HeldTile: View {
                             }
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                    .asPrint(border: 4, tilt: PrintTilt.degrees(memory.id) * 2)
+                    .asPrint(corner: 6)
             }
             if let trace {
                 Text(trace)
-                    .smallCaps(8)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -589,14 +539,15 @@ struct MemberProfileView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         AvatarView(url: member.avatarUrl, name: member.displayName, size: 84)
-                            .pastedFace(member.avatarUrl, border: 5, tilt: -2)
                         Text(member.displayName ?? "New member")
-                            .font(.hand(38, bold: true, relativeTo: .largeTitle))
+                            .font(.system(.title, design: .rounded).weight(.semibold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                             .padding(.top, 16)
                         if let username = member.username {
-                            Text("@\(username)").smallCaps()
+                            Text("@\(username)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
                         since(member)
                             .padding(.top, 8)
@@ -626,7 +577,7 @@ struct MemberProfileView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .paperPage()
+        .atmosphereWash()
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $opened) { photo in
             PhotoStoriesView(photo: photo)
@@ -650,33 +601,29 @@ struct MemberProfileView: View {
     /// circle. A date and a role, never a number.
     @ViewBuilder
     private func since(_ member: MemberProfile) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Rule(weight: 0.5)
-            HStack(spacing: 8) {
-                if let since = member.memberSince {
-                    Text("Member since \(since.formatted(.dateTime.month(.wide).year()))")
-                }
-                if member.isOrganizer == true {
-                    Text("· organizer")
-                }
+        HStack(spacing: 6) {
+            if let since = member.memberSince {
+                Text("Member since \(since.formatted(.dateTime.month(.wide).year()))")
             }
-            .smallCaps()
-            Rule(weight: 0.5)
+            if member.isOrganizer == true {
+                Text("· Organizer")
+            }
         }
+        .quietLabel()
     }
 
-    /// Their words, in their hand, or a kind line where they haven't
+    /// Their words, or a kind line where they haven't
     /// written any yet.
     @ViewBuilder
     private func words(_ member: MemberProfile) -> some View {
         if let bio = member.bio, !bio.isEmpty {
             Text(bio)
-                .font(.hand(19, relativeTo: .body))
-                .lineSpacing(1)
+                .font(.body)
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             Text("Still writing this part…")
-                .font(.hand(19, relativeTo: .body))
+                .font(.body)
                 .foregroundStyle(.secondary)
         }
     }
@@ -716,9 +663,8 @@ private struct PrintThumb: View {
                     Rectangle().fill(.quaternary)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
             .saturation(1 - 0.85 * fade)
             .opacity(1 - (colorScheme == .dark ? 0.62 : 0.82) * fade)
-            .asPrint(border: 4, tilt: PrintTilt.degrees(photo.id) * 2)
+            .asPrint(corner: 6)
     }
 }

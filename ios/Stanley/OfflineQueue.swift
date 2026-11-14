@@ -7,9 +7,10 @@ struct PendingCapture: Codable, Equatable, Identifiable {
     var caption: String?
     var location: String?
     var tagged: [String]
-    /// The capture filter's name, if one was chosen. The look itself is
-    /// already in the saved JPEG. Missing from captures queued by builds
-    /// before filters existed, which decode as nil.
+    /// The name of the look a build before 44 baked into this photo, if it
+    /// was queued by one (filters were removed in build 44). It's sent with
+    /// the photo, since the look is in its pixels. Nil for every capture
+    /// made since.
     var filter: String?
     var capturedAt: Date
     /// The timezone the shutter closed in — the day it belongs to.

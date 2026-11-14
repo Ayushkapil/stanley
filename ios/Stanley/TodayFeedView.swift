@@ -110,13 +110,12 @@ struct TodayFeedView: View {
                             .id("day:\(day.id.timeIntervalSince1970)")
                         // Entries carry their FeedItem id (a String, like the
                         // ids above), so one binding anchors to any of them.
-                        // A day's entries are divided by a thin rule, the
-                        // way the paper divides its stories, not by a gap.
+                        // A day's entries are divided by room, not a rule
+                        // (build 44): the photos do the dividing.
                         ForEach(Array(day.items.enumerated()), id: \.element.id) { position, item in
                             VStack(alignment: .leading, spacing: 0) {
                                 if position > 0 {
-                                    Rule(weight: 0.5)
-                                        .padding(.vertical, Spacing.section)
+                                    Color.clear.frame(height: Spacing.chapter - 4)
                                 }
                                 if item.isMoment {
                                     MomentCard(item: item)
@@ -157,7 +156,7 @@ struct TodayFeedView: View {
             .scrollPosition(id: $anchor)
             // A tap on the Today tab: back to the top, or at the top the
             // pull's own refresh (`TabTaps`).
-            .onTabTap(state.tabTaps.today, scroll: proxy, to: "masthead") {
+            .onTabTap(state.tabTaps.today, scroll: proxy, to: "masthead", position: $anchor) {
                 await state.loadCircle()
                 await state.refreshToday()
                 await state.loadQuestion()
@@ -236,17 +235,17 @@ struct TodayEmptyPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Nothing here yet.")
-                .font(.hand(26, bold: true, relativeTo: .title))
+                .font(.sectionTitle)
             Button(action: onCapture) {
                 HStack(spacing: 12) {
                     CaptureButton(disabled: state.holdsTheDay, diameter: 44, action: onCapture)
                         .allowsHitTesting(false)
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Take today's photo")
-                            .font(.hand(20, bold: true, relativeTo: .body))
+                            .font(.system(.body, design: .rounded).weight(.medium))
                             .foregroundStyle(.primary)
                         Text("Your circle's first moment is waiting.")
-                            .font(.hand(16, relativeTo: .callout))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     .fixedSize(horizontal: false, vertical: true)
@@ -261,17 +260,14 @@ struct TodayEmptyPage: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Take today's photo")
             .accessibilityHint("Your circle's first moment is waiting.")
-            Rule(weight: 0.5)
-                .padding(.top, 12)
             Text("Photos live for six days, then they're gone.")
-                .smallCaps()
-                .padding(.top, 6)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.top, 12)
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperInsert(tilt: -0.8)
+        .card(h: 20, v: 16)
         .padding(.top, 6)
         // Breathing room under the sheet, so its foot clears the tab bar
         // with the page's own margin to spare once scrolled to the end.
@@ -315,31 +311,29 @@ struct DayMark: View {
         return date.formatted(.dateTime.weekday(.wide))
     }
 
-    /// Written at the head of the page in a hand, the day and then its date,
-    /// with the rest of the line ruled off in ink.
+    /// The day, then its date: the system's rounded face, the date quiet
+    /// beside it. No rule (build 44).
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title)
-                .font(.hand(30, bold: true, relativeTo: .title))
+                .font(.sectionTitle)
                 .lineLimit(1)
                 .fixedSize()
             Text(date, format: .dateTime.day().month(.wide))
-                .font(.hand(17, relativeTo: .subheadline))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
-            Rule(weight: 0.5)
-                .frame(maxWidth: .infinity)
-                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+            Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
 }
 
-/// Today's masthead: the circle on screen as the journal's name, written in
-/// a hand and opening the others, then the paper's double rule, the day in
-/// small capitals and a hairline. It scrolls away with the page.
+/// Today's masthead: the circle on screen as the page's name, in SF Rounded,
+/// opening the others; the day in small capitals; one hairline. It scrolls
+/// away with the page.
 struct TodayMasthead: View {
     @Environment(AppState.self) private var state
     let onJoinAnother: () -> Void
@@ -347,15 +341,11 @@ struct TodayMasthead: View {
     var onCapture: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center) {
                 CircleSwitcher(onJoinAnother: onJoinAnother, onCircleJournal: onCircleJournal)
                 Spacer(minLength: 12)
                 NewPhotoButton(action: onCapture)
-            }
-            VStack(spacing: 2) {
-                Rule(weight: 1.5)
-                Rule(weight: 0.5)
             }
             Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
                 .smallCaps()
@@ -366,8 +356,10 @@ struct TodayMasthead: View {
             // from. Every other circle has none, and nothing is drawn.
             if let countdown = state.circle?.countdown {
                 CountdownRoute(countdown: countdown)
+                    .padding(.top, 4)
             }
             Rule(weight: 0.5)
+                .padding(.top, 4)
         }
         .padding(.top, 8)
         // Room under the rule before the page begins (build 22).
@@ -441,13 +433,12 @@ struct CircleSwitcher: View {
             }
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                // The journal's name, written on its cover.
                 Text(name)
-                    .font(.hand(40, bold: true, relativeTo: .largeTitle))
+                    .font(.pageTitle)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 Image(systemName: "chevron.down")
-                    .font(.footnote.weight(.bold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
@@ -655,12 +646,13 @@ struct ViewedMember: Identifiable {
     let id: String
 }
 
-/// The heart and the bookmark, at a size a thumb finds on a real device: a
-/// 22pt glyph (about 24pt tall) inside a 44pt target, Apple's minimum. One
+/// The heart and the bookmark: a small 17pt glyph (build 44; 22pt before,
+/// when each sat on its own disc) inside a 44pt-tall target, Apple's
+/// minimum, the two sharing one glass pill in the photo's corner. One
 /// size for both, everywhere they appear, so they never drift apart. Views
 /// read the glyph through `@ScaledMetric`, so it grows with Dynamic Type.
 enum GestureIcon {
-    static let glyph: CGFloat = 22
+    static let glyph: CGFloat = 17
     static let target: CGFloat = 44
 }
 
@@ -682,8 +674,8 @@ struct PhotoImageView: View {
     @Environment(AppState.self) private var state
     @Environment(\.colorScheme) private var colorScheme
     let photo: Photo
-    /// A print's photo is cut nearly square inside its border (`asPrint`).
-    var cornerRadius: CGFloat = PrintStock.photoCorner
+    /// Every photo is cut the same (`PhotoCut`).
+    var cornerRadius: CGFloat = PhotoCut.corner
     /// In Today's page the photo drifts a little behind its print as the
     /// page scrolls (build 39): up to 7pt, so the print has some depth.
     var drifts = false
@@ -744,7 +736,6 @@ struct PhotoImageView: View {
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))
                 .overlay { likeHeart }
-                .overlay { HeartBurst(trigger: heartPops) }
                 .overlay(alignment: .bottomTrailing) { gestures }
                 .clipShape(shape)
                 // Its final day: a warm edge, like candlelight. No text, no
@@ -813,45 +804,39 @@ struct PhotoImageView: View {
     /// for them; pressing and holding the photo, and double-tapping it, do
     /// the same.
     private var gestures: some View {
-        HStack(spacing: -6) {
+        HStack(spacing: 0) {
             Button { toggleHold() } label: {
                 marker(photo.anchoredByMe ? "bookmark.fill" : "bookmark",
-                       photo.anchoredByMe ? .accentColor : .white)
+                       photo.anchoredByMe ? Color.accentColor : DarkRoom.ink)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(photo.anchoredByMe ? "Let go of this memory" : "Hold this memory")
             Button { like() } label: {
                 marker(photo.likedByMe ? "heart.fill" : "heart",
-                       photo.likedByMe ? .pink : .white)
+                       photo.likedByMe ? Color.pink : DarkRoom.ink)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(photo.likedByMe ? "Unlike" : "Like")
             .accessibilityValue(photo.likedByMe ? "You liked this" : "")
         }
-        .padding(2)
+        .padding(.horizontal, 3)
+        // One small glass pill for the two (build 44; a material disc each
+        // before): the page's own ink on it, so it reads over a white sky
+        // and a black room alike.
+        .glass(in: Capsule())
+        .padding(8)
     }
 
-    /// A gesture marker on the photo, legible over a white sky and a black
-    /// room alike. The material disc carries a soft shadow and the glyph its
-    /// own, so neither dissolves into the picture. The glyph is the shared
-    /// gesture size, and the whole 44pt square around the disc takes the
-    /// tap. The outline is drawn a weight heavier than the default so an
-    /// empty heart reads as clearly as a full one.
+    /// A gesture's mark inside the pill. The glyph is the shared gesture
+    /// size; the target around it is 44pt tall and 40 wide, and the pill is
+    /// drawn only as tall as the glyphs need.
     private func marker(_ systemName: String, _ tint: Color) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: glyph, weight: .semibold))
+            .font(.system(size: glyph, weight: .medium))
             .foregroundStyle(tint)
             .contentTransition(.symbolEffect(.replace))
-            .shadow(color: .black.opacity(0.3), radius: 2)
-            .padding(6)
-            .background {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.22), radius: 4, y: 1)
-            }
-            .frame(minWidth: GestureIcon.target, minHeight: GestureIcon.target)
-            .contentShape(Rectangle())
-            .padding(4)
+            .frame(width: 40, height: 34)
+            .contentShape(Rectangle().inset(by: -5))
     }
 
     private func hold() {
@@ -859,8 +844,8 @@ struct PhotoImageView: View {
         // Felt as the bookmark fills, with the settle: a memory kept.
         Haptics.held()
         withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { settleScale = 0.97 }
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.12)) { settleScale = 1 }
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { settleScale = 0.97 }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85).delay(0.12)) { settleScale = 1 }
         Task { await state.hold(photo) }
     }
 
@@ -885,26 +870,28 @@ struct PhotoImageView: View {
         Task { await state.toggleLike(photo) }
     }
 
-    /// The double-tap heart: white, in the middle of the photo, up from 0.8
-    /// to 1.2 and back to 1 in half a second, then faded out. The photo
-    /// itself is never tinted. Still, without the scale, under Reduce Motion.
+    /// The double-tap heart: one white heart in the middle of the photo
+    /// that grows from 0.7 to 1.2 and fades as it goes, the plain one
+    /// everybody knows (build 44; build 39 threw four small hearts out with
+    /// it). The photo itself is never tinted. Only the fade under Reduce
+    /// Motion.
     private var likeHeart: some View {
         Image(systemName: "heart.fill")
             .font(.system(size: 80))
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.25), radius: 8)
             .keyframeAnimator(
-                initialValue: HeartPop(scale: reduceMotion ? 1 : 0.8), trigger: heartPops
+                initialValue: HeartPop(scale: reduceMotion ? 1 : 0.7), trigger: heartPops
             ) { heart, pop in
                 heart.scaleEffect(pop.scale).opacity(pop.opacity)
             } keyframes: { _ in
                 KeyframeTrack(\.scale) {
-                    CubicKeyframe(reduceMotion ? 1 : 1.2, duration: 0.2)
-                    CubicKeyframe(1, duration: 0.3)
+                    SpringKeyframe(reduceMotion ? 1 : 1.0, duration: 0.2, spring: .init(response: 0.25, dampingRatio: 0.85))
+                    CubicKeyframe(reduceMotion ? 1 : 1.2, duration: 0.25)
                 }
                 KeyframeTrack(\.opacity) {
-                    LinearKeyframe(1, duration: 0.08)
-                    LinearKeyframe(1, duration: 0.42)
+                    LinearKeyframe(1, duration: 0.06)
+                    LinearKeyframe(1, duration: 0.2)
                     LinearKeyframe(0, duration: 0.2)
                 }
             }
@@ -969,7 +956,7 @@ private struct Entrance: ViewModifier {
             .opacity(arrived ? 1 : 0)
             .offset(y: arrived || reduceMotion ? 0 : 20)
             .onAppear {
-                withAnimation(.easeOut(duration: 0.3)) { arrived = true }
+                withAnimation(.easeOut(duration: 0.25)) { arrived = true }
             }
     }
 }
@@ -978,10 +965,10 @@ extension View {
     func entrance() -> some View { modifier(Entrance()) }
 }
 
-/// One entry in the journal: the print laid on the page, then beneath it in
-/// ink, with no frame around any of it: who and when in a hand, the
-/// caption, the place, who was there, the stories and the line that asks
-/// for the next.
+/// One entry in Today: the photo, straight and clean, then beneath it with
+/// no frame around any of it: who and when (small, quiet), the caption,
+/// the place, who was there, the stories and the line that asks for the
+/// next.
 struct PhotoCard: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -997,8 +984,7 @@ struct PhotoCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             PhotoImageView(photo: photo, drifts: true)
-                .asPrint(border: density.isRoom ? 9 : 7, tilt: PrintTilt.degrees(photo.id))
-                .padding(.bottom, 6)
+                .asPrint()
             words
             comments
             commentField
@@ -1028,7 +1014,7 @@ struct PhotoCard: View {
         })
     }
 
-    /// Who and when in a hand, then the caption, place and who was there,
+    /// Who and when, then the caption, place and who was there,
     /// with the owner's faces button and the photo's "…" menu at the end of
     /// the first line. Always drawn, so the menu (report, delete, untag) is
     /// there on every print, not only behind a long press.
@@ -1045,10 +1031,14 @@ struct PhotoCard: View {
                 }
                 .padding(.bottom, 2)
                 if let caption {
-                    Text(caption).font(.body)
+                    // In a hand on your own photo, where the words are
+                    // yours; plain on anyone else's (build 44).
+                    Text(caption)
+                        .font(isMine ? .hand(18, relativeTo: .body) : .body)
+                        .foregroundStyle(.primary)
                 }
                 if let place {
-                    Text(place).font(.footnote).italic().foregroundStyle(.secondary)
+                    Text(place).font(.footnote).foregroundStyle(.secondary)
                 }
                 // 'Who was there' — faces as a memory detail, not tappable (Part 3).
                 if !photo.tagged.isEmpty {
@@ -1093,7 +1083,6 @@ struct PhotoCard: View {
             // its frame let the keyboard nudge all of Today sideways.
             PhotoMenuButton(photo: photo, action: $action)
         }
-        .padding(.horizontal, 2)
     }
 
     /// Co-remembering, visible without digging, the way you'd overhear it:
@@ -1119,7 +1108,6 @@ struct PhotoCard: View {
                     storyLine(newest)
                 }
             }
-            .padding(.horizontal, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             // The rest of the comment area, beside and between the lines,
             // opens the stories too. Behind the lines rather than over them,
@@ -1142,7 +1130,6 @@ struct PhotoCard: View {
 
     private var commentField: some View {
         StoryComposer(photo: photo)
-            .padding(.horizontal, 2)
             .creaseSafe(density)
     }
 }
@@ -1162,10 +1149,11 @@ struct MomentCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .bottom, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("together, from your circle")
-                        .smallCaps()
+                    Text("Together, from your circle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     Text(item.location ?? "Shared moment")
-                        .font(.hand(22, bold: true, relativeTo: .title3))
+                        .font(.sectionTitle)
                 }
                 Spacer()
                 if let members = item.members {
@@ -1175,7 +1163,6 @@ struct MomentCard: View {
                     )
                 }
             }
-            .padding(.horizontal, 2)
             // Inner display: two prints side by side at a size worth looking
             // at, with a sliver of the third so it's clear there is more.
             // Outer display: the same run, narrowed to fit.
@@ -1184,22 +1171,20 @@ struct MomentCard: View {
                     ForEach(item.photos ?? []) { photo in
                         VStack(alignment: .leading, spacing: 10) {
                             PhotoImageView(photo: photo)
-                                .asPrint(border: 6, tilt: PrintTilt.degrees(photo.id))
+                                .asPrint()
                             PrintByline(
-                                owner: photo.owner, time: photo.takenAt, size: 16,
+                                owner: photo.owner, time: photo.takenAt,
                                 plane: state.circle?.countdown?.marks(photo.takenAt) ?? false
                             ) {
                                 if let ownerId = photo.owner.id { viewedMember = ViewedMember(id: ownerId) }
                             }
-                            .padding(.horizontal, 4)
                         }
                         .containerRelativeFrame(.horizontal) { length, _ in
                             density.momentTileWidth(container: length)
                         }
                     }
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .padding(.vertical, 4)
             }
             .scrollTargetBehavior(.viewAligned)
         }
@@ -1210,10 +1195,6 @@ struct MomentCard: View {
     }
 }
 
-/// The one quiet Returned card (§14), set apart from circle content. Rescue is
-/// time-critical (keep your own fading photo); anniversary and near-forgotten
-/// resurface held memories. Two distinct exits: Rest (never again) and
-/// Dismiss (not now).
 /// The weekly mosaic (Part 2): the week's photos as one fleeting artifact.
 /// View-only — no holds, likes, comments, or counts. Each tile shows its
 /// owner's face. Appears Sun/Mon, gone Tuesday.
@@ -1234,16 +1215,17 @@ struct MosaicCard: View {
             // Header stays above the carousel.
             VStack(alignment: .leading, spacing: 0) {
                 Text("Your week")
-                    .font(.hand(24, bold: true, relativeTo: .title3))
-                Text("Your week, all at once.")
-                    .smallCaps()
+                    .font(.sectionTitle)
+                Text("All at once.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             // It arrives rather than appears: a slow fade on first sight.
             .opacity(headerShown ? 1 : 0)
             .task {
                 guard !headerShown else { return }
-                withAnimation(.easeIn(duration: 0.8)) { headerShown = true }
+                withAnimation(.easeIn(duration: 0.25)) { headerShown = true }
             }
 
             // One photo at a time, swipeable — flipping through the week.
@@ -1264,10 +1246,10 @@ struct MosaicCard: View {
                         // Written under the photo, the way a photo book is
                         // annotated: who took it, then what they said.
                         Text(tile.owner.displayName)
-                            .font(.hand(19, bold: true, relativeTo: .headline))
+                            .font(.footnote.weight(.semibold))
                         if let caption = tile.caption, !caption.isEmpty {
                             Text(caption)
-                                .font(.hand(16, relativeTo: .subheadline))
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
                         }
@@ -1290,9 +1272,7 @@ struct MosaicCard: View {
                 .animation(.easeInOut(duration: 0.2), value: selection)
             }
         }
-        .padding(density.cardPadding + 4)
-        // A sheet of its own tucked into the journal, not a card on it.
-        .paperInsert()
+        .card(h: density.cardPadding + 4, v: density.cardPadding + 4)
     }
 
     private func tilePhoto(_ tile: MosaicTile) -> some View {
@@ -1306,13 +1286,16 @@ struct MosaicCard: View {
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-            .asPrint(border: 6)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 8)
+            .asPrint()
+            .padding(.horizontal, 2)
+            .padding(.vertical, 4)
     }
 }
 
+/// The one quiet Returned card (§14), set apart from circle content. Rescue is
+/// time-critical (keep your own fading photo); anniversary and near-forgotten
+/// resurface held memories. One exit, Dismiss (not now); resting a memory
+/// for good was removed in build 44.
 struct ReturnedCard: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -1363,9 +1346,11 @@ struct ReturnedCard: View {
             if let heading {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(heading)
-                        .font(.hand(22, bold: true, relativeTo: .title3))
+                        .font(.sectionTitle)
                     if !subheading.isEmpty {
-                        Text(subheading).smallCaps()
+                        Text(subheading)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1381,9 +1366,7 @@ struct ReturnedCard: View {
                             Rectangle().fill(.quaternary)
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                    .asPrint(border: 6, tilt: PrintTilt.degrees(item.photo.id))
-                    .padding(.vertical, 4)
+                    .asPrint()
             }
             if let caption = item.photo.caption, !caption.isEmpty {
                 Text(caption).font(.callout)
@@ -1406,9 +1389,6 @@ struct ReturnedCard: View {
                 .buttonStyle(.borderedProminent)
             }
             HStack {
-                Button("Rest this memory") {
-                    Task { await state.restReturned(photoId: item.photo.id) }
-                }
                 Spacer()
                 Button("Dismiss") {
                     Task { await state.dismissReturned() }
@@ -1418,10 +1398,8 @@ struct ReturnedCard: View {
             .foregroundStyle(.secondary)
             .padding(.top, 2)
         }
-        .padding(density.cardPadding + 4)
-        // Set apart from the circle's own pages: a slip of paper tucked in
-        // among them, lying a little crooked.
-        .paperInsert(tilt: -0.5)
+        // Set apart from the circle's own photos: a card of its own.
+        .card(h: density.cardPadding + 4, v: density.cardPadding + 4)
     }
 }
 
@@ -1450,10 +1428,10 @@ struct PhotoStoriesView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     PhotoImageView(photo: photo)
-                        .asPrint(border: density.isRoom ? 9 : 7)
-                        .padding(.bottom, 4)
+                        .asPrint()
                     if let caption = photo.caption, !caption.isEmpty {
-                        Text(caption).font(.body)
+                        Text(caption)
+                            .font(photo.owner.id == state.myId ? .hand(18, relativeTo: .body) : .body)
                     }
                     ForEach(thread) { comment in
                         StoryLine.text(comment, people: state.mentions)
@@ -1522,14 +1500,12 @@ struct PendingCaptureCard: View {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
                     // Held back a little until it's real for everyone else.
                     .opacity(pending.rejection == nil ? 0.72 : 0.5)
-                    .asPrint(border: density.isRoom ? 9 : 7)
-                    .padding(.bottom, 6)
+                    .asPrint()
             }
             if let caption = pending.caption, !caption.isEmpty {
-                Text(caption).font(.body)
+                Text(caption).font(.hand(18, relativeTo: .body))
             }
             if let rejection = pending.rejection {
                 Text(rejection)
@@ -1547,7 +1523,7 @@ struct PendingCaptureCard: View {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.mini)
                     Text("Waiting to upload")
-                        .font(.hand(16, relativeTo: .subheadline))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }

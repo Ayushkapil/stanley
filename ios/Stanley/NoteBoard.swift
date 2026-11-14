@@ -43,12 +43,12 @@ struct StickyNote: View {
                 .opacity(0.7)
                 .lineLimit(1)
         }
-        .foregroundStyle(NotePaper.ink)
+        .foregroundStyle(NotePaper.boardInk(colorScheme))
         .padding(.horizontal, 16)
         .padding(.top, 22)
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity, alignment: .topLeading)
-        .background { StickyPaper(color: NotePaper.base(colorScheme), tone: tone) }
+        .background { StickyPaper(color: NotePaper.board(colorScheme), tone: tone) }
         .overlay(alignment: .top) { Tape().offset(y: -10) }
         .keyframeAnimator(initialValue: 0.0, trigger: lifts) { content, lift in
             content
@@ -58,8 +58,8 @@ struct StickyNote: View {
         } keyframes: { _ in
             // Up off the board, then back down with a little give.
             KeyframeTrack {
-                CubicKeyframe(1, duration: 0.22)
-                SpringKeyframe(0, duration: 0.7, spring: .init(duration: 0.6, bounce: 0.35))
+                CubicKeyframe(1, duration: 0.15)
+                SpringKeyframe(0, duration: 0.3, spring: .init(response: 0.28, dampingRatio: 0.85))
             }
         }
         .accessibilityElement(children: .ignore)
@@ -74,47 +74,51 @@ struct StickyNote: View {
     }
 }
 
-/// A note's paper: its color with its author's tone in it, lighter where the
-/// light falls and deeper at the curl, with a grain and a soft shadow.
+/// A note's paper: warm cream with its author's tone in it, grained, with
+/// a soft shadow, in daylight. In the dark it's a step up from the black
+/// (build 44; lamplit paper before), edged in a faint light line, with no
+/// grain and no shadow, and the words on it in warm white.
 private struct StickyPaper: View {
     @Environment(\.colorScheme) private var colorScheme
     let color: Color
     var tone: Color = .clear
 
     var body: some View {
-        Rectangle()
+        let dark = colorScheme == .dark
+        let shape = RoundedRectangle(cornerRadius: 2, style: .continuous)
+        shape
             .fill(color)
-            .overlay(Rectangle().fill(tone.opacity(NotePaper.tint)))
-            .overlay(
-                LinearGradient(
-                    colors: [.white.opacity(0.10), .clear, .black.opacity(0.05)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-            )
-            .overlay(PaperGrainView(strength: 0.55).clipped())
+            .overlay(shape.fill(tone.opacity(dark ? 0.10 : NotePaper.tint)))
+            .overlay {
+                if dark {
+                    shape.strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
+                } else {
+                    PaperGrainView(strength: 0.5).clipShape(shape)
+                }
+            }
             // Two shadows, the way paper sits on a page (build 39): a tight
             // one where it touches, and a soft one where its edge lifts.
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 1.5, x: 0, y: 1)
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.17), radius: 8, x: 1, y: 5)
+            .shadow(color: .black.opacity(dark ? 0 : 0.08), radius: 1.5, x: 0, y: 1)
+            .shadow(color: .black.opacity(dark ? 0 : 0.10), radius: 8, x: 1, y: 4)
     }
 }
 
 /// The blank note that stands in for yours until you write it: "Leave a
-/// note for your circle…", on sticky-note yellow.
+/// note for your circle…", on the same paper as any note.
 private struct BlankNote: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Text("Leave a note for your circle…")
             .font(.hand(18, relativeTo: .body))
-            .foregroundStyle(NotePaper.ink)
+            .foregroundStyle(NotePaper.boardInk(colorScheme))
             .opacity(0.55)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
             .padding(.top, 22)
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity, alignment: .topLeading)
-            .background { StickyPaper(color: NotePaper.blank(colorScheme)) }
+            .background { StickyPaper(color: NotePaper.board(colorScheme)) }
             .overlay(alignment: .top) { Tape().offset(y: -10) }
             .rotationEffect(.degrees(-1.6))
             .accessibilityLabel("Leave a note for your circle")
@@ -220,7 +224,7 @@ struct NoteBoard: View {
 
     private func begin() {
         guard draft == nil else { return }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
             draft = state.myNote?.text ?? ""
             current = cards.first?.id
         }
@@ -228,7 +232,7 @@ struct NoteBoard: View {
 
     private func finish() {
         typing = false
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { draft = nil }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { draft = nil }
     }
 
     /// Done: pin what's written. The note stays open until the server has
@@ -379,32 +383,35 @@ private struct WritingNote: View {
     let onDone: () -> Void
 
     var body: some View {
+        let ink = NotePaper.boardInk(colorScheme)
         VStack(alignment: .leading, spacing: 8) {
             TextField(
                 "", text: $text,
-                prompt: Text("Leave a note for your circle…").foregroundColor(NotePaper.ink.opacity(0.45)),
+                prompt: Text("Leave a note for your circle…").foregroundColor(ink.opacity(0.45)),
                 axis: .vertical
             )
             .font(.hand(18, bold: true, relativeTo: .body))
-            .foregroundStyle(NotePaper.ink)
-            .tint(NotePaper.ink)
+            .foregroundStyle(ink)
+            .tint(ink)
             .textFieldStyle(.plain)
             .lineLimit(2...7)
             .focused(typing)
             .accessibilityLabel("Your note")
             Spacer(minLength: 0)
+            // Buttons are buttons, even on a note: the system's rounded
+            // face, not the hand (build 44).
             HStack(spacing: 18) {
                 Button("Cancel", action: onCancel)
-                    .font(.hand(15, relativeTo: .footnote))
+                    .font(.system(.footnote, design: .rounded))
                     .opacity(0.7)
                     .disabled(saving)
                 Spacer(minLength: 0)
                 Button(saving ? "Pinning…" : takesDown ? "Take Down" : "Done", action: onDone)
-                    .font(.hand(16, bold: true, relativeTo: .footnote))
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .disabled(saving)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(NotePaper.ink)
+            .foregroundStyle(ink)
             // A thumb's height each, though they're written small.
             .frame(minHeight: 30)
         }
@@ -413,7 +420,7 @@ private struct WritingNote: View {
         .padding(.bottom, 10)
         .frame(maxWidth: .infinity, minHeight: 112, maxHeight: .infinity, alignment: .topLeading)
         .background {
-            StickyPaper(color: tone == nil ? NotePaper.blank(colorScheme) : NotePaper.base(colorScheme), tone: tone ?? .clear)
+            StickyPaper(color: NotePaper.board(colorScheme), tone: tone ?? .clear)
         }
         .overlay(alignment: .top) { Tape().offset(y: -10) }
         // Lifted a little toward you while you write.

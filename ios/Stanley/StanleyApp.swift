@@ -54,33 +54,17 @@ struct StanleyApp: App {
     }
 }
 
-/// Words in the dark room are a warm white, not a stark one (`DarkRoom.ink`).
-/// Set once at the root for everything that doesn't name its own color, as
-/// three levels: the words, the quieter `.secondary`, and the `.tertiary`.
-/// In daylight the words are the label color as ever, but the secondary is
-/// a step deeper than the system's (the HCI audit, build 32): the system's
-/// secondary gray on the journal's paper measured 3.2:1, under the 4.5:1 that
-/// WCAG AA asks of small text, and the small capitals are all small text. At
-/// 75% it's 4.6 to 4.9:1 on every mood's paper. In the dark room the
-/// secondary is the warm white at half strength (4.6:1 on black), as before.
-/// Colors that answer to the appearance themselves, so flipping it doesn't
-/// rebuild the app.
+/// Stanley's three inks, set once at the root for everything that doesn't
+/// name its own color (Quiet Warmth, build 44): the words (#1A1A1A; warm
+/// white #F0EBE3 in the dark), the quieter `.secondary` (warm gray #8A8580;
+/// #6B6560 in the dark) and the `.tertiary`. The secondary is the brief's:
+/// it measures about 3.5:1 on the page, lighter than the 4.6:1 the HCI
+/// audit of build 32 had set. Colors that answer to the appearance
+/// themselves, so flipping it doesn't rebuild the app.
 private struct DarkRoomInk: ViewModifier {
-    static let words = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1)
-            : .label
-    })
-    static let quieter = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 0.5)
-            : UIColor(red: 60 / 255, green: 60 / 255, blue: 67 / 255, alpha: 0.75)
-    })
-    static let quietest = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 0.3)
-            : .tertiaryLabel
-    })
+    static let words = DarkRoom.ink
+    static let quieter = DarkRoom.quiet
+    static let quietest = DarkRoom.quietest
 
     func body(content: Content) -> some View {
         content.foregroundStyle(Self.words, Self.quieter, Self.quietest)
@@ -124,7 +108,7 @@ struct RootView: View {
                     // First launch, never signed in: introduce Stanley quietly,
                     // then fall through to Welcome. Shown once, ever.
                     OnboardingView {
-                        withAnimation(.easeInOut(duration: 0.35)) { hasSeenOnboarding = true }
+                        withAnimation(.easeInOut(duration: 0.25)) { hasSeenOnboarding = true }
                     }
                     .transition(.opacity)
                 } else if !state.signedIn {
@@ -195,9 +179,8 @@ struct RootView: View {
                     .font(.callout)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(.thinMaterial, in: Capsule())
+                    .glass(in: Capsule())
                     .padding(.bottom, 28)
-                    .shadow(radius: 8, y: 2)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .task(id: flash) {
                         try? await Task.sleep(nanoseconds: 2_600_000_000)
@@ -293,31 +276,26 @@ struct HomeView: View {
     var body: some View {
         TabView(selection: selection) {
             TodayFeedView(capturing: $capturing, sideDock: $sideDock)
-                .tabFade(tab == .today)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Today", systemImage: "sun.haze") }
                 .tag(Tab.today)
             MemoriesView()
-                .tabFade(tab == .held)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
-                .tabItem { Label("Held", systemImage: "bookmark") }
+                .tabItem { Label("Journal", systemImage: "book.closed") }
                 .tag(Tab.held)
             ProfileView()
-                .tabFade(tab == .you)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("You", systemImage: "person") }
                 .tag(Tab.you)
             WorldTodayView()
-                .tabFade(tab == .world)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("World", systemImage: "globe") }
                 .tag(Tab.world)
             SettingsView()
-                .tabFade(tab == .settings)
                 .darkRoomInk()
                 .solidTabBar(sideDock)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
@@ -413,10 +391,11 @@ private struct OfflineCover: View {
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 4)
             Text("Stanley can't be reached right now.")
-                .font(.hand(26, bold: true, relativeTo: .title2))
+                .font(.sectionTitle)
                 .multilineTextAlignment(.center)
             Text("It opens by itself when you're back online.")
-                .smallCaps(11)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
                 Task {
@@ -432,7 +411,7 @@ private struct OfflineCover: View {
                         Text("Try again")
                     }
                 }
-                .font(.hand(20, relativeTo: .body))
+                .font(.system(.body, design: .rounded).weight(.medium))
                 .frame(minWidth: 120, minHeight: 44)
                 .contentShape(Rectangle())
             }

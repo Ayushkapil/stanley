@@ -13,7 +13,22 @@ enum DarkRoom {
     static let ink = Color(UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 240 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1)   // #F0EBE3
-            : .label
+            : UIColor(red: 26 / 255, green: 26 / 255, blue: 26 / 255, alpha: 1)      // #1A1A1A
+    })
+
+    /// The quieter words: warm gray in daylight (#8A8580), dim warm in the
+    /// dark (#6B6560).
+    static let quiet = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 107 / 255, green: 101 / 255, blue: 96 / 255, alpha: 1)
+            : UIColor(red: 138 / 255, green: 133 / 255, blue: 128 / 255, alpha: 1)
+    })
+
+    /// Quieter still: a placeholder, a hint.
+    static let quietest = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 74 / 255, green: 70 / 255, blue: 66 / 255, alpha: 1)
+            : UIColor(red: 181 / 255, green: 177 / 255, blue: 172 / 255, alpha: 1)
     })
 
     /// A rule's gray in the dark: #2A2A2A, barely there.

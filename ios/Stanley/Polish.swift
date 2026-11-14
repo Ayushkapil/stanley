@@ -53,14 +53,13 @@ struct Shimmer: View {
 struct TodaySkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.section) {
-            ForEach(0..<2, id: \.self) { index in
+            ForEach(0..<2, id: \.self) { _ in
                 VStack(alignment: .leading, spacing: 10) {
                     Color.clear
                         .aspectRatio(PhotoShape.aspect, contentMode: .fit)
                         .frame(maxWidth: .infinity)
                         .overlay { Shimmer() }
-                        .clipShape(RoundedRectangle(cornerRadius: PrintStock.photoCorner, style: .continuous))
-                        .asPrint(tilt: index == 0 ? -0.5 : 0.6)
+                        .asPrint()
                     Shimmer()
                         .frame(width: 150, height: 14)
                         .clipShape(Capsule())
@@ -72,58 +71,6 @@ struct TodaySkeleton: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading today's photos")
-    }
-}
-
-// MARK: - The heart's burst
-
-/// Four small hearts thrown out from the middle of a photo as the big one
-/// blooms: up and outward, turning a little, gone in half a second. Played
-/// once each time `trigger` changes. Nothing under Reduce Motion.
-struct HeartBurst: View {
-    let trigger: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// Where each goes: an angle (up is -90°), how far, how big, and its turn.
-    private static let hearts: [(angle: Double, reach: CGFloat, size: CGFloat, turn: Double)] = [
-        (-142, 96, 22, -18),
-        (-104, 118, 17, 10),
-        (-68, 108, 20, 16),
-        (-30, 92, 15, -12),
-    ]
-
-    var body: some View {
-        if !reduceMotion {
-            ZStack {
-                ForEach(Array(Self.hearts.enumerated()), id: \.offset) { index, heart in
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: heart.size))
-                        .foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.2), radius: 3)
-                        .keyframeAnimator(initialValue: 0.0, trigger: trigger) { content, flight in
-                            let angle = heart.angle * .pi / 180
-                            content
-                                .scaleEffect(0.5 + 0.6 * flight)
-                                .rotationEffect(.degrees(heart.turn * flight))
-                                .offset(
-                                    x: cos(angle) * heart.reach * flight,
-                                    y: sin(angle) * heart.reach * flight
-                                )
-                                // Nothing at rest, there at the start, gone by the end.
-                                .opacity(flight <= 0 ? 0 : min(1, (1 - flight) * 2.2))
-                        } keyframes: { _ in
-                            KeyframeTrack {
-                                // A beat behind the big heart, each a little
-                                // after the last.
-                                LinearKeyframe(0.001, duration: 0.06 + 0.03 * Double(index))
-                                CubicKeyframe(1, duration: 0.46)
-                            }
-                        }
-                }
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
     }
 }
 
@@ -329,16 +276,9 @@ struct FoldedCorner: View {
     }
 }
 
-// MARK: - A tab arriving, and the "+" asking
+// MARK: - The "+" asking
 
 extension View {
-    /// A tab's page fades in over the paper as it's chosen (0.15s), where
-    /// the system swaps one for the next in a single frame.
-    func tabFade(_ showing: Bool) -> some View {
-        opacity(showing ? 1 : 0)
-            .animation(.easeOut(duration: 0.15), value: showing)
-    }
-
     /// A quiet invitation: every five seconds the view swells a little and
     /// a ring of its own color breathes out from it, while `asking` is
     /// true. Nothing under Reduce Motion.

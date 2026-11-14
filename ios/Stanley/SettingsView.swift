@@ -8,6 +8,7 @@ import UserNotifications
 /// is a level down, behind its own page and a confirmation.
 struct SettingsView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.appLock") private var appLock = false
@@ -28,14 +29,9 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // The page's masthead, on the paper rather than in a row.
-                Section {
-                    JournalMasthead(title: "Settings", line: "Stanley, and how it's kept")
-                        .padding(.bottom, 4)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 6, bottom: 0, trailing: 6))
-                }
+                // Plain iOS Settings (build 44): the system's own large
+                // title and grouped rows, in Stanley's accent. No masthead,
+                // no paper.
                 Group {
                     circleSection
                     appearanceSection
@@ -47,8 +43,9 @@ struct SettingsView: View {
             }
             .readableWidth(density)
             .foldAnimated(hSizeClass)
-            .journalPage()
+            .atmosphereWash()
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
             .alert("Leave \(state.circle?.name ?? "this circle")?", isPresented: $confirmLeave) {
                 Button("Leave", role: .destructive) { Task { await state.leaveCircle() } }
                 Button("Cancel", role: .cancel) {}
@@ -133,28 +130,44 @@ struct SettingsView: View {
         }
     }
 
+    /// What's chosen among Light, Dark and Rain; nil is matching the phone.
+    private var look: Binding<Look?> {
+        Binding(
+            get: { Look.current(appearance: appearance, atmosphere: atmosphere) },
+            set: { chosen in
+                let stored = Look.stored(chosen)
+                appearance = stored.appearance
+                atmosphere = stored.atmosphere
+            }
+        )
+    }
+
+    /// Three looks in one segmented control (build 44; an appearance
+    /// control and a menu of six atmospheres before). With none chosen
+    /// Stanley is light or dark as the phone is, which is where it starts.
     private var appearanceSection: some View {
         Section {
-            Picker("Appearance", selection: $appearance) {
-                Text("System").tag("system")
-                Text("Light").tag("light")
-                Text("Dark").tag("dark")
-            }
-            .pickerStyle(.segmented)
-            // A menu, the way iOS picks one of a few: the choice shows in the
-            // row, and the six names open from it.
-            Picker("Atmosphere", selection: $atmosphere) {
-                ForEach(Atmosphere.allCases) { atmosphere in
-                    Text(atmosphere.label).tag(atmosphere.rawValue)
+            Picker("Appearance", selection: look) {
+                ForEach(Look.allCases) { each in
+                    Text(each.label).tag(Optional(each))
                 }
             }
-            .pickerStyle(.menu)
+            .pickerStyle(.segmented)
+            Toggle("Match iPhone", isOn: Binding(
+                get: { look.wrappedValue == nil },
+                set: { matching in
+                    // Off keeps what's showing: the phone's own, held.
+                    look.wrappedValue = matching ? nil : (colorScheme == .dark ? .dark : .light)
+                }
+            ))
+            .tint(palette.toggle)
         } header: {
             Text("Appearance").smallCaps(11)
         } footer: {
-            Text("Auto is Stanley's own quiet look: warm white in light mode, black in dark. The others are moods, and Rain is the quiet one. It's only color — nothing about how Stanley works changes.")
+            Text("Light is warm white. Dark is true black, a gallery for the photos. Rain is fog on a window, in light or dark as your iPhone is. It's only color: nothing about how Stanley works changes.")
         }
     }
+
 
     private var privacySection: some View {
         Section {
@@ -222,7 +235,7 @@ struct SettingsView: View {
             Text("About").smallCaps(11)
         } footer: {
             Text(Self.versionLine)
-                .smallCaps()
+                .font(.footnote)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 18)
         }
