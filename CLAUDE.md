@@ -452,6 +452,48 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Letters and Prompts are on a bar at the head of the page** (build 48,
+  November 14, 2026, a product brief from Ayush after trying build 46;
+  screenshots in `docs/journal-bar-build48/`). Build 46's two paper tabs
+  at the page's edge are gone: they were too small to press reliably, sat
+  over what was on the page, and read as system UI. **Where the next
+  section says "paper tabs", this is what there is instead.** Phone only.
+  - **The bar** is the head of the page, 44pt under the status bar
+    (`BookLayout.bar`): at its left the date, small, in the hand, as
+    before; at its right two marks (`BookBar` in `BookView.swift`), an
+    envelope for **Letters** and a question in a speech bubble for
+    **Prompts** (only with a circle), each opening the same sheet the tab
+    did. SF Symbols, light weight, 20pt, in the accent; each in a 44pt
+    target; 20pt between one mark and the next, and 20pt from the last to
+    the page's edge (the book's fore-edge and its ribbon are past that).
+    **A small dot of wax red on the envelope while any letter to you is
+    still sealed**; VoiceOver says whether its day has come.
+  - **Nothing on a page is under it.** What's on a page starts 6pt below
+    the bar (`contentTop`; it was 42pt under the status bar, now 50), so
+    a photo, a letter and the first ruled line all begin beneath it. The
+    date may take the bar's width less 132pt, and shrinks to fit before
+    it would reach a mark.
+  - **The marks stay put while pages turn**; the date is on the page and
+    turns with it. So the bar is the page's own head and not a strip
+    above the paper: a strip would have cut the page short of the top of
+    the screen and stopped the curl under it. Not asked about; if a bar
+    that never moves at all is wanted, the page controller's view would
+    start below it.
+  - **On Sunday evening a third mark**, a moon, to the left of the
+    envelope: "How was your week?" (build 46's third tab, moved with the
+    others; still not asked about).
+  - **A month's opening page** has the journal's name at the bar's left,
+    where a day has its date (it was centered, where the marks now are).
+  - While a page is being written the layer over it covers the marks, and
+    Cancel and Done are in their place, as in build 46.
+  - **Checked on the iPhone 17 Pro simulator**, light and dark: the bar
+    over today's page with all three marks and the dot, and over a photo
+    page. In light: both marks opening their sheets, a month's opening
+    page, writing in place under the bar, the ribbon dragged past it.
+    **On the Duo's cover**, light: today's page. **Not seen:** a real
+    phone, VoiceOver, large Dynamic Type (the marks don't grow; the date
+    does), a date long enough to need shrinking.
+
 - **The Journal tab is its pages** (build 46, November 14, 2026, a product
   brief from Ayush; screenshots in `docs/journal-pages-build46/`). Build
   45's book is kept and its cover is gone: the tab lands straight on
@@ -517,7 +559,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       fail.) Months are marked along it with a hairline, and with three
       letters set sideways where a month has 24pt to itself. VoiceOver
       has it as one adjustable thing, "Place in the journal".
-    - *Two paper tabs*, 30% of the way down: 15 by 26pt, manila, a little
+    - *Two paper tabs* (**removed in build 48**; they're marks on the
+      bar at the head of the page now, above), 30% of the way down: 15 by 26pt, manila, a little
       shadow, with press targets that reach 44pt in over the page's
       margin. An envelope opens **Letters** as a sheet: the ones still
       sealed, **Opened** (each opened letter by who it's from and the day
@@ -527,7 +570,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       wax red while any letter to you is still sealed**, whether or not
       its day has come (the brief's "unopened sealed letter"); VoiceOver
       says which. A presence, never a number.
-    - **A third tab on Sunday evenings**, above those two, in the accent
+    - **A third tab on Sunday evenings** (a third mark on the bar since
+      build 48), above those two, in the accent
       with a moon: "How was your week?", which opens the reflection
       sheet. Only in the window (`ReflectionWindow`) and until the week's
       is written. The brief took away the screen the Sunday card was on
@@ -1320,7 +1364,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (47)", at the
+  production audit), and the version, "Stanley 0.2.0 (48)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -1852,10 +1896,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 47** (0.2.0) is the number to archive next. It is build 46
-  (the Journal tab as its pages, above) with the number bumped and
-  nothing else changed. Phone only, so nothing to deploy for it. The next
-  upload carries builds 41 to 47 (43 and 47 were only bumps; 44 is the
+- **Build 48** (0.2.0) is the number to archive next: Letters and Prompts
+  on the bar at the head of the journal's page (above), in place of
+  build 46's edge tabs. Phone only, so nothing to deploy for it. The next
+  upload carries builds 41 to 48 (43 and 47 were only bumps; 44 is the
   Quiet Warmth design pass, which also removed the filters and
   rest-a-memory from the app; 45 is the journal as a book, never archived
   on its own). The last build uploaded is 40.
@@ -2316,8 +2360,8 @@ live APNs, concurrency under real load.
   `BookPages.swift` (each page drawn: `BookSheet`, `PageHeading`,
   `InkText`, the blank page's cursor, the tap on today's page, the
   long-press menu, the small pages of the grid), `BookView.swift` (the
-  tab: `PageTurner` and `TurnerHost`, `BookEdge` with the ribbon and the
-  paper tabs, `BookFoot`, the grid),
+  tab: `PageTurner` and `TurnerHost`, `BookEdge` with the ribbon,
+  `BookBar` with the marks for Letters and Prompts, `BookFoot`, the grid),
   `BookWriting.swift` (`PageWriting`, the ruled text view, the inks),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
   and `JournalWidget.swift` (the Journal widget's snapshot and views);

@@ -3,7 +3,8 @@ import SwiftUI
 /// The Journal tab (build 46): the journal's pages, and nothing in front of
 /// them. It lands on today's page; everything before it is a swipe to the
 /// right away (`BookView`). Build 45 opened to a cover, with Letters and
-/// Prompts as cards under it; they're paper tabs at the page's edge now,
+/// Prompts as cards under it; they're marks on the bar at the head of the
+/// page now (build 48; paper tabs at its edge in build 46),
 /// and the journal's name is in Settings. It was a list until build 44
 /// ("Held" before that); the internal names are unchanged.
 struct MemoriesView: View {
@@ -12,7 +13,7 @@ struct MemoriesView: View {
     }
 }
 
-/// Letters, behind the envelope tab at the journal's edge (a sheet since
+/// Letters, behind the envelope on the journal's bar (a sheet since
 /// build 46): the ones written to you and still sealed, the ones you've
 /// opened (each is a page of the journal, and a tap turns to it), and the
 /// way to write one to someone.

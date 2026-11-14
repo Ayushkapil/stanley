@@ -39,7 +39,7 @@ enum JournalName {
 /// one, so what the breaker fits is what the page shows.
 struct BookLayout: Hashable {
     /// The strip down the right of the page that isn't page: the rest of
-    /// the book seen edge-on, where the ribbon and the paper tabs are.
+    /// the book seen edge-on, where the ribbon is.
     static let edge: CGFloat = 18
 
     /// The page itself: from the screen's top to the tab bar, and from the
@@ -99,12 +99,19 @@ struct BookLayout: Hashable {
     var right: CGFloat { width - safeTrailing - margin }
     var textWidth: CGFloat { right - left }
     var middle: CGFloat { (left + right) / 2 }
-    /// The date, small, at the head of the page: where its line's middle is.
-    var headY: CGFloat { safeTop + 20 }
+    /// The bar along the head of the page (build 48): the date at its
+    /// left, Letters and Prompts at its right. A full 44pt, so what's
+    /// pressed there is never over anything on the page.
+    static let bar: CGFloat = 44
+    /// The middle of that bar.
+    var headY: CGFloat { safeTop + Self.bar / 2 }
     /// The hand's size for the date at the head.
     var headSize: CGFloat { fontSize - 4 }
-    /// Where the first line begins: under the date.
-    var contentTop: CGFloat { safeTop + 42 }
+    /// How much of the bar's width the date may take: the rest is the
+    /// icons' (three of them on a Sunday evening).
+    var headWidth: CGFloat { max(80, textWidth - 132) }
+    /// Where the first line begins: under the bar, a little let down.
+    var contentTop: CGFloat { safeTop + Self.bar + 6 }
     /// Where the last line may end: above the page's number (or the inks).
     var contentBottom: CGFloat { height - safeBottom - Self.foot }
     var rows: Int { max(4, Int((contentBottom - contentTop) / pitch)) }

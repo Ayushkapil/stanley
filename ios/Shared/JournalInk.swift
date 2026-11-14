@@ -82,19 +82,6 @@ enum BookPaper {
             ? UIColor(red: 0.047, green: 0.047, blue: 0.047, alpha: 1)  // #0C0C0C
             : UIColor(red: 0.910, green: 0.886, blue: 0.835, alpha: 1)  // #E8E2D5
     })
-    /// A paper tab sticking out past the page's edge: manila, a little
-    /// off the page's color.
-    static let tab = Color(UIColor {
-        $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.196, green: 0.184, blue: 0.169, alpha: 1)  // #322F2B
-            : UIColor(red: 0.906, green: 0.855, blue: 0.757, alpha: 1)  // #E7DAC1
-    })
-    /// What's drawn on a tab.
-    static let tabInk = Color(UIColor {
-        $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.941, green: 0.922, blue: 0.890, alpha: 0.8)
-            : UIColor(red: 0.20, green: 0.17, blue: 0.13, alpha: 0.8)
-    })
 }
 
 /// The hand a page is written in, as UIKit needs it: the app lays a page

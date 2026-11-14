@@ -5,10 +5,12 @@ import UIKit
 // nothing to open: the tab lands on today's page, and a swipe to the right
 // turns back through everything before it. Pages turn with the system's own
 // page curl, which follows the finger and is the one page turn on iOS that
-// feels like paper. Down the right of the page is the rest of the book seen
-// edge-on: a ribbon to drag back through time, with the months marked along
-// it, and two paper tabs sticking out past the page for what isn't a page
-// (letters, and the circle's questions). A pinch in lays the pages out small.
+// feels like paper. Along the head of the page is a bar: the date at its
+// left, and at its right Letters and the circle's questions, which aren't
+// pages (build 48; they were paper tabs at the page's edge, too small to
+// press). Down the right of the page is the rest of the book seen edge-on,
+// with a ribbon to drag back through time and the months marked along it.
+// A pinch in lays the pages out small.
 
 // MARK: - Turning pages
 
@@ -558,16 +560,23 @@ struct BookView: View {
             }
 
             BookEdge(
-                book: book, layout: layout, index: index, accent: accent, onAccent: palette.ink,
-                scrubbing: scrubbing,
+                book: book, layout: layout, index: index, accent: accent, scrubbing: scrubbing,
+                step: { by in jump(to: index + by, in: book) }
+            )
+            .opacity(grid ? 0 : 1)
+            .accessibilityHidden(grid)
+
+            // The bar's right: what isn't a page. On the date's line, in
+            // the head of the page, over nothing that's on it.
+            BookBar(
+                layout: layout, accent: accent,
                 sealed: !state.lettersReceived.sealed.isEmpty,
                 ready: state.lettersReceived.sealed.contains { $0.deliverable == true },
                 prompts: state.circle != nil,
                 week: state.thisWeek,
                 openLetters: { readingLetters = true },
                 openPrompts: { readingPrompts = true },
-                openWeek: { reflecting = true },
-                step: { by in jump(to: index + by, in: book) }
+                openWeek: { reflecting = true }
             )
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
@@ -699,25 +708,15 @@ private struct BookFoot: View {
 
 /// What stays put down the right while the pages turn: the edge of the next
 /// page, the rest of the book stacked behind it, the ribbon that says how
-/// far back you are (dragged, it goes there), the months marked along it,
-/// and the paper tabs sticking out past the page.
+/// far back you are (dragged, it goes there), and the months marked along
+/// it.
 private struct BookEdge: View {
     @Environment(\.colorScheme) private var colorScheme
     let book: Book
     let layout: BookLayout
     let index: Int
     let accent: Color
-    let onAccent: Color
     let scrubbing: Bool
-    /// A letter written to you is still sealed; and its day has come.
-    let sealed: Bool
-    let ready: Bool
-    let prompts: Bool
-    /// The week a reflection would be about, when one can be written.
-    let week: ThisWeek?
-    let openLetters: () -> Void
-    let openPrompts: () -> Void
-    let openWeek: () -> Void
     /// A page newer (+1) or older (-1), for VoiceOver.
     let step: (Int) -> Void
 
@@ -829,11 +828,7 @@ private struct BookEdge: View {
                     }
                 }
 
-            tabs
-                .offset(x: x0 + EdgeTab.width - EdgeTab.reach, y: (layout.height * 0.3).rounded())
-
-            // Where you are on the ribbon. Over the tabs, so it isn't lost
-            // behind one on the pages that fall there.
+            // Where you are on the ribbon.
             Circle()
                 .fill(accent)
                 .overlay(Circle().strokeBorder(BookPaper.edge, lineWidth: 1.5))
@@ -868,85 +863,80 @@ private struct BookEdge: View {
         .frame(width: x0 + wide, height: layout.height, alignment: .topLeading)
         .animation(.easeOut(duration: 0.15), value: scrubbing)
     }
-
-    /// The paper tabs, a third of the way down: letters, the circle's
-    /// questions, and on Sunday evening the week.
-    private var tabs: some View {
-        // The week's tab comes and goes with the evening.
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            VStack(alignment: .trailing, spacing: 6) {
-                if let week, week.reflection == nil, ReflectionWindow.isOpen(context.date) {
-                    EdgeTab(
-                        symbol: "moon", label: "How was your week?", hint: "Write this week's reflection",
-                        fill: accent, ink: onAccent, action: openWeek
-                    )
-                }
-                EdgeTab(
-                    symbol: "envelope", label: "Letters",
-                    hint: ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "",
-                    seal: sealed, action: openLetters
-                )
-                if prompts {
-                    EdgeTab(
-                        symbol: "questionmark", label: "Prompts", hint: "Your circle's questions and what everyone said",
-                        action: openPrompts
-                    )
-                }
-            }
-        }
-    }
 }
 
-/// A small paper tab sticking out from behind the page: manila, a mark on
-/// it, a little shadow under it. Its target reaches in over the page's
-/// margin, since the tab alone is too small to press.
-private struct EdgeTab: View {
-    static let width: CGFloat = 15
-    static let height: CGFloat = 26
-    /// How wide the press target is, ending at the tab's outer edge.
-    static let reach: CGFloat = 44
+// MARK: - The bar
 
-    @Environment(\.colorScheme) private var colorScheme
-    let symbol: String
-    let label: String
-    let hint: String
-    var fill: Color = BookPaper.tab
-    var ink: Color = BookPaper.tabInk
-    /// A sealed letter is waiting: a dot of wax on the tab.
-    var seal = false
-    let action: () -> Void
+/// The right of the bar along the head of the page: Letters and Prompts,
+/// and on Sunday evening the week. Thin marks in the accent, each in a
+/// 44pt target, on the date's line: in the page's head, where nothing on
+/// the page is. They stay put while pages turn.
+private struct BookBar: View {
+    let layout: BookLayout
+    let accent: Color
+    /// A letter written to you is still sealed; and its day has come.
+    let sealed: Bool
+    let ready: Bool
+    let prompts: Bool
+    /// The week a reflection would be about, when one can be written.
+    let week: ThisWeek?
+    let openLetters: () -> Void
+    let openPrompts: () -> Void
+    let openWeek: () -> Void
+
+    /// A mark's own width, and the room between one and the next.
+    private static let glyph: CGFloat = 24
+    private static let gap: CGFloat = 20
+    /// From the last mark to the page's edge.
+    private static let margin: CGFloat = 20
 
     var body: some View {
-        let dark = colorScheme == .dark
-        let shape = UnevenRoundedRectangle(bottomTrailingRadius: 4, topTrailingRadius: 4, style: .continuous)
-        Button(action: action) {
-            ZStack {
-                shape
-                    .fill(fill)
-                    .overlay(shape.strokeBorder(.black.opacity(dark ? 0.5 : 0.10), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(dark ? 0.6 : 0.22), radius: 1.5, x: 0.5, y: 1)
-                // Where it goes in under the page.
-                LinearGradient(
-                    colors: [.black.opacity(dark ? 0.4 : 0.14), .clear], startPoint: .leading, endPoint: .trailing
+        // The week's mark comes and goes with the evening.
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            HStack(spacing: Self.gap - (44 - Self.glyph)) {
+                if let week, week.reflection == nil, ReflectionWindow.isOpen(context.date) {
+                    mark("moon", label: "How was your week?", hint: "Write this week's reflection", action: openWeek)
+                }
+                mark(
+                    "envelope", label: "Letters",
+                    hint: ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "",
+                    dot: sealed, action: openLetters
                 )
-                .frame(width: 5)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .clipShape(shape)
-                Image(systemName: symbol)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(ink)
-                    .offset(x: 0.5)
-                if seal {
-                    Circle()
-                        .fill(Ink.red.color)
-                        .overlay(Circle().strokeBorder(.black.opacity(0.15), lineWidth: 0.5))
-                        .frame(width: 6, height: 6)
-                        .position(x: Self.width - 4, y: 4.5)
+                if prompts {
+                    mark(
+                        "questionmark.bubble", label: "Prompts",
+                        hint: "Your circle's questions and what everyone said", action: openPrompts
+                    )
                 }
             }
-            .frame(width: Self.width, height: Self.height)
-            .frame(width: Self.reach, height: Self.height + 6, alignment: .trailing)
-            .contentShape(Rectangle())
+            // The last mark's own edge is 20pt from the page's; its
+            // target reaches a little past that.
+            .padding(.trailing, Self.margin - (44 - Self.glyph) / 2)
+            .frame(width: layout.width, height: BookLayout.bar, alignment: .trailing)
+            .offset(y: layout.safeTop)
+        }
+    }
+
+    private func mark(
+        _ symbol: String, label: String, hint: String, dot: Bool = false, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 20, weight: .light))
+                .foregroundStyle(accent)
+                .frame(width: Self.glyph, height: Self.glyph)
+                .overlay(alignment: .topTrailing) {
+                    // A sealed letter is waiting: a dot of wax.
+                    if dot {
+                        Circle()
+                            .fill(Ink.red.color)
+                            .overlay(Circle().strokeBorder(BookPaper.page, lineWidth: 1.5))
+                            .frame(width: 9, height: 9)
+                            .offset(x: 3, y: -1)
+                    }
+                }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

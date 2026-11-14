@@ -118,8 +118,9 @@ struct PageHeading: View {
             .foregroundStyle(color)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .frame(width: layout.textWidth, alignment: .leading)
-            .position(x: layout.middle, y: layout.headY)
+            // Short of the bar's right, where Letters and Prompts are.
+            .frame(width: layout.headWidth, alignment: .leading)
+            .position(x: layout.left + layout.headWidth / 2, y: layout.headY)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -229,16 +230,10 @@ struct BookPageView: View {
     // MARK: a month's opening page
 
     private var chapter: some View {
-        ZStack {
-            // What the journal is called, small, at the head of each
-            // month (it had a cover to be written on until build 46).
-            Text(JournalName.shown(state.journalTitle))
-                .font(.custom(layout.font.fontName, fixedSize: layout.headSize))
-                .foregroundStyle(BookPaper.quiet)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(width: layout.textWidth)
-                .position(x: layout.middle, y: layout.headY)
+        ZStack(alignment: .topLeading) {
+            // What the journal is called, small, where a day's page has
+            // its date (it had a cover to be written on until build 46).
+            PageHeading(text: JournalName.shown(state.journalTitle), color: BookPaper.quiet, layout: layout)
             month
         }
         .frame(width: layout.width, height: layout.height)
