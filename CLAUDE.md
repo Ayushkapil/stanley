@@ -1320,7 +1320,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (46)", at the
+  production audit), and the version, "Stanley 0.2.0 (47)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -1852,12 +1852,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 46** (0.2.0) is the number to archive next: the Journal tab as
-  its pages (above). Phone only, so nothing to deploy for it. The next
-  upload carries builds 41 to 46 (43 was only a bump; 44 is the Quiet
-  Warmth design pass, which also removed the filters and rest-a-memory
-  from the app; 45 is the journal as a book, never archived on its own).
-  The last build uploaded is 40.
+- **Build 47** (0.2.0) is the number to archive next. It is build 46
+  (the Journal tab as its pages, above) with the number bumped and
+  nothing else changed. Phone only, so nothing to deploy for it. The next
+  upload carries builds 41 to 47 (43 and 47 were only bumps; 44 is the
+  Quiet Warmth design pass, which also removed the filters and
+  rest-a-memory from the app; 45 is the journal as a book, never archived
+  on its own). The last build uploaded is 40.
 - **Build 45's server is on Fly** (2026-11-14): release **v26** runs
   `main` as of `33ef9aa`. Checked after the deploy: `/health` ok; the five
   `/me/journal` routes answer 401 without a sign-in; `/terms` and
