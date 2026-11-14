@@ -1,20 +1,27 @@
 import SwiftUI
 
-// The covers (build 53, from the brief of 2026-11-14; it replaces build
-// 52's cloth books). The Journal tab opens here: one journal to a page,
-// paged sideways, yours first and then one for each circle you're in. Each
-// is its cover photo, full bleed under a dark scrim, with a slab of glass
-// laid over it: where it's kept and its title in a hand, and at its foot
-// the dates it covers and its volume. The next journal's slab shows at the
-// right edge, so it's plain there's more. Under the slab, the journal's
-// name and a line, the pips that say which journal this is, and the arrow
-// that opens it (as a tap on the slab does).
+// The covers (build 54; redrawn in build 56 from the brief of 2026-11-14,
+// "Five fixes to the Journal cover screen"). The Journal tab opens here:
+// one journal to a card, paged sideways, yours first and then one for each
+// circle you're in. Each card is its cover photo with a slab of glass laid
+// over it: where it's kept and its title in the hand, and at its foot the
+// dates it covers and its volume. The next card's edge shows at the right,
+// and is a real card: a swipe brings it. Under the cards, the journal's
+// name and a line, the pips (which follow the scroll) and the arrow that
+// opens it, as a tap on the card does.
 //
-// The cover photo is your own newest keep in that journal, worked out on
-// the server for you alone (`cover_photo_id`). The brief asked for the
-// most-kept photo; that ranks by keeps and would let a circle see which was
-// kept most, so it's your own newest keep instead (a product decision,
-// 2026-11-14). Nothing kept yet: a flat warm field.
+// The room is the atmosphere's own floor, cream by day and black by night,
+// as every other screen is; the photo is on the card, not the room. By day
+// the slab is 20% white; at night 8%, with its thin white edge carrying it
+// (material over black goes muddy). A dark scrim only where the card's
+// words sit on the photo.
+//
+// The cover photo is the reader's own newest keep in that journal, else
+// its newest photo still in the light (`sharing.cover`, with a signed link).
+// The brief asked for the most-kept photo; that ranks by keeps and would
+// let a circle see which was kept most, so it isn't (a product decision,
+// 2026-11-14). With no photo at all: the palette's warm field, a gradient,
+// never a flat gray.
 
 /// One journal on the table.
 struct CoverJournal: Identifiable, Hashable {
@@ -25,27 +32,33 @@ struct CoverJournal: Identifiable, Hashable {
     let place: String
     /// In the hand, under that.
     let title: String
-    /// Under the slab.
+    /// Under the cards.
     let name: String
     let subtitle: String
     let cover: URL?
+    /// The first real entry; nil while the journal is empty, and then no
+    /// dates are shown at all.
     let since: Date?
 }
 
 struct JournalCovers: View {
     @Environment(AppState.self) private var state
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let layout: BookLayout
-    /// The whole screen the covers fill, under the bars too; and how much
-    /// of it, from the top, is above the tab bar.
-    let screen: CGSize
-    let contentHeight: CGFloat
-    /// Where the top bar's marks go: Letters, the week, Prompts.
+    /// The room the covers have: across (without a side dock) and down
+    /// (to the tab bar).
+    let width: CGFloat
+    let height: CGFloat
+    /// Letters, the week, Prompts, along the top.
     let bar: AnyView
     let open: (CoverJournal) -> Void
     @Binding var page: String
+    @State private var shown: String?
     @State private var renaming = false
     @State private var name = ""
+
+    private var palette: Atmosphere.Palette { Atmosphere.resolve(raw).palette }
 
     private var journals: [CoverJournal] {
         var all = [mine]
@@ -55,8 +68,8 @@ struct JournalCovers: View {
                     id: circle.id, circleId: circle.id,
                     place: circle.name, title: "Ours",
                     name: circle.name, subtitle: "Shared with your circle",
-                    cover: state.coverURL(circle.coverPhotoId),
-                    since: circle.since.flatMap(WeekRange.day)
+                    cover: circle.coverUrl.flatMap { state.api.absoluteURL($0) } ?? state.coverURL(circle.coverPhotoId),
+                    since: circle.firstDay.flatMap(WeekRange.day)
                 ))
             }
         }
@@ -64,43 +77,92 @@ struct JournalCovers: View {
     }
 
     private var mine: CoverJournal {
-        // The volume begins with the first thing in the book.
+        // The volume begins with the first real thing in the book.
         let calendar = Calendar.current
-        var earliest: [Date] = state.journalPages.compactMap { WeekRange.day($0.day) }
-        earliest += state.reflections.map { calendar.startOfDay(for: $0.createdAt) }
-        earliest += state.threads.flatMap(\.memories).compactMap { $0.anchoredAt }
+        var firsts: [Date] = state.journalPages.compactMap { WeekRange.day($0.day) }
+        firsts += state.reflections.map { calendar.startOfDay(for: $0.createdAt) }
+        firsts += state.threads.flatMap(\.memories).compactMap { $0.anchoredAt }
         return CoverJournal(
             id: "mine", circleId: nil,
             place: state.profile?.displayName ?? "Yours",
             title: JournalName.shown(state.journalTitle),
             name: "Mine", subtitle: "Only you read it",
-            cover: state.coverURL(state.journalCover),
-            since: earliest.min()
+            cover: state.journalCoverLink.flatMap { state.api.absoluteURL($0) } ?? state.coverURL(state.journalCover),
+            since: firsts.min()
         )
+    }
+
+    /// The card: about three quarters of the room across, held at 290 by
+    /// 416, never over 420 wide, and no taller than the room leaves under
+    /// the bar and above what's written under it.
+    private var card: CGSize {
+        let below: CGFloat = 150
+        let tallest = height - layout.safeTop - 64 - below - 16
+        let across = min(420, (width * 0.74).rounded())
+        let down = (across * 416 / 290).rounded()
+        guard down > tallest else { return CGSize(width: across, height: down) }
+        let fitted = max(240, tallest)
+        return CGSize(width: (fitted * 290 / 416).rounded(), height: fitted)
     }
 
     var body: some View {
         let journals = self.journals
+        let card = self.card
+        let gap = (14 * card.width / 290).rounded()
+        let peek = (56 * card.width / 290).rounded()
+        // The card's leading edge: so the next one's edge shows at least
+        // `peek` wide at the room's right (which stops short of a side
+        // dock), and centered once there's room for that.
+        let leading = max(16, min(((width - card.width) / 2).rounded(), width - card.width - gap - peek))
+        let current = journals.first { $0.id == (shown ?? page) } ?? journals[0]
+        let at = journals.firstIndex(of: current) ?? 0
+
         ZStack(alignment: .topLeading) {
-            TabView(selection: $page) {
-                ForEach(Array(journals.enumerated()), id: \.element.id) { at, journal in
-                    CoverPage(
-                        journal: journal, at: at, of: journals.count,
-                        layout: layout, screen: screen, contentHeight: contentHeight, grows: sizeClass == .regular,
-                        open: { open(journal) },
-                        rename: journal.circleId == nil ? {
-                            name = state.journalTitle ?? ""
-                            renaming = true
-                        } : nil
-                    )
-                    .tag(journal.id)
+            palette.floor
+                .frame(width: width, height: height)
+                .ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer(minLength: layout.safeTop + 60)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: gap) {
+                        ForEach(journals) { journal in
+                            CoverCard(
+                                journal: journal, size: card,
+                                open: { open(journal) },
+                                rename: journal.circleId == nil ? {
+                                    name = state.journalTitle ?? ""
+                                    renaming = true
+                                } : nil
+                            )
+                            .id(journal.id)
+                        }
+                    }
+                    .scrollTargetLayout()
                 }
+                .contentMargins(.leading, leading, for: .scrollContent)
+                .contentMargins(.trailing, max(16, width - leading - card.width), for: .scrollContent)
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $shown)
+                .frame(width: width, height: card.height + 24)
+                // Shadows run on up and down; sideways the cards stop at the
+                // room's edge, which stops short of a side dock (the Duo's
+                // cover), so the next card's edge is never under the dock.
+                .scrollClipDisabled()
+                .mask {
+                    Rectangle()
+                        .frame(width: width, height: card.height + 140)
+                }
+                underneath(current, at: at, of: journals.count, width: card.width, scale: card.width / 290)
+                    .padding(.leading, leading)
+                    .padding(.top, 14)
+                Spacer(minLength: 16)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(width: screen.width, height: screen.height)
-            .ignoresSafeArea()
+            .frame(width: width, height: height, alignment: .topLeading)
             bar
         }
+        .frame(width: width, height: height, alignment: .topLeading)
+        .onAppear { shown = page }
+        .onChange(of: shown) { _, now in if let now { page = now } }
         .alert("Name your journal", isPresented: $renaming) {
             TextField(JournalName.fallback, text: $name)
             Button("Save") {
@@ -112,138 +174,50 @@ struct JournalCovers: View {
             Text("It's on the cover, and at the head of each month. Leave it empty for \u{201C}\(JournalName.fallback)\u{201D}.")
         }
     }
-}
 
-/// One journal's cover, a page of the pager.
-private struct CoverPage: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let journal: CoverJournal
-    let at: Int
-    let of: Int
-    let layout: BookLayout
-    let screen: CGSize
-    let contentHeight: CGFloat
-    /// The Duo's inner display: the slab grows, the margins don't.
-    let grows: Bool
-    let open: () -> Void
-    let rename: (() -> Void)?
-
-    private static let peek: CGFloat = 56
-    private static let gap: CGFloat = 14
-    /// The flat field under a journal with nothing kept yet.
-    private static let field = Color(red: 0x2B / 255, green: 0x34 / 255, blue: 0x30 / 255)
-
-    var body: some View {
-        // The slab: 290 by 416, larger on a large screen, smaller only if
-        // the screen is too short to hold it and what's under it.
-        let base = CGSize(width: 290, height: 416)
-        let room = contentHeight - layout.safeTop - 70 - 190
-        let scale = min(grows ? 1.35 : 1, max(0.7, room / base.height))
-        let slab = CGSize(width: (base.width * scale).rounded(), height: (base.height * scale).rounded())
-        // The slab sits so the next one's edge is flush with the screen's.
-        let leading = max(16, layout.safeLeading + (layout.width + BookLayout.edge - layout.safeLeading
-            - slab.width - Self.gap - Self.peek))
-        ZStack(alignment: .topLeading) {
-            background
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer(minLength: layout.safeTop + 56)
-                HStack(spacing: Self.gap) {
-                    CoverSlab(journal: journal, size: slab, open: open, rename: rename)
-                    if at < of - 1 {
-                        // The next journal's slab, its edge showing.
-                        SlabShape()
-                            .fill(.clear)
-                            .frame(width: slab.width, height: slab.height)
-                            .background { SlabGlass() }
-                            .frame(width: Self.peek, height: slab.height, alignment: .leading)
-                            .clipped()
-                            .accessibilityHidden(true)
-                    }
-                }
-                underneath(width: slab.width)
-                    .padding(.top, 22)
-                Spacer(minLength: 20)
-            }
-            .padding(.leading, leading)
-            .frame(width: screen.width, height: contentHeight, alignment: .topLeading)
-        }
-        .frame(width: screen.width, height: screen.height)
-        .clipped()
-        // Under the status bar too: the photo is full bleed, and what's on
-        // it is placed from the screen's top (`layout.safeTop`).
-        .ignoresSafeArea()
-    }
-
-    /// The cover photo full bleed, under a scrim dark at the foot, light in
-    /// the middle and a little dark again at the top; or the flat field.
-    @ViewBuilder
-    private var background: some View {
-        ZStack {
-            Self.field
-            if let cover = journal.cover {
-                SignedImage(url: cover) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Self.field
-                }
-                .frame(width: screen.width, height: screen.height)
-                .clipped()
-            }
-            LinearGradient(
-                stops: [
-                    .init(color: .black.opacity(0.28), location: 0),
-                    .init(color: .black.opacity(0.1), location: 0.45),
-                    .init(color: .black.opacity(0.72), location: 1),
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-        }
-        .frame(width: screen.width, height: screen.height)
-        .accessibilityHidden(true)
-    }
-
-    /// Under the slab: the journal's name and a line, the pips, and the
-    /// arrow that opens it.
-    private func underneath(width: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+    /// Under the cards: the journal in view, its name and a line, the pips,
+    /// and the arrow that opens it. In the room's own ink.
+    private func underneath(_ journal: CoverJournal, at: Int, of: Int, width: CGFloat, scale: CGFloat) -> some View {
+        let ink = colorScheme == .dark ? DarkRoom.ink : Color(red: 0.10, green: 0.10, blue: 0.10)
+        return HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(journal.name)
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 22 * min(scale, 1.2), weight: .semibold, design: .rounded))
+                    .foregroundStyle(ink)
                     .lineLimit(1)
                 Text(journal.subtitle)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.white.opacity(0.78))
+                    .font(.system(size: 14 * min(scale, 1.2)))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Pips(at: at, of: of)
+                Pips(at: at, of: of, ink: ink)
                     .padding(.top, 8)
             }
             Spacer(minLength: 8)
-            Button(action: open) {
+            Button { open(journal) } label: {
                 GlassCircle(size: 44) {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.accent)
                 }
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open \(journal.name)")
         }
         .frame(width: width)
-        .shadow(color: .black.opacity(0.35), radius: 6, y: 1)
     }
 }
 
-/// Which journal this is: a pip each, this one's full.
+/// Which journal is in view: a pip each, this one's full.
 private struct Pips: View {
     let at: Int
     let of: Int
+    let ink: Color
 
     var body: some View {
         HStack(spacing: 7) {
             ForEach(0..<max(of, 1), id: \.self) { index in
                 Circle()
-                    .fill(.white.opacity(index == at ? 0.95 : 0.35))
+                    .fill(ink.opacity(index == at ? 0.85 : 0.22))
                     .frame(width: 6, height: 6)
             }
         }
@@ -252,83 +226,54 @@ private struct Pips: View {
     }
 }
 
-/// The slab's outline: corners of 30.
-private func SlabShape() -> RoundedRectangle {
-    RoundedRectangle(cornerRadius: 30, style: .continuous)
+/// The card's outline: corners of 30 (scaled with the card).
+private func cardShape(_ scale: CGFloat) -> RoundedRectangle {
+    RoundedRectangle(cornerRadius: 30 * scale, style: .continuous)
 }
 
-/// The slab's glass: material in daylight, a little white in the dark
-/// (where material over black goes muddy), a thin white edge, a shine
-/// across its top left corner, and a soft shadow down and to the right.
-private struct SlabGlass: View {
+/// One journal's card: its photo (or the warm field), the slab of glass
+/// over it, and what's written on the slab.
+private struct CoverCard: View {
     @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        let dark = colorScheme == .dark
-        ZStack {
-            if dark {
-                SlabShape().fill(Color.white.opacity(0.08))
-            } else {
-                SlabShape().fill(.ultraThinMaterial)
-            }
-            SlabShape()
-                .fill(LinearGradient(
-                    colors: [.white.opacity(0.4), .white.opacity(0)],
-                    startPoint: .topLeading, endPoint: UnitPoint(x: 0.45, y: 0.35)
-                ))
-            SlabShape().strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5)
-        }
-        .compositingGroup()
-        .shadow(color: .black.opacity(0.3), radius: 18, x: 8, y: 12)
-    }
-}
-
-/// The slab itself: where it's kept, small; its title in the hand; and at
-/// its foot, under a hairline, the dates it covers and its volume.
-private struct CoverSlab: View {
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let journal: CoverJournal
     let size: CGSize
     let open: () -> Void
     let rename: (() -> Void)?
 
+    private var scale: CGFloat { size.width / 290 }
+
     var body: some View {
-        let inset = 26 * size.width / 290
-        VStack(alignment: .leading, spacing: 0) {
-            Text(journal.place)
-                .font(.system(size: 8.5, weight: .semibold))
-                .tracking(2.6)
-                .textCase(.uppercase)
-                .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
-            Text(journal.title)
-                .font(.custom(BookHand.font(44, bold: true).fontName, fixedSize: 44 * size.width / 290).leading(.tight))
-                .foregroundStyle(.white)
-                .lineLimit(3)
-                .minimumScaleFactor(0.5)
-                .padding(.top, 10)
-                .onLongPressGesture(minimumDuration: 0.45) { rename?() }
-            Spacer(minLength: 12)
-            Rectangle()
-                .fill(.white.opacity(0.45))
-                .frame(height: 0.5)
-            HStack {
-                Text(dates)
-                Spacer()
-                Text("Vol. I")
+        let dark = colorScheme == .dark
+        let shape = cardShape(scale)
+        ZStack(alignment: .topLeading) {
+            picture
+            // Dark only where words sit on the photo: under the head and
+            // under the foot.
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.black.opacity(0.38), .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: size.height * 0.42)
+                Spacer(minLength: 0)
+                LinearGradient(colors: [.black.opacity(0), .black.opacity(0.5)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: size.height * 0.26)
             }
-            .font(.system(size: 8.5, weight: .semibold))
-            .tracking(2.6)
-            .textCase(.uppercase)
-            .foregroundStyle(.white.opacity(0.85))
-            .padding(.top, 12)
+            // The slab: a little white, a sheen across its top left, a thin
+            // white edge.
+            shape.fill(Color.white.opacity(dark ? 0.08 : 0.2))
+            shape.fill(LinearGradient(
+                colors: [.white.opacity(0.4), .white.opacity(0)],
+                startPoint: .topLeading, endPoint: UnitPoint(x: 0.45, y: 0.35)
+            ))
+            words
         }
-        .padding(inset)
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-        .background { SlabGlass() }
-        .contentShape(SlabShape())
+        .frame(width: size.width, height: size.height)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5))
+        .shadow(color: .black.opacity(dark ? 0.5 : 0.22), radius: 18 * scale, x: 8 * scale, y: 12 * scale)
+        .contentShape(shape)
         .onTapGesture(perform: open)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(journal.title), \(journal.place). \(dates), volume one")
+        .accessibilityLabel("\(journal.title), \(journal.place)" + (dates.isEmpty ? "" : ". \(dates)") + ", volume one")
         .accessibilityHint("Opens it")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { open() }
@@ -337,9 +282,85 @@ private struct CoverSlab: View {
         }
     }
 
-    /// "Oct 2026 – now", or this month alone.
+    /// The cover photo filling the card; with none, the palette's warm
+    /// field.
+    @ViewBuilder
+    private var picture: some View {
+        if let cover = journal.cover {
+            SignedImage(url: cover) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                field
+            }
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        } else {
+            field
+        }
+    }
+
+    /// The atmosphere's accent warmed and graded: a field, never flat gray.
+    private var field: some View {
+        let accent = Atmosphere.resolve(raw).palette.accent
+        let dark = colorScheme == .dark
+        return ZStack {
+            // A warm ground, the palette's accent laid lightly over it, and
+            // light coming in from the top left.
+            Color(red: dark ? 0.25 : 0.80, green: dark ? 0.17 : 0.58, blue: dark ? 0.12 : 0.42)
+            accent.opacity(dark ? 0.22 : 0.18)
+            LinearGradient(
+                colors: [Color(red: 1.0, green: 0.82, blue: 0.6).opacity(dark ? 0.22 : 0.55), .clear],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            LinearGradient(
+                colors: [.clear, Color(red: 0.35, green: 0.2, blue: 0.14).opacity(dark ? 0.35 : 0.3)],
+                startPoint: .center, endPoint: .bottom
+            )
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    private var words: some View {
+        let inset = 26 * scale
+        let label = Font.system(size: 8.5 * scale, weight: .semibold)
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(journal.place)
+                .font(label)
+                .tracking(2.6 * scale)
+                .textCase(.uppercase)
+                .foregroundStyle(.white.opacity(0.92))
+                .lineLimit(1)
+            Text(journal.title)
+                .font(.custom(BookHand.font(44, bold: true).fontName, fixedSize: 44 * scale).leading(.tight))
+                .foregroundStyle(.white)
+                .lineLimit(3)
+                .minimumScaleFactor(0.5)
+                .padding(.top, 10 * scale)
+                .onLongPressGesture(minimumDuration: 0.45) { rename?() }
+            Spacer(minLength: 12)
+            Rectangle()
+                .fill(.white.opacity(0.45))
+                .frame(height: max(0.5, 0.5 * scale))
+            HStack {
+                // Only once there's a first entry: an empty journal says
+                // nothing about when it began.
+                Text(dates)
+                Spacer()
+                Text("Vol. I")
+            }
+            .font(label)
+            .tracking(2.6 * scale)
+            .textCase(.uppercase)
+            .foregroundStyle(.white.opacity(0.88))
+            .padding(.top, 12 * scale)
+        }
+        .padding(inset)
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
+    /// "Oct 2026 – now", this month alone, or nothing at all.
     private var dates: String {
-        guard let since = journal.since else { return "Since now" }
+        guard let since = journal.since else { return "" }
         let start = since.formatted(.dateTime.month(.abbreviated).year())
         if Calendar.current.isDate(since, equalTo: .now, toGranularity: .month) { return start }
         return start + " – now"

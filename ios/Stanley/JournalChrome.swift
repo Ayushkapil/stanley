@@ -10,6 +10,7 @@ import SwiftUI
 /// A circle of glass. 34pt for the bar's marks, 61pt for the "+".
 struct GlassCircle<Label: View>: View {
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let size: CGFloat
     @ViewBuilder let label: () -> Label
 
@@ -18,10 +19,14 @@ struct GlassCircle<Label: View>: View {
         ZStack {
             if dark {
                 Circle().fill(Color.white.opacity(0.08))
+                Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5)
             } else {
+                // By day, on cream: the material whitened a little, edged
+                // in the palette's own hairline, where white would vanish.
                 Circle().fill(.ultraThinMaterial)
+                Circle().fill(Color.white.opacity(0.35))
+                Circle().strokeBorder(Atmosphere.resolve(raw).palette.edge, lineWidth: 0.5)
             }
-            Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5)
             label()
         }
         .frame(width: size, height: size)
@@ -160,11 +165,14 @@ struct JournalTopBar: View {
 struct TabBarGlass: View {
     @Environment(\.colorScheme) private var colorScheme
     let height: CGFloat
+    /// What it's a frosted wash of: the page's paper in a book, the room's
+    /// floor on the covers.
+    var base: Color = BookPaper.page
 
     var body: some View {
         let dark = colorScheme == .dark
         Rectangle()
-            .fill(dark ? Color.black.opacity(0.35) : BookPaper.page.opacity(0.82))
+            .fill(dark ? Color.black.opacity(0.35) : base.opacity(0.82))
             .overlay(Rectangle().fill(.ultraThinMaterial))
             .overlay(alignment: .top) {
                 Rectangle()

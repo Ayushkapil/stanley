@@ -234,6 +234,10 @@ struct CircleSummary: Codable, Identifiable, Hashable {
     /// begins for you. Nil from an older server.
     var coverPhotoId: String? = nil
     var since: String? = nil
+    /// Build 56: a signed link to that cover's picture, and the first day
+    /// of its journal you can read (nil while it's empty).
+    var coverUrl: String? = nil
+    var firstDay: String? = nil
 }
 
 struct CirclesResponse: Codable {
@@ -558,6 +562,8 @@ struct JournalStretch: Codable {
     let title: String?
     /// Build 53: the photo on your own journal's cover: your newest keep.
     let coverPhotoId: String?
+    /// Build 56: a signed link to its picture.
+    let coverUrl: String?
     let pages: [DayPage]
     let nextAfter: String?
 }

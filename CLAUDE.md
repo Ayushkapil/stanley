@@ -158,11 +158,14 @@ guarded by tests; treat a change to any of them as a spec change.
   journal's cover to be its most-kept photo; that ranks photos by keeps
   and would let a circle see which was kept most, so a cover is **the
   reader's own newest keep** in that journal (anywhere, for their own
-  book), worked out on the server for each reader
-  (`sharing.cover_photo_id`, `cover_photo_id` on `GET /circles` and `GET
-  /me/journal`). Nothing reads or ranks anyone else's keeps, and no keep
-  is counted. A photo its poster deleted, or one across a block, isn't
-  a cover.
+  book), worked out on the server for each reader (`sharing.cover`,
+  `cover_photo_id` and a signed `cover_url` on `GET /circles` and `GET
+  /me/journal`). With nothing kept, the journal's newest photo still in
+  its public life (build 56: the circle's for its journal, your own for
+  yours), never a faded one. Nothing reads or ranks anyone else's keeps,
+  and no keep is counted. A photo its poster deleted, or one across a
+  block, isn't a cover. **Asked for again in build 56's brief and kept
+  this way**, said to Ayush.
 - **The mark on your day is yours alone and never counts anything**
   (build 52, a product decision, the same brief, part 4). After posting
   a photo, five empty dots; a tap fills one. No labels, no numbers, no
@@ -513,6 +516,50 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **The cover screen, fixed** (build 56, November 14, 2026, a product
+  brief from Ayush, "Five fixes to the Journal cover screen"; screenshots
+  in `docs/journal-covers-build56/`). **Where build 54's section below
+  says otherwise about the cover screen, this wins.**
+  - **The photo is on the card, the room is the palette's.** Each card is
+    its cover photo filling a 30-cornered card, with the slab of glass
+    laid over it (20% white by day, 8% at night with the 0.5pt white edge
+    carrying it, the sheen across its top left) and a dark scrim only
+    under the words at its head and foot. The room behind is the
+    atmosphere's own floor, cream by day and black at night, as every
+    other screen is; build 54 had the photo full bleed with the room
+    always dark. The glass circles (marks, arrow) take the palette's
+    hairline by day; the band under the tab bar is a wash of the floor.
+  - **A cover always has a picture.** The server sends a signed link
+    with each cover (`cover_url`), so a cover no longer depends on the
+    photo being among the reader's held ones, and it renews with the
+    other links. Nothing kept: the journal's newest photo still in the
+    light (above). No photo at all: the palette's warm field, a graded
+    caramel by day and a brown at night, never gray.
+  - **Every journal is a real card**: a horizontal paging scroll
+    (`scrollTargetBehavior(.viewAligned)`), one card each; the next
+    card's edge shows by the content margins, and a swipe brings it.
+    The pips follow the scroll (`scrollPosition`). Build 54's peek was a
+    drawn rectangle that couldn't be swiped to.
+  - **No dates on an empty journal**: the foot's left is blank until
+    there's a first real entry (your book: its first page, reflection or
+    keep; a circle's: `first_day` from the server, the first shared page
+    you can read, none while it's empty). "Vol. I" stays at the right.
+  - **The card is sized from its room**: 74% of the width, held at 290 by
+    416, never over 420 wide, smaller only where the room's height can't
+    hold it (the Duo's cover). The title, the capitals, their tracking,
+    the hairline, the corners and the shadow scale with it. Once there's
+    room the card is centered, the next card's edge still showing. The
+    room stops at the Duo's side dock, and the cards are masked at its
+    edge, so the next card is never under the dock.
+  - **Checked**: the iPhone 17 Pro simulator in light and dark (Mine over
+    a kept photo, paged to Third Floor with its own picture and dates,
+    to an empty Climbing Club with the warm field and no dates, and the
+    arrow opening it); the **Duo's cover** in light and dark; and **the
+    inner display's width on the iPad mini proxy** (the app held to
+    669pt, device family widened for the run and put back), light and
+    dark: the card 370pt wide, centered, the labels scaled. **The Duo's
+    inner display itself still can't be shown on this Mac** (open items).
 
 - **The covers in glass** (build 54, November 14, 2026, a product brief
   from Ayush, "Redesign the Journal tab around a cover screen";
@@ -1854,7 +1901,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (55)", at the
+  production audit), and the version, "Stanley 0.2.0 (56)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2386,13 +2433,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 55** (0.2.0) is the number to archive next: build 54's covers
-  in glass with "Mine" and "Ours" kept in an open book's top bar
-  (above), over build 52's page for one person, ruled paper and the
-  dots (53 was only a bump).
-- **Builds 52 and 54 need a deploy, and haven't had one.** Fly is v28
-  (build 51's server); 54 adds only `cover_photo_id` and `since`, which an
-  older server leaves out (every cover is then the flat field). On its first start the new server adds
+- **Build 56** (0.2.0) is the number to archive next: the cover screen
+  fixed (above), over build 54's glass chrome with "Mine" and "Ours" in
+  an open book's bar (55), and build 52's page for one person, ruled
+  paper and the dots.
+- **Builds 52 to 56 need a deploy, and haven't had one.** Fly is v28
+  (build 51's server). Against it every cover is the warm field (no
+  `cover_url`) and every journal shows no dates. On its first start the new server adds
   `journal_pages.recipient_id`, `photos.score` and the `day_moods`
   table, and `/terms` and `/privacy` gain the words for both. Until then
   a build 52 phone shows no dots (`/me/moods` is a 404) and doesn't

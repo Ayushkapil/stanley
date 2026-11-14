@@ -19,7 +19,8 @@ from datetime import date
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from . import journal
+from . import journal, physics
+from .storage import read_url
 from .models import Anchor, JournalPage, Membership, PageHeart, Photo, User
 from .serialize import blocked_ids
 
@@ -106,25 +107,73 @@ def readable_page(db: Session, user: User, page_id: str) -> JournalPage | None:
     return row
 
 
-def cover_photo_id(db: Session, user: User, circle_id: str | None = None) -> str | None:
-    """The photo on a journal's cover (build 53): the newest one this person
-    kept themselves, in that circle's journal, or anywhere for their own
-    book. Worked out for each reader from their own keeps alone, so a cover
-    says nothing about anyone else's (the brief asked for the most-kept
-    photo; that would rank by keeps and let a circle see which was kept
-    most, so it's each reader's own newest keep instead, a product decision
-    of 2026-11-14). A photo its poster deleted, one gone with no blob, or
-    one a block stands between isn't a cover. None: no cover photo yet."""
+def cover_photo(db: Session, user: User, circle_id: str | None = None) -> Photo | None:
+    """The photo on a journal's cover (builds 54 and 56): the newest one
+    this person kept themselves in that journal (anywhere, for their own
+    book); else, so a cover isn't bare while there are photos, the
+    journal's newest photo still in its public life (in the circle's, by
+    someone no block stands between; in their own, their own). Worked out
+    for each reader. The brief asked for the most-kept photo; that ranks
+    by keeps and would let a circle see which was kept most, so it isn't
+    (a product decision of 2026-11-14, asked and answered twice). Nothing
+    here reads anyone else's keeps, and a faded photo never comes back as
+    a cover. None: no photo yet."""
     blocked = blocked_ids(db, user.id)
-    query = (
-        select(Photo.id, Photo.owner_id)
+    usable = (Photo.deleted_at.is_(None), Photo.blob_key.is_not(None))
+    kept = (
+        select(Photo)
         .join(Anchor, Anchor.photo_id == Photo.id)
-        .where(Anchor.user_id == user.id, Photo.deleted_at.is_(None), Photo.blob_key.is_not(None))
+        .where(Anchor.user_id == user.id, *usable)
         .order_by(Anchor.created_at.desc(), Photo.id.desc())
     )
     if circle_id is not None:
-        query = query.where(Photo.circle_id == circle_id)
-    for photo_id, owner_id in db.execute(query.limit(50)):
-        if owner_id is None or owner_id not in blocked:
-            return photo_id
+        kept = kept.where(Photo.circle_id == circle_id)
+    for photo in db.scalars(kept.limit(50)):
+        if photo.owner_id is None or photo.owner_id not in blocked:
+            return photo
+    newest = (
+        select(Photo)
+        .where(*usable, Photo.state.in_(physics.PUBLIC_STATES))
+        .order_by(Photo.created_at.desc(), Photo.id.desc())
+    )
+    if circle_id is not None:
+        newest = newest.where(Photo.circle_id == circle_id)
+    else:
+        newest = newest.where(Photo.owner_id == user.id)
+    for photo in db.scalars(newest.limit(50)):
+        if photo.owner_id is not None and photo.owner_id not in blocked:
+            return photo
+    return None
+
+
+def cover(db: Session, user: User, settings, now, circle_id: str | None = None) -> dict:
+    """A journal's cover photo for the phone: its id and a short-lived
+    signed link to its picture, or None for both."""
+    photo = cover_photo(db, user, circle_id)
+    key = photo and (photo.deriv_key or photo.thumb_key)
+    if photo is None or key is None:
+        return {"cover_photo_id": None, "cover_url": None}
+    return {"cover_photo_id": photo.id, "cover_url": read_url(settings, key, now)}
+
+
+def first_day(db: Session, user: User, membership: Membership) -> date | None:
+    """The first day in a circle's shared journal this person can read: a
+    page shared with the circle from the day they joined, or a page for
+    one person to them or by them. None while there's nothing: a journal
+    with nothing in it doesn't say when it began (build 56)."""
+    blocked = blocked_ids(db, user.id)
+    since = joined_day(membership, user)
+    rows = db.execute(
+        select(JournalPage.day, JournalPage.owner_id, JournalPage.recipient_id)
+        .where(JournalPage.circle_id == membership.circle_id, JournalPage.shared.is_(True))
+        .order_by(JournalPage.day)
+    )
+    for day, owner_id, recipient_id in rows:
+        if owner_id in blocked or (recipient_id is not None and recipient_id in blocked):
+            continue
+        if recipient_id is None:
+            if day >= since:
+                return day
+        elif user.id in (owner_id, recipient_id):
+            return day
     return None

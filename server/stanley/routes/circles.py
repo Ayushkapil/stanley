@@ -181,13 +181,17 @@ def join_circle(
 def my_circles(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
 ):
     """Every circle the person is in, in the order they joined, for the
     switcher atop Today and the Journal tab's covers. Names only: no member
     counts, no activity, nothing that ranks one circle above another. Since
-    build 53 each carries its journal's cover photo (the reader's own newest
-    keep in it, or None) and the day the reader joined, where its volume
-    begins for them."""
+    build 54 each carries its journal's cover photo for this reader (an id
+    and a signed link, `sharing.cover`), the day the reader joined, and
+    (build 56) the first day of its journal they can read, or None while
+    it's empty."""
+    now = clock.now()
     rows = db.execute(
         select(Membership, Circle)
         .join(Circle, Circle.id == Membership.circle_id)
@@ -200,8 +204,9 @@ def my_circles(
                 "id": c.id,
                 "name": c.name,
                 "is_creator": c.created_by == user.id,
-                "cover_photo_id": sharing.cover_photo_id(db, user, c.id),
+                **sharing.cover(db, user, settings, now, c.id),
                 "since": sharing.joined_day(m, user).isoformat(),
+                "first_day": (lambda d: d and d.isoformat())(sharing.first_day(db, user, m)),
             }
             for m, c in rows
         ]

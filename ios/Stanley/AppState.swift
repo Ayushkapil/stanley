@@ -73,6 +73,8 @@ final class AppState {
     var journalTitle: String?
     /// The photo on your journal's cover (build 53): your own newest keep.
     var journalCover: String?
+    /// And a signed link to its picture (build 56).
+    var journalCoverLink: String?
     /// The server has the journal, so a page can be written. False against
     /// a server from before build 45: the pages are what's kept, and
     /// there's no page for today.
@@ -265,6 +267,8 @@ final class AppState {
         await loadCircleLetters()
         await refreshMemories()
         await loadProfile()
+        // The journal's cover link runs out with the rest (build 56).
+        if journalWritable { await loadJournal() }
         reloads += 1
     }
 
@@ -1327,13 +1331,17 @@ final class AppState {
             var after: String?
             var title: String?
             var cover: String?
+            var coverLink: String?
             // A page a day for fifty years is under two hundred stretches.
             for _ in 0..<200 {
                 let stretch: JournalStretch = try await api.send(
                     "GET", "/me/journal", query: after.map { ["after": $0] } ?? [:]
                 )
                 title = stretch.title
-                if after == nil { cover = stretch.coverPhotoId }
+                if after == nil {
+                    cover = stretch.coverPhotoId
+                    coverLink = stretch.coverUrl
+                }
                 gathered += stretch.pages
                 guard let next = stretch.nextAfter else { break }
                 after = next
@@ -1341,6 +1349,7 @@ final class AppState {
             journalPages = gathered
             journalTitle = title
             journalCover = cover
+            journalCoverLink = coverLink
             journalWritable = true
         } catch APIError.status(404) {
             journalPages = []

@@ -433,19 +433,23 @@ struct BookView: View {
                         // The journals' covers, one to a page, with the bar
                         // over them; glass under the tab bar.
                         ZStack(alignment: .topLeading) {
+                            palette.floor
+                                .frame(width: full.width, height: full.height + 160)
+                                .accessibilityHidden(true)
                             JournalCovers(
                                 layout: layout,
-                                // Stopping at the tab bar: iOS 26's bar takes its
-                                // light or dark from the scrolling page beneath
-                                // it, and a dark cover under it took the selected
-                                // tab's ink with it.
-                                screen: CGSize(width: full.width, height: full.height),
-                                contentHeight: full.height,
-                                bar: AnyView(bar(layout, back: nil, tint: .white)),
+                                // Across, the room without a side dock (the Duo's
+                                // cover), so the next card's edge clears it.
+                                // Down, stopping at the tab bar: iOS 26's bar
+                                // takes its light or dark from the scrolling page
+                                // beneath it.
+                                width: layout.width + BookLayout.edge,
+                                height: full.height,
+                                bar: AnyView(bar(layout, back: nil, tint: palette.accent)),
                                 open: { journal in openBook(journal, layout: layout) },
                                 page: $coverPage
                             )
-                            TabBarGlass(height: 160)
+                            TabBarGlass(height: 160, base: palette.floor)
                                 .frame(width: full.width)
                                 .offset(y: full.height)
                         }
