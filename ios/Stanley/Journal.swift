@@ -109,11 +109,18 @@ enum PhotoCut {
 
 /// Cream paper, and the ink on it.
 enum Cream {
-    static let paper = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.925, green: 0.895, blue: 0.83, alpha: 1)   // under a lamp
-            : UIColor(red: 0.992, green: 0.972, blue: 0.925, alpha: 1)  // #FDF8EC
-    })
+    private static let day = UIColor(red: 0.992, green: 0.972, blue: 0.925, alpha: 1)   // #FDF8EC
+    private static let lamp = UIColor(red: 0.925, green: 0.895, blue: 0.83, alpha: 1)   // under a lamp
+
+    static let paper = Color(UIColor { $0.userInterfaceStyle == .dark ? lamp : day })
+
+    /// The paper for a room said outright. Anything drawn `onCream()` is
+    /// resolved as in daylight, so an envelope that fills itself with
+    /// `paper` came out brighter in the dark than the letter beside it;
+    /// it asks for the room it's really in.
+    static func paper(_ scheme: ColorScheme) -> Color {
+        Color(scheme == .dark ? lamp : day)
+    }
     static let ink = Color(red: 0.16, green: 0.14, blue: 0.11)
 }
 

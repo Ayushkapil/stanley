@@ -383,19 +383,44 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     on the page's floor with nothing scrolling under it (`SolidTabBar`,
     builds 31 and 39). It is the system's glass bar; letting photos
     scroll under it is what lost the selected tab's ink twice.
+  - **The widget is in the same look** (a second pass the same day,
+    `WidgetViews.swift`): the flat floor instead of grained paper, photos
+    straight with 6pt corners and nothing round them (a hairline and faint
+    shadow on the page), and SF Rounded for the circle's name, the
+    countdown's words, the names under photos and the status line. A hand
+    is left only where someone wrote: the day's slip and a note from the
+    board. The clock keeps its cards and hand-lettered labels, and build
+    41's ink strengths are as they were. Seen in the Debug gallery
+    (`STANLEY_WIDGET_GALLERY=1`), light and dark, not on a Home Screen.
+  - **Also fixed in that second pass.** Envelopes were brighter than the
+    letter beside them in the dark: anything drawn `onCream()` resolves as
+    daylight, so an envelope filling itself with `Cream.paper` got the
+    daylight cream; they ask for `Cream.paper(colorScheme)` now. Setup's
+    step dots (and "Choose a photo") came out the system's blue from the
+    second step on, where `Color.accentColor` had lost the tint; they use
+    the palette's accent outright.
   - **Checked on the iPhone 17 Pro simulator**, light and dark, against
     the screenshot circle: Today (top, photos, own photo with the journal
     slip, empty, day marks), writing a note, capture before and after the
-    shutter and a real post, the Journal tab top to bottom, You, World,
-    Settings, Rain in both modes, the answers sheet, the circle journal,
-    the circle-letter writing sheet, and opened circle letters (server
-    clock moved to December). **On the Duo's cover display**: Today,
-    Journal and You, light only. **Not seen:** a real phone, the Duo's
-    inner display (the simulator can't unfold), VoiceOver, Dynamic Type
-    at large sizes, the stories sheet, a member's profile, the opened
-    held photo, the sealed-letter reader and compose sheets, onboarding,
-    the circle gate, the heart animation itself, and the widget on a Home
-    Screen with the new palettes (it compiles against them).
+    shutter and a real post, the Journal tab top to bottom, You top and
+    foot, World, Settings, Rain in both modes, the answers sheet, the
+    circle journal, the circle-letter writing sheet, opened circle letters
+    (server clock moved to December), the stories sheet, a member's
+    profile, the sealed-letter reader and compose sheets, and the widget
+    gallery. In light only: the opened held photo (it's black in either
+    mode), and the double-tap heart, caught mid-fade in a frame (one white
+    heart, no burst). **On a fresh install on the iPhone 17 simulator**,
+    light and dark: onboarding's first and last pages, setup's name step,
+    and the circle gate; setup's other three steps in light. **On the
+    Duo's cover display**: Today, Journal and You in light, Today in dark.
+    **Not seen:** a real phone, the Duo's inner display (the simulator
+    can't unfold), VoiceOver, Dynamic Type at large sizes, and the widget
+    on a real Home Screen.
+  - **Seen and left** (not this pass's doing): on setup's "Write a little
+    about yourself" step with the keyboard up, Skip is under the keyboard
+    and the back button sits over the step dots (iPhone 17); and on the
+    Duo's cover the note row and the You tab's Invite ring run under the
+    side dock at their trailing end.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).

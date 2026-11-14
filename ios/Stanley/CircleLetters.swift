@@ -166,7 +166,7 @@ struct EnvelopeMark: View {
             let dark = DarkRoom.isDark(colorScheme)
             // Cream paper in both rooms: an envelope keeps its materiality
             // on the black (build 44).
-            let paper: Color = Cream.paper
+            let paper: Color = Cream.paper(colorScheme)
             let line = Cream.ink.opacity(0.72)
             let stroke = StrokeStyle(lineWidth: max(1, width / 56), lineCap: .round, lineJoin: .round)
             let pocket = RoundedRectangle(cornerRadius: width / 36, style: .continuous)

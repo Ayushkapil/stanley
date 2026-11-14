@@ -19,6 +19,7 @@ struct SetupView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
 
     @State private var step: Step = .name
     @State private var name = ""
@@ -186,7 +187,7 @@ struct SetupView: View {
             AvatarChooser {
                 Label(hasPhoto ? "Choose another" : "Choose a photo", systemImage: "photo.on.rectangle")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Atmosphere.resolve(raw).palette.accent)
                     .frame(minHeight: 44)
             }
         }
@@ -294,13 +295,18 @@ struct SetupView: View {
 /// Where setup is: four small marks, the ones done and the one here filled.
 /// A sense of place, not a score.
 private struct Dots: View {
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let step: SetupView.Step
 
     var body: some View {
+        // The palette's accent, said outright: `Color.accentColor` came out
+        // the system's blue from the second step on (seen on iOS 26.5,
+        // build 44), though the first step had the tint.
+        let accent = Atmosphere.resolve(raw).palette.accent
         HStack(spacing: 6) {
             ForEach(SetupView.Step.allCases, id: \.self) { each in
                 Capsule()
-                    .fill(each.rawValue <= step.rawValue ? Color.accentColor : Color.secondary.opacity(0.3))
+                    .fill(each.rawValue <= step.rawValue ? accent : Color.secondary.opacity(0.3))
                     .frame(width: each == step ? 22 : 8, height: 8)
             }
         }

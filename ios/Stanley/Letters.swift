@@ -149,7 +149,7 @@ private struct MiniEnvelope: View {
         let accent = Atmosphere.resolve(raw).palette.accent
         return ZStack {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Cream.paper)
+                .fill(Cream.paper(colorScheme))
                 .overlay(
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .stroke(Cream.ink.opacity(0.28), lineWidth: 0.5)
@@ -238,7 +238,7 @@ struct SealedEnvelopeView: View {
                 // The whole front, filled: filling the shape itself left
                 // the flap's V as a hole the page showed through.
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Cream.paper)
+                    .fill(Cream.paper(colorScheme))
                     .overlay(
                         EnvelopeShape(flapOpen: 0, flapAngle: 0)
                             .stroke(Cream.ink.opacity(0.28), lineWidth: 0.6)
@@ -322,7 +322,7 @@ struct OpenedEnvelopeView: View {
                 // The whole front, filled: filling the shape itself left
                 // the flap's V as a hole the page showed through.
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Cream.paper)
+                    .fill(Cream.paper(colorScheme))
                     .overlay(
                         EnvelopeShape(flapOpen: 1, flapAngle: 24)
                             .stroke(Cream.ink.opacity(0.28), lineWidth: 0.6)
@@ -501,7 +501,7 @@ struct LetterReaderSheet: View {
             // The whole front, filled: filling the shape itself left the
             // flap's V as a hole the page showed through.
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Cream.paper)
+                .fill(Cream.paper(colorScheme))
                 .overlay(
                     EnvelopeShape(flapOpen: flapOpen, flapAngle: flapAngle)
                         .stroke(Cream.ink.opacity(0.28), lineWidth: 0.7)

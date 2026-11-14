@@ -3,9 +3,13 @@ import UIKit
 import WidgetKit
 
 // The home screen widget's three sizes (build 40), drawn from a
-// `WidgetSnapshot` at a moment. A corner of the journal left on the home
-// screen: the same paper, the same hand, the same prints, and in the dark
-// the same dark room. Nothing here reaches the network or counts anything.
+// `WidgetSnapshot` at a moment. A corner of Stanley left on the home screen,
+// in the app's own look (Quiet Warmth, build 44): the flat warm-white page
+// or the dark room's black, photos cut straight with nothing round them,
+// system type for names and labels, and a hand only where someone wrote
+// (the day's slip, a note from the board). Until build 44 it was grained
+// paper, tilted prints on photo paper, and the hand throughout. Nothing
+// here reaches the network or counts anything.
 //
 // These views are in `Shared` so a Debug build of the app can lay the three
 // sizes out on one screen to be looked at (`WidgetGallery`); the widget
@@ -16,22 +20,14 @@ enum WidgetSize {
     case small, medium, large
 }
 
-/// The page the widget is drawn on: the atmosphere's floor with the paper's
-/// grain, or the dark room's black.
+/// The page the widget is drawn on: the atmosphere's floor, flat (grained
+/// paper until build 44), or the dark room's black.
 struct WidgetBackdrop: View {
-    @Environment(\.colorScheme) private var colorScheme
     let atmosphere: String
 
     var body: some View {
-        ZStack {
-            Atmosphere.resolve(atmosphere).palette.floor
-            if colorScheme != .dark {
-                Image(uiImage: PaperGrain.tile)
-                    .resizable(resizingMode: .tile)
-                    .opacity(0.45)
-            }
-        }
-        .accessibilityHidden(true)
+        Atmosphere.resolve(atmosphere).palette.floor
+            .accessibilityHidden(true)
     }
 }
 
@@ -84,9 +80,9 @@ struct StanleyWidgetView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Stanley")
-                .font(.handFixed(size == .small ? 26 : 30, bold: true))
+                .font(.uiFixed(size == .small ? 23 : 26, .semibold))
             Text(snapshot.signedIn ? "Join a circle to begin." : "Open Stanley to see your circle.")
-                .font(.handFixed(15))
+                .font(.uiFixed(13.5))
                 .foregroundStyle(said)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -114,7 +110,7 @@ struct StanleyWidgetView: View {
                     Spacer(minLength: 4)
                 }
                 Text(phase.text)
-                    .font(.handFixed(phase.reminder == nil ? 19 : 15, bold: true))
+                    .font(.uiFixed(phase.reminder == nil ? 17 : 14, .semibold))
                     .lineLimit(phase.reminder == nil ? 3 : 2)
                     .minimumScaleFactor(0.75)
                     .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +123,7 @@ struct StanleyWidgetView: View {
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 Text(snapshot.circleName ?? "")
-                    .font(.handFixed(25, bold: true))
+                    .font(.uiFixed(22, .semibold))
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
                     .fixedSize(horizontal: false, vertical: true)
@@ -150,7 +146,7 @@ struct StanleyWidgetView: View {
         let print = prints.first { $0.shot.mine } ?? prints.first
         return HStack(alignment: .center, spacing: 16) {
             if let print {
-                WidgetPrint(image: print.image, takenAt: print.shot.takenAt, date: date, tilt: -3)
+                WidgetPrint(image: print.image, takenAt: print.shot.takenAt, date: date)
                     .frame(maxHeight: .infinity)
                     .padding(.vertical, 2)
                     .accessibilityLabel(print.shot.mine ? "Your photo" : "Photo by \(print.shot.name)")
@@ -187,19 +183,17 @@ struct StanleyWidgetView: View {
                 Text(snapshot.emptied(at: date)
                      ? "Nothing in the light right now."
                      : "Open Stanley to see your circle.")
-                    .font(.handFixed(17))
+                    .font(.uiFixed(15))
                     .foregroundStyle(said)
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
             } else {
                 HStack(alignment: .top, spacing: 14) {
-                    ForEach(Array(prints.enumerated()), id: \.element.shot.id) { index, print in
+                    ForEach(Array(prints.enumerated()), id: \.element.shot.id) { _, print in
                         VStack(spacing: 5) {
-                            WidgetPrint(
-                                image: print.image, takenAt: print.shot.takenAt, date: date,
-                                tilt: [-2.2, 1.4, -1.2][index % 3]
-                            )
+                            WidgetPrint(image: print.image, takenAt: print.shot.takenAt, date: date)
                             Text(print.shot.mine ? "You" : print.shot.name)
-                                .font(.handFixed(14, bold: true))
+                                .font(.uiFixed(12, .medium))
+                                .foregroundStyle(quiet)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                         }
@@ -227,7 +221,7 @@ struct StanleyWidgetView: View {
         if let phase {
             caps(snapshot.circleName ?? "")
             Text(phase.text)
-                .font(.handFixed(size == .large ? 21 : 18, bold: true))
+                .font(.uiFixed(size == .large ? 19 : 16, .semibold))
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
@@ -240,7 +234,7 @@ struct StanleyWidgetView: View {
             }
         } else {
             Text(snapshot.circleName ?? "")
-                .font(.handFixed(size == .large ? 26 : 22, bold: true))
+                .font(.uiFixed(size == .large ? 23 : 20, .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 // The name keeps its size; a long note gives way instead.
@@ -278,7 +272,7 @@ struct StanleyWidgetView: View {
                 .frame(width: 20, height: 20)
                 .overlay(Circle().strokeBorder(palette.accent.opacity(0.7), lineWidth: 1))
             Text(posted ? "Today's moment" : "One photo waiting")
-                .font(.handFixed(15, bold: true))
+                .font(.uiFixed(13.5, .medium))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
@@ -340,19 +334,20 @@ struct StanleyWidgetView: View {
     }
 }
 
-/// A photo as a small print: 3:4 on its border of photo paper, a little
-/// crooked, faded as far as it has faded in Today. In the dark room, the
-/// photo itself, bare and straight.
+/// A photo in the widget: 3:4, cut with small corners, straight, faded as
+/// far as it has faded in Today. On the page a hairline and the faintest
+/// shadow; in the dark room nothing round it at all. (A tilted print on
+/// photo paper until build 44.)
 struct WidgetPrint: View {
     @Environment(\.colorScheme) private var colorScheme
     let image: UIImage
     let takenAt: Date
     let date: Date
-    var tilt: Double = 0
 
     var body: some View {
         let dark = colorScheme == .dark
         let fade = WidgetSnapshot.fade(takenAt, at: date)
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
         Color.clear
             .aspectRatio(3.0 / 4.0, contentMode: .fit)
             .overlay {
@@ -364,11 +359,11 @@ struct WidgetPrint: View {
             .clipped()
             .saturation(1 - 0.85 * fade)
             .opacity(1 - (dark ? 0.62 : 0.82) * fade)
-            .clipShape(RoundedRectangle(cornerRadius: dark ? DarkRoom.photoCorner : PrintStock.photoCorner, style: .continuous))
-            .padding(dark ? 0 : 4)
-            .background(dark ? Color.clear : PrintStock.paper, in: RoundedRectangle(cornerRadius: 2, style: .continuous))
-            .shadow(color: .black.opacity(dark ? 0 : 0.16), radius: 3, x: 0.5, y: 1.5)
-            .rotationEffect(.degrees(dark ? 0 : tilt))
+            .clipShape(shape)
+            .overlay {
+                if !dark { shape.strokeBorder(.black.opacity(0.08), lineWidth: 0.5) }
+            }
+            .shadow(color: .black.opacity(dark ? 0 : 0.07), radius: 3, y: 1)
     }
 }
 
@@ -444,6 +439,12 @@ private extension Image {
 }
 
 extension Font {
+    /// The system's rounded face at a size that doesn't grow, for the
+    /// widget's names and labels.
+    static func uiFixed(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .rounded)
+    }
+
     /// The hand at a size that doesn't grow: a widget's room is fixed.
     static func handFixed(_ size: CGFloat, bold: Bool = false) -> Font {
         let name = bold ? "Noteworthy-Bold" : "Noteworthy-Light"
