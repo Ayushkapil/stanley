@@ -577,7 +577,14 @@ struct SpreadView: View {
         // For looking at the open spread on a simulator that can't unfold.
         if ProcessInfo.processInfo.environment["STANLEY_WIDE_SPREAD"] == "1" { return true }
         #endif
-        return layout.width >= 600
+        return layout.width >= BookLayout.spreadWidth
+    }
+
+    /// The margins of a page of an open spread: at the book's outer edge
+    /// and at the spine. Narrower where the two pages are (the Duo's
+    /// inner display with a dock down its side leaves each about 280pt).
+    private func sides(_ half: CGFloat) -> (outer: CGFloat, spine: CGFloat) {
+        half < 320 ? (22, 16) : (30, 22)
     }
 
     var body: some View {
@@ -589,7 +596,8 @@ struct SpreadView: View {
                 let half = ((layout.width - layout.safeLeading) / 2).rounded(.down)
                 SharedHalf(
                     page: spread.left, note: nil, layout: layout, size: CGSize(width: half, height: tall),
-                    leading: 26, trailing: 26, actions: actions, live: live
+                    leading: (sides(half).outer + sides(half).spine) / 2, trailing: (sides(half).outer + sides(half).spine) / 2,
+                    actions: actions, live: live
                 )
                 .offset(x: layout.safeLeading + ((layout.width - layout.safeLeading - half) / 2).rounded(), y: top)
             } else {
@@ -607,12 +615,12 @@ struct SpreadView: View {
             ZStack(alignment: .topLeading) {
                 SharedHalf(
                     page: spread?.left, note: nil, layout: layout, size: size,
-                    leading: 30, trailing: 22, actions: actions, live: live
+                    leading: sides(half).outer, trailing: sides(half).spine, actions: actions, live: live
                 )
                 .offset(x: layout.safeLeading, y: top)
                 SharedHalf(
                     page: spread?.right, note: facing, layout: layout, size: size,
-                    leading: 22, trailing: 30, actions: actions, live: live
+                    leading: sides(half).spine, trailing: sides(half).outer, actions: actions, live: live
                 )
                 .offset(x: layout.safeLeading + half, y: top)
                 LinearGradient(

@@ -45,6 +45,14 @@ struct BookLayout: Hashable {
     /// the book seen edge-on, where the ribbon is.
     static let edge: CGFloat = 18
 
+    /// How wide the page has to be for the shared journal to lie open as
+    /// two pages side by side. No iPhone's page reaches it (the widest is
+    /// about 422pt) and the Duo's inner display clears it either way: its
+    /// 669pt leaves a page of 651pt, or about 561pt if the tab bar is a
+    /// dock down its side as on the cover (not known: that display has
+    /// never been seen). It was 600pt, which a dock would have defeated.
+    static let spreadWidth: CGFloat = 500
+
     /// The page itself: from the screen's top to the tab bar, and from the
     /// left edge to where the fore-edge begins.
     let width: CGFloat

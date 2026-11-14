@@ -479,7 +479,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   a product brief from Ayush, "Phase 2 of the Journal redesign";
   screenshots in `docs/shared-journal-build51/`). The Journal tab holds two
   books: your own, as it was, and the shared journal of the circle on
-  screen. **Phone and server both; it needs a deploy** (open items).
+  screen. **Phone and server both; the server side is on Fly as v28**
+  (open items).
   - **The head of the page**: the date at the left; at the right, static
     while pages turn, **Mine** and **Ours** (SF Rounded; the one being
     read semibold in the accent, the other quiet) and a **"+"**
@@ -516,8 +517,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     first, so the newest is last and the ribbon, the pinch grid and the
     months along the edge all work as in Mine. A spread is two pages
     **one above the other with a thin rule between** on a phone; **side
-    by side with a shade down the middle** where the page is 600pt wide
-    or more (the Duo's inner display; not seen). Each is ruled, the words
+    by side with a shade down the middle** where the page is 500pt wide
+    or more (`BookLayout.spreadWidth`; the Duo's inner display, not
+    seen). It was 600pt until someone did the sum: the page is the
+    screen less the fore-edge and less a dock down the side, and if the
+    inner display's 669pt keeps the cover's 90pt dock the page is about
+    561pt, which 600 would have left stacked. No iPhone's page reaches
+    500 (the widest is about 422pt). The two pages' margins are a
+    little narrower when each is under 320pt. Each is ruled, the words
     in their writer's inks, **the writer's name small in the hand at the
     foot**, and the heart. A day too long for half a screen scrolls on
     its own page. The date is at the head; the page's number at the foot.
@@ -632,13 +639,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     open Ours without taps, none of it kept. Seen there and left: on a
     spread that wide the date, "Mine", "Ours" and the marks at the foot
     keep to the 520pt column a single page uses, a little in from the
-    spread's own margins. The Release configuration compiles. **Not
-    seen:** the Duo's inner display itself. This simulator can't show
+    spread's own margins. **And at the inner display's own width**, on
+    the same iPad with the app held to a 669pt column, then to 579pt as
+    if a dock had the side (a Debug frame for the run, not kept; light
+    and dark): the pair side by side with the spine's shade, and the odd
+    one out alone and centered, at both. The Release configuration
+    compiles. **Not seen:** the Duo's inner display itself. This simulator can't show
     it, and that was gone into properly this time (the Duo open item
     has what was tried): the inner panel is a second display that stays
     black, and nothing moves the app onto it. So the true spread on a
-    Duo is known only from the code path (a page 600pt wide or more) and
-    the 744pt iPad proxy. Also not seen: a day long
+    Duo is known only from the code path (a page 500pt wide or more) and
+    the iPad proxy at 744, 669 and 579pt. Also not seen: a day long
     enough to scroll on its half page; a real phone; VoiceOver; large
     Dynamic Type; and any of it against Fly.
 
@@ -2144,12 +2155,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Build 51** (0.2.0) is the number to archive next: the shared journal,
   "Mine" and "Ours" (above), over build 50's inks and build 49's Letters
   and Prompts at the foot of the page.
-- **Build 51 needs a deploy, and hasn't had one.** Fly is v27. On its
-  first start the new server adds `journal_pages.shared` and `circle_id`,
-  `reports.page_id` and the `page_hearts` table, and `/terms` and
-  `/privacy` gain the shared journal's words; nothing changes for older
-  builds. Until then a build 51 phone gets a 404 for the circle's book,
-  shows no "Mine" and "Ours", and its "+" simply writes privately.
+- **Build 51's server is on Fly** (2026-11-14, asked for by Ayush):
+  release **v28** runs `main` as of `68aa2f6`, after the full suite
+  passed on that code (573). Checked after the deploy: `/health` ok; the
+  shared journal's routes answer 401 without a sign-in (`GET
+  /circles/{id}/journal`, `PATCH /journal/{id}`, `POST
+  /journal/{id}/heart`, `GET /journal/{id}/hearts`); `/privacy` has the
+  shared journal's words; `journal_pages.shared` and `circle_id`,
+  `reports.page_id` and the `page_hearts` table exist on the volume;
+  integrity ok, no foreign-key problems; no page shared yet. Nothing
+  changes for older builds. Not yet seen: a real phone on build 51
+  sharing a page to it.
 - **Build 50's server is on Fly** (2026-11-14): release **v27** runs
   `main` as of `7bc5414`. Checked after the deploy: `/health` ok; the
   journal's routes answer 401 without a sign-in; `journal_pages.inks`
