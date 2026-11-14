@@ -1506,10 +1506,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   design pass (above), which also removed the filters and rest-a-memory
   from the app. The next upload carries builds 41 to 44 (43 was only a
   bump). The last build uploaded is 40. Nothing in 44 needs a deploy.
-- **A flaky server test.** `test_journaling.py::
-  test_nothing_about_the_question_counts_anyone` failed once in a full run
-  on November 13 (around 00:25 UTC on a Saturday) and passed alone and in
-  the next full run, with no server code changed. Not looked into.
+- **A flaky server test, fixed** (November 13). `test_journaling.py::
+  test_nothing_about_the_question_counts_anyone` failed one run in forty:
+  it looked for "count" in every string of the payload, and one of the
+  forty questions is "What does your week look like if you only count the
+  quiet moments?" (picked at random). Nothing to do with the clock, and
+  not a bug in the server. It now reads only the payload's field names
+  (`names()`), and asks that very question so the case that failed is the
+  one tested.
 - **Fly now** (2026-11-13): release **v25** runs `main` as of `7a2b2a0`:
   both letters features, build 39's reminders if v24 hadn't already
   brought them, and the November 13 Terms and Privacy. Checked after the

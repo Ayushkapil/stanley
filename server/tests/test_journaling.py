@@ -64,6 +64,18 @@ def walk(value):
         yield value
 
 
+def names(value):
+    """Every key in a JSON value, and nothing anyone wrote: what the payload
+    has fields for, not what the fields say."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield k
+            yield from names(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from names(v)
+
+
 # --- the journal entry on your own photo -------------------------------------------------
 
 
@@ -315,13 +327,21 @@ def test_answers_are_sealed_until_saturday_then_read_by_everyone(circle, clock):
     assert late.status_code == 409 and late.json()["detail"]["code"] == "question_closed"
 
 
-def test_nothing_about_the_question_counts_anyone(circle, clock):
+def test_nothing_about_the_question_counts_anyone(circle, clock, monkeypatch):
+    # The week's question is picked at random, and one of the forty has the
+    # word "count" in it. This used to look through every string in the
+    # payload, the question's own words included, so it failed one run in
+    # forty. It's the fields that mustn't count anyone, so it reads only
+    # their names, and asks that very question so the difference is tested.
+    counting = next(q for q in journal.QUESTIONS if "count" in q)
+    monkeypatch.setattr(journal, "pick_question", lambda recent, rng=None: counting)
+    assert question(circle.ana, circle.id).json()["prompt"]["text"] == counting
     answer(circle.ana, circle.id, "One.")
     answer(circle.ben, circle.id, "Two.")
     clock.set(SATURDAY)
     for payload in (question(circle.cam, circle.id).json(), answers(circle.cam, circle.id).json()):
-        keys = {k for k in walk(payload) if isinstance(k, str)}
-        assert not any("count" in k or k.startswith("n_") or k == "total" for k in keys)
+        keys = set(names(payload))
+        assert keys and not any("count" in k or k.startswith("n_") or k == "total" for k in keys)
     assert set(answers(circle.cam, circle.id).json()) == {"prompt", "responses"}
 
 
