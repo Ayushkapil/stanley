@@ -5,10 +5,10 @@ import UIKit
 // nothing to open: the tab lands on today's page, and a swipe to the right
 // turns back through everything before it. Pages turn with the system's own
 // page curl, which follows the finger and is the one page turn on iOS that
-// feels like paper. Along the head of the page is a bar: the date at its
-// left, and at its right Letters and the circle's questions, which aren't
-// pages (build 48; they were paper tabs at the page's edge, too small to
-// press). Down the right of the page is the rest of the book seen edge-on,
+// feels like paper. Along the foot of the page, either side of its number,
+// are Letters and the circle's questions, which aren't pages (build 49;
+// build 48 had them at the head of the page, build 46 as paper tabs at its
+// edge). Down the right of the page is the rest of the book seen edge-on,
 // with a ribbon to drag back through time and the months marked along it.
 // A pinch in lays the pages out small.
 
@@ -566,8 +566,8 @@ struct BookView: View {
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
 
-            // The bar's right: what isn't a page. On the date's line, in
-            // the head of the page, over nothing that's on it.
+            // What isn't a page: Letters and Prompts, either side of the
+            // page's number at its foot, over nothing that's on it.
             BookBar(
                 layout: layout, accent: accent,
                 sealed: !state.lettersReceived.sealed.isEmpty,
@@ -865,12 +865,14 @@ private struct BookEdge: View {
     }
 }
 
-// MARK: - The bar
+// MARK: - The marks at the foot
 
-/// The right of the bar along the head of the page: Letters and Prompts,
-/// and on Sunday evening the week. Thin marks in the accent, each in a
-/// 44pt target, on the date's line: in the page's head, where nothing on
-/// the page is. They stay put while pages turn.
+/// Along the foot of the page, either side of its number: Letters at the
+/// left, Prompts at the right, and on Sunday evening the week beside
+/// Prompts. Thin marks in the accent, each in a 44pt target, in the band
+/// under everything a page holds. They stay put while pages turn. (Build
+/// 49. Build 48 had them on the date's line at the head of the page;
+/// build 46 as paper tabs at its edge, too small to press.)
 private struct BookBar: View {
     let layout: BookLayout
     let accent: Color
@@ -884,24 +886,22 @@ private struct BookBar: View {
     let openPrompts: () -> Void
     let openWeek: () -> Void
 
-    /// A mark's own width, and the room between one and the next.
+    /// A mark's own width.
     private static let glyph: CGFloat = 24
-    private static let gap: CGFloat = 20
-    /// From the last mark to the page's edge.
-    private static let margin: CGFloat = 20
 
     var body: some View {
         // The week's mark comes and goes with the evening.
         TimelineView(.periodic(from: .now, by: 60)) { context in
-            HStack(spacing: Self.gap - (44 - Self.glyph)) {
-                if let week, week.reflection == nil, ReflectionWindow.isOpen(context.date) {
-                    mark("moon", label: "How was your week?", hint: "Write this week's reflection", action: openWeek)
-                }
+            HStack(spacing: 0) {
                 mark(
                     "envelope", label: "Letters",
                     hint: ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "",
                     dot: sealed, action: openLetters
                 )
+                Spacer(minLength: 0)
+                if let week, week.reflection == nil, ReflectionWindow.isOpen(context.date) {
+                    mark("moon", label: "How was your week?", hint: "Write this week's reflection", action: openWeek)
+                }
                 if prompts {
                     mark(
                         "questionmark.bubble", label: "Prompts",
@@ -909,11 +909,12 @@ private struct BookBar: View {
                     )
                 }
             }
-            // The last mark's own edge is 20pt from the page's; its
+            // Each outer mark's own edge is on the writing's margin; its
             // target reaches a little past that.
-            .padding(.trailing, Self.margin - (44 - Self.glyph) / 2)
-            .frame(width: layout.width, height: BookLayout.bar, alignment: .trailing)
-            .offset(y: layout.safeTop)
+            .padding(.leading, layout.left - (44 - Self.glyph) / 2)
+            .padding(.trailing, layout.width - layout.right - (44 - Self.glyph) / 2)
+            .frame(width: layout.width, height: BookLayout.foot)
+            .offset(y: layout.height - layout.safeBottom - BookLayout.foot)
         }
     }
 

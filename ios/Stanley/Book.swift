@@ -99,19 +99,12 @@ struct BookLayout: Hashable {
     var right: CGFloat { width - safeTrailing - margin }
     var textWidth: CGFloat { right - left }
     var middle: CGFloat { (left + right) / 2 }
-    /// The bar along the head of the page (build 48): the date at its
-    /// left, Letters and Prompts at its right. A full 44pt, so what's
-    /// pressed there is never over anything on the page.
-    static let bar: CGFloat = 44
-    /// The middle of that bar.
-    var headY: CGFloat { safeTop + Self.bar / 2 }
+    /// The date, small, at the head of the page: where its line's middle is.
+    var headY: CGFloat { safeTop + 20 }
     /// The hand's size for the date at the head.
     var headSize: CGFloat { fontSize - 4 }
-    /// How much of the bar's width the date may take: the rest is the
-    /// icons' (three of them on a Sunday evening).
-    var headWidth: CGFloat { max(80, textWidth - 132) }
-    /// Where the first line begins: under the bar, a little let down.
-    var contentTop: CGFloat { safeTop + Self.bar + 6 }
+    /// Where the first line begins: under the date.
+    var contentTop: CGFloat { safeTop + 42 }
     /// Where the last line may end: above the page's number (or the inks).
     var contentBottom: CGFloat { height - safeBottom - Self.foot }
     var rows: Int { max(4, Int((contentBottom - contentTop) / pitch)) }
@@ -120,7 +113,9 @@ struct BookLayout: Hashable {
     /// letters' feet, where a ruled line sits.
     var ruleRise: CGFloat { max(0, -font.descender - 3) }
     /// The band along the foot that holds the page's number when it's read
-    /// and the three inks when it's written.
+    /// and the three inks when it's written, with Letters at its left and
+    /// Prompts at its right (build 49). Nothing on a page comes down into
+    /// it, so what's pressed there is never over a photo or a letter.
     static let foot: CGFloat = 50
     /// The middle of that band.
     var numberY: CGFloat { height - safeBottom - Self.foot / 2 }
@@ -340,10 +335,15 @@ enum BookType {
         return "Week of " + (monday?.formatted(.dateTime.month(.wide).day()) ?? reflection.weekStart)
     }
 
-    /// A day's page: the day, in its ink. (Its date is at the head of the
-    /// page, small, not in the writing: build 46.)
+    /// A day's page: the day, each stretch in the ink it was written in
+    /// (build 50; a page was one ink before). Its date is at the head of
+    /// the page, small, not in the writing (build 46).
     static func written(_ page: DayPage, layout: BookLayout) -> NSAttributedString {
-        NSAttributedString(string: page.body, attributes: writing(layout, ink: Ink.named(page.ink).ui))
+        let text = NSMutableAttributedString()
+        for run in page.stretches {
+            text.append(NSAttributedString(string: run.text, attributes: writing(layout, ink: Ink.named(run.ink).ui)))
+        }
+        return text
     }
 
     /// A week's reflection: the words. Its week is at the head of the page.

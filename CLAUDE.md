@@ -452,47 +452,101 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
-- **Letters and Prompts are on a bar at the head of the page** (build 48,
-  November 14, 2026, a product brief from Ayush after trying build 46;
-  screenshots in `docs/journal-bar-build48/`). Build 46's two paper tabs
-  at the page's edge are gone: they were too small to press reliably, sat
-  over what was on the page, and read as system UI. **Where the next
-  section says "paper tabs", this is what there is instead.** Phone only.
-  - **The bar** is the head of the page, 44pt under the status bar
-    (`BookLayout.bar`): at its left the date, small, in the hand, as
-    before; at its right two marks (`BookBar` in `BookView.swift`), an
-    envelope for **Letters** and a question in a speech bubble for
-    **Prompts** (only with a circle), each opening the same sheet the tab
-    did. SF Symbols, light weight, 20pt, in the accent; each in a 44pt
-    target; 20pt between one mark and the next, and 20pt from the last to
-    the page's edge (the book's fore-edge and its ribbon are past that).
-    **A small dot of wax red on the envelope while any letter to you is
-    still sealed**; VoiceOver says whether its day has come.
-  - **Nothing on a page is under it.** What's on a page starts 6pt below
-    the bar (`contentTop`; it was 42pt under the status bar, now 50), so
-    a photo, a letter and the first ruled line all begin beneath it. The
-    date may take the bar's width less 132pt, and shrinks to fit before
-    it would reach a mark.
-  - **The marks stay put while pages turn**; the date is on the page and
-    turns with it. So the bar is the page's own head and not a strip
-    above the paper: a strip would have cut the page short of the top of
-    the screen and stopped the curl under it. Not asked about; if a bar
-    that never moves at all is wanted, the page controller's view would
-    start below it.
-  - **On Sunday evening a third mark**, a moon, to the left of the
-    envelope: "How was your week?" (build 46's third tab, moved with the
-    others; still not asked about).
-  - **A month's opening page** has the journal's name at the bar's left,
-    where a day has its date (it was centered, where the marks now are).
-  - While a page is being written the layer over it covers the marks, and
-    Cancel and Done are in their place, as in build 46.
-  - **Checked on the iPhone 17 Pro simulator**, light and dark: the bar
-    over today's page with all three marks and the dot, and over a photo
-    page. In light: both marks opening their sheets, a month's opening
-    page, writing in place under the bar, the ribbon dragged past it.
-    **On the Duo's cover**, light: today's page. **Not seen:** a real
-    phone, VoiceOver, large Dynamic Type (the marks don't grow; the date
-    does), a date long enough to need shrinking.
+- **A page takes more than one ink** (build 50, November 14, 2026, from
+  Ayush on trying it: "choosing ink color also makes the entire preceding
+  text entirely of that color"; screenshots in `docs/journal-inks-build50/`).
+  Until now a page was one ink and picking another set the whole page in
+  it (build 45: "a page is one ink"). **Phone and server both; it needs a
+  deploy** (open items).
+  - **The pen in hand.** The three dots are which pen is in hand. Taking
+    up another changes nothing already written: what's written next is in
+    it, wherever the cursor is put (a text view left alone takes up the
+    ink of whatever the cursor lands beside; `RuledTextView.takeUpPen`
+    puts the pen back each time the cursor moves). **With words selected,
+    taking up a pen goes over the selection in it.** A page being gone on
+    with opens in the pen it was last written with. The date at the head
+    of the page stays in the ink the page begins in.
+  - **Change Ink**, from the long press, is still the whole page's: it
+    sets every word in one ink. Its tick shows only on a page that's all
+    in that ink.
+  - **How it's kept.** `journal_pages.inks` (TEXT, null for a page in one
+    ink): JSON, each ink and how many characters of `body` are in it, in
+    order (`[["black", 110], ["blue", 35]]`). `ink` is the ink the page
+    begins in, which is what the widget and builds before 50 draw the
+    page in. A page is sent ink by ink as `runs: [{ink, text}]` on `PUT
+    /me/journal/today` and `PATCH /me/journal/pages/{id}`, beside the
+    `body` and `ink` an older server takes; the server makes the page
+    from the runs (each cleaned like any text but keeping its own ends,
+    since a space between two inks is the page's; only the page's ends
+    are trimmed; neighbours in the same ink joined; 400 `bad_ink`, 400
+    `empty_page`, the same 50,000 characters, at most 2,000 runs) and
+    answers with `runs` as text again (null for one ink), so no phone
+    ever counts characters. A PATCH of `body` or `ink` alone makes the
+    page one ink again: new words have nowhere to keep the old stretches
+    (that's an older build editing), and a change of ink is the whole
+    page's. Runs that don't add up to the words are let go, and the page
+    reads in `ink`. The export carries `inks`.
+  - **On the phone**: `DayPage.runs` and `stretches`; `BookType.written`
+    sets each stretch in its ink, and a long day still breaks across
+    pages with its inks; the text view marks each stretch with its ink by
+    name (`NSAttributedString.Key.ink`), since a color that changes with
+    the room can't be read back; `RuledTextView.stretches()` is the page
+    as it's kept; anything that arrives with no ink (pasted from
+    elsewhere) takes the pen in hand (`mend`).
+  - Both documents say "the ink you chose for each" page; left as it is,
+    since what's kept is still which of three inks, only now for
+    stretches of a page.
+  - **Checked on the iPhone 17 Pro simulator** against a local server on
+    this code: black, then blue, then red on one page, kept and read back
+    in light and dark; the page opened again in its inks with the last
+    pen in hand, and gone on with; words written in the middle of black
+    text in blue, the black around them left alone; Cancel asking first.
+    **Not seen:** a selection gone over in another ink, a paste, Change
+    Ink on a page in several inks (tests cover the server's side), a long
+    day in several inks across pages, the Duo, a real phone, and this
+    build against Fly as it is now (it should keep the page in the ink it
+    begins in).
+
+- **Letters and Prompts are at the foot of the page** (build 49, November
+  14, 2026; screenshots in `docs/journal-foot-build49/`). Two briefs from
+  Ayush the same day. Build 46's paper tabs at the page's edge were too
+  small to press, sat over what was on the page and read as system UI,
+  so **build 48** made them marks on the date's line at the head of the
+  page (`docs/journal-bar-build48/`); on seeing that, Ayush said they had
+  made more sense at the bottom, where the Letters and Prompts cards were
+  under build 45's cover. **Where the next section says "paper tabs",
+  this is what there is instead.** Phone only.
+  - **The marks** (`BookBar` in `BookView.swift`) are in the band along
+    the foot of the page (`BookLayout.foot`, 50pt), either side of the
+    page's number: an envelope at the left for **Letters**, a question in
+    a speech bubble at the right for **Prompts** (only with a circle),
+    each opening the same sheet as before. SF Symbols, light weight, 20pt,
+    in the accent, each in a 44pt target, their outer edges on the
+    writing's own margins. **A small dot of wax red on the envelope while
+    any letter to you is still sealed**; VoiceOver says whether its day
+    has come.
+  - **On Sunday evening a third mark**, a moon, just left of Prompts:
+    "How was your week?" (build 46's third tab; still not asked about).
+  - **Nothing on a page is under them.** A page's writing, photo or
+    letter ends above the foot (`contentBottom`), where only the number
+    is; on today's blank page the three inks are between the marks, and
+    all of it fits a 402pt phone with the moon showing. The marks stay
+    put while pages turn. While a page is being written the layer over
+    it covers them.
+  - **The head of the page is as build 46 had it**: the date small at the
+    top left, nothing at the top right, the first line 42pt under the
+    status bar (build 48's 44pt bar is gone). One thing kept from 48: a
+    month's opening page has the journal's name at the top left, where a
+    day has its date (it was centered in 46).
+  - What "on the bottom" meant was taken, not asked: the foot of the
+    page, as icons. If the cards with their names and a line of words
+    were what made sense, they'd go in the same band.
+  - **Checked on the iPhone 17 Pro simulator**, light and dark: a written
+    today with the two marks, and a blank today with the inks, the dot
+    and the moon. In light: both marks opening their sheets, an older
+    page. The Release configuration compiles. **Not seen:** the Duo (its
+    cover was seen with build 48's bar, not this), a real phone,
+    VoiceOver, large Dynamic Type.
 
 - **The Journal tab is its pages** (build 46, November 14, 2026, a product
   brief from Ayush; screenshots in `docs/journal-pages-build46/`). Build
@@ -559,8 +613,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       fail.) Months are marked along it with a hairline, and with three
       letters set sideways where a month has 24pt to itself. VoiceOver
       has it as one adjustable thing, "Place in the journal".
-    - *Two paper tabs* (**removed in build 48**; they're marks on the
-      bar at the head of the page now, above), 30% of the way down: 15 by 26pt, manila, a little
+    - *Two paper tabs* (**removed in build 48**; they're marks at the
+      foot of the page now, above), 30% of the way down: 15 by 26pt, manila, a little
       shadow, with press targets that reach 44pt in over the page's
       margin. An envelope opens **Letters** as a sheet: the ones still
       sealed, **Opened** (each opened letter by who it's from and the day
@@ -570,8 +624,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       wax red while any letter to you is still sealed**, whether or not
       its day has come (the brief's "unopened sealed letter"); VoiceOver
       says which. A presence, never a number.
-    - **A third tab on Sunday evenings** (a third mark on the bar since
-      build 48), above those two, in the accent
+    - **A third tab on Sunday evenings** (a third mark at the foot of
+      the page since build 49), above those two, in the accent
       with a moon: "How was your week?", which opens the reflection
       sheet. Only in the window (`ReflectionWindow`) and until the week's
       is written. The brief took away the screen the Sunday card was on
@@ -725,7 +779,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     the rules' pitch), the date at its head, Cancel and Done, and at the
     foot three small circles of ink: black `#1A1A1A`, blue `#2B4C7E`, red
     `#9B2C2C`; in the dark warm white `#F0EBE3`, `#7BA3D9`, `#E08585`
-    (`Ink`). A page is one ink; choosing another sets the whole page in
+    (`Ink`). (**Since build 50 a page takes more than one ink**, above;
+    as built:) A page is one ink; choosing another sets the whole page in
     it, and the last one used is the next page's (`InkWell`). No counter
     and no limit shown. Done keeps it (a light haptic once the server has
     it) at today's date; today's page written again is replaced. Rubbing
@@ -1364,7 +1419,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (48)", at the
+  production audit), and the version, "Stanley 0.2.0 (50)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -1896,10 +1951,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 48** (0.2.0) is the number to archive next: Letters and Prompts
-  on the bar at the head of the journal's page (above), in place of
-  build 46's edge tabs. Phone only, so nothing to deploy for it. The next
-  upload carries builds 41 to 48 (43 and 47 were only bumps; 44 is the
+- **Build 50** (0.2.0) is the number to archive next: a journal page in
+  more than one ink (above), over build 49's Letters and Prompts at the
+  foot of the page.
+- **Build 50 needs a deploy, and hasn't had one.** Fly is v26. On its
+  first start the new server adds `journal_pages.inks`; nothing changes
+  for older builds. Until then a build 50 phone shows the inks while a
+  page is being written, but Fly keeps only the words and the ink the
+  page begins in, so the page comes back all in that one ink.
+- The next upload carries builds 41 to 50 (43 and 47 were only bumps; 44 is the
   Quiet Warmth design pass, which also removed the filters and
   rest-a-memory from the app; 45 is the journal as a book, never archived
   on its own). The last build uploaded is 40.
@@ -2181,7 +2241,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**531 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**542 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -2269,7 +2329,14 @@ edit to blank; a page torn out and the day free again; nobody else reading,
 changing or removing one; in nothing anyone else is sent; no sign-in, no
 book; no notification; no field that counts; the journal named, renamed,
 cleaned and bounded; the writing pace; account deletion; the export; the
-older database's column; the day).
+older database's column; the day; and, build 50, a page in more than one
+ink: each stretch kept where it was written and read back as text, one ink
+meaning no stretches, stretches cleaned with only the page's ends trimmed
+and same-ink neighbours joined, only the three inks, never blank, never
+longer than any page, the day written again in one ink forgetting them, an
+edit ink by ink, a change of ink or new words making it one ink, stretches
+that don't fit the words let go, the export, and the older database's
+column).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
@@ -2361,8 +2428,9 @@ live APNs, concurrency under real load.
   `InkText`, the blank page's cursor, the tap on today's page, the
   long-press menu, the small pages of the grid), `BookView.swift` (the
   tab: `PageTurner` and `TurnerHost`, `BookEdge` with the ribbon,
-  `BookBar` with the marks for Letters and Prompts, `BookFoot`, the grid),
-  `BookWriting.swift` (`PageWriting`, the ruled text view, the inks),
+  `BookBar` with the marks for Letters and Prompts at the page's foot, `BookFoot`, the grid),
+  `BookWriting.swift` (`PageWriting`, the ruled text view, the inks and
+  the pen in hand),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
   and `JournalWidget.swift` (the Journal widget's snapshot and views);
   its feed is in `WidgetFeed.swift`, its widget in `StanleyWidgets.swift`

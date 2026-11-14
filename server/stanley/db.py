@@ -104,6 +104,8 @@ _LATER_COLUMNS = {
         # Build 45: what the person calls their journal; null is the default.
         "journal_title": "VARCHAR(60)",
     },
+    # Build 50: a journal page in more than one ink; null is all one ink.
+    "journal_pages": {"inks": "TEXT"},
     # Build 35: one circle's countdown, null everywhere else.
     "circles": {"countdown": "JSON"},
     "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},

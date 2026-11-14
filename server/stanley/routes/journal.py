@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -45,9 +46,19 @@ class ReflectionBody(BaseModel):
     tz: str | None = Field(default=None, max_length=64)
 
 
+class InkRun(BaseModel):
+    """A stretch of a page written in one ink (build 50)."""
+
+    ink: str = Field(max_length=8)
+    text: str = Field(max_length=journal.PAGE_MAX)
+
+
 class TodaysPageBody(BaseModel):
     body: str = Field(min_length=1, max_length=journal.PAGE_MAX)
     ink: str = Field(default="black", max_length=8)
+    # The page ink by ink, when it's in more than one. When it's sent, it
+    # is the page: `body` and `ink` are for a server that doesn't know it.
+    runs: list[InkRun] | None = Field(default=None, max_length=journal.RUNS_MAX)
     # The phone's zone, so the day is the writer's own.
     tz: str | None = Field(default=None, max_length=64)
 
@@ -55,6 +66,7 @@ class TodaysPageBody(BaseModel):
 class PagePatch(BaseModel):
     body: str | None = Field(default=None, min_length=1, max_length=journal.PAGE_MAX)
     ink: str | None = Field(default=None, max_length=8)
+    runs: list[InkRun] | None = Field(default=None, max_length=journal.RUNS_MAX)
 
 
 class JournalTitleBody(BaseModel):
@@ -356,12 +368,32 @@ BOOK_PAGE = 100
 BOOK_PAGE_MAX = 200
 
 
+def page_runs(row: JournalPage) -> list[dict] | None:
+    """A page that's in more than one ink, as its stretches: each ink and
+    the words in it, in order, adding up to `body`. None for a page that's
+    all one ink (or whose record of them doesn't fit its words)."""
+    if not row.inks:
+        return None
+    try:
+        kept = json.loads(row.inks)
+        if sum(n for _, n in kept) != len(row.body):
+            return None
+    except (ValueError, TypeError):
+        return None
+    runs, at = [], 0
+    for ink, n in kept:
+        runs.append({"ink": ink, "text": row.body[at : at + n]})
+        at += n
+    return runs
+
+
 def _page_payload(row: JournalPage) -> dict:
     return {
         "id": row.id,
         "day": row.day.isoformat(),
         "body": row.body,
         "ink": row.ink,
+        "runs": page_runs(row),
         "created_at": iso(row.created_at),
         "updated_at": iso(row.updated_at),
     }
@@ -378,6 +410,38 @@ def _words(value: str) -> str:
     if not words:
         raise HTTPException(400, {"code": "empty_page"})
     return words
+
+
+def _inked(runs: list[InkRun]) -> tuple[str, str, str | None]:
+    """A page sent ink by ink: its words, the ink it begins in, and what's
+    kept of the rest (None when it comes to one ink). Each stretch is
+    cleaned like any text but keeps its own ends, since a space between
+    two inks is the page's; only the page's ends are trimmed."""
+    parts: list[list] = []
+    for run in runs:
+        ink = _ink(run.ink)
+        words = clean(run.text, multiline=True, trim=False)
+        if not words:
+            continue
+        if parts and parts[-1][0] == ink:
+            parts[-1][1] += words
+        else:
+            parts.append([ink, words])
+    while parts and not (lead := parts[0][1].lstrip()):
+        parts.pop(0)
+    if parts:
+        parts[0][1] = lead
+    while parts and not (tail := parts[-1][1].rstrip()):
+        parts.pop()
+    if parts:
+        parts[-1][1] = tail
+    body = "".join(words for _, words in parts)
+    if not body:
+        raise HTTPException(400, {"code": "empty_page"})
+    if len(body) > journal.PAGE_MAX:
+        raise HTTPException(422, "page too long")
+    inks = json.dumps([[ink, len(words)] for ink, words in parts]) if len(parts) > 1 else None
+    return body, parts[0][0], inks
 
 
 def _own_page(db: Session, user: User, page_id: str) -> JournalPage:
@@ -422,16 +486,20 @@ def write_today(
     zone the phone sends). One a day: writing again replaces what was
     there, it doesn't add to it."""
     tz = _zone(user, body.tz)
-    words = _words(body.body)
-    ink = _ink(body.ink)
+    if body.runs:
+        words, ink, inks = _inked(body.runs)
+    else:
+        words, ink, inks = _words(body.body), _ink(body.ink), None
     now = clock.now()
     day = journal.local_day(now, tz)
     db.execute(
         sqlite_insert(JournalPage)
-        .values(id=new_id(), owner_id=user.id, day=day, body=words, ink=ink, created_at=now, updated_at=now)
+        .values(
+            id=new_id(), owner_id=user.id, day=day, body=words, ink=ink, inks=inks, created_at=now, updated_at=now
+        )
         .on_conflict_do_update(
             index_elements=["owner_id", "day"],
-            set_={"body": words, "ink": ink, "updated_at": now},
+            set_={"body": words, "ink": ink, "inks": inks, "updated_at": now},
         )
     )
     row = db.scalars(
@@ -449,12 +517,20 @@ def edit_page(
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
-    """Rewrite a page you've written, or change its ink. Its day stays."""
+    """Rewrite a page you've written, or change its ink. Its day stays.
+    Sent ink by ink (`runs`), that's the page. Sent as words or one ink,
+    the page is all one ink again: new words have nowhere to keep the old
+    stretches, and a change of ink is the whole page's."""
     row = _own_page(db, user, page_id)
-    if body.body is not None:
-        row.body = _words(body.body)
-    if body.ink is not None:
-        row.ink = _ink(body.ink)
+    if body.runs:
+        row.body, row.ink, row.inks = _inked(body.runs)
+    else:
+        if body.body is not None:
+            row.body = _words(body.body)
+            row.inks = None
+        if body.ink is not None:
+            row.ink = _ink(body.ink)
+            row.inks = None
     row.updated_at = clock.now()
     return _page_payload(row)
 

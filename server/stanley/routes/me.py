@@ -389,7 +389,10 @@ def export_memories(
         # Build 45: the journal's own pages, a day each, and what it's called.
         manifest["journal_title"] = user.journal_title
         manifest["journal"] = [
+            # (`inks`, build 50: a page in more than one ink, each ink and
+            # how many characters of the page are in it.)
             {"day": page.day.isoformat(), "ink": page.ink, "page": page.body}
+            | ({"inks": json.loads(page.inks)} if page.inks else {})
             for page in db.scalars(
                 select(JournalPage).where(JournalPage.owner_id == user.id).order_by(JournalPage.day)
             ).all()

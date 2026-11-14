@@ -21,9 +21,20 @@ enum InkWell {
 /// The page being written on: a text view whose lines are exactly as far
 /// apart as the rules drawn under them, so the words sit on the paper's
 /// lines as they will in the book.
+/// A way to ask the page being written what's on it, once writing is done.
+final class EditorHandle {
+    weak var view: RuledTextView?
+}
+
 private struct RuledEditor: UIViewRepresentable {
+    /// What's on the page, for whoever needs to know whether anything is.
+    /// The page itself is the text view's; nothing is set back into it.
     @Binding var text: String
+    /// The pen in hand.
     let ink: Ink
+    /// What the page held when writing began, ink by ink.
+    let start: [InkRun]
+    let handle: EditorHandle
     let layout: BookLayout
     /// The most a page holds. Far past a day's writing; never shown.
     let limit: Int
@@ -34,14 +45,13 @@ private struct RuledEditor: UIViewRepresentable {
         // The words begin and end where the page's do.
         let view = RuledTextView(fontSize: layout.fontSize, left: layout.left, right: layout.width - layout.right)
         view.delegate = context.coordinator
-        view.text = text
-        view.use(ink)
+        view.load(start, pen: ink)
+        handle.view = view
         return view
     }
 
     func updateUIView(_ view: RuledTextView, context: Context) {
         context.coordinator.parent = self
-        if view.text != text { view.text = text }
         if view.ink != ink { view.use(ink) }
     }
 
@@ -50,14 +60,30 @@ private struct RuledEditor: UIViewRepresentable {
         init(_ parent: RuledEditor) { self.parent = parent }
 
         func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.text
-            (textView as? RuledTextView)?.layRules()
+            guard let view = textView as? RuledTextView else { return }
+            view.mend()
+            parent.text = view.text
+            view.layRules()
+        }
+
+        /// Wherever the cursor is put, what's written next is in the pen
+        /// in hand. (Left alone, a text view takes up the ink of whatever
+        /// the cursor lands beside.)
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            (textView as? RuledTextView)?.takeUpPen()
         }
 
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
             (textView.text as NSString).length - range.length + (text as NSString).length <= parent.limit
         }
     }
+}
+
+extension NSAttributedString.Key {
+    /// Which of the three inks a stretch of a page being written is in.
+    /// The color is drawn from it; this is what's read back when the page
+    /// is kept, since a color that changes with the room can't be compared.
+    static let ink = NSAttributedString.Key("stanley.ink")
 }
 
 final class RuledTextView: UITextView {
@@ -111,28 +137,92 @@ final class RuledTextView: UITextView {
         }
     }
 
-    /// Write in this ink from here on, and set what's already written in it:
-    /// a page is one ink.
-    func use(_ ink: Ink) {
-        self.ink = ink
+    private func attributes(_ ink: Ink) -> [NSAttributedString.Key: Any] {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = pitch
         style.maximumLineHeight = pitch
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: hand, .foregroundColor: ink.ui, .paragraphStyle: style,
-        ]
+        return [.font: hand, .foregroundColor: ink.ui, .paragraphStyle: style, .ink: ink.rawValue]
+    }
+
+    /// Lay down what the page already holds, each stretch in its ink, and
+    /// take up a pen.
+    func load(_ runs: [InkRun], pen: Ink) {
+        let page = NSMutableAttributedString()
+        for run in runs {
+            page.append(NSAttributedString(string: run.text, attributes: attributes(Ink.named(run.ink))))
+        }
+        attributedText = page
+        ink = pen
+        typingAttributes = attributes(pen)
+        tintColor = pen.ui
+        layRules()
+    }
+
+    /// Take up another pen: what's written from here on is in this ink.
+    /// What's already on the page keeps the ink it was written in (build
+    /// 50; until then a change of ink set the whole page in it), unless
+    /// some of it is selected, and then the selection is gone over in it.
+    func use(_ ink: Ink) {
+        self.ink = ink
         let selection = selectedRange
-        textStorage.setAttributes(attributes, range: NSRange(location: 0, length: textStorage.length))
-        typingAttributes = attributes
-        selectedRange = selection
+        if selection.length > 0 {
+            textStorage.addAttributes([.foregroundColor: ink.ui, .ink: ink.rawValue], range: selection)
+            delegate?.textViewDidChange?(self)
+        }
+        typingAttributes = attributes(ink)
         tintColor = ink.ui
     }
 
-    override var text: String! {
-        didSet {
-            use(ink)
-            layRules()
+    /// The pen in hand is what writes next, wherever the cursor is.
+    func takeUpPen() {
+        // Not in the middle of composing a character: that's the
+        // keyboard's to finish.
+        guard markedTextRange == nil else { return }
+        typingAttributes = attributes(ink)
+    }
+
+    /// Anything that arrived without an ink of the page's (pasted from
+    /// somewhere else, say) is in the pen in hand, and in the page's hand.
+    /// (Only the ink is looked for: the text system puts a font of its
+    /// own on an emoji, and that's not a stray.)
+    func mend() {
+        let whole = NSRange(location: 0, length: textStorage.length)
+        guard whole.length > 0 else { return }
+        var strays: [NSRange] = []
+        textStorage.enumerateAttribute(.ink, in: whole) { value, range, _ in
+            if (value as? String).flatMap(Ink.init(rawValue:)) == nil { strays.append(range) }
         }
+        guard !strays.isEmpty else { return }
+        let selection = selectedRange
+        textStorage.beginEditing()
+        for range in strays {
+            let kept = textStorage.attribute(.ink, at: range.location, effectiveRange: nil) as? String
+            textStorage.setAttributes(attributes(kept.flatMap(Ink.init(rawValue:)) ?? ink), range: range)
+        }
+        textStorage.endEditing()
+        selectedRange = selection
+    }
+
+    /// The page as it would be kept: its words without the space at either
+    /// end, ink by ink.
+    func stretches() -> [InkRun] {
+        let all = textStorage.string as NSString
+        let blank = CharacterSet.whitespacesAndNewlines
+        var from = 0
+        var to = all.length
+        while from < to, let scalar = UnicodeScalar(all.character(at: from)), blank.contains(scalar) { from += 1 }
+        while to > from, let scalar = UnicodeScalar(all.character(at: to - 1)), blank.contains(scalar) { to -= 1 }
+        var runs: [InkRun] = []
+        textStorage.enumerateAttribute(.ink, in: NSRange(location: from, length: to - from)) { value, range, _ in
+            let name = (value as? String).flatMap(Ink.init(rawValue:))?.rawValue ?? ink.rawValue
+            let words = all.substring(with: range)
+            if let last = runs.last, last.ink == name {
+                runs[runs.count - 1] = InkRun(ink: name, text: last.text + words)
+            } else {
+                runs.append(InkRun(ink: name, text: words))
+            }
+        }
+        return runs
     }
 
     override func layoutSubviews() {
@@ -215,8 +305,12 @@ struct PageWriting: View {
     let close: () -> Void
 
     @State private var text = ""
+    /// The pen in hand: what's written next is in it. Taking up another
+    /// leaves what's written as it is.
     @State private var ink = InkWell.last
-    @State private var began = false
+    /// What the page held when writing began; nil until that's known.
+    @State private var start: [InkRun]?
+    @State private var handle = EditorHandle()
     @State private var saving = false
     @State private var confirmDiscard = false
     @State private var confirmDelete = false
@@ -238,13 +332,25 @@ struct PageWriting: View {
     }
 
     private var words: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var changed: Bool { words != (existing?.body ?? "") || (existing != nil && Ink.named(existing?.ink) != ink) }
+    /// The page as it stands, ink by ink.
+    private var written: [InkRun] { handle.view?.stretches() ?? [] }
+    /// The date is in the ink the page begins in, as it is when the page
+    /// is read: the pen in hand on a page with nothing on it yet.
+    private var headInk: Ink { written.first.map { Ink.named($0.ink) } ?? ink }
+    /// Whether that's anything other than what was there.
+    private var changed: Bool { written != (existing?.stretches ?? []) }
 
     var body: some View {
         let accent = Atmosphere.resolve(raw).palette.accent
         VStack(spacing: 0) {
-            RuledEditor(text: $text, ink: ink, layout: layout, limit: 50_000)
-                .padding(.top, layout.contentTop)
+            Group {
+                if let start {
+                    RuledEditor(text: $text, ink: ink, start: start, handle: handle, layout: layout, limit: 50_000)
+                } else {
+                    Color.clear
+                }
+            }
+            .padding(.top, layout.contentTop)
             // The three inks, where the page's number is when it's read.
             InkPicker(ink: $ink)
                 .frame(width: layout.textWidth, height: BookLayout.foot)
@@ -255,7 +361,7 @@ struct PageWriting: View {
         .frame(width: layout.width)
         .overlay(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
-                PageHeading(text: BookType.dayTitle(date), color: ink.color.opacity(0.7), layout: layout)
+                PageHeading(text: BookType.dayTitle(date), color: headInk.color.opacity(0.7), layout: layout)
                 HStack(spacing: 18) {
                     Button("Cancel") { cancel() }
                         .wordButton(.subheadline, bold: false)
@@ -283,12 +389,13 @@ struct PageWriting: View {
         .contentShape(Rectangle())
         .ignoresSafeArea(.container, edges: [.top, .horizontal])
         .onAppear {
-            guard !began else { return }
-            began = true
-            if let existing {
-                text = existing.body
-                ink = Ink.named(existing.ink)
-            }
+            guard start == nil else { return }
+            // A page being gone on with: its words in their inks, and the
+            // pen it was last written with.
+            let held = existing?.stretches ?? []
+            text = existing?.body ?? ""
+            if let last = held.last { ink = Ink.named(last.ink) }
+            start = held
         }
         .alert("Leave this page unwritten?", isPresented: $confirmDiscard) {
             Button("Discard", role: .destructive) { close() }
@@ -321,9 +428,10 @@ struct PageWriting: View {
     private func done() {
         // The ink is the next page's to start with, whatever happens to this one.
         InkWell.last = ink
-        guard changed else { close(); return }
+        let runs = written
+        guard runs != (existing?.stretches ?? []) else { close(); return }
         // Every word rubbed out of a page that was there: it's being torn out.
-        if words.isEmpty {
+        if runs.isEmpty {
             confirmDelete = true
             return
         }
@@ -331,9 +439,9 @@ struct PageWriting: View {
         Task {
             let kept: Bool
             if case .page(let page) = target {
-                kept = await state.editPage(existing ?? page, body: words, ink: ink)
+                kept = await state.editPage(existing ?? page, runs: runs)
             } else {
-                kept = await state.writeToday(words, ink: ink)
+                kept = await state.writeToday(runs)
             }
             saving = false
             if kept {

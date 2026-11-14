@@ -118,9 +118,8 @@ struct PageHeading: View {
             .foregroundStyle(color)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            // Short of the bar's right, where Letters and Prompts are.
-            .frame(width: layout.headWidth, alignment: .leading)
-            .position(x: layout.left + layout.headWidth / 2, y: layout.headY)
+            .frame(width: layout.textWidth, alignment: .leading)
+            .position(x: layout.middle, y: layout.headY)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -466,7 +465,8 @@ private struct PageMenu: ViewModifier {
             Menu {
                 ForEach(Ink.allCases) { ink in
                     Button { actions.changeInk(written, ink) } label: {
-                        if Ink.named(written.ink) == ink {
+                        // Ticked only where the whole page is in it.
+                        if written.stretches.count == 1, Ink.named(written.ink) == ink {
                             Label(ink.name, systemImage: "checkmark")
                         } else {
                             Text(ink.name)

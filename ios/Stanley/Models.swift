@@ -433,9 +433,26 @@ struct DayPage: Codable, Identifiable, Hashable {
     /// The day it's about ("2026-11-14"), your own.
     let day: String
     let body: String
+    /// The ink the page begins in; all of it, when it's one ink.
     let ink: String
+    /// The page ink by ink, when it's in more than one (build 50). Nil
+    /// for a page in one ink, and from a server that keeps only one.
+    let runs: [InkRun]?
     let createdAt: Date
     let updatedAt: Date
+
+    /// The page as stretches of ink, whichever way it was kept: one
+    /// stretch for a page in one ink.
+    var stretches: [InkRun] {
+        if let runs, runs.count > 1, runs.map(\.text).joined() == body { return runs }
+        return [InkRun(ink: ink, text: body)]
+    }
+}
+
+/// A stretch of a page written in one ink.
+struct InkRun: Codable, Hashable {
+    let ink: String
+    let text: String
 }
 
 /// A stretch of the journal: its name, pages oldest first, and the day to

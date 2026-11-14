@@ -35,7 +35,7 @@ struct LetterFace {
 
 // MARK: - The Letters page: "Write to someone"
 
-/// On the Letters sheet, behind the envelope on the journal's bar (it
+/// On the Letters sheet, behind the envelope at the foot of the journal's page (it
 /// was on the You tab until build 45): the "Write to someone" slip, and a short
 /// list of sealed letters on their way (so the sender knows what's out
 /// there and can take one back).

@@ -420,7 +420,12 @@ class JournalPage(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     day: Mapped[date] = mapped_column(Date)
     body: Mapped[str] = mapped_column(Text)
+    # The ink the page begins in; the whole page's, when it's all one ink.
     ink: Mapped[str] = mapped_column(String(8), default="black")
+    # Build 50: a page written in more than one ink. JSON, each ink and how
+    # many characters of `body` are in it, in order: [["black", 40],
+    # ["blue", 12]]. Null for a page that's all in `ink`.
+    inks: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 

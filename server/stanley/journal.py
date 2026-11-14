@@ -37,6 +37,9 @@ ANSWER_MAX = 300
 # this one exists only so a single request can't be made arbitrarily large,
 # and is far past what anyone writes in a day (about fifty pages of a book).
 PAGE_MAX = 50_000
+# How many stretches of ink a page may be sent in: far more than a hand
+# changes pens in a day, and a bound on the request.
+RUNS_MAX = 2_000
 INKS = ("black", "blue", "red")
 TITLE_MAX = 60
 

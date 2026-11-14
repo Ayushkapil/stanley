@@ -1288,13 +1288,23 @@ final class AppState {
         journalPages.sort { $0.day < $1.day }
     }
 
+    /// A page as it's sent: its words and the ink it begins in, which is
+    /// all a server from before build 50 keeps, and ink by ink when
+    /// there's more than one.
+    private func inked(_ runs: [InkRun]) -> [String: Any?] {
+        var fields: [String: Any?] = [
+            "body": runs.map(\.text).joined(), "ink": runs.first?.ink ?? Ink.black.rawValue,
+        ]
+        if runs.count > 1 { fields["runs"] = runs.map { ["ink": $0.ink, "text": $0.text] } }
+        return fields
+    }
+
     /// Today's page: written, or written again in place of what was there.
-    func writeToday(_ body: String, ink: Ink) async -> Bool {
+    func writeToday(_ runs: [InkRun]) async -> Bool {
         do {
-            let page: DayPage = try await api.send(
-                "PUT", "/me/journal/today",
-                json: ["body": body, "ink": ink.rawValue, "tz": TimeZone.current.identifier]
-            )
+            var fields = inked(runs)
+            fields["tz"] = TimeZone.current.identifier
+            let page: DayPage = try await api.send("PUT", "/me/journal/today", json: fields)
             place(page)
             Trail.note(.wroteJournal)
             return true
@@ -1304,10 +1314,10 @@ final class AppState {
         }
     }
 
-    /// Rewrite a page already in the book, or change its ink.
-    func editPage(_ page: DayPage, body: String? = nil, ink: Ink? = nil) async -> Bool {
-        var fields: [String: Any?] = [:]
-        if let body { fields["body"] = body }
+    /// Rewrite a page already in the book (`runs`), or set the whole of
+    /// it in one ink (`ink`, the long press's Change Ink).
+    func editPage(_ page: DayPage, runs: [InkRun]? = nil, ink: Ink? = nil) async -> Bool {
+        var fields: [String: Any?] = runs.map(inked) ?? [:]
         if let ink { fields["ink"] = ink.rawValue }
         do {
             let changed: DayPage = try await api.send("PATCH", "/me/journal/pages/\(page.id)", json: fields)

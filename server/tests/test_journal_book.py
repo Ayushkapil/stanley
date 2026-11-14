@@ -288,6 +288,124 @@ def test_the_export_carries_the_journal(circle, clock):
     assert b"Tuesday." not in circle.ben.export().content
 
 
+# --- more than one ink on a page (build 50) -------------------------------------------------------
+
+
+def inked(api, runs, tz=NY, **more):
+    """Today's page sent ink by ink, with the plain words and first ink an
+    older server would take."""
+    plain = "".join(text for _, text in runs)
+    return api.client.put(
+        "/me/journal/today",
+        json={"body": plain, "ink": runs[0][0], "runs": [{"ink": i, "text": t} for i, t in runs], "tz": tz, **more},
+        headers=api.h,
+    )
+
+
+def test_a_page_in_two_inks_keeps_each_where_it_was_written(circle):
+    r = inked(circle.ana, [("black", "Rain all morning. "), ("blue", "Then the lawn.")])
+    assert r.status_code == 200
+    page = r.json()
+    assert page["body"] == "Rain all morning. Then the lawn."
+    # The page's own ink is the one it begins in.
+    assert page["ink"] == "black"
+    assert page["runs"] == [{"ink": "black", "text": "Rain all morning. "}, {"ink": "blue", "text": "Then the lawn."}]
+    assert book(circle.ana).json()["pages"] == [page]
+
+
+def test_a_page_in_one_ink_has_no_stretches(circle):
+    assert write(circle.ana, "All in blue.", ink="blue").json()["runs"] is None
+    # Sent ink by ink but all the same ink: one ink.
+    page = inked(circle.ana, [("red", "One "), ("red", "pen.")]).json()
+    assert (page["body"], page["ink"], page["runs"]) == ("One pen.", "red", None)
+
+
+def test_stretches_are_cleaned_and_only_the_pages_ends_are_trimmed(circle):
+    page = inked(circle.ana, [
+        ("blue", "   \n"),                # nothing but space at the head: gone
+        ("black", "  First\x00 line. "),  # its own trailing space is the page's
+        ("red", "second\tword"),
+        ("black", ""),                     # an empty stretch: gone, and the reds meet
+        ("red", " third.  \n"),
+    ]).json()
+    assert page["body"] == "First line. second word third."
+    assert page["ink"] == "black"
+    assert page["runs"] == [
+        {"ink": "black", "text": "First line. "},
+        {"ink": "red", "text": "second word third."},
+    ]
+    assert "".join(run["text"] for run in page["runs"]) == page["body"]
+
+
+def test_stretches_take_only_the_three_inks_and_cant_be_blank(circle):
+    r = inked(circle.ana, [("black", "Fine. "), ("green", "Not this.")])
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "bad_ink"
+    r = inked(circle.ana, [("black", "  "), ("blue", "\n")])
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "empty_page"
+    assert book(circle.ana).json()["pages"] == []
+
+
+def test_a_page_in_stretches_is_no_longer_than_any_page(circle):
+    half = "a" * (journal.PAGE_MAX // 2)
+    assert inked(circle.ana, [("black", half), ("blue", half)]).status_code == 200
+    assert inked(circle.ana, [("black", half), ("blue", half + "b")]).status_code == 422
+
+
+def test_writing_the_day_again_in_one_ink_forgets_the_stretches(circle):
+    inked(circle.ana, [("black", "Two "), ("blue", "inks.")])
+    page = write(circle.ana, "One ink now.", ink="red").json()
+    assert (page["ink"], page["runs"]) == ("red", None)
+    assert [p["runs"] for p in book(circle.ana).json()["pages"]] == [None]
+
+
+def test_editing_a_page_ink_by_ink(circle):
+    page = write(circle.ana, "Plain.").json()
+    r = edit(circle.ana, page["id"], runs=[{"ink": "blue", "text": "Now "}, {"ink": "red", "text": "two."}])
+    assert r.status_code == 200
+    got = r.json()
+    assert (got["body"], got["ink"], got["day"]) == ("Now two.", "blue", page["day"])
+    assert got["runs"] == [{"ink": "blue", "text": "Now "}, {"ink": "red", "text": "two."}]
+
+
+def test_a_change_of_ink_is_the_whole_pages_and_new_words_are_one_ink(circle):
+    page = inked(circle.ana, [("black", "Two "), ("blue", "inks.")]).json()
+    # Change Ink, from the long press: the whole page.
+    got = edit(circle.ana, page["id"], ink="red").json()
+    assert (got["body"], got["ink"], got["runs"]) == ("Two inks.", "red", None)
+    # An older build rewriting the words knows nothing of stretches.
+    page = inked(circle.ana, [("black", "Two "), ("blue", "inks.")]).json()
+    got = edit(circle.ana, page["id"], body="Other words.").json()
+    assert (got["body"], got["ink"], got["runs"]) == ("Other words.", "black", None)
+
+
+def test_stretches_that_dont_fit_the_words_are_let_go(circle, db):
+    page = inked(circle.ana, [("black", "Two "), ("blue", "inks.")]).json()
+    with db() as session:
+        session.get(JournalPage, page["id"]).inks = json.dumps([["black", 4], ["blue", 99]])
+        session.commit()
+    got = book(circle.ana).json()["pages"][0]
+    assert (got["body"], got["ink"], got["runs"]) == ("Two inks.", "black", None)
+
+
+def test_the_export_carries_a_pages_inks(circle):
+    inked(circle.ana, [("black", "Two "), ("blue", "inks.")])
+    manifest = json.loads(zipfile.ZipFile(io.BytesIO(circle.ana.export().content)).read("memories.json"))
+    assert manifest["journal"] == [
+        {"day": "2026-06-09", "ink": "black", "page": "Two inks.", "inks": [["black", 4], ["blue", 5]]},
+    ]
+
+
+def test_an_older_database_gets_the_inks_column():
+    engine = make_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text(
+            "CREATE TABLE journal_pages (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(32), day DATE, "
+            "body TEXT, ink VARCHAR(8), created_at DATETIME, updated_at DATETIME)"
+        ))
+    assert "journal_pages.inks" in ensure_schema(engine)
+    assert ensure_schema(engine) == []
+
+
 def test_an_older_database_gets_the_title_column():
     engine = make_engine("sqlite://")
     with engine.begin() as conn:

@@ -26,10 +26,12 @@ import unicodedata
 _BIDI_CONTROLS = frozenset(chr(c) for c in (*range(0x202A, 0x202F), *range(0x2066, 0x206A)))
 
 
-def clean(value: str | None, *, multiline: bool = False) -> str | None:
+def clean(value: str | None, *, multiline: bool = False, trim: bool = True) -> str | None:
     """`value` without control or bidi-override characters, in NFC, with
     surrounding whitespace trimmed. None stays None. An all-whitespace value
-    comes back empty, and each caller decides what empty means."""
+    comes back empty, and each caller decides what empty means. `trim=False`
+    leaves the ends alone, for a piece of something longer (one ink's
+    stretch of a journal page) whose spaces belong to the whole."""
     if value is None:
         return None
     out: list[str] = []
@@ -46,7 +48,8 @@ def clean(value: str | None, *, multiline: bool = False) -> str | None:
             continue  # NUL, ESC, DEL, the C1 block, and \n where it isn't allowed
         else:
             out.append(ch)
-    return "".join(out).strip()
+    cleaned = "".join(out)
+    return cleaned.strip() if trim else cleaned
 
 
 def clean_optional(value: str | None, *, multiline: bool = False) -> str | None:

@@ -87,7 +87,7 @@ enum RevealTime {
 
 /// The evening Stanley asks how the week was: Sunday from 6pm until
 /// midnight, on the phone's own clock. Nothing is sent: it's simply there
-/// then, as a mark on the bar at the head of the journal's page (build 48; a
+/// then, as a mark at the foot of the journal's page (build 49; a
 /// card on the You tab, then on the Journal tab, before).
 enum ReflectionWindow {
     static func isOpen(_ date: Date = .now, calendar: Calendar = gregorian) -> Bool {
@@ -527,7 +527,7 @@ struct AnswersSheet: View {
 struct CircleJournalView: View {
     @Environment(AppState.self) private var state
     /// What the page is called in its bar: "Prompts" from the journal's
-    /// bar (build 48).
+    /// foot (build 49).
     var title = "Circle Journal"
     @State private var weeks: [PastQuestion] = []
     @State private var cursor: String?
