@@ -428,7 +428,7 @@ struct BookView: View {
                     guard kept else { return }
                     // The page is shown where it landed: in the shared
                     // journal, or today's page of your own.
-                    if landed == .shared, hasOurs { open(ours: true) } else if landed != .asIs { openToday() }
+                    if landed == .shared, hasOurs { open(ours: true, at: .own) } else if landed != .asIs { openToday() }
                 }
                 .tint(palette.accent)
             }
@@ -521,13 +521,14 @@ struct BookView: View {
 
     // MARK: two books
 
-    /// Open one book or the other, at its newest page. Instant but for a
+    /// Open one book or the other, at its newest page (or, a page just
+    /// shared, at the spread it landed on). Instant but for a
     /// quick fade.
-    private func open(ours wanted: Bool) {
+    private func open(ours wanted: Bool, at page: BookStart = .today) {
         withAnimation(.easeInOut(duration: 0.15)) { ours = wanted }
         grid = false
         touched = false
-        start = .today
+        start = page
         // The page in view was the other book's; `follow` finds this
         // one's newest as soon as its pages are in hand.
         currentID = nil
@@ -731,6 +732,7 @@ struct BookView: View {
         switch start {
         case .today: at = book.todayIndex
         case .day(let day): at = book.index(day: day) ?? book.todayIndex
+        case .own: at = book.ownIndex ?? book.todayIndex
         }
         go(to: at, in: book)
     }

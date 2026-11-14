@@ -19,6 +19,9 @@ enum BookStart: Equatable {
     case today
     /// A day's page ("2026-11-14"), as the widget asks.
     case day(String)
+    /// In the shared journal, the spread your own page of today is on:
+    /// where a page just shared has landed.
+    case own
 }
 
 /// What the journal is called when nobody has named it, and how long a
@@ -252,6 +255,14 @@ struct Book {
 
     func index(id: String) -> Int? { pages.firstIndex { $0.id == id } }
 
+    /// In the shared journal, the spread your own page of today is on.
+    var ownIndex: Int? {
+        let today = WidgetSnapshot.day(.now)
+        return pages.lastIndex { page in
+            guard case .spread(let spread, _) = page.kind else { return false }
+            return [spread.left, spread.right].contains { $0?.mine == true && $0?.day == today }
+        }
+    }
 }
 
 // MARK: - Breaking words across pages

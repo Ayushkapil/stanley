@@ -493,7 +493,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     page will land**: PRIVATE, or SHARED WITH THIRD FLOOR in the accent
     (`PageTag`, at `BookLayout.tagY`; the first line moved down 6pt to
     make room, to 48pt under the status bar). Done keeps it there, and
-    the book it landed in is the one shown.
+    the book it landed in is the one shown: a page just shared opens
+    Ours **at the spread that page is on** (`BookStart.own`,
+    `Book.ownIndex`), not at the book's newest page, which with three
+    writers was someone else's (seen and fixed after the first commits).
   - **One page a day still.** A shared page isn't a second page: it's the
     day's page, shared (`journal_pages.shared`, `circle_id`). So when
     today's page is already written and "+" asks for it to land somewhere
@@ -610,8 +613,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     still mine, the hearts on it gone, the circle's book re-paired);
     **"Write privately" on a day whose page was shared**, through the
     question, PRIVATE under the date, and Done (the page private with no
-    tag in Mine, the circle's book re-paired without it).
-    **On the Duo's cover**, light: Mine and Ours. **The two-page spread
+    tag in Mine, the circle's book re-paired without it). **That path
+    again in dark**: the "+" menu, the question, PRIVATE under the date,
+    Done, the page in Mine with no tag and the circle's book re-paired;
+    then "Write to the shared journal", its question, SHARED WITH THIRD
+    FLOOR under the date, Done (shared again in the database), and, in
+    light, landing on the spread the page is on.
+    **On the Duo's cover**, light and dark, on this code: Mine with a
+    shared page's tag, the pair's spread with a heart's face on mine, and
+    the odd one out alone and centered (an earlier look at the cover was
+    a build from before the odd one out was centered). **The two-page spread
     at its real width, on an iPad mini simulator** (744pt across, where
     the Duo's inner display is 669pt; light and dark): two people's pages
     side by side with the shade down the spine, their names and the heart
@@ -622,8 +633,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     spread that wide the date, "Mine", "Ours" and the marks at the foot
     keep to the 520pt column a single page uses, a little in from the
     spread's own margins. The Release configuration compiles. **Not
-    seen:** the Duo's inner display itself (this simulator has no way to
-    unfold it; `simctl` has no fold control, as before); a day long
+    seen:** the Duo's inner display itself. This simulator can't show
+    it, and that was gone into properly this time (the Duo open item
+    has what was tried): the inner panel is a second display that stays
+    black, and nothing moves the app onto it. So the true spread on a
+    Duo is known only from the code path (a page 600pt wide or more) and
+    the 744pt iPad proxy. Also not seen: a day long
     enough to scroll on its half page; a real phone; VoiceOver; large
     Dynamic Type; and any of it against Fly.
 
@@ -2384,7 +2399,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   fold-posture control to a headless `simctl` session (powering the cover off
   does not migrate the scene, and forcing it wedges SpringBoard), and the
   Simulator GUI window binds to a different device, so the scene stays on the
-  cover. Whether the 669×951pt inner panel reports **regular** to an
+  cover. **Gone into again for build 51** (November 14, 2026), and still
+  no way in: the Duo simulator has two displays, `xcrun simctl io <Duo>
+  screenshot --display=1` (the cover, 1398×2034, where the app is) and
+  `--display=3` (the inner panel, 2007×2853, always black; it's also what
+  a bare `simctl io screenshot` takes); `simctl io <Duo> screenConfig`
+  refuses the inner panel's geometry on the cover ("No mode found");
+  `screenConfig --display=1 power off` doesn't move the scene and leaves
+  the cover black until the simulator is shut down and booted again;
+  there is no fold or posture verb in `simctl`, CoreSimulator, Xcode's
+  Device Hub or the 27.1 runtime; and Xcode 27.1 ships no Simulator.app
+  to click a fold button in. Whether the 669×951pt inner panel reports **regular** to an
   iPhone-family app is therefore still not directly observed — the iPad proxy
   (below) is the nearest evidence. (b) The crease: no SDK fold geometry exists,
   so `creaseBuffer` is a conservative 20pt margin rather than a measurement. It
