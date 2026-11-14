@@ -118,8 +118,12 @@ struct BookLayout: Hashable {
     var right: CGFloat { width - safeTrailing - margin }
     var textWidth: CGFloat { right - left }
     var middle: CGFloat { (left + right) / 2 }
-    /// The date, small, at the head of the page: where its line's middle is.
-    var headY: CGFloat { safeTop + 20 }
+    /// The bar along the top (build 53): back, Letters, Prompts, in glass
+    /// circles. Where its middle is.
+    var barY: CGFloat { safeTop + 24 }
+    /// The date, small, at the head of the page: where its line's middle
+    /// is, under the bar (it was the first line, 20pt down, until build 53).
+    var headY: CGFloat { safeTop + 64 }
     /// The hand's size for the date at the head.
     var headSize: CGFloat { fontSize - 4 }
     /// How much of the head's width the date may take: the rest, at the
@@ -127,9 +131,9 @@ struct BookLayout: Hashable {
     var headWidth: CGFloat { max(90, textWidth - 150) }
     /// Under the date, smaller still: where a page says it's shared, and
     /// the writing view says where the page will land (build 51).
-    var tagY: CGFloat { safeTop + 37 }
+    var tagY: CGFloat { safeTop + 81 }
     /// Where the first line begins: under the date and that line.
-    var contentTop: CGFloat { safeTop + 48 }
+    var contentTop: CGFloat { safeTop + 92 }
     /// Where the last line may end: above the page's number (or the inks).
     var contentBottom: CGFloat { height - safeBottom - Self.foot }
     var rows: Int { max(4, Int((contentBottom - contentTop) / pitch)) }
@@ -138,10 +142,11 @@ struct BookLayout: Hashable {
     /// letters' feet, where a ruled line sits.
     var ruleRise: CGFloat { max(0, -font.descender - 3) }
     /// The band along the foot that holds the page's number when it's read
-    /// and the three inks when it's written, with Letters at its left and
-    /// Prompts at its right (build 49). Nothing on a page comes down into
-    /// it, so what's pressed there is never over a photo or a letter.
-    static let foot: CGFloat = 50
+    /// and the three inks when it's written, and since build 53 the "+" at
+    /// its right (Letters and Prompts moved to the bar at the top). Nothing
+    /// on a page comes down into it, so what's pressed there is never over
+    /// a photo or a letter.
+    static let foot: CGFloat = 76
     /// The middle of that band.
     var numberY: CGFloat { height - safeBottom - Self.foot / 2 }
     /// The ribbon down the fore-edge runs between these.

@@ -521,6 +521,8 @@ def my_journal(
     now = clock.now()
     return {
         "title": user.journal_title,
+        # Build 53: the photo on your book's cover, your own newest keep.
+        "cover_photo_id": sharing.cover_photo_id(db, user),
         "pages": [_page_payload(db, r, settings, now) for r in stretch],
         "next_after": stretch[-1].day.isoformat() if more else None,
     }

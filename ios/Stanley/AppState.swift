@@ -71,6 +71,8 @@ final class AppState {
     /// what the journal is called (nil is "My Journal").
     var journalPages: [DayPage] = []
     var journalTitle: String?
+    /// The photo on your journal's cover (build 53): your own newest keep.
+    var journalCover: String?
     /// The server has the journal, so a page can be written. False against
     /// a server from before build 45: the pages are what's kept, and
     /// there's no page for today.
@@ -423,6 +425,7 @@ final class AppState {
         reflectionsCursor = nil
         journalPages = []
         journalTitle = nil
+        journalCover = nil
         journalWritable = false
         journalDay = nil
         sharedDays = []
@@ -1275,6 +1278,18 @@ final class AppState {
         _ = await (pages, kept, weeks, dots)
     }
 
+    /// A held photo's picture, by its id, for a journal's cover (build 53):
+    /// covers are always your own keeps, so it's among what you've held.
+    func coverURL(_ photoId: String?) -> URL? {
+        guard let photoId else { return nil }
+        for thread in threads {
+            if let memory = thread.memories.first(where: { $0.id == photoId }), let urls = memory.urls {
+                return api.absoluteURL(urls.image)
+            }
+        }
+        return nil
+    }
+
     /// The days' dots, all of them (build 52).
     func loadMoods() async {
         do {
@@ -1311,18 +1326,21 @@ final class AppState {
             var gathered: [DayPage] = []
             var after: String?
             var title: String?
+            var cover: String?
             // A page a day for fifty years is under two hundred stretches.
             for _ in 0..<200 {
                 let stretch: JournalStretch = try await api.send(
                     "GET", "/me/journal", query: after.map { ["after": $0] } ?? [:]
                 )
                 title = stretch.title
+                if after == nil { cover = stretch.coverPhotoId }
                 gathered += stretch.pages
                 guard let next = stretch.nextAfter else { break }
                 after = next
             }
             journalPages = gathered
             journalTitle = title
+            journalCover = cover
             journalWritable = true
         } catch APIError.status(404) {
             journalPages = []

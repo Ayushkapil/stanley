@@ -183,8 +183,11 @@ def my_circles(
     user: User = Depends(get_current_user),
 ):
     """Every circle the person is in, in the order they joined, for the
-    switcher atop Today. Names only: no member counts, no activity, nothing
-    that ranks one circle above another."""
+    switcher atop Today and the Journal tab's covers. Names only: no member
+    counts, no activity, nothing that ranks one circle above another. Since
+    build 53 each carries its journal's cover photo (the reader's own newest
+    keep in it, or None) and the day the reader joined, where its volume
+    begins for them."""
     rows = db.execute(
         select(Membership, Circle)
         .join(Circle, Circle.id == Membership.circle_id)
@@ -193,8 +196,14 @@ def my_circles(
     ).all()
     return {
         "circles": [
-            {"id": c.id, "name": c.name, "is_creator": c.created_by == user.id}
-            for _, c in rows
+            {
+                "id": c.id,
+                "name": c.name,
+                "is_creator": c.created_by == user.id,
+                "cover_photo_id": sharing.cover_photo_id(db, user, c.id),
+                "since": sharing.joined_day(m, user).isoformat(),
+            }
+            for m, c in rows
         ]
     }
 

@@ -229,6 +229,11 @@ struct CircleSummary: Codable, Identifiable, Hashable {
     let id: String
     let name: String
     let isCreator: Bool
+    /// Build 53: the photo on this circle's journal cover (your own newest
+    /// keep in it, nil with none), and the day you joined, where its volume
+    /// begins for you. Nil from an older server.
+    var coverPhotoId: String? = nil
+    var since: String? = nil
 }
 
 struct CirclesResponse: Codable {
@@ -551,6 +556,8 @@ struct InkRun: Codable, Hashable {
 /// ask after for the next stretch.
 struct JournalStretch: Codable {
     let title: String?
+    /// Build 53: the photo on your own journal's cover: your newest keep.
+    let coverPhotoId: String?
     let pages: [DayPage]
     let nextAfter: String?
 }

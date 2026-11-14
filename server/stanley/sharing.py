@@ -20,7 +20,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from . import journal
-from .models import JournalPage, Membership, PageHeart, User
+from .models import Anchor, JournalPage, Membership, PageHeart, Photo, User
 from .serialize import blocked_ids
 
 
@@ -104,3 +104,27 @@ def readable_page(db: Session, user: User, page_id: str) -> JournalPage | None:
     if row.owner_id in blocked:
         return None
     return row
+
+
+def cover_photo_id(db: Session, user: User, circle_id: str | None = None) -> str | None:
+    """The photo on a journal's cover (build 53): the newest one this person
+    kept themselves, in that circle's journal, or anywhere for their own
+    book. Worked out for each reader from their own keeps alone, so a cover
+    says nothing about anyone else's (the brief asked for the most-kept
+    photo; that would rank by keeps and let a circle see which was kept
+    most, so it's each reader's own newest keep instead, a product decision
+    of 2026-11-14). A photo its poster deleted, one gone with no blob, or
+    one a block stands between isn't a cover. None: no cover photo yet."""
+    blocked = blocked_ids(db, user.id)
+    query = (
+        select(Photo.id, Photo.owner_id)
+        .join(Anchor, Anchor.photo_id == Photo.id)
+        .where(Anchor.user_id == user.id, Photo.deleted_at.is_(None), Photo.blob_key.is_not(None))
+        .order_by(Anchor.created_at.desc(), Photo.id.desc())
+    )
+    if circle_id is not None:
+        query = query.where(Photo.circle_id == circle_id)
+    for photo_id, owner_id in db.execute(query.limit(50)):
+        if owner_id is None or owner_id not in blocked:
+            return photo_id
+    return None

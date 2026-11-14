@@ -336,9 +336,8 @@ struct BookView: View {
     /// A book is open (build 52): the tab opens to the two covers, and a
     /// tap on one opens it; a swipe down from any page shuts it again.
     @State private var opened = false
-    /// Where the book that's open lay on the table, for it to open from
-    /// and shut back to.
-    @State private var openedFrom = UnitPoint.center
+    /// Which journal's cover is showing (build 53): "mine", or a circle's id.
+    @State private var coverPage = "mine"
     /// Where the page being written will land: as it was, with you alone,
     /// or in the shared journal.
     @State private var landing = PageLanding.asIs
@@ -423,23 +422,32 @@ struct BookView: View {
                             // room the bar takes, only that it stops above it.)
                             BookFoot(layout: layout, height: 160, beyond: insets.trailing, floor: palette.floor)
                                 .offset(y: full.height)
+                            TabBarGlass(height: 160)
+                                .frame(width: full.width)
+                                .offset(y: full.height)
                         }
                         .accessibilityAction(.escape) { shut() }
-                        .transition(
-                            reduceMotion
-                                ? .opacity
-                                : .scale(scale: 0.32, anchor: openedFrom).combined(with: .opacity)
-                        )
+                        // Pushed in over the covers, as a page is pushed.
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing))
                     } else {
-                        // The two books on the table, and the marks at the foot.
+                        // The journals' covers, one to a page, with the bar
+                        // over them; glass under the tab bar.
                         ZStack(alignment: .topLeading) {
-                            BookPaper.page
-                                .frame(width: full.width, height: full.height + 160)
-                                .accessibilityHidden(true)
-                            CoverShelf(layout: layout, accent: palette.accent, showsOurs: hasOurs) { wanted in
-                                openBook(ours: wanted, layout: layout)
-                            }
-                            bar(layout)
+                            JournalCovers(
+                                layout: layout,
+                                // Stopping at the tab bar: iOS 26's bar takes its
+                                // light or dark from the scrolling page beneath
+                                // it, and a dark cover under it took the selected
+                                // tab's ink with it.
+                                screen: CGSize(width: full.width, height: full.height),
+                                contentHeight: full.height,
+                                bar: AnyView(bar(layout, back: nil, tint: .white)),
+                                open: { journal in openBook(journal, layout: layout) },
+                                page: $coverPage
+                            )
+                            TabBarGlass(height: 160)
+                                .frame(width: full.width)
+                                .offset(y: full.height)
                         }
                         .transition(.opacity)
                     }
@@ -586,6 +594,8 @@ struct BookView: View {
     }
 
     private func load() async {
+        // The circles again, for each journal's cover photo (build 53).
+        await state.loadCircle()
         await state.loadBook()
         await state.loadShared()
         await state.loadThisWeek()
@@ -596,7 +606,6 @@ struct BookView: View {
     /// A cover tapped: that book, open at its newest page (your own at
     /// today's), growing from where it lay.
     private func openBook(ours wanted: Bool, layout: BookLayout) {
-        openedFrom = hasOurs ? UnitPoint(x: wanted ? 0.72 : 0.28, y: 0.48) : UnitPoint(x: 0.5, y: 0.48)
         ours = wanted && hasOurs
         grid = false
         touched = false
@@ -605,6 +614,24 @@ struct BookView: View {
         go(to: ours ? max(book.pages.count - 1, 0) : book.todayIndex, in: book)
         withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) {
             opened = true
+        }
+    }
+
+    /// A cover opened (build 53): your own book, or a circle's shared one.
+    /// A circle other than the one on screen becomes the one on screen
+    /// first, since the shared journal is the circle on screen's.
+    private func openBook(_ journal: CoverJournal, layout: BookLayout) {
+        guard let circleId = journal.circleId else {
+            openBook(ours: false, layout: layout)
+            return
+        }
+        if circleId == state.circle?.id {
+            openBook(ours: true, layout: layout)
+            return
+        }
+        Task {
+            await state.switchCircle(to: circleId)
+            openBook(ours: true, layout: layout)
         }
     }
 
@@ -807,18 +834,17 @@ struct BookView: View {
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
 
-            // What isn't a page: Letters and Prompts, either side of the
-            // page's number at its foot, over nothing that's on it.
-            bar(layout)
+            // Along the top: back to the covers, Letters and Prompts, in
+            // glass (build 53; they were at the foot of the page).
+            bar(layout, back: { shut() }, tint: accent)
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
 
-            // The head's right: which book, and the "+".
-            BookSwitch(
-                layout: layout, accent: accent, ours: shared, showsOurs: hasOurs,
+            // The "+", at the foot of the page on the right.
+            PlusMenu(
+                layout: layout, accent: accent, showsOurs: hasOurs,
                 canWrite: state.journalWritable,
                 people: people,
-                pick: { wanted in if wanted != shared { open(ours: wanted) } },
                 writePrivately: { wants(.privately) },
                 writeShared: { wants(.shared) },
                 writeTo: { wants(.person($0)) }
@@ -845,10 +871,10 @@ struct BookView: View {
         .frame(width: whole.width, height: whole.height, alignment: .topLeading)
     }
 
-    /// Letters and Prompts, at the foot of the page or under the covers.
-    private func bar(_ layout: BookLayout) -> some View {
-        BookBar(
-            layout: layout, accent: palette.accent,
+    /// The bar along the top: back (in a book), Letters, the week, Prompts.
+    private func bar(_ layout: BookLayout, back: (() -> Void)?, tint: Color) -> some View {
+        JournalTopBar(
+            layout: layout, tint: tint, back: back,
             sealed: !state.lettersReceived.sealed.isEmpty,
             ready: state.lettersReceived.sealed.contains { $0.deliverable == true },
             prompts: state.circle != nil,
@@ -1131,29 +1157,24 @@ private struct BookEdge: View {
 
 // MARK: - Which book, and the "+"
 
-/// The right of the page's head (build 51): "Mine" and "Ours", the one
-/// being read in the accent and the other quiet, and a "+" that asks where
-/// today's page should land. They stay put while pages turn.
-private struct BookSwitch: View {
+/// The "+" (build 53: a 61pt glass circle at the foot of the page, on
+/// the right; it was a small mark at the head beside "Mine" and "Ours").
+/// The same three destinations as build 52: privately, the shared journal,
+/// one person.
+private struct PlusMenu: View {
     let layout: BookLayout
     let accent: Color
-    let ours: Bool
-    /// Whether there's a shared journal to switch to.
+    /// Whether there's a shared journal to write to.
     let showsOurs: Bool
     let canWrite: Bool
     /// The circle's other members, for a page shared with one of them.
     var people: [CircleMember] = []
-    let pick: (Bool) -> Void
     let writePrivately: () -> Void
     let writeShared: () -> Void
     var writeTo: (CircleMember) -> Void = { _ in }
 
     var body: some View {
-        HStack(spacing: 0) {
-            if showsOurs {
-                word("Mine", on: !ours) { pick(false) }
-                word("Ours", on: ours) { pick(true) }
-            }
+        Group {
             if canWrite {
                 if showsOurs {
                     Menu {
@@ -1171,123 +1192,20 @@ private struct BookSwitch: View {
                             }
                         }
                     } label: {
-                        plus
+                        PlusGlass(tint: accent)
                     }
                     .accessibilityLabel("Write today's page")
                 } else {
                     // Nowhere to share to: the "+" simply writes.
-                    Button(action: writePrivately) { plus }
+                    Button(action: writePrivately) { PlusGlass(tint: accent) }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Write today's page")
                 }
             }
         }
-        // The "+" itself ends on the writing's right margin; its target
-        // reaches a little past that.
-        .padding(.trailing, layout.width - layout.right - 11)
-        .frame(width: layout.width, height: 44, alignment: .trailing)
-        .offset(y: layout.headY - 22)
-    }
-
-    private var plus: some View {
-        Image(systemName: "plus")
-            .font(.system(size: 20, weight: .light))
-            .foregroundStyle(accent)
-            .frame(width: 40, height: 44)
-            .contentShape(Rectangle())
-    }
-
-    private func word(_ name: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(name)
-                .font(.system(.subheadline, design: .rounded).weight(on ? .semibold : .regular))
-                .foregroundStyle(on ? accent : BookPaper.quiet)
-                .frame(minWidth: 46, minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(name == "Mine" ? "My journal" : "The shared journal")
-        .accessibilityAddTraits(on ? .isSelected : [])
-    }
-}
-
-// MARK: - The marks at the foot
-
-/// Along the foot of the page, either side of its number: Letters at the
-/// left, Prompts at the right, and on Sunday evening the week beside
-/// Prompts. Thin marks in the accent, each in a 44pt target, in the band
-/// under everything a page holds. They stay put while pages turn. (Build
-/// 49. Build 48 had them on the date's line at the head of the page;
-/// build 46 as paper tabs at its edge, too small to press.)
-private struct BookBar: View {
-    let layout: BookLayout
-    let accent: Color
-    /// A letter written to you is still sealed; and its day has come.
-    let sealed: Bool
-    let ready: Bool
-    let prompts: Bool
-    /// The week a reflection would be about, when one can be written.
-    let week: ThisWeek?
-    let openLetters: () -> Void
-    let openPrompts: () -> Void
-    let openWeek: () -> Void
-
-    /// A mark's own width.
-    private static let glyph: CGFloat = 24
-
-    var body: some View {
-        // The week's mark comes and goes with the evening.
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            HStack(spacing: 0) {
-                mark(
-                    "envelope", label: "Letters",
-                    hint: ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "",
-                    dot: sealed, action: openLetters
-                )
-                Spacer(minLength: 0)
-                if let week, week.reflection == nil, ReflectionWindow.isOpen(context.date) {
-                    mark("moon", label: "How was your week?", hint: "Write this week's reflection", action: openWeek)
-                }
-                if prompts {
-                    mark(
-                        "questionmark.bubble", label: "Prompts",
-                        hint: "Your circle's questions and what everyone said", action: openPrompts
-                    )
-                }
-            }
-            // Each outer mark's own edge is on the writing's margin; its
-            // target reaches a little past that.
-            .padding(.leading, layout.left - (44 - Self.glyph) / 2)
-            .padding(.trailing, layout.width - layout.right - (44 - Self.glyph) / 2)
-            .frame(width: layout.width, height: BookLayout.foot)
-            .offset(y: layout.height - layout.safeBottom - BookLayout.foot)
-        }
-    }
-
-    private func mark(
-        _ symbol: String, label: String, hint: String, dot: Bool = false, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 20, weight: .light))
-                .foregroundStyle(accent)
-                .frame(width: Self.glyph, height: Self.glyph)
-                .overlay(alignment: .topTrailing) {
-                    // A sealed letter is waiting: a dot of wax.
-                    if dot {
-                        Circle()
-                            .fill(Ink.red.color)
-                            .overlay(Circle().strokeBorder(BookPaper.page, lineWidth: 1.5))
-                            .frame(width: 9, height: 9)
-                            .offset(x: 3, y: -1)
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityHint(hint)
+        // Its right edge a little past the writing's margin, its middle on
+        // the line of the page's number.
+        .position(x: layout.right - 26, y: layout.numberY)
     }
 }
 

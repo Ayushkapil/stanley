@@ -10,8 +10,8 @@ gestures are *holding* (a private act of keeping, never counted),
 of the week* (answered privately, read together) and, since build 42, a
 monthly *letter to the circle* (unsigned, opened together). Beside the circle, since build 45,
 each person has a private **journal kept as a book** (their own pages, what they've held, letters opened,
-weekly reflections; since build 52 the Journal tab opens to two books on the table, yours and the circle's, whose
-spines thicken as they fill), which nobody else ever sees
+weekly reflections; since build 54 the Journal tab opens to its covers, one journal to a page, yours and then one
+for each circle, each over a photo you kept), which nobody else ever sees
 unless they choose to share a page: since build 51 a page can be put in the circle's **shared journal**, read there as
 facing pages, two people's pages from the same day, and since build 52 shared with **one person** in the circle instead.
 Also since build 52, after posting a photo, a person may fill one of **five unlabelled dots** for their day, kept for
@@ -153,6 +153,16 @@ guarded by tests; treat a change to any of them as a spec change.
   the DMs that are a permanent non-goal for the pilot** (open items): it
   is a page, not a conversation, and nothing answers it but a heart; the
   brief asked for it, and the line should be held there.
+- **A journal's cover never says anything about anyone's keeps** (build
+  54, a product decision on 2026-11-14). The brief asked for each
+  journal's cover to be its most-kept photo; that ranks photos by keeps
+  and would let a circle see which was kept most, so a cover is **the
+  reader's own newest keep** in that journal (anywhere, for their own
+  book), worked out on the server for each reader
+  (`sharing.cover_photo_id`, `cover_photo_id` on `GET /circles` and `GET
+  /me/journal`). Nothing reads or ranks anyone else's keeps, and no keep
+  is counted. A photo its poster deleted, or one across a block, isn't
+  a cover.
 - **The mark on your day is yours alone and never counts anything**
   (build 52, a product decision, the same brief, part 4). After posting
   a photo, five empty dots; a tap fills one. No labels, no numbers, no
@@ -503,6 +513,80 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **The covers in glass** (build 54, November 14, 2026, a product brief
+  from Ayush, "Redesign the Journal tab around a cover screen";
+  screenshots in `docs/journal-glass-build54/`). **It replaces build
+  52's cloth covers** (the next section's first two points: the books
+  on the table, their thickness, the swipe down is kept) **and moves
+  Letters, Prompts and the "+"**. Phone and server both.
+  - **The cover screen** (`JournalCovers.swift`): the Journal tab lands
+    here. Journals are paged sideways (`TabView`, `.page`, no dots of its
+    own): **Mine** first, then one for each circle you're in (only with a
+    shared journal on the server). Each is its cover photo full bleed
+    (under the status bar, stopping at the tab bar), under a scrim from
+    the foot (black 0.72, 0.1 in the middle, 0.28 at the top), or a flat
+    `#2B3430` with nothing kept yet. Over it a **slab** 290 by 416, corners
+    30: `.ultraThinMaterial`, a 0.5pt white edge at 55%, a white sheen
+    across its top left (40% to nothing), a soft shadow down and right.
+    In the dark the fill is 8% white instead (material over black goes
+    muddy) and the edge carries it. On the slab: your name, or the
+    circle's, 8.5pt capitals tracked 2.6; the title in the hand at 44pt
+    (your journal's name; "Ours" for a circle's); a hairline at 45%; the
+    dates it covers ("Sep 2026 – now": your book from its first thing, a
+    circle's from the day you joined) and "Vol. I". The **next slab's
+    edge** shows 56pt wide at the screen's right. Under the slab: the
+    name ("Mine", the circle's), a line ("Only you read it", "Shared with
+    your circle"), **pips** drawn by hand, and a **44pt glass arrow**
+    that opens it, as a tap on the slab does. A long press on your
+    title renames it. On a regular width the slab grows 1.35 times; on a
+    short screen (the Duo's cover) it shrinks to fit, no smaller than
+    0.7.
+  - **Opening**: the book is pushed in from the right; **back** (the
+    bar's chevron) returns to the covers, as does build 52's swipe down
+    and VoiceOver's escape. Opening a circle's journal makes that circle
+    the one on screen first (the shared journal is the circle on
+    screen's), so Today follows. "Mine" and "Ours" are no longer at the
+    head of a book: the covers choose.
+  - **The chrome, the same on every Journal screen** (`JournalChrome.
+    swift`): the top bar's marks are **34pt circles of glass** (material,
+    0.5pt white edge; 8% white in the dark) in 44pt targets: **back** at
+    the left in a book, **Letters** (the red dot while one is sealed),
+    the week's moon on Sunday evening and **Prompts** at the right, on
+    the covers and in the books (they were at the foot of the page,
+    builds 49 to 53). The **"+" is a 61pt glass circle** with a 32pt plus
+    drawn at 1.6pt, at the foot of the page on the right; its menu is
+    build 52's three destinations, untouched. **Under the tab bar**, glass
+    with a hairline along its top (`TabBarGlass`), over a wash of the
+    page's paper in daylight. **Paper gets none of it**: no blur, sheen
+    or stroke on a page. The page's head moved down under the bar (the
+    date at 64pt under the status bar, the first line at 92pt; the foot
+    band is 76pt for the "+"), so a page holds a few lines fewer.
+  - **Ruled lines** are in **Settings → Journal** now ("Ruled lines",
+    the same `stanley.ruledPaper`, off by default); build 52 had them
+    under Appearance.
+  - **Fixed on the way**: iOS 26's tab bar takes its light or dark from
+    the scrolling page beneath it, so with the cover pager running under
+    it the bar went dark and the selected tab's ink vanished (the
+    trouble of builds 31 and 39); the covers stop at the bar, and the
+    band under it is frosted paper in daylight.
+  - **The server**: `sharing.cover_photo_id`; `GET /circles` entries
+    carry `cover_photo_id` and `since` (the day you joined, on your own
+    calendar); `GET /me/journal` carries `cover_photo_id`. Tests in
+    `tests/test_journal_covers.py` (your own newest keep, never anyone
+    else's however many kept it, a cover per circle and yours across
+    them, a deleted photo or one across a block not a cover, nothing
+    counted); `test_many_circles.py`'s exact keys updated.
+  - **Checked on the iPhone 17 Pro simulator** against a local server on
+    this code, light and dark: Mine's cover over a kept photo, paging to
+    Third Floor's (its own dates, the second pip, no peek as the last),
+    the arrow opening Ours with the glass bar and the "+", back to the
+    same cover, Mine opened at today's page, the "+" menu, writing under
+    the moved head, and Settings' Journal group. **On the Duo's cover
+    display**, light and dark: the covers. The Release configuration
+    compiles. **Not seen**: a cover with nothing kept (the flat field)
+    on screen, a second circle's cover, the Duo's inner display (the
+    slab growing), VoiceOver, large Dynamic Type, a real phone, Fly.
 
 - **The covers, a page for one person, ruled paper, the dots** (build 52,
   November 14, 2026, a product brief from Ayush, "Redesign the Journal
@@ -1768,7 +1852,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (53)", at the
+  production audit), and the version, "Stanley 0.2.0 (54)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2300,12 +2384,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 53** (0.2.0) is the number to archive next: only a bump over
-  build 52 (the covers, a page for one person, ruled paper as a choice,
-  and the dots and the month's sheet, above), over build 51's shared
-  journal.
-- **Build 52 needs a deploy, and hasn't had one.** Fly is v28 (build
-  51's server). On its first start the new server adds
+- **Build 54** (0.2.0) is the number to archive next: the covers in
+  glass (above), over build 52's page for one person, ruled paper and
+  the dots (53 was only a bump).
+- **Builds 52 and 54 need a deploy, and haven't had one.** Fly is v28
+  (build 51's server); 54 adds only `cover_photo_id` and `since`, which an
+  older server leaves out (every cover is then the flat field). On its first start the new server adds
   `journal_pages.recipient_id`, `photos.score` and the `day_moods`
   table, and `/terms` and `/privacy` gain the words for both. Until then
   a build 52 phone shows no dots (`/me/moods` is a 404) and doesn't
@@ -2630,7 +2714,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**604 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**611 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -2846,8 +2930,10 @@ live APNs, concurrency under real load.
   `BookBar` with the marks for Letters and Prompts at the page's foot,
   `BookSwitch` with "Mine", "Ours" and the "+", `BookFoot`, the grid),
   `BookWriting.swift` (`PageWriting`, the ruled text view, the inks and
-  the pen in hand, `PageLanding`), `BookCovers.swift` (build 52: the
-  cloth, `BookCover`, `CoverShelf`), `Moods.swift` (build 52: the five
+  the pen in hand, `PageLanding`), `JournalCovers.swift` (build 54: the
+  cover pager, the slab), `JournalChrome.swift` (build 54: the glass
+  circles, the top bar, the "+", the band under the tab bar; build 52's
+  `BookCovers.swift` is deleted), `Moods.swift` (build 52: the five
   dots, `MoodSheet`),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
   and `JournalWidget.swift` (the Journal widget's snapshot and views);

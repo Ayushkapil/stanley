@@ -31,16 +31,17 @@
 		44A14010F7A701664493B74A /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D985F23D96D5CE5746525A /* Hand.swift */; };
 		4D7B10A56B450756E7CB89E3 /* Acknowledgements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4885E2268DC6C00B5529E694 /* Acknowledgements.swift */; };
 		4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */; };
+		4F00CC9A39C25078D5C20C31 /* JournalCovers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E1530F3914BF87D9FD0079 /* JournalCovers.swift */; };
 		4F135F394D4624710874F567 /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D985F23D96D5CE5746525A /* Hand.swift */; };
 		4F53B77262DFC4F2B0FB4972 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = E323BCEF8A28432A187DE505 /* Atmosphere.swift */; };
 		4F757909B3B8A62FB338AC0C /* JournalColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */; };
 		4F8C9CC51451BC5E5BCBB149 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DB333BECC60813C685C4A7 /* ProfileView.swift */; };
+		55C2CC0CA04F401FAA78335E /* JournalChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2B311BA072840C57A99246 /* JournalChrome.swift */; };
 		59CE1167E20B3C2CA615946E /* OfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */; };
 		5ACE6F09DFC0765EB67DB0F8 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E3C2EDF7A9388B26E93DA4 /* Haptics.swift */; };
 		6021F929D7619EB3502C84A8 /* HeldViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9198F9599AA1483CD973906 /* HeldViewer.swift */; };
 		608876305B018E5CDACEA8ED /* Prompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */; };
 		617A136C84ADFC11B52FE5C2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9649D2EC31D301586F01D82 /* APIClient.swift */; };
-		6343CD342B8AA6B4C1AE6E99 /* BookCovers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798EB66C31D73AB3E3B09518 /* BookCovers.swift */; };
 		6702A1944998A8493E18E807 /* Push.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEBB1E80695B05BAB1F4CFC4 /* Push.swift */; };
 		69468D8BD9530AECC384D350 /* Letters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C27D6809C553EE8B8776BED /* Letters.swift */; };
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
@@ -137,7 +138,6 @@
 		7076D62BCAF8F97CC12051C7 /* Mentions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mentions.swift; sourceTree = "<group>"; };
 		7136D47BABD2044152A27D10 /* Moods.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Moods.swift; sourceTree = "<group>"; };
 		74E3C2EDF7A9388B26E93DA4 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
-		798EB66C31D73AB3E3B09518 /* BookCovers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCovers.swift; sourceTree = "<group>"; };
 		7996693C098F3CB199D03DB5 /* TabTaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabTaps.swift; sourceTree = "<group>"; };
 		7B910D5D0535C57C080D6460 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookWriting.swift; sourceTree = "<group>"; };
@@ -156,6 +156,7 @@
 		A93BF6722B6EDBA5272660E6 /* PhotoRender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoRender.swift; sourceTree = "<group>"; };
 		AA186266B8710917748C184C /* Whereabouts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Whereabouts.swift; sourceTree = "<group>"; };
 		AA2982F05DA938FE0371BBF8 /* StanleyWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = StanleyWidgets.entitlements; sourceTree = "<group>"; };
+		AA2B311BA072840C57A99246 /* JournalChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalChrome.swift; sourceTree = "<group>"; };
 		B2296FB39842563CF1F4E2B2 /* AtmospherePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmospherePalette.swift; sourceTree = "<group>"; };
 		B371E63EBC11AC20695ED507 /* StanleyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanleyApp.swift; sourceTree = "<group>"; };
 		B9198F9599AA1483CD973906 /* HeldViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeldViewer.swift; sourceTree = "<group>"; };
@@ -168,6 +169,7 @@
 		C87A0573C9ECAE1BB64BB331 /* NoteBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteBoard.swift; sourceTree = "<group>"; };
 		C9649D2EC31D301586F01D82 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueue.swift; sourceTree = "<group>"; };
+		D8E1530F3914BF87D9FD0079 /* JournalCovers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalCovers.swift; sourceTree = "<group>"; };
 		DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalColors.swift; sourceTree = "<group>"; };
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E137B196869A47ACE289A041 /* WorldTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldTodayView.swift; sourceTree = "<group>"; };
@@ -218,7 +220,6 @@
 				E323BCEF8A28432A187DE505 /* Atmosphere.swift */,
 				9BB8427334A459A620854705 /* AvatarPicker.swift */,
 				0D713EC95A1BA95F6043E0E8 /* Book.swift */,
-				798EB66C31D73AB3E3B09518 /* BookCovers.swift */,
 				39FC79B48BB2EA062F8B6E65 /* BookPages.swift */,
 				E237A15BDE57446BB210AB40 /* BookView.swift */,
 				7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */,
@@ -231,6 +232,8 @@
 				B9198F9599AA1483CD973906 /* HeldViewer.swift */,
 				54B7A0448179C1D07FE2922B /* Info.plist */,
 				1276CA9EF7DFA94B5A25EC74 /* Journal.swift */,
+				AA2B311BA072840C57A99246 /* JournalChrome.swift */,
+				D8E1530F3914BF87D9FD0079 /* JournalCovers.swift */,
 				7B910D5D0535C57C080D6460 /* Keychain.swift */,
 				1803DD8144604B228075043B /* Layout.swift */,
 				65E5AD82A467F941E84D908A /* Legal.swift */,
@@ -430,7 +433,6 @@
 				6A7483A75FBDC6102F5DC4C3 /* AtmospherePalette.swift in Sources */,
 				118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */,
 				785FAFD68215F38893B3A3DB /* Book.swift in Sources */,
-				6343CD342B8AA6B4C1AE6E99 /* BookCovers.swift in Sources */,
 				8B0E56E51EEF2204B17CCAAE /* BookPages.swift in Sources */,
 				861AF92B3B302F8A9166C004 /* BookView.swift in Sources */,
 				0FDEEB6D62C338D8044AFB6B /* BookWriting.swift in Sources */,
@@ -444,7 +446,9 @@
 				5ACE6F09DFC0765EB67DB0F8 /* Haptics.swift in Sources */,
 				6021F929D7619EB3502C84A8 /* HeldViewer.swift in Sources */,
 				BEA0FC11A01234EE4A91B060 /* Journal.swift in Sources */,
+				55C2CC0CA04F401FAA78335E /* JournalChrome.swift in Sources */,
 				70427E223F09A23142109DB1 /* JournalColors.swift in Sources */,
+				4F00CC9A39C25078D5C20C31 /* JournalCovers.swift in Sources */,
 				F2BFA4BEB3EC28AEFC7A8888 /* JournalInk.swift in Sources */,
 				A7F7AF0C0BB4FF3433DEE086 /* JournalWidget.swift in Sources */,
 				ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */,

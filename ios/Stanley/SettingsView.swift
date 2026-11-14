@@ -151,11 +151,12 @@ struct SettingsView: View {
     }
 
     /// The journal's name (build 46; it was written on the journal's cover
-    /// and renamed there in build 45). Only with a server that keeps one.
-    @ViewBuilder
+    /// and renamed there in build 45), only with a server that keeps one;
+    /// and ruled lines (build 53 puts them here; build 52 had them under
+    /// Appearance), off by default: a page is blank paper.
     private var journalSection: some View {
-        if state.journalWritable {
-            Section {
+        Section {
+            if state.journalWritable {
                 Button {
                     journalName = state.journalTitle ?? ""
                     namingJournal = true
@@ -163,11 +164,13 @@ struct SettingsView: View {
                     LabeledContent("Journal Title", value: JournalName.shown(state.journalTitle))
                 }
                 .foregroundStyle(.primary)
-            } header: {
-                Text("Journal").smallCaps(11)
-            } footer: {
-                Text("Your journal is yours alone: nobody else sees its pages or its name.")
             }
+            Toggle("Ruled lines", isOn: $ruledPaper)
+                .tint(palette.toggle)
+        } header: {
+            Text("Journal").smallCaps(11)
+        } footer: {
+            Text("Your journal is yours alone: nobody else sees its pages or its name. Ruled lines puts faint lines on the written pages of every journal; without them a page is blank paper.")
         }
     }
 
@@ -202,13 +205,10 @@ struct SettingsView: View {
                 }
             ))
             .tint(palette.toggle)
-            // Build 52: the journal's pages are blank paper unless asked.
-            Toggle("Ruled Paper", isOn: $ruledPaper)
-                .tint(palette.toggle)
         } header: {
             Text("Appearance").smallCaps(11)
         } footer: {
-            Text("Light is warm white. Dark is true black, a gallery for the photos. Rain is fog on a window, in light or dark as your iPhone is. Ruled Paper puts faint lines on the written pages of both journals. It's only how things look: nothing about how Stanley works changes.")
+            Text("Light is warm white. Dark is true black, a gallery for the photos. Rain is fog on a window, in light or dark as your iPhone is. It's only color: nothing about how Stanley works changes.")
         }
     }
 
