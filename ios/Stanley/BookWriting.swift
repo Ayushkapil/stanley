@@ -259,6 +259,8 @@ final class RuledTextView: UITextView {
         let height = max(contentSize.height, bounds.height) + bounds.height
         let frame = CGRect(x: 0, y: textContainerInset.top, width: bounds.width, height: height)
         if rules.frame != frame { rules.frame = frame }
+        // Ruled only when the paper is (build 52).
+        rules.isHidden = !RuledPaper.on
         rules.backgroundColor = UIColor(patternImage: ruleTile())
         sendSubviewToBack(rules)
     }
@@ -297,7 +299,7 @@ struct InkPicker: View {
 /// the same date, the first line where the first line was. Cancel and Done
 /// are at the head, on the date's line, only while it's being written.
 /// Where a page being written will land (build 51).
-enum PageLanding {
+enum PageLanding: Equatable {
     /// Where it already is: a page being gone on with. A new page, with
     /// you alone.
     case asIs
@@ -305,13 +307,18 @@ enum PageLanding {
     case privately
     /// In the shared journal of the circle on screen.
     case shared
+    /// For one person in the circle on screen (build 52): in their book
+    /// and yours, and nobody else's.
+    case person(CircleMember)
 }
 
 struct PageWriting: View {
     @Environment(AppState.self) private var state
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let target: WritingTarget
-    var landing = PageLanding.asIs
+    /// Where it will land; chosen from "+" and changeable from the line
+    /// under the date while writing (build 52).
+    @Binding var landing: PageLanding
     let layout: BookLayout
     /// Writing is over. True when the page was kept; false when it was
     /// torn out, let go, or left as it was.
@@ -352,9 +359,20 @@ struct PageWriting: View {
     private var sharing: String? {
         switch landing {
         case .shared: state.circle?.name ?? "your circle"
+        case .person(let person): person.displayName ?? "one person"
         case .privately: nil
-        case .asIs: existing?.isShared == true ? (existing?.circleName ?? "your circle") : nil
+        case .asIs: existing?.sharedWith
         }
+    }
+
+    /// There's somewhere to share to: a circle, and a server with a shared
+    /// journal.
+    private var canShare: Bool { state.circle != nil && state.sharedAvailable }
+
+    /// Everyone in the circle on screen but you.
+    private var people: [CircleMember] {
+        guard state.onePersonAvailable else { return [] }
+        return (state.circle?.members ?? []).filter { $0.id != state.myId }
     }
 
     /// Whether keeping it would move a page already written between your
@@ -364,7 +382,9 @@ struct PageWriting: View {
         switch landing {
         case .asIs: return false
         case .privately: return existing.isShared
-        case .shared: return !existing.isShared || existing.circleId != state.circle?.id
+        case .shared: return !existing.isShared || existing.recipient != nil || existing.circleId != state.circle?.id
+        case .person(let person):
+            return existing.recipient?.id != person.id || existing.circleId != state.circle?.id
         }
     }
 
@@ -396,11 +416,38 @@ struct PageWriting: View {
         .overlay(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 PageHeading(text: BookType.dayTitle(date), color: headInk.color.opacity(0.7), layout: layout)
-                // Where this page will land, so there's never any doubt.
-                PageTag(
-                    text: sharing.map { "Shared with \($0)" } ?? "Private",
-                    color: sharing == nil ? BookPaper.quiet : accent, layout: layout
-                )
+                // Where this page will land, so there's never any doubt; and
+                // where there's somewhere else to put it, a tap chooses.
+                if canShare {
+                    Menu {
+                        Button { landing = .privately } label: { Label("Private", systemImage: "lock") }
+                        Button { landing = .shared } label: {
+                            Label("Shared with \(state.circle?.name ?? "your circle")", systemImage: "person.2")
+                        }
+                        if !people.isEmpty {
+                            Menu {
+                                ForEach(people) { person in
+                                    Button(person.displayName ?? "Someone") { landing = .person(person) }
+                                }
+                            } label: {
+                                Label("Shared with one person", systemImage: "person")
+                            }
+                        }
+                    } label: {
+                        PageTag(
+                            text: (sharing.map { "Shared with \($0)" } ?? "Private") + "  ▾",
+                            color: sharing == nil ? BookPaper.quiet : accent, layout: layout
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(sharing.map { "Shared with \($0)" } ?? "Private")
+                    .accessibilityHint("Chooses who reads this page")
+                } else {
+                    PageTag(
+                        text: sharing.map { "Shared with \($0)" } ?? "Private",
+                        color: sharing == nil ? BookPaper.quiet : accent, layout: layout
+                    )
+                }
                 HStack(spacing: 18) {
                     Button("Cancel") { cancel() }
                         .wordButton(.subheadline, bold: false)
@@ -479,12 +526,28 @@ struct PageWriting: View {
         Task {
             let kept: Bool
             if case .page(let page) = target {
-                kept = await state.editPage(existing ?? page, runs: runs)
+                let was = existing ?? page
+                var done = runs == was.stretches ? true : await state.editPage(was, runs: runs)
+                // Somewhere else chosen for it while it was open (build 52).
+                if done, moves {
+                    let now = state.journalPages.first { $0.id == was.id } ?? was
+                    switch landing {
+                    case .asIs: break
+                    case .privately: done = await state.sharePage(now, shared: false)
+                    case .shared: done = await state.sharePage(now, shared: true)
+                    case .person(let person): done = await state.sharePage(now, shared: true, to: person.id)
+                    }
+                }
+                kept = done
             } else {
                 // Where it lands is said only when it was chosen: a page
                 // gone on with stays where it is.
-                let shared: Bool? = landing == .asIs ? nil : landing == .shared
-                kept = await state.writeToday(runs, shared: shared)
+                switch landing {
+                case .asIs: kept = await state.writeToday(runs)
+                case .privately: kept = await state.writeToday(runs, shared: false)
+                case .shared: kept = await state.writeToday(runs, shared: true)
+                case .person(let person): kept = await state.writeToday(runs, shared: true, to: person.id)
+                }
             }
             saving = false
             if kept {

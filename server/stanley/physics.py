@@ -42,6 +42,13 @@ CIRCLES_PER_PERSON = 5
 # started on them, and that is a different contract.
 REDOS_PER_DAY = 1
 
+# --- The mark on a day (build 52) ------------------------------------------------
+# After posting, a person may leave a mark on their day: one of five, with no
+# labels, kept for them alone. Never shown to anyone else, never averaged or
+# compared, and it doesn't fade.
+SCORE_MIN = 1
+SCORE_MAX = 5
+
 # --- States -------------------------------------------------------------------
 LIVE = "LIVE"
 FADING = "FADING"

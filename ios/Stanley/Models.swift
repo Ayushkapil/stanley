@@ -53,6 +53,10 @@ struct Photo: Codable, Identifiable, Hashable {
     /// only when you open it. Nil on anyone else's photo, and from an older
     /// server.
     let hasJournal: Bool?
+    /// Yours only (build 52): the dot you filled under it, one of five.
+    /// Nil on anyone else's photo, on yours with none, and from an older
+    /// server.
+    let score: Int?
 }
 
 /// A sticky note on the circle's board (Part 4; one each since build 27). The
@@ -443,6 +447,9 @@ struct DayPage: Codable, Identifiable, Hashable {
     let shared: Bool?
     let circleId: String?
     let circleName: String?
+    /// The one person it's shared with (build 52), in that circle; nil
+    /// for a page shared with the whole circle, or kept to yourself.
+    let recipient: UserBrief?
     let createdAt: Date
     let updatedAt: Date
 
@@ -450,6 +457,11 @@ struct DayPage: Codable, Identifiable, Hashable {
     /// stretch for a page in one ink.
     var stretches: [InkRun] { InkRun.stretches(body: body, ink: ink, runs: runs) }
     var isShared: Bool { shared == true }
+    /// Where it is, in a few words: "Third Floor", "Ruby"; nil if it's yours alone.
+    var sharedWith: String? {
+        guard isShared else { return nil }
+        return recipient?.displayName ?? circleName ?? "your circle"
+    }
 }
 
 /// A page in a circle's shared journal (build 51), as the circle reads it:
@@ -466,6 +478,9 @@ struct SharedPage: Codable, Identifiable, Hashable {
     let mine: Bool
     var hearted: Bool
     let hearts: [UserBrief]?
+    /// The one person it's for (build 52): a page shared with one person
+    /// is read by them and its writer alone. Nil for a circle's page.
+    let to: UserBrief?
 
     var stretches: [InkRun] { InkRun.stretches(body: body, ink: ink, runs: runs) }
 }
@@ -481,6 +496,30 @@ struct SharedSpread: Codable, Hashable {
 struct SharedDay: Codable, Hashable {
     let day: String
     var spreads: [SharedSpread]
+    /// Pages shared with one person (build 52), to you or by you: each a
+    /// page of its own, never paired. None from a build 51 server.
+    var singles: [SharedPage]
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        day = try c.decode(String.self, forKey: .day)
+        spreads = try c.decode([SharedSpread].self, forKey: .spreads)
+        singles = try c.decodeIfPresent([SharedPage].self, forKey: .singles) ?? []
+    }
+}
+
+/// The dot filled on a day (build 52), one of five: yours alone.
+struct DayMood: Codable, Hashable {
+    let day: String
+    let score: Int
+}
+
+struct DayMoods: Codable {
+    let moods: [DayMood]
+}
+
+struct ScoreState: Codable {
+    let score: Int?
 }
 
 /// A stretch of a circle's shared journal, oldest first, and the day to ask

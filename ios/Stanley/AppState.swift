@@ -49,6 +49,18 @@ final class AppState {
     /// today?" slip sits under, until something's written or it's put away.
     /// Doing nothing is skipping it, and it's gone at the next launch.
     var journalOffer: String?
+    /// The same photo, for the five dots under that slip (build 52). They
+    /// outlast the slip (an entry kept, or "Not now"), until the next launch.
+    var moodOffer: String?
+    /// The dots filled, a day each (build 52): yours alone. And whether the
+    /// server keeps them at all.
+    var moods: [String: Int] = [:]
+    var moodsAvailable = false
+    /// The server can keep a page for one person (build 52). Known from
+    /// the moods route, which came with it: a build 51 server would take a
+    /// page meant for one person and share it with the whole circle, so
+    /// the choice isn't offered against one.
+    var onePersonAvailable: Bool { moodsAvailable }
     /// The week a reflection written now would be about, with your photos
     /// from it: loaded on Sunday evenings, when the You tab asks.
     var thisWeek: ThisWeek?
@@ -403,6 +415,9 @@ final class AppState {
         question = nil
         circleLetters = nil
         journalOffer = nil
+        moodOffer = nil
+        moods = [:]
+        moodsAvailable = false
         thisWeek = nil
         reflections = []
         reflectionsCursor = nil
@@ -503,6 +518,7 @@ final class AppState {
         question = nil
         circleLetters = nil
         journalOffer = nil
+        moodOffer = nil
         sharedDays = []
         await loadCircle()
         await refreshToday()
@@ -523,6 +539,7 @@ final class AppState {
         question = nil
         circleLetters = nil
         journalOffer = nil
+        moodOffer = nil
         await loadCircle()
     }
 
@@ -917,6 +934,7 @@ final class AppState {
             // Only a photo posted now, never one sent later from the queue:
             // by then the moment to ask has passed.
             journalOffer = posted.id
+            moodOffer = posted.id
             await refreshToday()
             return true
         } catch APIError.server(code: "not_in_circle", status: let status) {
@@ -1253,7 +1271,38 @@ final class AppState {
         async let pages: Void = loadJournal()
         async let kept: Void = refreshMemories()
         async let weeks: Void = loadAllReflections()
-        _ = await (pages, kept, weeks)
+        async let dots: Void = loadMoods()
+        _ = await (pages, kept, weeks, dots)
+    }
+
+    /// The days' dots, all of them (build 52).
+    func loadMoods() async {
+        do {
+            let got: DayMoods = try await api.send("GET", "/me/moods")
+            moods = Dictionary(got.moods.map { ($0.day, $0.score) }, uniquingKeysWith: { _, last in last })
+            moodsAvailable = true
+        } catch APIError.status(404) {
+            moods = [:]
+            moodsAvailable = false
+        } catch {
+            missed(error)
+        }
+    }
+
+    /// Fill one of the five dots under your photo, or empty it (nil).
+    /// True once the server has it; the month's sheet follows.
+    func setScore(_ photo: Photo, _ score: Int?) async -> Bool {
+        do {
+            let _: ScoreState = try await api.send(
+                "PUT", "/photos/\(photo.id)/score", json: ["score": score.map { $0 as Any } ?? NSNull()]
+            )
+            await refreshToday()
+            await loadMoods()
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
     }
 
     /// The journal's written pages, all of them, a stretch at a time.
@@ -1313,11 +1362,12 @@ final class AppState {
     /// `shared` says where it lands: true in the shared journal of the
     /// circle on screen, false with you alone; nil leaves a page already
     /// written where it is.
-    func writeToday(_ runs: [InkRun], shared: Bool? = nil) async -> Bool {
+    func writeToday(_ runs: [InkRun], shared: Bool? = nil, to recipient: String? = nil) async -> Bool {
         do {
             var fields = inked(runs)
             fields["tz"] = TimeZone.current.identifier
             if let shared { fields["shared"] = shared }
+            if shared == true, let recipient { fields["recipient_id"] = recipient }
             let was = journalPages.first { $0.day == WidgetSnapshot.day(.now) }
             let page: DayPage = try await api.send("PUT", "/me/journal/today", json: fields)
             place(page)
@@ -1390,9 +1440,13 @@ final class AppState {
 
     /// Put a page in the shared journal of the circle on screen, or take
     /// it back. It stays in your own book either way. True once it's done.
-    func sharePage(_ page: DayPage, shared: Bool) async -> Bool {
+    /// `to` is one person in the circle on screen (build 52): the page is
+    /// theirs and yours alone to read.
+    func sharePage(_ page: DayPage, shared: Bool, to recipient: String? = nil) async -> Bool {
         do {
-            let changed: DayPage = try await api.send("PATCH", "/journal/\(page.id)", json: ["shared": shared])
+            var fields: [String: Any?] = ["shared": shared]
+            if shared, let recipient { fields["recipient_id"] = recipient }
+            let changed: DayPage = try await api.send("PATCH", "/journal/\(page.id)", json: fields)
             place(changed)
             await loadShared()
             return true
@@ -1410,6 +1464,9 @@ final class AppState {
                 for s in sharedDays[d].spreads.indices {
                     if sharedDays[d].spreads[s].left.id == page.id { sharedDays[d].spreads[s].left.hearted = hearted }
                     if sharedDays[d].spreads[s].right?.id == page.id { sharedDays[d].spreads[s].right?.hearted = hearted }
+                }
+                for s in sharedDays[d].singles.indices where sharedDays[d].singles[s].id == page.id {
+                    sharedDays[d].singles[s].hearted = hearted
                 }
             }
         }

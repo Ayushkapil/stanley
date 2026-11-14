@@ -10,9 +10,12 @@ gestures are *holding* (a private act of keeping, never counted),
 of the week* (answered privately, read together) and, since build 42, a
 monthly *letter to the circle* (unsigned, opened together). Beside the circle, since build 45,
 each person has a private **journal kept as a book** (their own pages, what they've held, letters opened,
-weekly reflections; since build 46 the Journal tab is those pages, landing on today's), which nobody else ever sees
+weekly reflections; since build 52 the Journal tab opens to two books on the table, yours and the circle's, whose
+spines thicken as they fill), which nobody else ever sees
 unless they choose to share a page: since build 51 a page can be put in the circle's **shared journal**, read there as
-facing pages, two people's pages from the same day. The product's identity lives as much in what it
+facing pages, two people's pages from the same day, and since build 52 shared with **one person** in the circle instead.
+Also since build 52, after posting a photo, a person may fill one of **five unlabelled dots** for their day, kept for
+them alone and gathered at the end of each month's chapter into a sheet. The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -138,6 +141,32 @@ guarded by tests; treat a change to any of them as a spec change.
   takedown puts it back to private, it doesn't delete someone's journal.
   A member reads the book **from the day they joined**, as with the
   circle's questions; not in the brief, and not asked about.
+  **A page for one person** (build 52, a product decision: the brief of
+  2026-11-14, "Redesign the Journal tab", part 2): a page can be shared
+  with one member of the circle on screen instead of all of it
+  (`journal_pages.recipient_id`). Its writer and that person read it,
+  nobody else; it's a page of its own in their two books, never paired;
+  only the recipient can leave the heart, and the writer sees it as a
+  face. The word filter is on it (someone else reads it). It goes back
+  to its writer's alone if either leaves the circle or the recipient's
+  account is deleted. No replies, no notification. **This edges toward
+  the DMs that are a permanent non-goal for the pilot** (open items): it
+  is a page, not a conversation, and nothing answers it but a heart; the
+  brief asked for it, and the line should be held there.
+- **The mark on your day is yours alone and never counts anything**
+  (build 52, a product decision, the same brief, part 4). After posting
+  a photo, five empty dots; a tap fills one. No labels, no numbers, no
+  "1 = bad", in the app or anywhere it's described. It's kept as
+  `photos.score` (1–5) and, because a fading photo's row is anonymized
+  at purge, as `day_moods` (one a day per person, the last set wins).
+  It's in no payload to anyone else (`score` is None on anyone else's
+  photo, like `has_journal`; a test walks the JSON), never notifies,
+  never fades (purge clears `photos.score` and keeps the day's), and
+  goes when its owner deletes the photo it was set with, clears it, or
+  deletes the account. It's a private mark, not a count of anything
+  anyone did, so the "No counts" rule stands as it was; nothing may ever
+  total, average, chart or compare it ("the pattern is the insight": the
+  month's sheet draws dots and nothing joins them).
 - **The board's notes are everyone's own and the day's alone** (build 27).
   One note per person per circle per day, changed or taken down only by its
   author, gone at the end of their day (deleted, not archived). No replies,
@@ -474,6 +503,125 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **The covers, a page for one person, ruled paper, the dots** (build 52,
+  November 14, 2026, a product brief from Ayush, "Redesign the Journal
+  tab. Four changes."; screenshots in `docs/journal-covers-build52/`).
+  **Where the sections below (builds 46 and 51) say the tab lands on
+  today's page, or that pages are ruled, this section wins.** Phone and
+  server both; **the server side needs a deploy** (open items).
+  - **The cover is back, as an object** (`BookCovers.swift`). The tab
+    opens to two books on the table, side by side: your own and "Ours".
+    Each is drawn: a spine down the left with a cylinder's gradient and a
+    hinge groove; the page block showing along the right, leaf by leaf,
+    a little uneven, and the back board's edge behind it; a linen weave
+    in the cloth (`Weave`, seeded, so a cover is drawn the same each
+    time); the title and the name under it **debossed** (the cloth a
+    shade darker, an inner shadow along the top of each letter, a light
+    lip along the foot) inside a blind-stamped frame; a ribbon in the
+    accent hanging from the foot; the corners darkened as a handled
+    book's are. **The cloth tells them apart: yours oxblood, Ours
+    forest**, in light (`#7A2B29`, `#2E5942`) and dark (`#4F1A1C`,
+    `#1C3A2B`): never gray on black. **The spine and the page block grow
+    with what's in the book** (`BookCover.thickness`: 2pt of pages, up
+    to 18pt at a hundred; the spine 8pt plus nearly as much again): your
+    written pages and reflections for yours, the shared pages you can
+    read for Ours. Never shown as a number. Your book's title is the
+    journal's name (`JournalName`) with your name under it; Ours is
+    "Ours" with the circle's name. Without a shared journal (no circle,
+    an older server) your book lies there alone. The Letters and Prompts
+    marks are at the foot of this screen too.
+  - **Opening and shutting.** A tap on a cover opens that book at its
+    newest page (yours at today's), growing out of where it lay (a
+    spring, 0.42s; a fade under Reduce Motion). **A swipe down from
+    anywhere on a page shuts it** (a UIKit pan on the page turner's host
+    that begins only on a downward drag away from the fore-edge; the
+    curl waits for it to fail, as it does for the ribbon; VoiceOver's
+    escape does the same). Coming to the tab lands on the covers; the
+    widget's link still opens straight to its day. A tap on the tab on
+    the covers fetches again. "Mine" and "Ours" and the "+" are still at
+    the head of an open book. **A long press on your book's title
+    renames it** (an alert with a field; also "Rename" for VoiceOver).
+  - **Three destinations.** "+" is **Write privately**, **Write to the
+    shared journal**, and **Write to one person** with the circle's
+    members. While writing, the line under the date says where it will
+    land (PRIVATE, SHARED WITH THIRD FLOOR, SHARED WITH RUBY ALVAREZ)
+    and is itself a menu of the three: the destination can be changed
+    before Done, on today's page or one opened from its long press
+    (`PageLanding.person`). Moving a page that's already written asks
+    first, as in build 51, now also "Share today's page with Ruby?".
+    The long press on a written page has **Share with One Person** beside
+    Share with Third Floor and Make Private. **In Ours a page for one
+    person is a page of its own** (`BookPage.Kind.single`, after the
+    day's spreads): "Shared with Ruby Alvarez" under its date for its
+    writer, **"For you"** for the one it's for, the writer's name at the
+    foot and the heart, only the recipient able to leave it. Mine says
+    "Shared with Ruby Alvarez" under such a page's date. Offered only
+    against a server that keeps it (`onePersonAvailable`).
+  - **Ruled paper is a choice** (`RuledPaper`, `stanley.ruledPaper`).
+    **Pages are blank by default.** Settings → Appearance → **Ruled
+    Paper** (off) puts the faint lines back on every written page of
+    both books, and in the writing view. Words sit where they would
+    either way; nothing else changes.
+  - **The five dots** (`Moods.swift`). Under the journal's "Anything
+    else about today?" after posting a photo (`AppState.moodOffer`, set
+    with the journal's offer, outlasting it until the next launch), five
+    small empty circles; a tap fills one (14pt, the accent; empty ones
+    12pt and faint), a soft haptic; a tap on the filled one empties it.
+    No labels or numbers anywhere; VoiceOver says "First dot" to "Fifth
+    dot". **The month's sheet**: in your own book, at the end of each
+    month's chapter (this month's after today's page, so the book still
+    lands on today), a page like an answer sheet: a row a day ("Sat 14",
+    small, at the left), five circles across, the day's filled; under it
+    the whole month as a dot matrix a day wide and five high, nothing
+    joining anything. A tap on a row turns to that day's page (or the
+    nearest after it). Only a month with a dot in it has a sheet. The
+    page heading is the month's name.
+  - **The server** (built in this session by a helper and checked):
+    `journal_pages.recipient_id`; `PUT /me/journal/today` and `PATCH
+    /journal/{id}` take `recipient_id` with `shared: true` (400
+    `bad_recipient` for yourself, a non-member or across a block); `GET
+    /circles/{id}/journal` days carry `singles` beside `spreads` (one-
+    person pages to or from the reader); pages carry `to` (and
+    `recipient` in `/me/journal`); `sharing.readable_page` lets a one-
+    person page through to its two people only. `photos.score`,
+    `day_moods`, `PUT /photos/{id}/score` (`{score: 1..5 | null}`, the
+    owner only, 400 `bad_score`), `GET /me/moods`. Export carries
+    `shared_with_person` and `moods`. Both documents say who reads a page
+    for one person and that the mark is yours alone, doesn't fade, and
+    goes with the photo or the account; `PRIVACY_LABEL.md` likewise (the
+    mark declared as user content, not health data, since it has no
+    words; revisit if it ever gets any).
+  - **Checked on the iPhone 17 Pro simulator** against a local server on
+    this code: the covers in light and dark with yours at 50 pages and
+    Ours at 5 (seeded into the scratch database), opening yours and
+    shutting it with a swipe down, renaming by a long press on the title
+    ("Field Notes" on the cover and on the server), the "+" with its
+    three choices and the member list, being asked before today's
+    shared page went to one person, writing with SHARED WITH RUBY
+    ALVAREZ under the date and its menu of three, Done landing in Ours
+    on a single page, the server then showing the page to Ruby and Maya
+    and not to Theo, "Write privately" taking it back, Ruled Paper off
+    (default) and on in Mine and Ours, a photo posted from the app with
+    the five dots under its slip, the fourth filled (`photos.score` 4
+    and the day's row on the server), November's sheet in light and dark
+    with seeded marks, and a row tapped turning to that day. **On a
+    second simulator (iPhone 17) signed in as Ruby**: the page "For you",
+    a heart left on it, Maya sent Ruby's face, Theo sent nothing and
+    refused (404) on the page's hearts. **On the Duo's cover**: the
+    covers in light and dark. The Release configuration compiles.
+  - **Not seen:** the opening's motion frame by frame; the widget's link
+    opening the book at a day; October's sheet (only November's);
+    VoiceOver; large Dynamic Type; the Duo's inner display; a real phone;
+    any of it against Fly.
+  - **Calls made that the brief didn't spell out** (none asked about):
+    the mark is kept per day as well as per photo (a purge anonymizes the
+    photo's row, and the brief says it never decays); deleting the photo
+    it was set with removes the day's mark; the current month's sheet
+    comes after today's page; only months with a dot get a sheet; the
+    dots outlast the journal's slip until the next launch; a recipient
+    reads a page for them whatever day they joined; "Ours" is the shared
+    cover's title, the circle's name under it.
 
 - **The shared journal: "Mine" and "Ours"** (build 51, November 14, 2026,
   a product brief from Ayush, "Phase 2 of the Journal redesign";
@@ -1620,7 +1768,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (51)", at the
+  production audit), and the version, "Stanley 0.2.0 (52)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2152,9 +2300,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 51** (0.2.0) is the number to archive next: the shared journal,
-  "Mine" and "Ours" (above), over build 50's inks and build 49's Letters
-  and Prompts at the foot of the page.
+- **Build 52** (0.2.0) is the number to archive next: the covers, a page
+  for one person, ruled paper as a choice, and the dots and the month's
+  sheet (above), over build 51's shared journal.
+- **Build 52 needs a deploy, and hasn't had one.** Fly is v28 (build
+  51's server). On its first start the new server adds
+  `journal_pages.recipient_id`, `photos.score` and the `day_moods`
+  table, and `/terms` and `/privacy` gain the words for both. Until then
+  a build 52 phone shows no dots (`/me/moods` is a 404) and doesn't
+  offer a page for one person (`AppState.onePersonAvailable`, known from
+  the same route: a build 51 server would ignore `recipient_id` and put
+  the page in the whole circle's book).
 - **Build 51's server is on Fly** (2026-11-14, asked for by Ayush):
   release **v28** runs `main` as of `68aa2f6`, after the full suite
   passed on that code (573). Checked after the deploy: `/health` ok; the
@@ -2473,7 +2629,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**573 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**604 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -2601,6 +2757,11 @@ live APNs, concurrency under real load.
 - Notifications policy: `notifications.py`; APNs: `apns.py`; report alerts (ntfy): `alerts.py`; Terms and Privacy copy: `legal.py`
 - Writing things down (build 26): the weeks and the forty questions
   `journal.py`; routes `routes/journal.py`
+- Build 52: a page for one person (`recipient_id` in `routes/journal.py`
+  and `sharing.py`), the mark on a day (`PUT /photos/{id}/score` in
+  `routes/photos.py`, `GET /me/moods` in `routes/me.py`, `DayMood` in
+  `models.py`, kept through purge in `decay.scrub`); tests in
+  `tests/test_journal_build52.py`
 - The shared journal (build 51): `sharing.py` (taking pages out of a
   circle's book, who may read one), `journal.pairings` (who faces whom),
   routes in `routes/journal.py` ("The shared journal"), `PageHeart` in
@@ -2684,7 +2845,9 @@ live APNs, concurrency under real load.
   `BookBar` with the marks for Letters and Prompts at the page's foot,
   `BookSwitch` with "Mine", "Ours" and the "+", `BookFoot`, the grid),
   `BookWriting.swift` (`PageWriting`, the ruled text view, the inks and
-  the pen in hand),
+  the pen in hand, `PageLanding`), `BookCovers.swift` (build 52: the
+  cloth, `BookCover`, `CoverShelf`), `Moods.swift` (build 52: the five
+  dots, `MoodSheet`),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
   and `JournalWidget.swift` (the Journal widget's snapshot and views);
   its feed is in `WidgetFeed.swift`, its widget in `StanleyWidgets.swift`

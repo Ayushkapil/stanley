@@ -20,7 +20,7 @@ from ..ratelimit import per_person
 from ..text import clean
 from ..milestones import milestone_payload, surface_due
 from ..models import (
-    Anchor, Block, CircleLetter, CircleNote, CirclePrompt, Comment, JournalEntry, Like, Membership, Milestone,
+    Anchor, Block, CircleLetter, CircleNote, CirclePrompt, Comment, DayMood, JournalEntry, Like, Membership, Milestone,
     NotificationLog, PersonLetter, Photo, PhotoTag, PromptResponse, PushToken, Report, Rest,
     JournalPage, ReturnedLog, User, WeeklyReflection,
 )
@@ -297,6 +297,18 @@ def my_memories(
     return {"threads": list(threads.values())}
 
 
+@router.get("/me/moods")
+def my_moods(
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """The marks you've left on your days (build 52), oldest first: one of
+    five each, for you alone. They don't fade with the photos they were
+    set on."""
+    rows = db.scalars(select(DayMood).where(DayMood.user_id == user.id).order_by(DayMood.day)).all()
+    return {"moods": [{"day": row.day.isoformat(), "score": row.score} for row in rows]}
+
+
 @router.get("/me/milestones")
 def my_milestones(
     db: Session = Depends(get_db, scope="function"),
@@ -394,11 +406,21 @@ def export_memories(
             {"day": page.day.isoformat(), "ink": page.ink, "page": page.body}
             | ({"inks": json.loads(page.inks)} if page.inks else {})
             # (`shared_with`, build 51: the circle whose shared journal the
-            # page is in.)
-            | ({"shared_with": circle_name(db, page.circle_id)} if page.shared else {})
+            # page is in; `shared_with_person`, build 52, the one person it
+            # was shared with instead.)
+            | (
+                ({"shared_with_person": user_brief(db, page.recipient_id)["display_name"]} if page.recipient_id
+                 else {"shared_with": circle_name(db, page.circle_id)})
+                if page.shared else {}
+            )
             for page in db.scalars(
                 select(JournalPage).where(JournalPage.owner_id == user.id).order_by(JournalPage.day)
             ).all()
+        ]
+        # Build 52: the marks you left on your days.
+        manifest["moods"] = [
+            {"day": row.day.isoformat(), "score": row.score}
+            for row in db.scalars(select(DayMood).where(DayMood.user_id == user.id).order_by(DayMood.day)).all()
         ]
         manifest["answers"] = [
             {
@@ -492,6 +514,8 @@ def delete_account(
     sharing.forget_person(db, user.id)
     db.execute(delete(JournalPage).where(JournalPage.owner_id == user.id))
     user.journal_title = None
+    # The marks they left on their days (build 52).
+    db.execute(delete(DayMood).where(DayMood.user_id == user.id))
     delete_answers(db, db.scalars(select(PromptResponse).where(PromptResponse.user_id == user.id)).all())
     # Their letters to their circles (build 42), sealed or opened. An opened
     # one going now may tell the circle whose it was; deleting an account

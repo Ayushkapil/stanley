@@ -128,6 +128,13 @@ struct TodayFeedView: View {
                                     JournalOfferSlip(photo: offered)
                                         .padding(.top, Spacing.section)
                                 }
+                                // And under that, five dots (build 52).
+                                if let offered = moodOffered(in: item) {
+                                    MoodDots(score: offered.score) { score in
+                                        Task { _ = await state.setScore(offered, score) }
+                                    }
+                                    .padding(.top, Spacing.tight)
+                                }
                             }
                             // Each entry arrives as it's scrolled to (build 24).
                             .entrance()
@@ -215,6 +222,14 @@ struct TodayFeedView: View {
         guard let offer = state.journalOffer else { return nil }
         let photos = item.photo.map { [$0] } ?? item.photos ?? []
         return photos.first { $0.id == offer && $0.hasJournal != true && $0.owner.id == state.myId }
+    }
+
+    /// Your photo just posted, for the five dots under it: only against a
+    /// server that keeps them.
+    private func moodOffered(in item: FeedItem) -> Photo? {
+        guard let offer = state.moodOffer, state.moodsAvailable else { return nil }
+        let photos = item.photo.map { [$0] } ?? item.photos ?? []
+        return photos.first { $0.id == offer && $0.owner.id == state.myId }
     }
 }
 

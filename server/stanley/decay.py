@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 from . import circle_letters, physics
 from .clock import Clock
 from .models import (
-    Anchor, CircleLetter, CircleNote, Comment, DecayAudit, JournalEntry, Like, Membership, Photo, PhotoTag,
-    PurgeQueueItem, Report, User,
+    Anchor, CircleLetter, CircleNote, Comment, DayMood, DecayAudit, JournalEntry, Like, Membership, Photo,
+    PhotoTag, PurgeQueueItem, Report, User,
 )
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore
@@ -142,6 +142,10 @@ def scrub(
     photo.caption = None
     photo.location = None
     photo.filter = None
+    # The mark its owner left on their day (build 52) goes from the photo
+    # either way. A purge leaves the day its mark (`day_moods`): the mark
+    # doesn't fade. An owner deleting the photo takes that too.
+    photo.score = None
     # Likes never outlive the photo they belonged to. A delete before expiry
     # takes its likes with it, just as expiry would have.
     session.execute(delete(Like).where(Like.photo_id == photo.id))
@@ -160,6 +164,7 @@ def scrub(
             if comment.author_id not in anchorer_ids
         ])
         photo.deleted_at = now
+        session.execute(delete(DayMood).where(DayMood.photo_id == photo.id))
     else:
         delete_comments(session, session.scalars(select(Comment).where(Comment.photo_id == photo.id)).all())
         if photo.owner_id is not None:

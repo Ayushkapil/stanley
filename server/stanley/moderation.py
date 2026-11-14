@@ -347,7 +347,8 @@ def _main(argv: list[str] | None = None) -> int:  # pragma: no cover - a thin sh
                 if pg is None or not pg.shared:
                     print(f"shared page {r.page_id}: (taken back or torn out; the report above kept how it began)")
                 else:
-                    print(f"shared page {pg.id} by {pg.owner_id} in circle {pg.circle_id} for {pg.day}")
+                    to = f" to {pg.recipient_id}" if pg.recipient_id else ""
+                    print(f"shared page {pg.id} by {pg.owner_id} in circle {pg.circle_id}{to} for {pg.day}")
                     print(f"body: {pg.body}")
             if r.letter_id:
                 le = session.get(PersonLetter, r.letter_id)

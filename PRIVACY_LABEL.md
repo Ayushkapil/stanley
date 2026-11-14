@@ -84,7 +84,17 @@ Personalization, never Other.
   each, and the name given to the journal, read by no one but their
   writer, unless the writer shares a page with a circle (build 51), and
   then by that circle. Since build 51 also the hearts left on shared
-  pages (who, shown only to the page's writer; never a count). The same answers as before: collected, linked,
+  pages (who, shown only to the page's writer; never a count). Since
+  build 52 a page can also be shared with one person in a circle
+  (`journal_pages.recipient_id`), and then it's read by that person and
+  its writer only. Since build 52 too, the mark a person may leave on
+  their day after posting a photo: one of five, with no labels
+  (`photos.score`, and `day_moods` by day, which outlives the photo's
+  purge), read by no one but them, kept until they clear it, delete the
+  photo it was left with, or delete the account. It is a number the
+  person picks with no words attached, not a health measure, so it's
+  declared here and not under Health & Fitness; revisit that if the
+  app ever names the five. The same answers as before: collected, linked,
   used for App Functionality, not for tracking.
 - [ ] Emails or Text Messages / Audio / Gameplay / Customer Support — **not collected.**
 

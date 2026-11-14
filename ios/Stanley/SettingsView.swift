@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.appLock") private var appLock = false
+    @AppStorage(RuledPaper.key) private var ruledPaper = false
 
     @Environment(\.horizontalSizeClass) private var hSizeClass
     private var density: Density { Density(hSizeClass) }
@@ -201,10 +202,13 @@ struct SettingsView: View {
                 }
             ))
             .tint(palette.toggle)
+            // Build 52: the journal's pages are blank paper unless asked.
+            Toggle("Ruled Paper", isOn: $ruledPaper)
+                .tint(palette.toggle)
         } header: {
             Text("Appearance").smallCaps(11)
         } footer: {
-            Text("Light is warm white. Dark is true black, a gallery for the photos. Rain is fog on a window, in light or dark as your iPhone is. It's only color: nothing about how Stanley works changes.")
+            Text("Light is warm white. Dark is true black, a gallery for the photos. Rain is fog on a window, in light or dark as your iPhone is. Ruled Paper puts faint lines on the written pages of both journals. It's only how things look: nothing about how Stanley works changes.")
         }
     }
 

@@ -127,6 +127,11 @@ class Photo(Base):
     # §13: after purge the row is reduced to an anonymous tombstone; the owner
     # survives only as a hash, for abuse audit.
     owner_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Build 52: the mark its owner left on their day after posting it, one
+    # of five (1 to 5), or None. For the owner alone: no payload carries it
+    # to anyone else. Gone with the photo's other details when it's purged
+    # or deleted; the day keeps it in `day_moods` past a purge.
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class Anchor(Base):
@@ -439,7 +444,30 @@ class JournalPage(Base):
     # book.
     shared: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     circle_id: Mapped[str | None] = mapped_column(ForeignKey("circles.id"), nullable=True)
+    # Build 52: a page shared with one person in that circle rather than
+    # the whole of it. Read by its writer and that person, nobody else, and
+    # never paired on a spread. Null for a private page and for a page in
+    # the circle's book.
+    recipient_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class DayMood(Base):
+    """The mark someone left on their day (build 52), one of five, kept for
+    them alone. It's set on the day's photo (`photos.score`) and kept here
+    by day, because a purge reduces the photo to an anonymous tombstone and
+    the mark doesn't fade. It goes when its owner deletes the photo it was
+    set on (`photo_id`), or their account. Never sent to anyone else."""
+
+    __tablename__ = "day_moods"
+    # A photo deleted or purged finds its mark by photo.
+    __table_args__ = (Index("ix_day_moods_photo", "photo_id"),)
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    score: Mapped[int] = mapped_column(Integer)
+    photo_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 

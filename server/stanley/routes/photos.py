@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -36,7 +36,7 @@ from ..images import BadImage, PreparedUpload, prepare_upload
 from ..notifications import send_circle_post_notices
 from ..ratelimit import per_person
 from ..text import clean_optional
-from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
+from ..models import Anchor, Comment, DayMood, Like, Membership, Photo, PhotoTag, User, new_id
 from ..serialize import photo_payload, user_brief
 
 log = logging.getLogger("stanley")
@@ -70,6 +70,11 @@ class AnchorBody(BaseModel):
 
 class CommentBody(BaseModel):
     body: str = Field(min_length=1, max_length=2000)
+
+
+class ScoreBody(BaseModel):
+    # Required, and null clears it.
+    score: int | None
 
 
 def valid_timezone(tz: str | None) -> bool:
@@ -295,6 +300,49 @@ def delete_photo(
             # purge leaves behind.
             photo.owner_hash = owner_hash
             photo.owner_id = None
+
+
+@router.put("/photos/{photo_id}/score", dependencies=[per_person("journal")])
+def set_score(
+    photo_id: str,
+    body: ScoreBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """The mark you leave on your day after posting its photo (build 52):
+    one of five, no labels, or null to take it back. Yours alone: anyone
+    else's photo, or one deleted or purged, reads as not found. Kept on the
+    photo and by day (`day_moods`), which outlives a purge. Nothing is told
+    to anyone."""
+    photo = db.get(Photo, photo_id)
+    if (
+        photo is None
+        or photo.owner_id is None
+        or photo.owner_id != user.id
+        or photo.deleted_at is not None
+        or photo.state == physics.PURGED
+    ):
+        raise HTTPException(404, "not found")
+    score = body.score
+    if score is not None and not (physics.SCORE_MIN <= score <= physics.SCORE_MAX):
+        raise HTTPException(400, {"code": "bad_score"})
+    photo.score = score
+    if score is None:
+        db.execute(delete(DayMood).where(
+            DayMood.user_id == user.id, DayMood.day == photo.local_date, DayMood.photo_id == photo.id,
+        ))
+    else:
+        now = clock.now()
+        db.execute(
+            sqlite_insert(DayMood)
+            .values(user_id=user.id, day=photo.local_date, score=score, photo_id=photo.id, updated_at=now)
+            .on_conflict_do_update(
+                index_elements=["user_id", "day"],
+                set_={"score": score, "photo_id": photo.id, "updated_at": now},
+            )
+        )
+    return {"score": score}
 
 
 def _require_public(photo: Photo) -> None:

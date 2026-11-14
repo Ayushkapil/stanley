@@ -30,6 +30,12 @@ struct BookActions {
     var reportPage: (SharedPage) -> Void = { _ in }
     var editShared: (SharedPage) -> Void = { _ in }
     var privateShared: (SharedPage) -> Void = { _ in }
+    /// The circle's other members (build 52): a page can be shared with one
+    /// of them alone.
+    var people: [CircleMember] = []
+    var shareWithPerson: (DayPage, CircleMember) -> Void = { _, _ in }
+    /// A row of a month's dots: that day's page.
+    var openDay: (String) -> Void = { _ in }
 }
 
 /// Words set by `BookType`, drawn exactly as `Paginator` measured them: the
@@ -70,6 +76,7 @@ struct InkText: UIViewRepresentable {
 /// outer edge.
 struct BookSheet: View {
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(RuledPaper.key) private var ruled = false
     let layout: BookLayout
     let lined: Bool
 
@@ -83,7 +90,7 @@ struct BookSheet: View {
                 .resizable(resizingMode: .tile)
                 .opacity(dark ? 0.16 : 0.3)
                 .blendMode(dark ? .screen : .normal)
-            if lined {
+            if lined && ruled {
                 Canvas { context, size in
                     var path = Path()
                     for row in 1...layout.rows {
@@ -201,8 +208,12 @@ struct BookPageView: View {
                 PageHeading(text: heading, color: headInk, layout: layout)
             }
             // A page of your own that's in a circle's shared journal says so.
-            if case .written(let written) = page.kind, written.isShared, page.part == 0 {
-                PageTag(text: "Shared with \(written.circleName ?? "your circle")", layout: layout)
+            if case .written(let written) = page.kind, let with = written.sharedWith, page.part == 0 {
+                PageTag(text: "Shared with \(with)", layout: layout)
+            }
+            // A page for one person says so, whichever side of it you're on.
+            if case .single(let single) = page.kind {
+                PageTag(text: single.mine ? "Shared with \(single.to?.displayName ?? "one person")" : "For you", layout: layout)
             }
             content
             foot
@@ -264,6 +275,10 @@ struct BookPageView: View {
             SpreadView(day: page.date, spread: spread, oddOneOut: odd, layout: layout, actions: actions, live: live)
         case .oursEmpty:
             SpreadView(day: page.date, spread: nil, layout: layout, actions: actions, live: live)
+        case .single(let single):
+            SingleView(page: single, layout: layout, actions: actions, live: live)
+        case .moods(let month):
+            MoodSheet(month: month, layout: layout, live: live, open: actions.openDay)
         }
     }
 
@@ -494,8 +509,8 @@ private struct PageMenu: ViewModifier {
 
     private var hasMenu: Bool {
         switch page.kind {
-        // A spread's two pages each have a menu of their own.
-        case .chapter, .tombstone, .spread, .oursEmpty: return false
+        // A spread's two pages, and a single, have a menu of their own.
+        case .chapter, .tombstone, .spread, .oursEmpty, .single, .moods: return false
         default: return true
         }
     }
@@ -519,11 +534,30 @@ private struct PageMenu: ViewModifier {
             } label: {
                 Label("Change Ink", systemImage: "pencil.tip")
             }
-            // Into the circle's shared journal, or back out of it (build 51).
+            // Into the circle's shared journal, to one person in it (build
+            // 52), or back to being yours alone (build 51).
+            if let circle = actions.shareWith {
+                if !(written.isShared && written.recipient == nil) {
+                    Button { actions.share(written) } label: { Label("Share with \(circle)", systemImage: "person.2") }
+                }
+                if !actions.people.isEmpty {
+                    Menu {
+                        ForEach(actions.people) { person in
+                            Button { actions.shareWithPerson(written, person) } label: {
+                                if written.recipient?.id == person.id {
+                                    Label(person.displayName ?? "Someone", systemImage: "checkmark")
+                                } else {
+                                    Text(person.displayName ?? "Someone")
+                                }
+                            }
+                        }
+                    } label: {
+                        Label("Share with One Person", systemImage: "person")
+                    }
+                }
+            }
             if written.isShared {
                 Button { actions.makePrivate(written) } label: { Label("Make Private", systemImage: "lock") }
-            } else if let circle = actions.shareWith {
-                Button { actions.share(written) } label: { Label("Share with \(circle)", systemImage: "person.2") }
             }
             Button(role: .destructive) { actions.delete(written) } label: { Label("Delete", systemImage: "trash") }
         case .today:
@@ -537,7 +571,7 @@ private struct PageMenu: ViewModifier {
             Button(role: .destructive) { actions.deleteReflection(reflection) } label: {
                 Label("Delete Reflection", systemImage: "trash")
             }
-        case .chapter, .tombstone, .spread, .oursEmpty:
+        case .chapter, .tombstone, .spread, .oursEmpty, .single, .moods:
             EmptyView()
         }
     }
@@ -667,6 +701,7 @@ private struct SharedHalf: View {
     static let foot: CGFloat = 36
 
     @AppStorage("stanley.atmosphere") private var raw = "auto"
+    @AppStorage(RuledPaper.key) private var ruled = false
     let page: SharedPage?
     /// What a page with nobody's writing on it says, if anything.
     let note: String?
@@ -702,6 +737,7 @@ private struct SharedHalf: View {
     /// The ruled lines of this page: as many as show, or as the words need.
     private func rules(_ rows: Int) -> some View {
         Canvas { context, canvas in
+            guard ruled else { return }
             var path = Path()
             for row in 1...max(rows, 1) {
                 let y = (CGFloat(row) * layout.pitch - layout.ruleRise).rounded() + 0.25
@@ -798,6 +834,25 @@ private struct SharedHalf: View {
             .accessibilityValue(page.hearted ? "Your heart is on it" : "")
             .accessibilityHint(page.hearted ? "Takes your heart back" : "Leaves a heart. Only they see who.")
         }
+    }
+}
+
+/// A page shared with one person (build 52), in their book and its
+/// writer's: a whole page of its own, never one of a pair, its writer's
+/// name and the heart at its foot as on a spread.
+struct SingleView: View {
+    let page: SharedPage
+    let layout: BookLayout
+    let actions: BookActions
+    let live: Bool
+
+    var body: some View {
+        SharedHalf(
+            page: page, note: nil, layout: layout,
+            size: CGSize(width: layout.width, height: layout.contentBottom - layout.contentTop),
+            leading: layout.left, trailing: layout.width - layout.right, actions: actions, live: live
+        )
+        .offset(y: layout.contentTop)
     }
 }
 

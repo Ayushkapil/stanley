@@ -37,6 +37,9 @@ enum Haptics {
     /// the server has it.
     static func pageKept() { impact(.light, "page kept") }
 
+    /// One of the five dots under today's photo, filled (build 52).
+    static func moodMarked() { impact(.soft, "mood marked") }
+
     /// Today's photo is up: posted, not merely queued for later.
     static func posted() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)

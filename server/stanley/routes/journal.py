@@ -67,6 +67,9 @@ class TodaysPageBody(BaseModel):
     # writer's alone. Left out, a page already written stays where it is and
     # a new one is private.
     shared: bool | None = None
+    # Build 52: with `shared` true, the one member of the circle on screen
+    # the page is for, instead of the whole circle. Without it, the circle.
+    recipient_id: str | None = Field(default=None, max_length=64)
     # The phone's zone, so the day is the writer's own.
     tz: str | None = Field(default=None, max_length=64)
 
@@ -79,6 +82,9 @@ class PagePatch(BaseModel):
 
 class ShareBody(BaseModel):
     shared: bool
+    # Build 52: the one member it's for, with `shared` true; left out, the
+    # whole circle.
+    recipient_id: str | None = Field(default=None, max_length=64)
 
 
 class JournalTitleBody(BaseModel):
@@ -231,6 +237,8 @@ def _week_photos(db: Session, settings, now: datetime, user: User, week_start: d
             # in Today and fades as it does there.
             "held": p.id in held,
             "decay_progress": physics.decay_progress(p.taken_at, now),
+            # Your own photo, so your own mark on its day (build 52).
+            "score": p.score,
         }
         for p in photos
         if p.state in physics.PUBLIC_STATES or p.id in held
@@ -399,9 +407,10 @@ def page_runs(row: JournalPage) -> list[dict] | None:
     return runs
 
 
-def _page_payload(db: Session, row: JournalPage) -> dict:
-    """A page as its writer is sent it: with whether it's in a circle's
-    shared journal, and whose."""
+def _page_payload(db: Session, row: JournalPage, settings=None, now: datetime | None = None) -> dict:
+    """A page as its writer is sent it: with whether it's shared, in which
+    circle, and (build 52) with whom, when it's one person and not the
+    whole circle."""
     return {
         "id": row.id,
         "day": row.day.isoformat(),
@@ -411,9 +420,31 @@ def _page_payload(db: Session, row: JournalPage) -> dict:
         "shared": bool(row.shared),
         "circle_id": row.circle_id if row.shared else None,
         "circle_name": circle_name(db, row.circle_id) if row.shared else None,
+        "recipient": user_brief(db, row.recipient_id, settings, now) if row.shared and row.recipient_id else None,
         "created_at": iso(row.created_at),
         "updated_at": iso(row.updated_at),
     }
+
+
+def _recipient(db: Session, user: User, circle_id: str, recipient_id: str) -> str:
+    """The one person a page is shared with (build 52): someone else in the
+    circle it's shared in, with no block between them either way."""
+    if (
+        recipient_id == user.id
+        or db.get(Membership, (circle_id, recipient_id)) is None
+        or recipient_id in blocked_ids(db, user.id)
+    ):
+        raise HTTPException(400, {"code": "bad_recipient"})
+    return recipient_id
+
+
+def _destination(db: Session, user: User, active: str | None, recipient_id: str | None) -> tuple[str, str | None]:
+    """Where a page being shared lands: the circle on screen, and the one
+    member of it it's for, or None for the whole circle."""
+    _, circle = require_membership(db, user, active)
+    if recipient_id is None:
+        return circle.id, None
+    return circle.id, _recipient(db, user, circle.id, recipient_id)
 
 
 def _ink(value: str) -> str:
@@ -472,6 +503,8 @@ def _own_page(db: Session, user: User, page_id: str) -> JournalPage:
 def my_journal(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
+    settings=Depends(get_settings),
+    clock=Depends(get_clock),
     limit: int = Query(default=BOOK_PAGE, ge=1, le=BOOK_PAGE_MAX),
     after: date | None = Query(default=None),
 ):
@@ -485,9 +518,10 @@ def my_journal(
         .limit(limit + 1)
     ).all()
     stretch, more = rows[:limit], len(rows) > limit
+    now = clock.now()
     return {
         "title": user.journal_title,
-        "pages": [_page_payload(db, r) for r in stretch],
+        "pages": [_page_payload(db, r, settings, now) for r in stretch],
         "next_after": stretch[-1].day.isoformat() if more else None,
     }
 
@@ -498,13 +532,16 @@ def write_today(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
+    settings=Depends(get_settings),
     active: str | None = Depends(active_circle_id),
 ):
     """Today's page: the server says which day (the writer's own, from the
     zone the phone sends). One a day: writing again replaces what was
     there, it doesn't add to it. `shared` says where it lands (build 51):
     in the shared journal of the circle on screen, or with its writer
-    alone; left out, a page stays where it was."""
+    alone; left out, a page stays where it was. With `shared` true,
+    `recipient_id` (build 52) makes it one member's of that circle rather
+    than the whole circle's."""
     tz = _zone(user, body.tz)
     if body.runs:
         words, ink, inks = _inked(body.runs)
@@ -515,38 +552,41 @@ def write_today(
     mine = (JournalPage.owner_id == user.id, JournalPage.day == day)
     was = db.scalars(select(JournalPage).where(*mine)).first()
     if body.shared:
-        _, circle = require_membership(db, user, active)
-        shared, circle_id = True, circle.id
+        circle_id, recipient_id = _destination(db, user, active, body.recipient_id)
+        shared = True
     elif body.shared is None and was is not None and was.shared:
-        shared, circle_id = True, was.circle_id
+        shared, circle_id, recipient_id = True, was.circle_id, was.recipient_id
     else:
-        shared, circle_id = False, None
+        shared, circle_id, recipient_id = False, None, None
     if shared:
-        # What a circle reads goes past the word filter; a private page
-        # doesn't.
+        # What a circle (or someone in it) reads goes past the word filter;
+        # a private page doesn't.
         refuse_objectionable(words)
-    if was is not None and was.shared and (not shared or was.circle_id != circle_id):
-        # Out of the book it was in: the hearts left on it there go.
-        sharing.unshare(db, [was.id])
+    moved = was is not None and was.shared and (
+        not shared or (was.circle_id, was.recipient_id) != (circle_id, recipient_id)
+    )
+    if moved:
+        # Out of where it was: the hearts left on it there go.
+        sharing.drop_hearts(db, was.id)
     db.execute(
         sqlite_insert(JournalPage)
         .values(
             id=new_id(), owner_id=user.id, day=day, body=words, ink=ink, inks=inks,
-            shared=shared, circle_id=circle_id, created_at=now, updated_at=now,
+            shared=shared, circle_id=circle_id, recipient_id=recipient_id, created_at=now, updated_at=now,
         )
         .on_conflict_do_update(
             index_elements=["owner_id", "day"],
             set_={
                 "body": words, "ink": ink, "inks": inks, "shared": shared, "circle_id": circle_id,
-                "updated_at": now,
+                "recipient_id": recipient_id, "updated_at": now,
             },
         )
     )
     row = db.scalars(select(JournalPage).where(*mine)).one()
     db.refresh(row)
-    if shared and (was is None or not was.shared):
+    if shared and (was is None or not was.shared or moved):
         event("page_shared", circle=circle_id, user=user.id)
-    return _page_payload(db, row)
+    return _page_payload(db, row, settings, now)
 
 
 @router.patch("/me/journal/pages/{page_id}", dependencies=[per_person("journal")])
@@ -556,6 +596,7 @@ def edit_page(
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
+    settings=Depends(get_settings),
 ):
     """Rewrite a page you've written, or change its ink. Its day stays.
     Sent ink by ink (`runs`), that's the page. Sent as words or one ink,
@@ -572,11 +613,11 @@ def edit_page(
             row.ink = _ink(body.ink)
             row.inks = None
     if row.shared:
-        # A page in a circle's book is still read by the circle once it's
-        # rewritten.
+        # A page in a circle's book (or shared with one person in it) is
+        # still read once it's rewritten.
         refuse_objectionable(row.body)
-    row.updated_at = clock.now()
-    return _page_payload(db, row)
+    row.updated_at = now = clock.now()
+    return _page_payload(db, row, settings, now)
 
 
 @router.delete("/me/journal/pages/{page_id}", status_code=204)
@@ -602,6 +643,11 @@ def delete_page(
 # told how many. No comments, no notification, and a shared page doesn't
 # fade. The word filter is on shared pages (a circle reads them), never on
 # private ones.
+#
+# Build 52: a page can be shared with one person in the circle instead
+# (`recipient_id`). Its writer and that person read it, as a `single` on
+# its day, never paired on a spread; only that person may leave a heart on
+# it; nobody else in the circle is sent anything about it.
 
 SPREAD_DAYS = 30
 SPREAD_DAYS_MAX = 60
@@ -630,6 +676,9 @@ def _shared_payload(
         "ink": row.ink,
         "runs": page_runs(row),
         "writer": user_brief(db, row.owner_id, settings, now),
+        # Build 52: the one person it's shared with, or None for a page in
+        # the circle's book.
+        "to": user_brief(db, row.recipient_id, settings, now) if row.recipient_id else None,
         "mine": mine,
         "hearted": (not mine) and db.get(PageHeart, (row.id, viewer.id)) is not None,
         "hearts": _heart_faces(db, settings, now, row, blocked) if mine else None,
@@ -642,24 +691,27 @@ def share_page(
     body: ShareBody,
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
+    settings=Depends(get_settings),
+    clock=Depends(get_clock),
     active: str | None = Depends(active_circle_id),
 ):
     """Put a page you've written into the shared journal of the circle on
-    screen, or take it back. Either way it stays in your own book."""
+    screen, or give it to one person in that circle (`recipient_id`, build
+    52), or take it back. Either way it stays in your own book."""
     row = _own_page(db, user, page_id)
     if body.shared:
-        _, circle = require_membership(db, user, active)
+        circle_id, recipient_id = _destination(db, user, active, body.recipient_id)
         refuse_objectionable(row.body)
-        if not row.shared or row.circle_id != circle.id:
-            # Into this circle's book (from another's, perhaps: the hearts
-            # left on it there don't come with it).
-            db.execute(delete(PageHeart).where(PageHeart.page_id == row.id))
-            event("page_shared", circle=circle.id, user=user.id)
-        row.shared, row.circle_id = True, circle.id
+        if not row.shared or (row.circle_id, row.recipient_id) != (circle_id, recipient_id):
+            # Somewhere new (from another book or person, perhaps: the
+            # hearts left on it there don't come with it).
+            sharing.drop_hearts(db, row.id)
+            event("page_shared", circle=circle_id, user=user.id)
+        row.shared, row.circle_id, row.recipient_id = True, circle_id, recipient_id
     elif row.shared:
-        db.execute(delete(PageHeart).where(PageHeart.page_id == row.id))
-        row.shared, row.circle_id = False, None
-    return _page_payload(db, row)
+        sharing.drop_hearts(db, row.id)
+        row.shared, row.circle_id, row.recipient_id = False, None, None
+    return _page_payload(db, row, settings, clock.now())
 
 
 @router.get("/circles/{circle_id}/journal")
@@ -677,23 +729,52 @@ def shared_journal(
     two facing pages. A day nobody wrote isn't there. A member reads from
     the day they joined. Who faces whom is worked out from everyone who
     wrote that day, so it's the same for every reader; a page a block hides
-    is simply missing from its spread."""
+    is simply missing from its spread.
+
+    Build 52: each day also has `singles`, the pages in this circle shared
+    with one person, where the reader is that person or wrote it. They're
+    never paired, and read whatever day the reader joined. A day is in the
+    book for a reader when it has a spread or a single they can read."""
     membership, circle = membership_in(db, user, circle_id)
     since = sharing.joined_day(membership, user)
-    in_book = (JournalPage.circle_id == circle.id, JournalPage.shared.is_(True), JournalPage.day >= since)
-    days = db.scalars(
-        select(JournalPage.day)
-        .where(*in_book, True if after is None else JournalPage.day > after)
-        .distinct()
-        .order_by(JournalPage.day)
-        .limit(limit + 1)
-    ).all()
+    blocked = blocked_ids(db, user.id)
+    in_book = (
+        JournalPage.circle_id == circle.id,
+        JournalPage.shared.is_(True),
+        JournalPage.recipient_id.is_(None),
+        JournalPage.day >= since,
+    )
+    # Pages for one person: the reader's own to someone, or someone's to the
+    # reader, with no block between the two.
+    singles_of = (
+        JournalPage.circle_id == circle.id,
+        JournalPage.shared.is_(True),
+        JournalPage.recipient_id.is_not(None),
+        or_(JournalPage.owner_id == user.id, JournalPage.recipient_id == user.id),
+        JournalPage.owner_id.not_in(blocked),
+        JournalPage.recipient_id.not_in(blocked),
+    )
+    later = True if after is None else JournalPage.day > after
+
+    def days_of(where) -> list[date]:
+        return list(db.scalars(
+            select(JournalPage.day).where(*where, later).distinct().order_by(JournalPage.day).limit(limit + 1)
+        ).all())
+
+    days = sorted(set(days_of(in_book)) | set(days_of(singles_of)))[: limit + 1]
     stretch, more = days[:limit], len(days) > limit
     rows = db.scalars(select(JournalPage).where(*in_book, JournalPage.day.in_(stretch))).all() if stretch else []
     by_day: dict[date, dict[str, JournalPage]] = {}
     for row in rows:
         by_day.setdefault(row.day, {})[row.owner_id] = row
-    blocked = blocked_ids(db, user.id)
+    single_rows = db.scalars(
+        select(JournalPage)
+        .where(*singles_of, JournalPage.day.in_(stretch))
+        .order_by(JournalPage.owner_id, JournalPage.id)
+    ).all() if stretch else []
+    singles_by_day: dict[date, list[JournalPage]] = {}
+    for row in single_rows:
+        singles_by_day.setdefault(row.day, []).append(row)
     now = clock.now()
 
     def page(day: date, writer: str | None) -> dict | None:
@@ -704,15 +785,16 @@ def shared_journal(
     out = []
     for day in stretch:
         spreads = []
-        for left, right in journal.pairings(day, circle.id, list(by_day[day])):
+        for left, right in journal.pairings(day, circle.id, list(by_day.get(day, {}))):
             a, b = page(day, left), page(day, right)
             if a is None and b is None:
                 continue
             # Whatever can be read is on the left; the right is its facing
             # page, or nothing.
             spreads.append({"left": a or b, "right": b if a else None})
-        if spreads:
-            out.append({"day": day.isoformat(), "spreads": spreads})
+        singles = [_shared_payload(db, settings, now, row, user, blocked) for row in singles_by_day.get(day, [])]
+        if spreads or singles:
+            out.append({"day": day.isoformat(), "spreads": spreads, "singles": singles})
     return {"days": out, "next_after": stretch[-1].isoformat() if more else None}
 
 

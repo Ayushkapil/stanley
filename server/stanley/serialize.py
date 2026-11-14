@@ -240,6 +240,9 @@ def photo_payload(
         # it, for the small book on your print. Never the words, which only
         # their own request fetches, and None on anyone else's photo.
         "has_journal": journal_body(session, photo, viewer) is not None if photo.owner_id == viewer.id else None,
+        # Yours only (build 52): the mark you left on your day with this
+        # photo, one of five, or None. None on anyone else's photo, always.
+        "score": photo.score if photo.owner_id is not None and photo.owner_id == viewer.id else None,
     }
 
 

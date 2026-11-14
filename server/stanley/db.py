@@ -110,10 +110,13 @@ _LATER_COLUMNS = {
         "inks": "TEXT",
         "shared": "BOOLEAN DEFAULT 0",
         "circle_id": "VARCHAR(32) REFERENCES circles(id)",
+        # Build 52: a page shared with one person; null for every page there is.
+        "recipient_id": "VARCHAR(32) REFERENCES users(id)",
     },
     # Build 35: one circle's countdown, null everywhere else.
     "circles": {"countdown": "JSON"},
-    "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)"},
+    # Build 52: the mark its owner left on their day; null everywhere else.
+    "photos": {"location": "VARCHAR(120)", "filter": "VARCHAR(12)", "score": "INTEGER"},
     "returned_log": {"dismissed": "BOOLEAN DEFAULT 0"},
     # Build 26: a report about an answer to the circle's question.
     "reports": {

@@ -127,7 +127,8 @@ def report(
         if page is None or page.owner_id == user.id:
             raise HTTPException(404, "not found")
         reason = (
-            f"{reason}\n\nThe shared page, by {page.owner_id}, in circle {page.circle_id} "
+            f"{reason}\n\nThe shared page, by {page.owner_id}, in circle {page.circle_id}"
+            f"{f' to {page.recipient_id}' if page.recipient_id else ''} "
             f"for {page.day:%Y-%m-%d}: {page.body[:PAGE_EXCERPT]}"
         )
     row = Report(
