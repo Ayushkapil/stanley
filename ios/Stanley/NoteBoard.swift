@@ -198,7 +198,7 @@ struct NoteBoard: View {
             }
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $current)
-            .scrollClipDisabled()
+            .bleedsToMargin()
             // Held still while you write, so the note can't slide away
             // from under the cursor.
             .scrollDisabled(!many || draft != nil)

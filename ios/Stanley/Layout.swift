@@ -155,6 +155,21 @@ extension View {
         padding(.horizontal, density.creaseBuffer)
     }
 
+    /// A row that scrolls sideways and draws past its own edges (a note's
+    /// tape and shadow, a face's ring), but no further sideways than the
+    /// page's margin. On an ordinary iPhone the margin ends at the screen's
+    /// edge, so nothing changes. On the Duo's cover the tab bar is a dock
+    /// down the trailing side, which the page clears but an unclipped row
+    /// ran on under (build 44).
+    func bleedsToMargin(_ margin: CGFloat = 20) -> some View {
+        scrollClipDisabled()
+            .mask {
+                Rectangle()
+                    .padding(.horizontal, -margin)
+                    .padding(.vertical, -200)
+            }
+    }
+
     /// Fold and unfold mid-session: reflow, never reload.
     func foldAnimated(_ sizeClass: UserInterfaceSizeClass?) -> some View {
         animation(.default, value: sizeClass)

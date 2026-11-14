@@ -36,42 +36,49 @@ struct SetupView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                Dots(step: step)
-                    .padding(.bottom, 28)
-                Group {
-                    Text(title)
-                        .font(.keepsake(34))
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(subtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 10)
-                    field
-                        .padding(.top, 32)
+            // The step scrolls, Continue stays at the foot above the
+            // keyboard, and Skip is in the bar. As one fixed column (until
+            // build 44) the bio step was taller than the room the keyboard
+            // left: its Skip was under the keyboard and its dots under the
+            // back button.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Dots(step: step)
+                        .padding(.bottom, 28)
+                    Group {
+                        Text(title)
+                            .font(.keepsake(34))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(subtitle)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 10)
+                        field
+                            .padding(.top, 32)
+                    }
+                    .id(step)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(x: 24)),
+                        removal: .opacity
+                    ))
                 }
-                .id(step)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .offset(x: 24)),
-                    removal: .opacity
-                ))
-                Spacer(minLength: 24)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .readableWidth(density)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 WideButton(title: "Continue", busy: saving, action: proceed)
                     .disabled(!canContinue)
-                Button("Skip") { advance() }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .opacity(step == .name ? 0 : 1)
-                    .disabled(step == .name || saving)
-                    .accessibilityHidden(step == .name)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .readableWidth(density)
+                    .background(Atmosphere.resolve(raw).palette.floor.ignoresSafeArea(edges: .bottom))
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .readableWidth(density)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .atmosphereWash()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -87,6 +94,14 @@ struct SetupView: View {
                             Label("Back", systemImage: "chevron.left")
                         }
                         .disabled(saving)
+                    }
+                }
+                // In the bar, where the keyboard can't cover it. A name
+                // can't be skipped.
+                if step != .name {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Skip") { advance() }
+                            .disabled(saving)
                     }
                 }
             }

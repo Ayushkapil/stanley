@@ -229,7 +229,7 @@ private struct CircleCards: View {
             }
             .padding(.vertical, 4)
         }
-        .scrollClipDisabled()
+        .bleedsToMargin()
     }
 
     /// A face-sized ring in the accent with a plus, and "Invite" beneath in

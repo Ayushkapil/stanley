@@ -416,11 +416,20 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     **Not seen:** a real phone, the Duo's inner display (the simulator
     can't unfold), VoiceOver, Dynamic Type at large sizes, and the widget
     on a real Home Screen.
-  - **Seen and left** (not this pass's doing): on setup's "Write a little
-    about yourself" step with the keyboard up, Skip is under the keyboard
-    and the back button sits over the step dots (iPhone 17); and on the
-    Duo's cover the note row and the You tab's Invite ring run under the
-    side dock at their trailing end.
+  - **Two layout fixes after it** (the same day, from what the second
+    pass saw). **Setup** (`SetupView`): the step scrolls, Continue is
+    pinned at the foot above the keyboard, and **Skip is in the navigation
+    bar** (trailing; not on the name step). As one fixed column, the bio
+    step was taller than the room the keyboard left on an iPhone 17: Skip
+    was under the keyboard and the back button over the step dots. **The
+    Duo's cover**: the note row on Today and the faces row on You drew
+    past their edges with no limit (`scrollClipDisabled`, for the tape,
+    shadows and rings) and ran on under the side dock. They're
+    `bleedsToMargin()` now (`Layout.swift`): still unclipped up and down,
+    but masked sideways at the page's 20pt margin, which on an ordinary
+    iPhone is the screen's edge, so nothing changes there. Checked on the
+    iPhone 17 simulator (the username and bio steps, light and dark) and
+    the Duo's cover (Today and You, light).
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
