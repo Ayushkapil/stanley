@@ -1,11 +1,12 @@
 import SwiftUI
 import UIKit
 
-// The pages of the book, drawn (build 45). Each is the whole page, paper to
-// its edges: ruled where it's written on, plain where something is pasted
-// or tucked in, with its number in the outer corner. This is the one place
-// in Stanley where paper is right, so it has a little grain in daylight; in
-// the dark it's a very dark charcoal, so it still reads as a page.
+// The pages of the journal, drawn (builds 45 and 46). Each is the whole
+// page, paper to its edges: ruled where it's written on, plain where
+// something is pasted or tucked in, its date small at the head and its
+// number at the middle of the foot. This is the one place in Stanley where
+// paper is right, so it has a grain; in the dark it's a very dark charcoal,
+// so it still reads as a page.
 
 /// What a page can ask the book to do. The book asks before anything is
 /// thrown away.
@@ -53,21 +54,24 @@ struct InkText: UIViewRepresentable {
     }
 }
 
-/// The paper of a page: its color, a little grain in daylight, the rules if
-/// it's a written page, and the shade where it meets the spine.
+/// The paper of a page: its color, its grain, the rules if it's a written
+/// page, the shade where it meets the spine and where it falls away at its
+/// outer edge.
 struct BookSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     let layout: BookLayout
     let lined: Bool
 
     var body: some View {
+        let dark = colorScheme == .dark
         ZStack(alignment: .topLeading) {
             BookPaper.page
-            if colorScheme != .dark {
-                Image(uiImage: PaperGrain.tile)
-                    .resizable(resizingMode: .tile)
-                    .opacity(0.28)
-            }
+            // The paper's tooth: specks in daylight; in the dark the same
+            // specks barely catching the light.
+            Image(uiImage: PaperGrain.tile)
+                .resizable(resizingMode: .tile)
+                .opacity(dark ? 0.16 : 0.3)
+                .blendMode(dark ? .screen : .normal)
             if lined {
                 Canvas { context, size in
                     var path = Path()
@@ -83,11 +87,18 @@ struct BookSheet: View {
             // on a phone one page shows at a time, and every page turns on
             // its left edge.
             LinearGradient(
-                colors: [.black.opacity(colorScheme == .dark ? 0.4 : 0.07), .clear],
+                colors: [.black.opacity(dark ? 0.4 : 0.07), .clear],
                 startPoint: .leading, endPoint: .trailing
             )
             .frame(width: 26)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // And the other side, where it falls away to the pages under it.
+            LinearGradient(
+                colors: [.clear, .black.opacity(dark ? 0.22 : 0.035)],
+                startPoint: .leading, endPoint: .trailing
+            )
+            .frame(width: 7)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .frame(width: layout.width, height: layout.height)
         .allowsHitTesting(false)
@@ -95,10 +106,53 @@ struct BookSheet: View {
     }
 }
 
-/// One page of the book, whole.
+/// What's written small at the head of a page, top left: its date.
+struct PageHeading: View {
+    let text: String
+    let color: Color
+    let layout: BookLayout
+
+    var body: some View {
+        Text(text)
+            .font(.custom(layout.font.fontName, fixedSize: layout.headSize))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: layout.textWidth, alignment: .leading)
+            .position(x: layout.middle, y: layout.headY)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// The cursor on a blank page, waiting where the first word will go.
+private struct WaitingCaret: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let color: Color
+    let height: CGFloat
+    /// Off in the grid of small pages: nothing blinks there.
+    let blinks: Bool
+    @State private var lit = true
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1, style: .continuous)
+            .fill(color)
+            .frame(width: 2, height: height)
+            .opacity(lit ? 1 : 0)
+            .onAppear {
+                guard blinks, !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.5).delay(0.3).repeatForever(autoreverses: true)) { lit = false }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// One page of the journal, whole.
 struct BookPageView: View {
     @Environment(AppState.self) private var state
     @Environment(\.colorScheme) private var colorScheme
+    /// The ink a new page starts in: the last one used, or the one picked
+    /// from the three at the foot of today's blank page.
+    @AppStorage(InkWell.key) private var inkRaw = Ink.black.rawValue
     let page: BookPage
     /// Its number, from 1.
     let number: Int
@@ -107,32 +161,51 @@ struct BookPageView: View {
     /// Off for a thumbnail in the page grid: nothing on it is pressed.
     var live = true
 
-    private var rightHand: Bool { !number.isMultiple(of: 2) }
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             BookSheet(layout: layout, lined: page.lined)
-            content
-            if showsNumber {
-                Text("\(number)")
-                    .font(.footnote.monospacedDigit())
-                    .foregroundStyle(BookPaper.quiet)
-                    .frame(width: layout.textWidth, alignment: rightHand ? .trailing : .leading)
-                    .position(x: layout.middle, y: layout.numberY)
-                    .accessibilityLabel("Page \(number)")
+            if let heading = page.heading {
+                PageHeading(text: heading, color: headInk, layout: layout)
             }
+            content
+            foot
         }
         .frame(width: layout.width, height: layout.height)
         .contentShape(Rectangle())
+        .modifier(TodayTap(page: page, actions: actions, live: live))
         .modifier(PageMenu(page: page, actions: actions, live: live))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(page.name)
     }
 
-    /// A month's opening page carries no number, as in a printed book.
-    private var showsNumber: Bool {
-        if case .chapter = page.kind { return false }
-        return true
+    /// The date is in the page's own ink where the page is written, a
+    /// little let down so it's the smaller thing; plain ink elsewhere.
+    private var headInk: Color {
+        switch page.kind {
+        case .written(let written): Ink.named(written.ink).color.opacity(0.7)
+        case .today: Ink.named(inkRaw).color.opacity(0.7)
+        default: Ink.black.color.opacity(0.62)
+        }
+    }
+
+    /// The middle of the foot: the page's number when it's read. Today's
+    /// blank page has the three inks there instead, since it's being
+    /// written; a month's opening page has nothing, as in a printed book.
+    @ViewBuilder
+    private var foot: some View {
+        switch page.kind {
+        case .chapter:
+            EmptyView()
+        case .today where live:
+            InkPicker(ink: Binding(get: { Ink.named(inkRaw) }, set: { inkRaw = $0.rawValue }))
+                .position(x: layout.middle, y: layout.numberY)
+        default:
+            Text("\(number)")
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(BookPaper.quiet)
+                .position(x: layout.middle, y: layout.numberY)
+                .accessibilityLabel("Page \(number)")
+        }
     }
 
     @ViewBuilder
@@ -156,6 +229,22 @@ struct BookPageView: View {
     // MARK: a month's opening page
 
     private var chapter: some View {
+        ZStack {
+            // What the journal is called, small, at the head of each
+            // month (it had a cover to be written on until build 46).
+            Text(JournalName.shown(state.journalTitle))
+                .font(.custom(layout.font.fontName, fixedSize: layout.headSize))
+                .foregroundStyle(BookPaper.quiet)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(width: layout.textWidth)
+                .position(x: layout.middle, y: layout.headY)
+            month
+        }
+        .frame(width: layout.width, height: layout.height)
+    }
+
+    private var month: some View {
         VStack(spacing: 14) {
             Text(page.date.formatted(.dateTime.month(.wide)))
                 .font(.custom(BookHand.font(44, bold: true).fontName, size: 44, relativeTo: .largeTitle))
@@ -201,45 +290,32 @@ struct BookPageView: View {
         .offset(x: layout.left, y: layout.contentTop)
     }
 
-    /// Today's page, waiting: the date at its head, as it will be, and a
-    /// line saying what a tap does.
+    /// Today's page, waiting: ruled, its date at the head, and the cursor
+    /// on the first line. A tap anywhere on the page begins writing
+    /// (`TodayTap`); this is the same thing for VoiceOver.
     private var blank: some View {
-        let text = NSMutableAttributedString(
-            string: BookType.dayTitle(page.date) + "\n\n",
-            attributes: BookType.writing(layout, ink: BookPaper.quietUI, bold: true, size: layout.fontSize + 1)
-        )
-        text.append(NSAttributedString(
-            string: "Tap to write today's page.",
-            attributes: BookType.writing(layout, ink: BookPaper.quietUI.withAlphaComponent(0.75))
-        ))
-        return Button(action: actions.write) {
-            InkText(text: text)
-                .frame(width: layout.textWidth, height: layout.textHeight, alignment: .topLeading)
-                .contentShape(Rectangle())
+        ZStack(alignment: .topLeading) {
+            WaitingCaret(color: Ink.named(inkRaw).color, height: layout.pitch - 7, blinks: live)
+                .offset(x: layout.left, y: layout.contentTop + 4)
+            Button(action: actions.write) {
+                Color.clear
+                    .frame(width: layout.textWidth, height: layout.textHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!live)
+            .offset(x: layout.left, y: layout.contentTop)
+            .accessibilityLabel("Today's page is blank. Write it.")
         }
-        .buttonStyle(.plain)
-        .disabled(!live)
-        .offset(x: layout.left, y: layout.contentTop)
-        .accessibilityLabel("Today's page is blank. Write it.")
     }
 
     // MARK: something pasted or tucked in
 
-    /// A plain page with its day printed small at the head, and one thing
-    /// on it.
+    /// A plain page with one thing on it, under the date.
     private func pasted<Inner: View>(@ViewBuilder _ inner: () -> Inner) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(page.date.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundStyle(BookPaper.quiet)
-                .frame(height: 22, alignment: .top)
-            inner()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        }
-        .frame(width: layout.textWidth, height: layout.textHeight, alignment: .topLeading)
-        .offset(x: layout.left, y: layout.contentTop)
+        inner()
+            .frame(width: layout.textWidth, height: layout.textHeight, alignment: .top)
+            .offset(x: layout.left, y: layout.contentTop)
     }
 
     /// A kept photo, pasted in a little crooked, with what was written
@@ -249,7 +325,7 @@ struct BookPageView: View {
         let mine = state.myId != nil && held.friend.id == state.myId
         // The print gives up height to the words under it, never the
         // other way.
-        let room = layout.textHeight - 22
+        let room = layout.textHeight
         let width = min(layout.textWidth * 0.84, (room * 0.6) * PhotoShape.aspect)
         let lean = max(0.7, abs(PrintTilt.degrees(memory.id)) * 1.6) * (number.isMultiple(of: 2) ? 1 : -1)
         return VStack(alignment: .leading, spacing: 14) {
@@ -270,7 +346,7 @@ struct BookPageView: View {
             .buttonStyle(PressedPrint())
             .disabled(!live)
             .frame(maxWidth: .infinity)
-            .padding(.top, 10)
+            .padding(.top, 14)
             .accessibilityLabel(memory.caption.flatMap { $0.isEmpty ? nil : "Held photo: \($0)" } ?? "Held photo")
             .accessibilityHint("Opens it large")
 
@@ -322,7 +398,7 @@ struct BookPageView: View {
                 .strokeBorder(BookPaper.quiet.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
         }
         .rotationEffect(.degrees(number.isMultiple(of: 2) ? 0.8 : -0.8))
-        .padding(.top, 24)
+        .padding(.top, 28)
         .accessibilityElement(children: .combine)
     }
 
@@ -338,7 +414,31 @@ struct BookPageView: View {
                     .accessibilityLabel(text.string)
             }
         }
-        .padding(.top, 8)
+        .padding(.top, 10)
+    }
+}
+
+/// Today's page is still open: a tap anywhere on it begins writing, or
+/// goes on with what's written. Older pages are changed from the long
+/// press, so that reading one doesn't raise the keyboard.
+private struct TodayTap: ViewModifier {
+    let page: BookPage
+    let actions: BookActions
+    let live: Bool
+
+    func body(content: Content) -> some View {
+        if live, page.isToday {
+            switch page.kind {
+            case .written(let written):
+                content
+                    .onTapGesture { actions.edit(written) }
+                    .accessibilityAction(named: "Write More") { actions.edit(written) }
+            default:
+                content.onTapGesture { actions.write() }
+            }
+        } else {
+            content
+        }
     }
 }
 
@@ -424,7 +524,7 @@ struct BookThumb: View {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(BookPaper.quiet.opacity(0.35), lineWidth: 0.5)
             }
-            .overlay(alignment: number.isMultiple(of: 2) ? .bottomLeading : .bottomTrailing) {
+            .overlay(alignment: .bottom) {
                 Text("\(number)")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(BookPaper.quiet)

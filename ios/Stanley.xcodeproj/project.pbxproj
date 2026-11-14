@@ -46,7 +46,6 @@
 		6A7483A75FBDC6102F5DC4C3 /* AtmospherePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2296FB39842563CF1F4E2B2 /* AtmospherePalette.swift */; };
 		6A8050442F9E778834687E15 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43DA9DBBFC78AE87EE56D899 /* Places.swift */; };
 		6A855929061B0B7C9713D7A6 /* JournalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */; };
-		6EF070F119595AC146AE150D /* BookCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4167960EEE6EC7DCB6051C /* BookCover.swift */; };
 		6F9A60A9341F464C3A24AC5B /* Whereabouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA186266B8710917748C184C /* Whereabouts.swift */; };
 		70427E223F09A23142109DB1 /* JournalColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */; };
 		782CD1F0E2D3CC4EE7CF4E66 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8381587E53B72E1B5127D6F9 /* WidgetSnapshot.swift */; };
@@ -118,7 +117,6 @@
 		1276CA9EF7DFA94B5A25EC74 /* Journal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Journal.swift; sourceTree = "<group>"; };
 		1401F690E1241EB4B8D190DC /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		1803DD8144604B228075043B /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
-		1D4167960EEE6EC7DCB6051C /* BookCover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCover.swift; sourceTree = "<group>"; };
 		1ECC85BC9521389F2FAECE50 /* StanleyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = StanleyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		28BF0640C2B868C0AD896FBF /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prompts.swift; sourceTree = "<group>"; };
@@ -216,7 +214,6 @@
 				E323BCEF8A28432A187DE505 /* Atmosphere.swift */,
 				9BB8427334A459A620854705 /* AvatarPicker.swift */,
 				0D713EC95A1BA95F6043E0E8 /* Book.swift */,
-				1D4167960EEE6EC7DCB6051C /* BookCover.swift */,
 				39FC79B48BB2EA062F8B6E65 /* BookPages.swift */,
 				E237A15BDE57446BB210AB40 /* BookView.swift */,
 				7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */,
@@ -427,7 +424,6 @@
 				6A7483A75FBDC6102F5DC4C3 /* AtmospherePalette.swift in Sources */,
 				118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */,
 				785FAFD68215F38893B3A3DB /* Book.swift in Sources */,
-				6EF070F119595AC146AE150D /* BookCover.swift in Sources */,
 				8B0E56E51EEF2204B17CCAAE /* BookPages.swift in Sources */,
 				861AF92B3B302F8A9166C004 /* BookView.swift in Sources */,
 				0FDEEB6D62C338D8044AFB6B /* BookWriting.swift in Sources */,

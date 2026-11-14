@@ -10,7 +10,7 @@ gestures are *holding* (a private act of keeping, never counted),
 of the week* (answered privately, read together) and, since build 42, a
 monthly *letter to the circle* (unsigned, opened together). Beside the circle, since build 45,
 each person has a private **journal kept as a book** (their own pages, what they've held, letters opened,
-weekly reflections), which nobody else ever sees. The product's identity lives as much in what it
+weekly reflections; since build 46 the Journal tab is those pages, landing on today's), which nobody else ever sees. The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -336,9 +336,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     named "morning pages" and "prompts"; neither exists as a feature, so
     Pages is the reflections and Questions is the circle's question. Not
     asked about as a product decision; move them back if that's wrong.
-    **Superseded in build 45: the Journal tab is a book** (the next
-    section). What's said here about its type and surfaces still holds
-    for the cover screen.
+    **Superseded in build 45, and again in 46: the Journal tab is the
+    journal's pages** (the next two sections).
   - **The You tab**: a card with your photo, your name in SF Rounded, your
     username and words in system type (the bookplate in a double rule is
     gone); the circle as overlapping faces with system names; milestones
@@ -453,11 +452,145 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The Journal tab is its pages** (build 46, November 14, 2026, a product
+  brief from Ayush; screenshots in `docs/journal-pages-build46/`). Build
+  45's book is kept and its cover is gone: the tab lands straight on
+  today's page. **Where the next section (build 45) says otherwise about
+  the cover, opening and shutting, the "+", the pull, the Letters and
+  Prompts cards, the ribbon and the place marker, the order within a day,
+  or where the date and the page's number sit, this section wins;** the
+  kinds of page, the server and the widget are as that section says.
+  Phone only: nothing on the server changed.
+  - **Landing.** The tab is `BookView` itself, above the tab bar (no
+    cover screen, and no overlay above the tabs). It lands on today's
+    page **each time the tab is come to** from another (`HomeView` bumps
+    `AppState.journalAsked`); a tap on the tab while it's showing turns
+    back to today's page and fetches again. The journal is fetched as the
+    tabs appear (`HomeView`'s task), so the tab opens on the page and not
+    on blank paper that fills in.
+  - **Today's page is the last page.** Pages are still bound oldest first,
+    so a swipe to the right goes back through time and a swipe to the left
+    comes forward to today. Within a day the order is now what was kept,
+    what arrived, how the week was, and last the day's own page (it was
+    first in build 45), so nothing lies after today's page.
+  - **Today's page, blank**: ruled, the date at its head, a cursor drawn
+    on the first line (blinking; still under Reduce Motion), and the three
+    inks at the foot, which choose the ink it will start in (`InkWell`).
+    **A tap anywhere on today's page begins writing**, blank or already
+    written; older pages are edited from the long press, as before. **The
+    keyboard isn't raised on arriving at the tab**: the brief's "a cursor
+    waiting, ready to write immediately" is the drawn cursor and one tap.
+    A keyboard coming up over the tab bar every time the tab is opened
+    would be in the way of turning back. Not asked about as a product
+    decision; make the page its own first responder if it should be
+    otherwise.
+  - **Writing in place** (`PageWriting` in `BookWriting.swift`; build
+    45's full-screen cover is gone): a layer laid over the page with the
+    same sheet, the date where it was, and a text view whose first line is
+    exactly where the page's first line is, so nothing moves when the
+    cursor arrives. Cancel and Done are on the date's line at the right,
+    only while writing; the three inks are at the foot, where the page's
+    number is when it's read, and ride up above the keyboard. Done keeps
+    it (the haptic once the server has it); rubbing every word out of a
+    kept page asks to tear it out; Cancel with changes asks first.
+  - **Page furniture.** Top left, the date, small, in the hand (in the
+    page's own ink on a written page; "Week of 9 November" on a
+    reflection, in place of the printed small capitals; on a month's
+    opening page the journal's name instead, centered). Top right,
+    nothing. Bottom center, the page's number in small secondary type, or
+    the inks on today's blank page. The date is no longer the first line
+    of the writing (`BookType.written` is the day's words alone), and the
+    small-capitals date over a photo or a letter is gone.
+  - **The fore-edge** (`BookEdge`; `BookLayout.edge`, 18pt). The page
+    stops 18pt short of the screen's right edge, and that strip is the
+    rest of the book seen edge-on: a 2pt sliver of the next page in a
+    slightly different tone, then the pages behind. It stays put while
+    pages turn: the page controller's view is narrower than the view its
+    gestures are on (`TurnerHost`), so a swipe begun at the very edge of
+    the screen still turns a page. On it:
+    - *The ribbon*: a thin strip in the accent down the edge, with a bead
+      where you are: today at the top, the first page at the foot. **A
+      drag up or down that begins within about 34pt of the right edge
+      scrubs** through the pages with none turning between, and a small
+      label beside the bead says the page's date. (A UIKit pan that
+      begins only on an up-or-down drag there; the curl waits for it to
+      fail.) Months are marked along it with a hairline, and with three
+      letters set sideways where a month has 24pt to itself. VoiceOver
+      has it as one adjustable thing, "Place in the journal".
+    - *Two paper tabs*, 30% of the way down: 15 by 26pt, manila, a little
+      shadow, with press targets that reach 44pt in over the page's
+      margin. An envelope opens **Letters** as a sheet: the ones still
+      sealed, **Opened** (each opened letter by who it's from and the day
+      it was opened; a tap closes the sheet and turns to its page), and
+      Write to someone. A question mark opens **Prompts**, the circle
+      journal as a sheet (only with a circle). **The envelope has a dot of
+      wax red while any letter to you is still sealed**, whether or not
+      its day has come (the brief's "unopened sealed letter"); VoiceOver
+      says which. A presence, never a number.
+    - **A third tab on Sunday evenings**, above those two, in the accent
+      with a moon: "How was your week?", which opens the reflection
+      sheet. Only in the window (`ReflectionWindow`) and until the week's
+      is written. The brief took away the screen the Sunday card was on
+      and didn't say where it goes, and a reflection has to be written
+      from somewhere. Not asked about; the card could go back to the You
+      tab instead.
+  - **The journal's name** is in Settings (a **Journal** group under
+    Appearance: **Journal Title**, an alert with a field; empty is "My
+    Journal") and, small in the hand, at the head of each month's opening
+    page. `JournalName` in `Book.swift`; `BookCover.swift` is deleted.
+  - **Paper.** Light `#FAF7F0` (it was `#FCF7EB`), dark `#141414`. A
+    grain in both, barely there in the dark; rules very faint in daylight
+    and 5% white in the dark; a shade at the spine and a fainter one at
+    the outer edge. The page and the book's edge go on down behind the
+    tab bar (`BookFoot`), so the bar sits on paper
+    (`solidTabBar(_:floor:fades:)`).
+  - **Gone with the cover:** the cover screen and the tap to open, the
+    opening and shutting, the swipe down and the chevron that shut it,
+    the "+", the pull to write, the Letters and Prompts cards, the ribbon
+    that marked today, the place marker along the foot and its date
+    picker (the ribbon is the way to a date now), "October 2026 –
+    present", and renaming by a long press.
+  - **Kept:** the curl (the system's own timing), the pinch to the grid,
+    the long-press menus, every kind of page, `HeldViewer`, and the
+    widget with its link (`stanley://journal?day=…`, which now selects the
+    tab and goes to the day: `AppState.journalDay`).
+  - **Fixed on the way.** A keyboard took room from the tab's
+    `GeometryReader` whatever it was told to ignore (seen on iOS 26.5), so
+    the page was measured again at half its height: the fore-edge
+    squashed up, and every long day would have broken anew. The page
+    keeps its size while a keyboard is up or something that brings one is
+    showing (`BookView.held`). The reader also reports no bottom inset for
+    the tab bar, only stops above it, so the foot under the bar is drawn
+    taller than any bar.
+  - **Checked on the iPhone 17 Pro simulator**, light and dark: today's
+    page blank and written, a letter page, a reflection page, a month's
+    opening page, the Sunday tab. In light only: writing in place with
+    the keyboard up and with a hardware keyboard, a change of ink while
+    writing, Done and the page as kept, the curl by swipe (from the middle
+    of the page and from the screen's edge), the ribbon dragged, a photo
+    page, the grid by pinch and a page picked from it, the long-press menu
+    and tearing a page out, both sheets, an opened letter picked from
+    Letters turning to its page, the week's sheet from the Sunday tab
+    (`STANLEY_SUNDAY_EVENING=1`), leaving the tab and coming back to
+    today's page, the widget's link (`STANLEY_OPEN_URL`), and Journal
+    Title in Settings. **On the Duo's cover**, light: today's page and a
+    turn back (the book stops at the dock's strip, which is the floor).
+    The Release configuration compiles. **Not seen:** a real phone; the
+    Duo's inner display; VoiceOver (the adjustable ribbon, the tabs);
+    Reduce Motion (sliding pages, the still cursor); large Dynamic Type;
+    iOS 17; a real Sunday evening; the widget on a real Home Screen; a
+    day long enough to run over a page being written again in place (the
+    writing shows the whole day from its top, not the part that was
+    open).
+
 - **The journal as a book** (build 45, November 14, 2026, a product brief
   from Ayush, "Part 1 of 2"; screenshots in `docs/journal-book-build45/`).
-  The Journal tab is no longer a list. It opens to a book's cover; a tap
+  **Build 46 took the cover away and made the tab the pages themselves
+  (the section above, which wins where the two differ).** Kept here for
+  the pages, the server and the widget, and as history. As built: the
+  Journal tab is no longer a list. It opens to a book's cover; a tap
   opens the book over the whole app, and its pages turn sideways. Phone
-  and server both; **it needs a deploy** (below).
+  and server both; the server side is on Fly as v26 (below).
   - **The cover screen** (`MemoriesView`, `BookCover.swift`): a dateline
     and a "+" where Today has its own (the "+" writes today's page), then
     the cover, large: the journal's name in a hand (default "My Journal"),
@@ -611,8 +744,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     19pt up to 25pt and the pages re-break); iOS 17 (no pull); the widget
     on a real Home Screen; a Sunday reflection becoming a page (tests and
     a seeded one only).
-  - **Part 2 hasn't been given.** Left for it or for a decision: mood and
-    its grid pages, the jar, a two-page spread on the inner display.
+  - **Part 2** was build 46's brief (above), which redrew the tab and
+    asked for none of these. Still left for a decision: mood and its grid
+    pages, the jar, a two-page spread on the inner display.
 
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
   orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
@@ -1186,8 +1320,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (45)", at the
+  production audit), and the version, "Stanley 0.2.0 (46)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
+  Build 46 added a sixth group, **Journal**, under Appearance: Journal
+  Title (shown only when the server keeps one).
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
   Since build 20 it sits on the journal's paper under its own masthead
@@ -1716,17 +1852,19 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 45** (0.2.0) is the number to archive next: the journal as a
-  book (above). The next upload carries builds 41 to 45 (43 was only a
-  bump; 44 is the Quiet Warmth design pass, which also removed the filters
-  and rest-a-memory from the app). The last build uploaded is 40.
-- **Build 45 needs a deploy, and hasn't had one.** Fly is still v25. Until
-  `fly deploy`: `/me/journal` is a 404, so a build 45 phone shows the book
-  of what's kept with no way to write a page, no blank page and nothing
-  for the Journal widget to show; and `/terms` and `/privacy` say November
-  13 while the app's own copies say November 14. On the first start the
-  server makes `journal_pages` and adds `users.journal_title`. Nothing
-  else changes for older builds.
+- **Build 46** (0.2.0) is the number to archive next: the Journal tab as
+  its pages (above). Phone only, so nothing to deploy for it. The next
+  upload carries builds 41 to 46 (43 was only a bump; 44 is the Quiet
+  Warmth design pass, which also removed the filters and rest-a-memory
+  from the app; 45 is the journal as a book, never archived on its own).
+  The last build uploaded is 40.
+- **Build 45's server is on Fly** (2026-11-14): release **v26** runs
+  `main` as of `33ef9aa`. Checked after the deploy: `/health` ok; the five
+  `/me/journal` routes answer 401 without a sign-in; `/terms` and
+  `/privacy` say November 14 and the policy has the Journal widget's
+  paragraph; `journal_pages` and `users.journal_title` exist on the
+  volume; integrity ok, no foreign-key problems. Nothing changes for
+  older builds. Not yet seen: a real phone writing a page to it.
 - **A flaky server test, fixed** (November 13). `test_journaling.py::
   test_nothing_about_the_question_counts_anyone` failed one run in forty:
   it looked for "count" in every string of the payload, and one of the
@@ -2149,12 +2287,12 @@ live APNs, concurrency under real load.
   countdown, its phases and the route under Today's dateline; build 36:
   the flip clock and the day's reminder slip), `WidgetFeed.swift` (build
   40: what the app leaves for its widget, and the Debug gallery),
-  `MemoriesView.swift` (the Journal tab: kept photos, letters, pages, questions), `ProfileView.swift` (You +
+  `MemoriesView.swift` (the Journal tab, which is `BookView`; and the Letters sheet's page), `ProfileView.swift` (You +
   milestones), `Writing.swift` (build 26: the journal entry slip and sheet,
   the question slip, answers and circle journal, the Sunday card, the
   reflection sheet and pages), `CircleLetters.swift` (build 42: the
   envelope, Today's two letter cards, the writing sheet, the opened letters
-  and their slips), `SettingsView.swift` (the five groups, invite code, circle
+  and their slips), `SettingsView.swift` (the six groups, invite code, circle
   name, the Quiet switches), `AboutView.swift` (About Stanley, About Your
   Account), `Legal.swift` (Terms and Privacy, from `legal.py`), `Push.swift`
   (permission, the APNs token, `AppDelegate`), `CircleGateView.swift`
@@ -2171,13 +2309,15 @@ live APNs, concurrency under real load.
   `WidgetViews.swift`, and the look the two share: `Countdown.swift`,
   `AtmospherePalette.swift`, `PaperGrain.swift`, `Hand.swift`,
   `JournalColors.swift`, `NotePaper.swift`)
-- The journal as a book (build 45): `MemoriesView.swift` (the cover
-  screen, the Letters page), `BookCover.swift` (the cover), `Book.swift`
-  (the page's size, the kinds of page, `Paginator`, `BookBuilder`),
-  `BookPages.swift` (each page drawn, `InkText`, the long-press menu, the
-  small pages of the grid), `BookView.swift` (the open book: `PageTurner`,
-  the grid, the ribbon, the place marker, opening and shutting),
-  `BookWriting.swift` (writing a page, the ruled text view, the inks),
+- The journal's pages (builds 45 and 46): `MemoriesView.swift` (the
+  tab, and `LettersPage` for the Letters sheet), `Book.swift` (the page's
+  size, the kinds of page, `Paginator`, `BookBuilder`, `JournalName`),
+  `BookPages.swift` (each page drawn: `BookSheet`, `PageHeading`,
+  `InkText`, the blank page's cursor, the tap on today's page, the
+  long-press menu, the small pages of the grid), `BookView.swift` (the
+  tab: `PageTurner` and `TurnerHost`, `BookEdge` with the ribbon and the
+  paper tabs, `BookFoot`, the grid),
+  `BookWriting.swift` (`PageWriting`, the ruled text view, the inks),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
   and `JournalWidget.swift` (the Journal widget's snapshot and views);
   its feed is in `WidgetFeed.swift`, its widget in `StanleyWidgets.swift`

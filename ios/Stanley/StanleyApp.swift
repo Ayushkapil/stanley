@@ -232,12 +232,11 @@ extension RootView {
     fileprivate func follow(_ url: URL) {
         guard url.scheme == "stanley" else { return }
         if url.host() == "today" { state.todayAsked += 1 }
-        // The Journal widget (build 45): the book, open at a day's page.
+        // The Journal widget (build 45): the journal, at a day's page.
         if url.host() == "journal", state.signedIn {
-            let day = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            state.journalDay = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first { $0.name == "day" }?.value
             state.journalAsked += 1
-            state.book = BookOpening(start: day.map { .day($0) } ?? .today, cover: nil)
         }
     }
 
@@ -275,6 +274,12 @@ struct HomeView: View {
             set: { chosen in
                 if chosen == tab, let page = Self.page(chosen) { state.tabTaps.tap(page) }
                 if chosen != tab { Trail.note(Self.step(chosen)) }
+                // The Journal tab lands on today's page each time it's
+                // come to (build 46).
+                if chosen == .held, tab != .held {
+                    state.journalDay = nil
+                    state.journalAsked += 1
+                }
                 tab = chosen
             }
         )
@@ -309,7 +314,9 @@ struct HomeView: View {
                 .tag(Tab.today)
             MemoriesView()
                 .darkRoomInk()
-                .solidTabBar(sideDock)
+                // The journal is paper to the foot of the screen: the bar
+                // sits on the page, and the page doesn't fade out above it.
+                .solidTabBar(sideDock, floor: BookPaper.page, fades: false)
                 .tabItem { Label("Journal", systemImage: "book.closed") }
                 .tag(Tab.held)
             ProfileView()
@@ -331,17 +338,13 @@ struct HomeView: View {
         // A tap on the widget's medium or large size: Today, whatever tab
         // the app was left on (build 40).
         .onChange(of: state.todayAsked) { tab = .today }
-        // The Journal widget: the Journal tab, under the open book.
+        // The Journal widget: the Journal tab, at the day it asked for.
         .onChange(of: state.journalAsked) { tab = .held }
-        // Under the open book the tabs aren't there to be read or pressed.
-        .accessibilityHidden(state.book != nil)
-        // The journal, open (build 45): over everything, the tab bar too.
-        .overlay {
-            if let opening = state.book {
-                BookView(opening: opening)
-                    .darkRoomInk()
-            }
-        }
+        // Asked before there were tabs (the app was opened by the widget).
+        .onAppear { if state.journalDay != nil { tab = .held } }
+        // The journal's pages, fetched ahead, so the tab opens on today's
+        // page and not on a blank one that fills in.
+        .task { await state.loadBook() }
         // A single ink above the tabs, as the dark room always had: the
         // three levels set inside each tab (`darkRoomInk`) reached the tab
         // bar's symbols and drew the selected one in ink instead of the
@@ -367,9 +370,13 @@ struct HomeView: View {
 private struct SolidTabBar: ViewModifier {
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let sideDock: CGRect?
+    /// The Journal tab's own floor: its paper.
+    var paper: Color?
+    /// Whether the page fades into a band of the floor under the bar.
+    var fades = true
 
     func body(content: Content) -> some View {
-        let floor = Atmosphere.resolve(raw).palette.floor
+        let floor = paper ?? Atmosphere.resolve(raw).palette.floor
         if #available(iOS 26, *) {
             content
                 // The page stops a point short of the bar instead of running
@@ -381,7 +388,9 @@ private struct SolidTabBar: ViewModifier {
                 .padding(.bottom, sideDock == nil ? 1 : 0)
                 .background(floor.ignoresSafeArea())
                 .overlay {
-                if sideDock == nil {
+                // (Not over the journal: its page and its edge are drawn
+                // on down behind the bar, and nothing scrolls there.)
+                if sideDock == nil, fades {
                     GeometryReader { geo in
                         VStack(spacing: 0) {
                             Spacer(minLength: 0)
@@ -411,7 +420,9 @@ private struct SolidTabBar: ViewModifier {
 }
 
 private extension View {
-    func solidTabBar(_ sideDock: CGRect?) -> some View { modifier(SolidTabBar(sideDock: sideDock)) }
+    func solidTabBar(_ sideDock: CGRect?, floor: Color? = nil, fades: Bool = true) -> some View {
+        modifier(SolidTabBar(sideDock: sideDock, paper: floor, fades: fades))
+    }
 }
 
 /// The launch, when Stanley can't be reached. Without an answer nobody knows

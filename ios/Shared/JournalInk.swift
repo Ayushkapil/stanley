@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-// The journal as a book (build 45): its three inks and its paper, shared by
-// the app and the Journal widget so a page looks the same in both.
+// The journal's pages (builds 45 and 46): their three inks and their paper,
+// shared by the app and the Journal widget so a page looks the same in both.
 
 /// The ink a page is written in. Chosen per page; the last one used is the
 /// next page's to start with.
@@ -46,16 +46,16 @@ enum Ink: String, CaseIterable, Codable, Identifiable {
 /// The book's paper. Warm cream in daylight; in the dark a very dark
 /// charcoal, not the dark room's black, so a page still reads as paper.
 enum BookPaper {
-    private static let day = UIColor(red: 0.988, green: 0.968, blue: 0.921, alpha: 1)     // #FCF7EB
+    private static let day = UIColor(red: 0.980, green: 0.969, blue: 0.941, alpha: 1)     // #FAF7F0
     private static let night = UIColor(red: 0.078, green: 0.078, blue: 0.078, alpha: 1)   // #141414
 
     static let pageUI = UIColor { $0.userInterfaceStyle == .dark ? night : day }
     static let page = Color(pageUI)
 
-    /// The ruled lines: very faint in daylight, not there in the dark.
+    /// The ruled lines: very faint in daylight, all but gone in the dark.
     static let ruleUI = UIColor {
         $0.userInterfaceStyle == .dark
-            ? .clear
+            ? UIColor(white: 1, alpha: 0.05)
             : UIColor(red: 0.16, green: 0.14, blue: 0.11, alpha: 0.10)
     }
     static let rule = Color(ruleUI)
@@ -69,17 +69,31 @@ enum BookPaper {
     }
     static let quiet = Color(quietUI)
 
-    /// The cover: a deeper cream card in daylight, deep charcoal in the dark.
-    static let cover = Color(UIColor {
+    /// The page under this one, where its edge shows at the right: a
+    /// shade off the page's own tone.
+    static let next = Color(UIColor {
         $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.149, green: 0.141, blue: 0.129, alpha: 1)  // #262421
-            : UIColor(red: 0.945, green: 0.910, blue: 0.835, alpha: 1)  // #F1E8D5
+            ? UIColor(red: 0.125, green: 0.122, blue: 0.118, alpha: 1)  // #201F1E
+            : UIColor(red: 0.945, green: 0.925, blue: 0.886, alpha: 1)  // #F1ECE2
     })
-    /// What's written on the cover.
-    static let coverInk = Color(UIColor {
+    /// The rest of the book seen edge-on: every page behind, stacked.
+    static let edge = Color(UIColor {
         $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.941, green: 0.922, blue: 0.890, alpha: 1)
-            : UIColor(red: 0.20, green: 0.17, blue: 0.13, alpha: 1)
+            ? UIColor(red: 0.047, green: 0.047, blue: 0.047, alpha: 1)  // #0C0C0C
+            : UIColor(red: 0.910, green: 0.886, blue: 0.835, alpha: 1)  // #E8E2D5
+    })
+    /// A paper tab sticking out past the page's edge: manila, a little
+    /// off the page's color.
+    static let tab = Color(UIColor {
+        $0.userInterfaceStyle == .dark
+            ? UIColor(red: 0.196, green: 0.184, blue: 0.169, alpha: 1)  // #322F2B
+            : UIColor(red: 0.906, green: 0.855, blue: 0.757, alpha: 1)  // #E7DAC1
+    })
+    /// What's drawn on a tab.
+    static let tabInk = Color(UIColor {
+        $0.userInterfaceStyle == .dark
+            ? UIColor(red: 0.941, green: 0.922, blue: 0.890, alpha: 0.8)
+            : UIColor(red: 0.20, green: 0.17, blue: 0.13, alpha: 0.8)
     })
 }
 

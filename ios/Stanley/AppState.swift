@@ -59,12 +59,13 @@ final class AppState {
     /// what the journal is called (nil is "My Journal").
     var journalPages: [DayPage] = []
     var journalTitle: String?
-    /// The server has the book, so a page can be written. False against a
-    /// server from before build 45: the book still opens, on what's kept.
+    /// The server has the journal, so a page can be written. False against
+    /// a server from before build 45: the pages are what's kept, and
+    /// there's no page for today.
     var journalWritable = false
-    /// The book, while it's open: where it opened to, and the cover it
-    /// grew from. Drawn over the tabs by `HomeView`.
-    var book: BookOpening?
+    /// The day the Journal widget asked for ("2026-11-14"), until the
+    /// journal has gone there; nil is today's page.
+    var journalDay: String?
     var news: [NewsArticle] = []
     /// Headlines from the town the phone is in, and that town's name. Empty
     /// without location permission.
@@ -402,7 +403,7 @@ final class AppState {
         journalPages = []
         journalTitle = nil
         journalWritable = false
-        book = nil
+        journalDay = nil
         news = []
         nearby = []
         nearbyTown = nil
@@ -881,7 +882,8 @@ final class AppState {
     let tabTaps = TabTaps()
     /// Bumped when the home screen widget asks for Today (build 40).
     var todayAsked = 0
-    /// Bumped when the Journal widget asks for the book (build 45).
+    /// Bumped when the journal should go to a page: today's, each time
+    /// the tab is come to; `journalDay`'s, when its widget asks.
     var journalAsked = 0
 
     /// Post today's photo. True when it's up; false when there was no signal

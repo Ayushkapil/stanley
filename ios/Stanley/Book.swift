@@ -1,53 +1,61 @@
 import SwiftUI
 import UIKit
 
-// The journal as a book (build 45). What was a list under the Journal tab
-// is a book with a cover: it opens, its pages turn sideways, and they run
-// oldest first as a book is read. This file is the book itself, before
-// anything is drawn: how big a page is, what kinds of page there are, how a
-// long day is broken across pages, and how the pages are put in order.
+// The journal's pages (build 46; a book with a cover in build 45). The
+// Journal tab is the pages themselves: it lands on today's, and everything
+// before it lies behind, a swipe to the right at a time. This file is the
+// book before anything is drawn: how big a page is, what kinds of page
+// there are, how a long day is broken across pages, and how the pages are
+// put in order (oldest first, as a book is bound, so today's is the last
+// and turning back goes back).
 //
 // Everything in it is the person's own, and nobody else ever sees it: the
 // pages they wrote, the photos they kept, the letters written to them and
 // opened, and their weekly reflections.
 
-/// How the book was asked to open: to which page, and from where on the
-/// screen its cover should grow.
-struct BookOpening: Equatable {
-    enum Start: Equatable {
-        /// Where the ribbon is: today's page.
-        case today
-        /// A day's page ("2026-11-14"), as the widget asks.
-        case day(String)
-        /// The very first page.
-        case first
-    }
+/// Which page the journal should be at when it's shown.
+enum BookStart: Equatable {
+    /// Today's page, where the tab lands.
+    case today
+    /// A day's page ("2026-11-14"), as the widget asks.
+    case day(String)
+}
 
-    var start: Start = .today
-    /// The cover on the Journal tab, in the screen's coordinates. Nil when
-    /// the book was opened from somewhere with no cover (the widget).
-    var cover: CGRect?
+/// What the journal is called when nobody has named it, and how long a
+/// name may be. The name is kept in Settings since build 46 (it was
+/// written on a cover) and shows at the head of each month's opening page.
+enum JournalName {
+    static let fallback = "My Journal"
+    static let limit = 60
+
+    static func shown(_ title: String?) -> String {
+        let given = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return given.isEmpty ? fallback : given
+    }
 }
 
 /// The size of a page and where things sit on it. One of these is made from
-/// the screen the book is on; pages are broken and drawn from the same one,
-/// so what the breaker fits is what the page shows.
+/// the room the Journal tab has; pages are broken and drawn from the same
+/// one, so what the breaker fits is what the page shows.
 struct BookLayout: Hashable {
+    /// The strip down the right of the page that isn't page: the rest of
+    /// the book seen edge-on, where the ribbon and the paper tabs are.
+    static let edge: CGFloat = 18
+
+    /// The page itself: from the screen's top to the tab bar, and from the
+    /// left edge to where the fore-edge begins.
     let width: CGFloat
     let height: CGFloat
     /// The screen's own safe edges: the page runs under them, its words don't.
     let safeTop: CGFloat
     let safeBottom: CGFloat
-    /// And its sides: nothing on an ordinary iPhone; on the Duo's cover the
-    /// camera, the clock and the tab dock sit in a strip down the trailing
-    /// side, which the paper runs under and the writing stops short of.
     let safeLeading: CGFloat
     let safeTrailing: CGFloat
     /// The hand's size, following Dynamic Type within reason: a page has to
     /// hold a fair few lines to be a page.
     let fontSize: CGFloat
 
-    init(size: CGSize, safeTop: CGFloat, safeBottom: CGFloat, safeLeading: CGFloat = 0, safeTrailing: CGFloat = 0) {
+    init(size: CGSize, safeTop: CGFloat, safeBottom: CGFloat = 0, safeLeading: CGFloat = 0, safeTrailing: CGFloat = 0) {
         width = size.width
         height = size.height
         self.safeTop = safeTop
@@ -57,16 +65,25 @@ struct BookLayout: Hashable {
         fontSize = min(25, max(17, UIFontMetrics(forTextStyle: .body).scaledValue(for: 19).rounded()))
     }
 
-    /// The book on the screen Stanley is on, for when a page's number is
-    /// wanted and the book isn't open (the widget's).
+    /// The page as the Journal tab last drew it.
+    @MainActor static var shown: BookLayout?
+
+    /// The page for when a page's number is wanted and the journal hasn't
+    /// been on screen yet this launch (the widget's): as the tab last drew
+    /// it, or as near as can be told from the screen.
     @MainActor
     static func forScreen() -> BookLayout {
+        if let shown { return shown }
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
         let insets = scene?.keyWindow?.safeAreaInsets ?? .zero
+        let screen = Density.canvasBounds().size
+        // A tab bar along the foot takes its own height above the home
+        // indicator; a dock down the side (the Duo's cover) takes none.
+        let foot = insets.right > 0 ? insets.bottom : insets.bottom + 49
         return BookLayout(
-            size: Density.canvasBounds().size, safeTop: insets.top, safeBottom: insets.bottom,
-            safeLeading: insets.left, safeTrailing: insets.right
+            size: CGSize(width: screen.width - insets.right - edge, height: screen.height - foot),
+            safeTop: insets.top, safeLeading: insets.left
         )
     }
 
@@ -76,26 +93,33 @@ struct BookLayout: Hashable {
     /// The page's side margin, inside the screen's safe sides. On a wide
     /// screen the column stops at a readable width and the margins take
     /// the rest.
-    var margin: CGFloat { max(30, (width - safeLeading - safeTrailing - 520) / 2) }
+    var margin: CGFloat { max(28, (width - safeLeading - safeTrailing - 520) / 2) }
     /// Where the writing starts and ends, from the page's left edge.
     var left: CGFloat { safeLeading + margin }
     var right: CGFloat { width - safeTrailing - margin }
     var textWidth: CGFloat { right - left }
-    /// The middle of the column, which isn't the middle of the page when
-    /// one side is given up to the Duo's strip.
     var middle: CGFloat { (left + right) / 2 }
-    /// Where the first line begins: under the close mark and the ribbon.
-    var contentTop: CGFloat { safeTop + 52 }
-    /// Where the last line may end: above the page's number and the place
-    /// marker along the foot.
-    var contentBottom: CGFloat { height - safeBottom - 60 }
+    /// The date, small, at the head of the page: where its line's middle is.
+    var headY: CGFloat { safeTop + 20 }
+    /// The hand's size for the date at the head.
+    var headSize: CGFloat { fontSize - 4 }
+    /// Where the first line begins: under the date.
+    var contentTop: CGFloat { safeTop + 42 }
+    /// Where the last line may end: above the page's number (or the inks).
+    var contentBottom: CGFloat { height - safeBottom - Self.foot }
     var rows: Int { max(4, Int((contentBottom - contentTop) / pitch)) }
     var textHeight: CGFloat { CGFloat(rows) * pitch }
     /// How far above the foot of its line a rule is drawn: just under the
     /// letters' feet, where a ruled line sits.
     var ruleRise: CGFloat { max(0, -font.descender - 3) }
-    /// Where the page's number sits, from the top.
-    var numberY: CGFloat { height - safeBottom - 36 }
+    /// The band along the foot that holds the page's number when it's read
+    /// and the three inks when it's written.
+    static let foot: CGFloat = 50
+    /// The middle of that band.
+    var numberY: CGFloat { height - safeBottom - Self.foot / 2 }
+    /// The ribbon down the fore-edge runs between these.
+    var trackTop: CGFloat { safeTop + 18 }
+    var trackBottom: CGFloat { height - safeBottom - 18 }
 
     /// A letter is its own sheet laid on the page, a little in from the
     /// page's margins, with its own margins inside.
@@ -143,6 +167,25 @@ struct BookPage: Identifiable {
         }
     }
 
+    /// What's written small at the head of the page: its day; a
+    /// reflection's week; nothing on a month's opening page.
+    var heading: String? {
+        switch kind {
+        case .chapter: nil
+        case .reflection(let reflection): BookType.weekTitle(reflection)
+        default: BookType.dayTitle(date)
+        }
+    }
+
+    /// The day's own page: the one that can still be written on by a tap.
+    var isToday: Bool {
+        switch kind {
+        case .today: true
+        case .written(let written): written.day == WidgetSnapshot.day(.now)
+        default: false
+        }
+    }
+
     /// A few words for VoiceOver and the page grid.
     var name: String {
         let day = date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
@@ -164,7 +207,7 @@ struct Book {
 
     static let empty = Book(pages: [])
 
-    /// The page the ribbon marks: today's own page, written or blank; with
+    /// Where the tab lands: today's own page, written or blank; with
     /// neither (a server that can't take a page), the last page there is.
     var todayIndex: Int {
         let today = WidgetSnapshot.day(.now)
@@ -187,20 +230,8 @@ struct Book {
         }
     }
 
-    /// The first page from a day or after it; past the end, the last page.
-    func index(onOrAfter date: Date) -> Int {
-        let day = Calendar.current.startOfDay(for: date)
-        return pages.firstIndex { Calendar.current.startOfDay(for: $0.date) >= day } ?? max(0, pages.count - 1)
-    }
-
     func index(id: String) -> Int? { pages.firstIndex { $0.id == id } }
 
-    /// The first and last days the book covers, for jumping to a date.
-    var span: ClosedRange<Date> {
-        let first = pages.first?.date ?? .now
-        let last = max(pages.last?.date ?? .now, .now)
-        return min(first, last)...last
-    }
 }
 
 // MARK: - Breaking words across pages
@@ -295,26 +326,22 @@ enum BookType {
             : date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
     }
 
-    /// A day's page: the date written at its head, a line left, then the day.
-    static func written(_ page: DayPage, date: Date, layout: BookLayout) -> NSAttributedString {
-        let ink = Ink.named(page.ink).ui
-        let text = NSMutableAttributedString(
-            string: dayTitle(date) + "\n\n",
-            attributes: writing(layout, ink: ink, bold: true, size: layout.fontSize + 1)
-        )
-        text.append(NSAttributedString(string: page.body, attributes: writing(layout, ink: ink)))
-        return text
+    /// "Week of November 9": a reflection's heading, where a day's page
+    /// has its date.
+    static func weekTitle(_ reflection: Reflection) -> String {
+        let monday = WeekRange.day(reflection.weekStart)
+        return "Week of " + (monday?.formatted(.dateTime.month(.wide).day()) ?? reflection.weekStart)
     }
 
-    /// A week's reflection: "week of" and its Monday, small, then the words.
+    /// A day's page: the day, in its ink. (Its date is at the head of the
+    /// page, small, not in the writing: build 46.)
+    static func written(_ page: DayPage, layout: BookLayout) -> NSAttributedString {
+        NSAttributedString(string: page.body, attributes: writing(layout, ink: Ink.named(page.ink).ui))
+    }
+
+    /// A week's reflection: the words. Its week is at the head of the page.
     static func reflection(_ reflection: Reflection, layout: BookLayout) -> NSAttributedString {
-        let monday = WeekRange.day(reflection.weekStart)
-        let head = "WEEK OF " + (monday?.formatted(.dateTime.month(.wide).day()).uppercased() ?? reflection.weekStart)
-        let text = NSMutableAttributedString(
-            string: head + "\n\n", attributes: printed(layout, color: BookPaper.quietUI)
-        )
-        text.append(NSAttributedString(string: reflection.body, attributes: writing(layout, ink: Ink.black.ui)))
-        return text
+        NSAttributedString(string: reflection.body, attributes: writing(layout, ink: Ink.black.ui))
     }
 
     /// A letter, as it was written: who it's from at its head, the words,
@@ -367,8 +394,11 @@ enum BookBuilder {
 
     private struct Leaf {
         let day: Date
-        /// Within a day: what was written, then what was kept, then what
-        /// arrived, then how the week was.
+        /// Within a day: what was kept, then what arrived, then how the
+        /// week was, and last what was written about it. The day's own
+        /// page closes the day, so today's is always the last page of the
+        /// book and everything else is behind it (build 46; it opened the
+        /// day in build 45, when the book was read from the front).
         let order: Int
         let moment: Date
         let pages: [BookPage]
@@ -381,7 +411,7 @@ enum BookBuilder {
         for page in state.journalPages {
             guard let date = WeekRange.day(page.day) else { continue }
             let pieces = Paginator.split(
-                BookType.written(page, date: date, layout: layout), width: layout.textWidth, height: layout.textHeight
+                BookType.written(page, layout: layout), width: layout.textWidth, height: layout.textHeight
             )
             let pages = pieces.enumerated().map { part, piece in
                 BookPage(
@@ -389,7 +419,7 @@ enum BookBuilder {
                     text: piece.text, textHeight: piece.height, part: part, parts: pieces.count
                 )
             }
-            leaves.append(Leaf(day: date, order: 0, moment: date, pages: pages))
+            leaves.append(Leaf(day: date, order: 8, moment: date, pages: pages))
         }
 
         for thread in state.threads {
@@ -459,23 +489,5 @@ enum BookBuilder {
             pages.append(contentsOf: leaf.pages)
         }
         return Book(pages: pages)
-    }
-
-    /// "November 2026 – present": the months the book covers, for its cover.
-    static func span(_ state: AppState, now: Date = .now) -> String {
-        var first = now
-        for page in state.journalPages {
-            if let date = WeekRange.day(page.day) { first = min(first, date) }
-        }
-        for memory in state.threads.flatMap(\.memories) {
-            if let date = memory.takenAt ?? memory.anchoredAt { first = min(first, date) }
-        }
-        for letter in state.lettersReceived.opened {
-            if let date = letter.openedAt { first = min(first, date) }
-        }
-        for reflection in state.reflections {
-            if let date = WeekRange.day(reflection.weekStart) { first = min(first, date) }
-        }
-        return "\(first.formatted(.dateTime.month(.wide).year())) – present"
     }
 }

@@ -35,8 +35,8 @@ struct LetterFace {
 
 // MARK: - The Letters page: "Write to someone"
 
-/// On the Letters page, reached from under the journal's cover (it was on
-/// the You tab until build 45): the "Write to someone" slip, and a short
+/// On the Letters sheet, behind the envelope tab at the journal's edge (it
+/// was on the You tab until build 45): the "Write to someone" slip, and a short
 /// list of sealed letters on their way (so the sender knows what's out
 /// there and can take one back).
 struct LettersOnYou: View {
@@ -175,8 +175,7 @@ private struct MiniEnvelope: View {
 
 // MARK: - The Letters page: sealed envelopes
 
-/// The letters written to you that are still sealed, on the Letters page
-/// under the journal's cover. Each envelope is a tap target; before its
+/// The letters written to you that are still sealed, on the Letters sheet. Each envelope is a tap target; before its
 /// day the tap says "Not yet", on the day it opens the reader with the
 /// seal-break animation. Once opened, a letter is a page of the book
 /// (build 45; opened ones lay here too until then).
@@ -206,6 +205,56 @@ struct LettersOnHeld: View {
                     ForEach(sealed) { letter in
                         SealedEnvelopeView(letter: letter) { onOpen(letter) }
                     }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - The Letters sheet: the ones you've opened
+
+/// The letters you've opened, on the Letters sheet: who each was from and
+/// the day it was opened. Each is a page of the journal; a tap closes the
+/// sheet and turns to it. No count, only the list.
+struct LettersOpened: View {
+    @Environment(AppState.self) private var state
+    let onRead: (Letter) -> Void
+
+    var body: some View {
+        let opened = state.lettersReceived.opened
+            .filter { $0.body != nil }
+            .sorted { ($0.openedAt ?? .distantPast) > ($1.openedAt ?? .distantPast) }
+        if !opened.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                JournalSectionHead(label: "In your journal", title: "Opened", hand: true)
+                ForEach(opened) { letter in
+                    Button { onRead(letter) } label: {
+                        HStack(alignment: .center, spacing: 12) {
+                            Image(systemName: "envelope.open")
+                                .font(.system(size: 17, weight: .light))
+                                .foregroundStyle(.tint)
+                                .frame(width: 28)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("From \(letter.sender?.displayName ?? "someone")")
+                                    .font(.subheadline.weight(.medium))
+                                if let day = letter.openedAt {
+                                    Text("Opened \(day.formatted(.dateTime.month(.wide).day()))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Turns to its page in your journal")
                 }
             }
         }

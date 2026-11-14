@@ -2,9 +2,9 @@ import SwiftUI
 import UIKit
 import UserNotifications
 
-/// Settings, laid out the way iOS lays out its own: five groups, every row in
-/// one, and nothing loose. Circle, Appearance, Quiet, Privacy & Security,
-/// About. Anything serious (resetting the invite code, deleting the account)
+/// Settings, laid out the way iOS lays out its own: six groups, every row in
+/// one, and nothing loose. Circle, Appearance, Journal, Quiet, Privacy &
+/// Security, About. Anything serious (resetting the invite code, deleting the account)
 /// is a level down, behind its own page and a confirmation.
 struct SettingsView: View {
     @Environment(AppState.self) private var state
@@ -18,6 +18,9 @@ struct SettingsView: View {
 
     @State private var confirmLeave = false
     @State private var joiningAnother = false
+
+    @State private var namingJournal = false
+    @State private var journalName = ""
 
     @State private var exporting = false
     @State private var exportURL: URL?
@@ -35,6 +38,7 @@ struct SettingsView: View {
                 Group {
                     circleSection
                     appearanceSection
+                    journalSection
                     QuietSection(toggleTint: palette.toggle)
                     privacySection
                     aboutSection
@@ -54,8 +58,23 @@ struct SettingsView: View {
                     ? "You'll stop seeing this circle. Your other circles stay as they are, and the memories you've held stay yours."
                     : "You'll stop seeing the circle. The memories you've held stay yours.")
             }
+            .alert("Journal Title", isPresented: $namingJournal) {
+                TextField(JournalName.fallback, text: $journalName)
+                Button("Save") {
+                    let title = String(journalName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(JournalName.limit))
+                    Task { await state.renameJournal(title) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("It's written at the head of each month in your journal. Leave it empty for “\(JournalName.fallback)”. Only you see it.")
+            }
             .sheet(isPresented: $joiningAnother) { CircleGateView(another: true) }
-            .task { await state.loadCircle() }
+            .task {
+                await state.loadCircle()
+                // What the journal is called, if the Journal tab hasn't
+                // been opened to fetch it.
+                if !state.journalWritable { await state.loadJournal() }
+            }
             .sheet(isPresented: $showShare) {
                 if let exportURL {
                     ShareSheet(items: [exportURL])
@@ -126,6 +145,27 @@ struct SettingsView: View {
                 Text("Circle").smallCaps(11)
             } footer: {
                 Text("Stanley works best with people you actually know. Each circle keeps its own day: one photo a day in each.")
+            }
+        }
+    }
+
+    /// The journal's name (build 46; it was written on the journal's cover
+    /// and renamed there in build 45). Only with a server that keeps one.
+    @ViewBuilder
+    private var journalSection: some View {
+        if state.journalWritable {
+            Section {
+                Button {
+                    journalName = state.journalTitle ?? ""
+                    namingJournal = true
+                } label: {
+                    LabeledContent("Journal Title", value: JournalName.shown(state.journalTitle))
+                }
+                .foregroundStyle(.primary)
+            } header: {
+                Text("Journal").smallCaps(11)
+            } footer: {
+                Text("Your journal is yours alone: nobody else sees its pages or its name.")
             }
         }
     }

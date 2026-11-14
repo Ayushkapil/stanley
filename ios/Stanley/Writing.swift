@@ -87,7 +87,8 @@ enum RevealTime {
 
 /// The evening Stanley asks how the week was: Sunday from 6pm until
 /// midnight, on the phone's own clock. Nothing is sent: it's simply there
-/// when the You tab is opened then.
+/// then, as a paper tab at the edge of the journal's page (build 46; a
+/// card on the You tab, then on the Journal tab, before).
 enum ReflectionWindow {
     static func isOpen(_ date: Date = .now, calendar: Calendar = gregorian) -> Bool {
         #if DEBUG
@@ -525,6 +526,9 @@ struct AnswersSheet: View {
 /// circle's name atop Today and from Settings.
 struct CircleJournalView: View {
     @Environment(AppState.self) private var state
+    /// What the page is called in its bar: "Prompts" from the journal's
+    /// edge tab (build 46).
+    var title = "Circle Journal"
     @State private var weeks: [PastQuestion] = []
     @State private var cursor: String?
     @State private var loaded = false
@@ -583,7 +587,7 @@ struct CircleJournalView: View {
             .frame(maxWidth: .infinity)
         }
         .atmosphereWash()
-        .navigationTitle("Circle Journal")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .sunRefreshable {
             Haptics.refreshed()
@@ -650,44 +654,6 @@ struct WeekPhotoThumb: View {
             .opacity(1 - (colorScheme == .dark ? 0.62 : 0.82) * fade)
             .asPrint(corner: width > 60 ? 6 : 4)
             .accessibilityLabel(photo.caption ?? "Your photo from \(photo.takenAt.formatted(.dateTime.weekday(.wide)))")
-    }
-}
-
-/// Sunday evening, atop the You tab: "How was your week?" with the week's
-/// photos still there, as a slip tucked inside the cover. Gone at midnight,
-/// and once the week's reflection is written.
-struct ReflectionCard: View {
-    let week: ThisWeek
-    @State private var writing = false
-
-    var body: some View {
-        Button { writing = true } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("How was your week?")
-                        .font(.hand(26, bold: true, relativeTo: .title2))
-                    Text(WeekRange.text(week.weekStart, week.weekEnd))
-                        .quietLabel()
-                }
-                if !week.photos.isEmpty {
-                    HStack(spacing: 10) {
-                        ForEach(week.photos.prefix(7)) { photo in
-                            WeekPhotoThumb(photo: photo, width: 40)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                Text("A few lines for yourself. Only you see this.")
-                    .quietLabel()
-            }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .creamPaper()
-        .accessibilityHint("Write about your week")
-        .sheet(isPresented: $writing) { ReflectionSheet(week: week) }
     }
 }
 

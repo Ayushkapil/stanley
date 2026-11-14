@@ -1,14 +1,16 @@
 import SwiftUI
 import UIKit
 
-// Writing a page (build 45). A blank page of the book, ruled, with the
-// cursor on its first line; three inks at its foot. Done puts it into the
-// book at today's date. There is one page a day: writing today's again
-// replaces what was there. No counter and no limit shown: it's a journal.
+// Writing a page (build 46; a full-screen cover in build 45). The page is
+// written where it lies: a tap on today's page and the cursor is in it, the
+// same paper, the same rules, the same date at its head, the three inks
+// along its foot, riding up over the keyboard. Done keeps it at today's
+// date. There is one page a day: writing today's again replaces what was
+// there. No counter and no limit shown: it's a journal.
 
 /// The ink a new page starts in: the last one used.
 enum InkWell {
-    private static let key = "stanley.journal.ink"
+    static let key = "stanley.journal.ink"
 
     static var last: Ink {
         get { Ink.named(UserDefaults.standard.string(forKey: key)) }
@@ -22,20 +24,18 @@ enum InkWell {
 private struct RuledEditor: UIViewRepresentable {
     @Binding var text: String
     let ink: Ink
-    let fontSize: CGFloat
+    let layout: BookLayout
     /// The most a page holds. Far past a day's writing; never shown.
     let limit: Int
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> RuledTextView {
-        let view = RuledTextView(fontSize: fontSize)
+        // The words begin and end where the page's do.
+        let view = RuledTextView(fontSize: layout.fontSize, left: layout.left, right: layout.width - layout.right)
         view.delegate = context.coordinator
         view.text = text
         view.use(ink)
-        // The cursor is in the page as it opens: at the top of a blank
-        // one, after the last word of one being rewritten.
-        DispatchQueue.main.async { view.becomeFirstResponder() }
         return view
     }
 
@@ -66,7 +66,7 @@ final class RuledTextView: UITextView {
     private let pitch: CGFloat
     private(set) var ink: Ink = .black
 
-    init(fontSize: CGFloat) {
+    init(fontSize: CGFloat, left: CGFloat, right: CGFloat) {
         hand = BookHand.font(fontSize)
         pitch = ceil(hand.lineHeight)
         let storage = NSTextStorage()
@@ -81,7 +81,10 @@ final class RuledTextView: UITextView {
         backgroundColor = .clear
         alwaysBounceVertical = true
         keyboardDismissMode = .interactive
-        textContainerInset = UIEdgeInsets(top: 8, left: 30, bottom: 40, right: 30)
+        // Nothing above the first line: it sits where the page's first
+        // line sits, so the words don't move when the cursor arrives.
+        textContainerInset = UIEdgeInsets(top: 0, left: left, bottom: 28, right: right)
+        showsVerticalScrollIndicator = false
         autocapitalizationType = .sentences
         rules.isUserInteractionEnabled = false
         insertSubview(rules, at: 0)
@@ -90,6 +93,23 @@ final class RuledTextView: UITextView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    private var arrived = false
+
+    /// The cursor is in the page as it's laid down: at the top of a blank
+    /// one, after the last word of one being gone on with.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, !arrived else { return }
+        arrived = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window != nil else { return }
+            self.becomeFirstResponder()
+            let end = NSRange(location: (self.text as NSString).length, length: 0)
+            self.selectedRange = end
+            self.scrollRangeToVisible(end)
+        }
+    }
 
     /// Write in this ink from here on, and set what's already written in it:
     /// a page is one ink.
@@ -136,8 +156,8 @@ final class RuledTextView: UITextView {
         let color = BookPaper.ruleUI.resolvedColor(with: traitCollection)
         let made = UIGraphicsImageRenderer(size: size).image { context in
             color.setFill()
-            let y = (pitch - rise).rounded() - 0.25
-            context.fill(CGRect(x: 0, y: y, width: size.width, height: 0.5))
+            // Where `BookSheet` rules the page, to the half point.
+            context.fill(CGRect(x: 0, y: (pitch - rise).rounded(), width: size.width, height: 0.5))
         }
         tile = made
         return made
@@ -156,7 +176,7 @@ final class RuledTextView: UITextView {
 
 /// The three inks at the foot of the page: small circles, the one in use
 /// ringed.
-private struct InkPicker: View {
+struct InkPicker: View {
     @Binding var ink: Ink
 
     var body: some View {
@@ -183,14 +203,16 @@ private struct InkPicker: View {
     }
 }
 
-/// Writing mode: a page of the book with nothing on it but a date, to be
-/// written on.
-struct BookWritingView: View {
+/// A page being written, laid exactly over the page it is: the same sheet,
+/// the same date, the first line where the first line was. Cancel and Done
+/// are at the head, on the date's line, only while it's being written.
+struct PageWriting: View {
     @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let target: WritingTarget
+    let layout: BookLayout
+    /// Writing is over: kept, torn out, or let go.
+    let close: () -> Void
 
     @State private var text = ""
     @State private var ink = InkWell.last
@@ -199,8 +221,8 @@ struct BookWritingView: View {
     @State private var confirmDiscard = false
     @State private var confirmDelete = false
 
-    /// The page already in the book that this would replace: the one asked
-    /// for, or today's if it's been written.
+    /// The page already in the journal that this would replace: the one
+    /// asked for, or today's if it's been written.
     private var existing: DayPage? {
         switch target {
         case .page(let page): return state.journalPages.first { $0.id == page.id } ?? page
@@ -217,57 +239,49 @@ struct BookWritingView: View {
 
     private var words: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var changed: Bool { words != (existing?.body ?? "") || (existing != nil && Ink.named(existing?.ink) != ink) }
-    private var fontSize: CGFloat { BookLayout(size: .zero, safeTop: 0, safeBottom: 0).fontSize }
 
     var body: some View {
         let accent = Atmosphere.resolve(raw).palette.accent
         VStack(spacing: 0) {
-            // Cancel, the day, Done: along the head of the page.
-            HStack(alignment: .center) {
-                Button("Cancel") {
-                    if changed && !words.isEmpty { confirmDiscard = true } else { dismiss() }
-                }
-                .wordButton(bold: false)
-                .foregroundStyle(BookPaper.quiet)
-                Spacer()
-                Button(saving ? "Keeping…" : "Done") { done() }
-                    .wordButton()
-                    .foregroundStyle(accent)
-                    .disabled(saving || (words.isEmpty && existing == nil))
-                    .opacity(words.isEmpty && existing == nil ? 0.4 : 1)
-            }
-            .padding(.horizontal, 22)
-            .frame(height: 44)
-
-            Text(BookType.dayTitle(date))
-                .font(.custom(BookHand.font(fontSize + 1, bold: true).fontName, size: fontSize + 1, relativeTo: .body))
-                .foregroundStyle(ink.color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 30)
-                .padding(.top, 6)
-                .accessibilityAddTraits(.isHeader)
-
-            RuledEditor(text: $text, ink: ink, fontSize: fontSize, limit: 50_000)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            RuledEditor(text: $text, ink: ink, layout: layout, limit: 50_000)
+                .padding(.top, layout.contentTop)
+            // The three inks, where the page's number is when it's read.
             InkPicker(ink: $ink)
+                .frame(width: layout.textWidth, height: BookLayout.foot)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 2)
-                .background(BookPaper.page)
+                .padding(.leading, layout.left)
+                .padding(.trailing, layout.width - layout.right)
         }
-        .background {
-            ZStack {
-                BookPaper.page
-                if colorScheme != .dark {
-                    Image(uiImage: PaperGrain.tile)
-                        .resizable(resizingMode: .tile)
-                        .opacity(0.28)
+        .frame(width: layout.width)
+        .overlay(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
+                PageHeading(text: BookType.dayTitle(date), color: ink.color.opacity(0.7), layout: layout)
+                HStack(spacing: 18) {
+                    Button("Cancel") { cancel() }
+                        .wordButton(.subheadline, bold: false)
+                        .foregroundStyle(BookPaper.quiet)
+                    Button(saving ? "Keeping…" : "Done") { done() }
+                        .wordButton(.subheadline)
+                        .foregroundStyle(accent)
+                        .disabled(saving || (words.isEmpty && existing == nil))
+                        .opacity(words.isEmpty && existing == nil ? 0.4 : 1)
                 }
+                .frame(height: 44)
+                .frame(width: layout.textWidth, alignment: .trailing)
+                .position(x: layout.middle, y: layout.headY)
             }
-            .ignoresSafeArea()
+            .frame(width: layout.width, height: layout.contentTop, alignment: .topLeading)
         }
+        .background(alignment: .topLeading) {
+            // The same sheet, unruled: the rules are the text view's own,
+            // so they move with the words when a long day scrolls.
+            BookSheet(layout: layout, lined: false)
+        }
+        // Over the whole tab, the fore-edge too: nothing under a page
+        // being written is pressed.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .ignoresSafeArea(.container, edges: [.top, .horizontal])
         .onAppear {
             guard !began else { return }
             began = true
@@ -277,7 +291,7 @@ struct BookWritingView: View {
             }
         }
         .alert("Leave this page unwritten?", isPresented: $confirmDiscard) {
-            Button("Discard", role: .destructive) { dismiss() }
+            Button("Discard", role: .destructive) { close() }
             Button("Keep Writing", role: .cancel) {}
         } message: {
             Text(existing == nil ? "What you've written here won't be kept." : "Your changes won't be kept.")
@@ -289,19 +303,25 @@ struct BookWritingView: View {
                 Task {
                     await state.deletePage(existing)
                     saving = false
-                    dismiss()
+                    close()
                 }
             }
             Button("Keep Writing", role: .cancel) {}
         } message: {
             Text("A page with nothing on it isn't kept. This one would be gone for good.")
         }
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { cancel() }
+    }
+
+    private func cancel() {
+        if changed && !words.isEmpty { confirmDiscard = true } else { close() }
     }
 
     private func done() {
         // The ink is the next page's to start with, whatever happens to this one.
         InkWell.last = ink
-        guard changed else { dismiss(); return }
+        guard changed else { close(); return }
         // Every word rubbed out of a page that was there: it's being torn out.
         if words.isEmpty {
             confirmDelete = true
@@ -318,7 +338,7 @@ struct BookWritingView: View {
             saving = false
             if kept {
                 Haptics.pageKept()
-                dismiss()
+                close()
             }
         }
     }
