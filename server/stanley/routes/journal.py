@@ -19,13 +19,13 @@ from .. import journal, physics
 from ..decay import forget_journal
 from ..deps import get_clock, get_current_user, get_db, get_settings, membership_in, refuse_objectionable
 from ..models import (
-    Anchor, CirclePrompt, JournalEntry, Membership, Photo, PromptResponse, Report, User, WeeklyReflection,
-    new_id,
+    Anchor, CirclePrompt, JournalEntry, JournalPage, Membership, Photo, PromptResponse, Report, User,
+    WeeklyReflection, new_id,
 )
 from ..ratelimit import per_person
 from ..serialize import blocked_ids, iso, user_brief
 from ..storage import read_url
-from ..text import clean_optional
+from ..text import clean, clean_optional
 from .photos import valid_timezone
 
 router = APIRouter(tags=["journal"])
@@ -43,6 +43,23 @@ class ReflectionBody(BaseModel):
     body: str = Field(min_length=1, max_length=journal.REFLECTION_MAX)
     # The phone's zone, so the week is the writer's own.
     tz: str | None = Field(default=None, max_length=64)
+
+
+class TodaysPageBody(BaseModel):
+    body: str = Field(min_length=1, max_length=journal.PAGE_MAX)
+    ink: str = Field(default="black", max_length=8)
+    # The phone's zone, so the day is the writer's own.
+    tz: str | None = Field(default=None, max_length=64)
+
+
+class PagePatch(BaseModel):
+    body: str | None = Field(default=None, min_length=1, max_length=journal.PAGE_MAX)
+    ink: str | None = Field(default=None, max_length=8)
+
+
+class JournalTitleBody(BaseModel):
+    # Blank puts the app's own title back.
+    title: str = Field(max_length=200)
 
 
 class AnswerBody(BaseModel):
@@ -324,6 +341,146 @@ def delete_reflection(
 ):
     """A reflection never fades, but its writer can always take it back."""
     db.delete(_own_reflection(db, user, reflection_id))
+
+
+# --- The journal as a book: a page a day --------------------------------------
+#
+# Build 45. What someone writes in their journal on a day, in the ink they
+# chose. Nobody else reads it, anywhere: every route here is about the
+# caller's own pages, and anyone else's id answers 404. The slur filter
+# isn't on these: it's for what a circle reads (`wordfilter.py`), and a
+# private page that refused someone's own account of their day would be
+# keeping no one safe. Nothing here counts or notifies.
+
+BOOK_PAGE = 100
+BOOK_PAGE_MAX = 200
+
+
+def _page_payload(row: JournalPage) -> dict:
+    return {
+        "id": row.id,
+        "day": row.day.isoformat(),
+        "body": row.body,
+        "ink": row.ink,
+        "created_at": iso(row.created_at),
+        "updated_at": iso(row.updated_at),
+    }
+
+
+def _ink(value: str) -> str:
+    if value not in journal.INKS:
+        raise HTTPException(400, {"code": "bad_ink"})
+    return value
+
+
+def _words(value: str) -> str:
+    words = clean(value, multiline=True)
+    if not words:
+        raise HTTPException(400, {"code": "empty_page"})
+    return words
+
+
+def _own_page(db: Session, user: User, page_id: str) -> JournalPage:
+    row = db.get(JournalPage, page_id)
+    if row is None or row.owner_id != user.id:
+        raise HTTPException(404, "not found")
+    return row
+
+
+@router.get("/me/journal")
+def my_journal(
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    limit: int = Query(default=BOOK_PAGE, ge=1, le=BOOK_PAGE_MAX),
+    after: date | None = Query(default=None),
+):
+    """Your journal: what you call it, and its written pages from the
+    first day, oldest first as a book is read, a stretch at a time
+    (`after` is the last day of the stretch before)."""
+    rows = db.scalars(
+        select(JournalPage)
+        .where(JournalPage.owner_id == user.id, True if after is None else JournalPage.day > after)
+        .order_by(JournalPage.day)
+        .limit(limit + 1)
+    ).all()
+    stretch, more = rows[:limit], len(rows) > limit
+    return {
+        "title": user.journal_title,
+        "pages": [_page_payload(r) for r in stretch],
+        "next_after": stretch[-1].day.isoformat() if more else None,
+    }
+
+
+@router.put("/me/journal/today", dependencies=[per_person("journal")])
+def write_today(
+    body: TodaysPageBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """Today's page: the server says which day (the writer's own, from the
+    zone the phone sends). One a day: writing again replaces what was
+    there, it doesn't add to it."""
+    tz = _zone(user, body.tz)
+    words = _words(body.body)
+    ink = _ink(body.ink)
+    now = clock.now()
+    day = journal.local_day(now, tz)
+    db.execute(
+        sqlite_insert(JournalPage)
+        .values(id=new_id(), owner_id=user.id, day=day, body=words, ink=ink, created_at=now, updated_at=now)
+        .on_conflict_do_update(
+            index_elements=["owner_id", "day"],
+            set_={"body": words, "ink": ink, "updated_at": now},
+        )
+    )
+    row = db.scalars(
+        select(JournalPage).where(JournalPage.owner_id == user.id, JournalPage.day == day)
+    ).one()
+    db.refresh(row)
+    return _page_payload(row)
+
+
+@router.patch("/me/journal/pages/{page_id}", dependencies=[per_person("journal")])
+def edit_page(
+    page_id: str,
+    body: PagePatch,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+):
+    """Rewrite a page you've written, or change its ink. Its day stays."""
+    row = _own_page(db, user, page_id)
+    if body.body is not None:
+        row.body = _words(body.body)
+    if body.ink is not None:
+        row.ink = _ink(body.ink)
+    row.updated_at = clock.now()
+    return _page_payload(row)
+
+
+@router.delete("/me/journal/pages/{page_id}", status_code=204)
+def delete_page(
+    page_id: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """A page never fades, but its writer can always tear it out."""
+    db.delete(_own_page(db, user, page_id))
+
+
+@router.put("/me/journal/title")
+def name_journal(
+    body: JournalTitleBody,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+):
+    """What the journal is called, on its cover. Blank is the app's own."""
+    title = clean(body.title)
+    if len(title) > journal.TITLE_MAX:
+        raise HTTPException(400, {"code": "title_too_long"})
+    user.journal_title = title or None
+    return {"title": user.journal_title}
 
 
 # --- The circle's question of the week ----------------------------------------

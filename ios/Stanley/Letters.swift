@@ -5,7 +5,8 @@ import SwiftUI
 // A sealed letter from one person in a circle to another, held closed until
 // a day the sender chose. The envelope sits among held photos the way a
 // real letter would be tucked into a photo album. The seal is broken on
-// the day — never before — and the letter lives in Held afterwards.
+// the day — never before — and the letter is a page of the journal
+// afterwards (build 45; an opened envelope in Held until then).
 //
 // The sender writes from a "Write to someone" slip on the You tab, picks a
 // recipient from the circle's roster, chooses a date between a week and a
@@ -32,18 +33,19 @@ struct LetterFace {
     }
 }
 
-// MARK: - You tab: Letters section with "Write to someone"
+// MARK: - The Letters page: "Write to someone"
 
-/// What sits on the You tab under Journal (or wherever the page puts it):
-/// the "Write to someone" slip, and a short list of sealed letters on
-/// their way (so the sender knows what's out there and can take one back).
+/// On the Letters page, reached from under the journal's cover (it was on
+/// the You tab until build 45): the "Write to someone" slip, and a short
+/// list of sealed letters on their way (so the sender knows what's out
+/// there and can take one back).
 struct LettersOnYou: View {
     @Environment(AppState.self) private var state
     @State private var composing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.section) {
-            JournalSectionHead(label: "Only you see this", title: "Letters")
+            JournalSectionHead(label: "From you", title: "Yours to send", hand: true)
             Text("Write a letter now; Stanley holds it closed until the day you choose.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -171,23 +173,27 @@ private struct MiniEnvelope: View {
     }
 }
 
-// MARK: - Held tab: Letters section with sealed envelopes
+// MARK: - The Letters page: sealed envelopes
 
-/// The row of letters on the Held tab: sealed envelopes first (newest
-/// delivery day first, since those are what's coming), then opened ones.
-/// Each envelope is a tap target; before its day the tap says "Not yet",
-/// on the day it opens the reader with the seal-break animation.
+/// The letters written to you that are still sealed, on the Letters page
+/// under the journal's cover. Each envelope is a tap target; before its
+/// day the tap says "Not yet", on the day it opens the reader with the
+/// seal-break animation. Once opened, a letter is a page of the book
+/// (build 45; opened ones lay here too until then).
 struct LettersOnHeld: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var hSizeClass
-    @State private var reading: Letter?
+    /// A letter whose day has come was tapped. The page it's on shows the
+    /// reader, not this section: once the last sealed letter is opened this
+    /// section is gone, and a sheet of its own went with it mid-reading.
+    let onOpen: (Letter) -> Void
 
     var body: some View {
-        let received = state.lettersReceived
-        if received.sealed.isEmpty && received.opened.isEmpty { EmptyView() }
+        let sealed = state.lettersReceived.sealed
+        if sealed.isEmpty { EmptyView() }
         else {
             VStack(alignment: .leading, spacing: Spacing.section) {
-                JournalSectionHead(label: "Written to you", title: "Letters", hand: true)
+                JournalSectionHead(label: "Written to you", title: "Waiting", hand: true)
                 // One to a line on a phone; side by side on the Duo's
                 // inner display.
                 LazyVGrid(
@@ -197,16 +203,10 @@ struct LettersOnHeld: View {
                     ),
                     alignment: .leading, spacing: Spacing.section
                 ) {
-                    ForEach(received.sealed) { letter in
-                        SealedEnvelopeView(letter: letter) { reading = letter }
-                    }
-                    ForEach(received.opened) { letter in
-                        OpenedEnvelopeView(letter: letter) { reading = letter }
+                    ForEach(sealed) { letter in
+                        SealedEnvelopeView(letter: letter) { onOpen(letter) }
                     }
                 }
-            }
-            .sheet(item: $reading) { letter in
-                LetterReaderSheet(letter: letter)
             }
         }
     }
@@ -302,78 +302,6 @@ struct SealedEnvelopeView: View {
     }
 }
 
-/// An opened letter in Held: still an envelope, flap lifted, no seal. The
-/// recipient reads it again with a tap; a long press offers delete.
-struct OpenedEnvelopeView: View {
-    @Environment(AppState.self) private var state
-    @Environment(\.colorScheme) private var colorScheme
-    let letter: Letter
-    var onTap: () -> Void = {}
-    @State private var confirmDelete = false
-    @State private var reporting = false
-
-    var body: some View {
-        let dark = DarkRoom.isDark(colorScheme)
-        let face = LetterFace(letter: letter)
-        let sender = letter.sender?.displayName ?? "someone"
-
-        Button(action: onTap) {
-            ZStack {
-                // The whole front, filled: filling the shape itself left
-                // the flap's V as a hole the page showed through.
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Cream.paper(colorScheme))
-                    .overlay(
-                        EnvelopeShape(flapOpen: 1, flapAngle: 24)
-                            .stroke(Cream.ink.opacity(0.28), lineWidth: 0.6)
-                    )
-                    .shadow(color: .black.opacity(dark ? 0 : 0.1), radius: 4, x: 0.5, y: 2)
-                VStack(alignment: .leading, spacing: 4) {
-                    Spacer(minLength: 36)
-                    Text("From \(sender)")
-                        .font(.hand(20, bold: true, relativeTo: .headline))
-                    Text(face.inscription)
-                        .font(.hand(15, relativeTo: .caption))
-                        .foregroundStyle(.secondary)
-                    Text("Opened").font(.caption2).foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .aspectRatio(1.55, contentMode: .fit)
-            .onCream()
-            .rotationEffect(.degrees(PrintTilt.degrees(letter.id) * 0.4))
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button(role: .destructive) { confirmDelete = true } label: {
-                Label("Delete letter", systemImage: "trash")
-            }
-            Button { reporting = true } label: {
-                Label("Report letter", systemImage: "exclamationmark.bubble")
-            }
-        }
-        .confirmationDialog(
-            "Delete this letter?",
-            isPresented: $confirmDelete,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                Task { await state.deleteLetter(letter.id) }
-            }
-            Button("Keep it", role: .cancel) {}
-        } message: {
-            Text("The letter is gone for good. Only you had it.")
-        }
-        .sheet(isPresented: $reporting) {
-            ReportSheet(target: .letter(letter))
-        }
-        .accessibilityLabel("Opened letter from \(sender), \(face.inscription).")
-    }
-}
-
 // MARK: - The envelope shape
 
 /// An envelope, rounded, with a flap at the top that can be closed (0)
@@ -465,13 +393,18 @@ struct LetterReaderSheet: View {
                     headerArea
                         .padding(.horizontal, 20)
                     if phase != .sealed {
-                        LetterPaper(letter: opened ?? letter)
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 40)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .opacity
-                            ))
+                        VStack(spacing: 18) {
+                            LetterPaper(letter: opened ?? letter)
+                            // Opened, it's kept where everything of yours is.
+                            Text("It's a page of your journal now.")
+                                .quietLabel()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 40)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .opacity
+                        ))
                     }
                 }
                 .padding(.vertical, 24)

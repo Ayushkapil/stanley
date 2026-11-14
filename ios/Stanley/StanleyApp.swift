@@ -204,9 +204,23 @@ struct RootView: View {
         // The home screen widget's copy of Today, kept as the app goes
         // (build 40), and its taps: the medium and large sizes open Today.
         .background { WidgetFeeder() }
-        .onOpenURL { url in
-            if url.scheme == "stanley", url.host() == "today" { state.todayAsked += 1 }
+        // And the Journal widget's few lines (build 45).
+        .background { JournalWidgetFeeder() }
+        .onOpenURL { follow($0) }
+        #if DEBUG
+        // A widget's tap, tried on a simulator: the scheme isn't registered
+        // (only the widgets use it), so `simctl openurl` can't send one.
+        // A Debug build launched with STANLEY_OPEN_URL follows it once
+        // signed in.
+        .task(id: state.signedIn) {
+            guard state.signedIn,
+                  let asked = ProcessInfo.processInfo.environment["STANLEY_OPEN_URL"],
+                  let url = URL(string: asked)
+            else { return }
+            try? await Task.sleep(for: .seconds(2))
+            follow(url)
         }
+        #endif
         .preferredColorScheme(colorScheme)
         // Ambient seasonal tint — accents, tab bar, card edges (Part 5).
         .tint(Atmosphere.resolve(atmosphere).palette.accent)
@@ -214,6 +228,19 @@ struct RootView: View {
 }
 
 extension RootView {
+    /// A tap on one of Stanley's widgets.
+    fileprivate func follow(_ url: URL) {
+        guard url.scheme == "stanley" else { return }
+        if url.host() == "today" { state.todayAsked += 1 }
+        // The Journal widget (build 45): the book, open at a day's page.
+        if url.host() == "journal", state.signedIn {
+            let day = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "day" }?.value
+            state.journalAsked += 1
+            state.book = BookOpening(start: day.map { .day($0) } ?? .today, cover: nil)
+        }
+    }
+
     /// A Debug build asked to lay the widget's three sizes out on screen
     /// (`WidgetGallery`); never in a build anyone is given.
     fileprivate static var showsWidgetGallery: Bool {
@@ -304,6 +331,17 @@ struct HomeView: View {
         // A tap on the widget's medium or large size: Today, whatever tab
         // the app was left on (build 40).
         .onChange(of: state.todayAsked) { tab = .today }
+        // The Journal widget: the Journal tab, under the open book.
+        .onChange(of: state.journalAsked) { tab = .held }
+        // Under the open book the tabs aren't there to be read or pressed.
+        .accessibilityHidden(state.book != nil)
+        // The journal, open (build 45): over everything, the tab bar too.
+        .overlay {
+            if let opening = state.book {
+                BookView(opening: opening)
+                    .darkRoomInk()
+            }
+        }
         // A single ink above the tabs, as the dark room always had: the
         // three levels set inside each tab (`darkRoomInk`) reached the tab
         // bar's symbols and drew the selected one in ink instead of the

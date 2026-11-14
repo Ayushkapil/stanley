@@ -36,6 +36,9 @@ class User(Base):
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tz_last_seen: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # What they call their journal (build 45), written on its cover. Null is
+    # the app's own "My Journal". Theirs alone: only `/me/journal` carries it.
+    journal_title: Mapped[str | None] = mapped_column(String(60), nullable=True)
     # §10 N2: the last-light notice is off by default, offerable in settings.
     last_light_notice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     # §10 N1: the evening digest, off by default too (build 18). Before it was
@@ -402,6 +405,24 @@ class WeeklyReflection(Base):
     week_start: Mapped[date] = mapped_column(Date)
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class JournalPage(Base):
+    """A day's page in someone's journal (build 45): what they wrote, in the
+    ink they wrote it in. Read by no one but its writer, anywhere. One per
+    person per day, the day being their own; writing again that day replaces
+    it. It doesn't fade: kept until they delete it or their account."""
+
+    __tablename__ = "journal_pages"
+    __table_args__ = (UniqueConstraint("owner_id", "day", name="uq_journal_page_day"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    day: Mapped[date] = mapped_column(Date)
+    body: Mapped[str] = mapped_column(Text)
+    ink: Mapped[str] = mapped_column(String(8), default="black")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class CirclePrompt(Base):

@@ -32,6 +32,14 @@ JOURNAL_MAX = 1000
 REFLECTION_MAX = 500
 ANSWER_MAX = 300
 
+# The journal as a book (build 45): a page a day, in the writer's own words
+# and ink, read by nobody else. The app shows no limit ("it's a journal");
+# this one exists only so a single request can't be made arbitrarily large,
+# and is far past what anyone writes in a day (about fifty pages of a book).
+PAGE_MAX = 50_000
+INKS = ("black", "blue", "red")
+TITLE_MAX = 60
+
 # A reflection is written on Sunday evening (the app asks from 6pm until
 # midnight). One sent in the small hours of Monday still belongs to the week
 # it's about, so a slow send at 00:01 isn't filed under a week that has
@@ -117,6 +125,16 @@ def reflection_week(now: datetime, tz_name: str) -> date:
     ended (`REFLECTION_GRACE`)."""
     local = now.astimezone(ZoneInfo(tz_name)) - REFLECTION_GRACE
     return _monday(local.date())
+
+
+def local_day(now: datetime, tz: str) -> date:
+    """The calendar day it is for someone in `tz`: the day a page written now
+    belongs to. An unknown zone reads as UTC."""
+    try:
+        zone = ZoneInfo(tz)
+    except Exception:
+        zone = timezone.utc
+    return now.astimezone(zone).date()
 
 
 def week_end(week_start: date) -> date:

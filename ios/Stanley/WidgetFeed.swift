@@ -220,6 +220,126 @@ enum WidgetFeed {
     }
 }
 
+// MARK: - The Journal widget (build 45)
+
+/// Keeps the Journal widget's few lines up to date, the way `WidgetFeeder`
+/// keeps the circle's: unseen, behind the app.
+struct JournalWidgetFeeder: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("stanley.appLock") private var appLock = false
+
+    var body: some View {
+        let draft = JournalWidgetFeed.Draft(state, locked: appLock)
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .task(id: draft) { await JournalWidgetFeed.leave(draft, state: state) }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .inactive { Task { await JournalWidgetFeed.leave(draft, state: state) } }
+            }
+    }
+}
+
+/// What the app leaves for the Journal widget: the opening lines of the
+/// last few days' pages, each with its ink and its number in the book.
+/// Only the person's own words, only while a Journal widget is on the Home
+/// Screen, and none at all with the app lock on.
+enum JournalWidgetFeed {
+    static let kind = "StanleyJournalWidget"
+    /// Today and yesterday are shown; one more, so a widget read just past
+    /// midnight still has yesterday's.
+    private static let days = 3
+
+    struct Draft: Equatable {
+        let signedIn: Bool
+        /// Signed in, but the journal hasn't been fetched: nothing to say yet.
+        let pending: Bool
+        let locked: Bool
+        let title: String?
+        let days: [JournalWidgetSnapshot.Day]
+        let nextPage: Int?
+
+        @MainActor
+        init(_ state: AppState, locked: Bool) {
+            signedIn = state.signedIn
+            pending = state.signedIn && !state.journalWritable
+            self.locked = locked
+            title = state.journalTitle
+            guard state.signedIn, state.journalWritable, !locked else {
+                days = []
+                nextPage = nil
+                return
+            }
+            let book = BookBuilder.book(state, layout: .forScreen())
+            days = state.journalPages.suffix(JournalWidgetFeed.days).reversed().map { page in
+                .init(
+                    day: page.day,
+                    text: String(page.body.prefix(JournalWidgetSnapshot.opening)),
+                    ink: page.ink,
+                    page: book.index(day: page.day).map { $0 + 1 }
+                )
+            }
+            // The page a new day's writing would be: after the last, or
+            // today's own blank one.
+            let today = WidgetSnapshot.day(.now)
+            nextPage = state.journalPages.contains { $0.day == today } ? book.pages.count + 1 : book.todayIndex + 1
+        }
+    }
+
+    /// The journal is fetched once for the widget's sake if the Journal tab
+    /// hasn't been opened yet this launch.
+    @MainActor private static var fetched = false
+
+    @MainActor
+    static func leave(_ draft: Draft, state: AppState) async {
+        guard draft.signedIn else {
+            fetched = false
+            publish(.signedOut)
+            return
+        }
+        let wanted = await onHomeScreen()
+        if draft.pending {
+            if wanted, !fetched {
+                fetched = true
+                await state.loadJournal()
+            }
+            return
+        }
+        guard !Task.isCancelled else { return }
+        publish(JournalWidgetSnapshot(
+            writtenAt: .now,
+            signedIn: true,
+            locked: draft.locked,
+            withheld: wanted ? nil : true,
+            title: wanted && !draft.locked ? draft.title : nil,
+            days: wanted ? draft.days : [],
+            nextPage: wanted ? draft.nextPage : nil
+        ))
+    }
+
+    @MainActor
+    private static func onHomeScreen() async -> Bool {
+        #if DEBUG
+        if WidgetGallery.asked { return true }
+        #endif
+        return await withCheckedContinuation { done in
+            WidgetCenter.shared.getCurrentConfigurations { result in
+                let found = (try? result.get())?.contains { $0.kind == kind } ?? false
+                done.resume(returning: found)
+            }
+        }
+    }
+
+    private static func publish(_ snapshot: JournalWidgetSnapshot) {
+        var before = JournalWidgetStore.read()
+        before.writtenAt = snapshot.writtenAt
+        guard before != snapshot else { return }
+        JournalWidgetStore.write(snapshot)
+        WidgetCenter.shared.reloadTimelines(ofKind: kind)
+    }
+}
+
 #if DEBUG
 /// The three sizes of the widget laid out on one screen, from whatever the
 /// app last left in the shared folder, to be looked at on a simulator: a
@@ -228,6 +348,7 @@ enum WidgetFeed {
 struct WidgetGallery: View {
     @Environment(AppState.self) private var state
     @State private var snapshot = WidgetStore.read()
+    @State private var journal = JournalWidgetStore.read()
 
     static var asked: Bool { ProcessInfo.processInfo.environment["STANLEY_WIDGET_GALLERY"] == "1" }
 
@@ -246,6 +367,10 @@ struct WidgetGallery: View {
                 }
                 tile(.medium, width: 338, height: 158)
                 tile(.large, width: 338, height: 354)
+                // The Journal widget (build 45), small and medium.
+                journalTile(.small, width: 158, height: 158)
+                    .frame(width: 338, alignment: .leading)
+                journalTile(.medium, width: 338, height: 158)
             }
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
@@ -256,11 +381,21 @@ struct WidgetGallery: View {
             await state.loadProfile()
             await state.loadCircle()
             await state.refreshToday()
+            await state.loadBook()
             for _ in 0..<20 {
                 try? await Task.sleep(for: .milliseconds(500))
                 snapshot = WidgetStore.read()
+                journal = JournalWidgetStore.read()
             }
         }
+    }
+
+    private func journalTile(_ size: WidgetSize, width: CGFloat, height: CGFloat) -> some View {
+        JournalWidgetView(snapshot: journal, date: .now, size: size)
+            .padding(16)
+            .frame(width: width, height: height)
+            .background(JournalWidgetBackdrop())
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private func tile(_ size: WidgetSize, width: CGFloat, height: CGFloat) -> some View {

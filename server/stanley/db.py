@@ -101,6 +101,8 @@ _LATER_COLUMNS = {
         "note_reminder_hour": "INTEGER DEFAULT 9",
         "photo_reminder_enabled": "BOOLEAN DEFAULT 0",
         "photo_reminder_hour": "INTEGER DEFAULT 18",
+        # Build 45: what the person calls their journal; null is the default.
+        "journal_title": "VARCHAR(60)",
     },
     # Build 35: one circle's countdown, null everywhere else.
     "circles": {"countdown": "JSON"},

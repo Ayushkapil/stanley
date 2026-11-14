@@ -55,6 +55,16 @@ final class AppState {
     /// Your reflections, newest first, and where the next page starts.
     var reflections: [Reflection] = []
     var reflectionsCursor: String?
+    /// The journal's own pages (build 45), a day each, oldest first, and
+    /// what the journal is called (nil is "My Journal").
+    var journalPages: [DayPage] = []
+    var journalTitle: String?
+    /// The server has the book, so a page can be written. False against a
+    /// server from before build 45: the book still opens, on what's kept.
+    var journalWritable = false
+    /// The book, while it's open: where it opened to, and the cover it
+    /// grew from. Drawn over the tabs by `HomeView`.
+    var book: BookOpening?
     var news: [NewsArticle] = []
     /// Headlines from the town the phone is in, and that town's name. Empty
     /// without location permission.
@@ -389,6 +399,10 @@ final class AppState {
         thisWeek = nil
         reflections = []
         reflectionsCursor = nil
+        journalPages = []
+        journalTitle = nil
+        journalWritable = false
+        book = nil
         news = []
         nearby = []
         nearbyTown = nil
@@ -867,6 +881,8 @@ final class AppState {
     let tabTaps = TabTaps()
     /// Bumped when the home screen widget asks for Today (build 40).
     var todayAsked = 0
+    /// Bumped when the Journal widget asks for the book (build 45).
+    var journalAsked = 0
 
     /// Post today's photo. True when it's up; false when there was no signal
     /// and it's kept on the phone to go up later.
@@ -1212,6 +1228,109 @@ final class AppState {
             let _: Empty = try await api.send("DELETE", "/me/reflections/\(reflection.id)")
             reflections.removeAll { $0.id == reflection.id }
             if thisWeek?.reflection?.id == reflection.id { await loadThisWeek() }
+        } catch {
+            surface(error)
+        }
+    }
+
+    // MARK: the journal as a book (build 45)
+
+    /// Everything the book is made of: its written pages, every reflection,
+    /// what's held, and the letters opened.
+    func loadBook() async {
+        async let pages: Void = loadJournal()
+        async let kept: Void = refreshMemories()
+        async let weeks: Void = loadAllReflections()
+        _ = await (pages, kept, weeks)
+    }
+
+    /// The journal's written pages, all of them, a stretch at a time.
+    func loadJournal() async {
+        do {
+            var gathered: [DayPage] = []
+            var after: String?
+            var title: String?
+            // A page a day for fifty years is under two hundred stretches.
+            for _ in 0..<200 {
+                let stretch: JournalStretch = try await api.send(
+                    "GET", "/me/journal", query: after.map { ["after": $0] } ?? [:]
+                )
+                title = stretch.title
+                gathered += stretch.pages
+                guard let next = stretch.nextAfter else { break }
+                after = next
+            }
+            journalPages = gathered
+            journalTitle = title
+            journalWritable = true
+        } catch APIError.status(404) {
+            journalPages = []
+            journalWritable = false
+        } catch {
+            missed(error)
+        }
+    }
+
+    /// Every reflection, not only the newest page of them: the book has a
+    /// page for each.
+    func loadAllReflections() async {
+        await loadReflections()
+        for _ in 0..<40 where reflectionsCursor != nil {
+            await loadMoreReflections()
+        }
+    }
+
+    private func place(_ page: DayPage) {
+        journalPages.removeAll { $0.id == page.id || $0.day == page.day }
+        journalPages.append(page)
+        journalPages.sort { $0.day < $1.day }
+    }
+
+    /// Today's page: written, or written again in place of what was there.
+    func writeToday(_ body: String, ink: Ink) async -> Bool {
+        do {
+            let page: DayPage = try await api.send(
+                "PUT", "/me/journal/today",
+                json: ["body": body, "ink": ink.rawValue, "tz": TimeZone.current.identifier]
+            )
+            place(page)
+            Trail.note(.wroteJournal)
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    /// Rewrite a page already in the book, or change its ink.
+    func editPage(_ page: DayPage, body: String? = nil, ink: Ink? = nil) async -> Bool {
+        var fields: [String: Any?] = [:]
+        if let body { fields["body"] = body }
+        if let ink { fields["ink"] = ink.rawValue }
+        do {
+            let changed: DayPage = try await api.send("PATCH", "/me/journal/pages/\(page.id)", json: fields)
+            place(changed)
+            return true
+        } catch {
+            surface(error)
+            return false
+        }
+    }
+
+    func deletePage(_ page: DayPage) async {
+        do {
+            let _: Empty = try await api.send("DELETE", "/me/journal/pages/\(page.id)")
+            journalPages.removeAll { $0.id == page.id }
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// What the journal is called. Blank puts "My Journal" back.
+    func renameJournal(_ title: String) async {
+        do {
+            let named: JournalTitle = try await api.send("PUT", "/me/journal/title", json: ["title": title])
+            journalTitle = named.title
         } catch {
             surface(error)
         }

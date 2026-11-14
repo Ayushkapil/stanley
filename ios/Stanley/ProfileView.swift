@@ -138,12 +138,9 @@ struct ProfileView: View {
                             }
                         }
                     }
-                    // Letters you can write to someone in the circle for one
-                    // day in the future (build 42). Your weekly reflections
-                    // were under this until build 44; they're the Journal
-                    // tab's pages now.
-                    LettersOnYou()
-                        .padding(.top, Spacing.chapter)
+                    // Writing a letter to someone, and your weekly
+                    // reflections, were under this; both are in the Journal
+                    // tab now (builds 45 and 44).
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, Spacing.chapter)

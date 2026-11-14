@@ -22,7 +22,7 @@ from ..milestones import milestone_payload, surface_due
 from ..models import (
     Anchor, Block, CircleLetter, CircleNote, CirclePrompt, Comment, JournalEntry, Like, Membership, Milestone,
     NotificationLog, PersonLetter, Photo, PhotoTag, PromptResponse, PushToken, Report, Rest,
-    ReturnedLog, User, WeeklyReflection,
+    JournalPage, ReturnedLog, User, WeeklyReflection,
 )
 from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
 from .journal import delete_answers
@@ -386,6 +386,14 @@ def export_memories(
                 .order_by(WeeklyReflection.week_start)
             ).all()
         ]
+        # Build 45: the journal's own pages, a day each, and what it's called.
+        manifest["journal_title"] = user.journal_title
+        manifest["journal"] = [
+            {"day": page.day.isoformat(), "ink": page.ink, "page": page.body}
+            for page in db.scalars(
+                select(JournalPage).where(JournalPage.owner_id == user.id).order_by(JournalPage.day)
+            ).all()
+        ]
         manifest["answers"] = [
             {
                 "week_start": prompt.week_start.isoformat(),
@@ -473,6 +481,9 @@ def delete_account(
     # above didn't already take.
     db.execute(delete(WeeklyReflection).where(WeeklyReflection.owner_id == user.id))
     db.execute(delete(JournalEntry).where(JournalEntry.owner_id == user.id))
+    # The pages of their journal (build 45), and what they called it.
+    db.execute(delete(JournalPage).where(JournalPage.owner_id == user.id))
+    user.journal_title = None
     delete_answers(db, db.scalars(select(PromptResponse).where(PromptResponse.user_id == user.id)).all())
     # Their letters to their circles (build 42), sealed or opened. An opened
     # one going now may tell the circle whose it was; deleting an account

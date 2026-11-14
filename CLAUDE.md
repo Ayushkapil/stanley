@@ -8,7 +8,9 @@ within six days unless someone deliberately keeps (anchors) it**. The only socia
 gestures are *holding* (a private act of keeping, never counted),
 *story-comments* (co-remembering), since build 26 the circle's *question
 of the week* (answered privately, read together) and, since build 42, a
-monthly *letter to the circle* (unsigned, opened together). The product's identity lives as much in what it
+monthly *letter to the circle* (unsigned, opened together). Beside the circle, since build 45,
+each person has a private **journal kept as a book** (their own pages, what they've held, letters opened,
+weekly reflections), which nobody else ever sees. The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -101,7 +103,18 @@ guarded by tests; treat a change to any of them as a spec change.
   circle at once, whether they answered or not; answering closes when they
   open; a member reads from the week they joined. None of it counts anyone
   ("how many answered" doesn't exist), none of it notifies, and the word
-  filter covers all three.
+  filter covers all three. **The pages of the journal** (build 45, from
+  the brief of 2026-11-14) are the same kind of thing: a page a day in the
+  person's own words and ink, and the name they give the journal, are in
+  no payload anyone else is sent, and every route about one answers 404 to
+  anyone but its writer. A page never fades; one a day, the day being the
+  writer's own, and writing again replaces it. **The word filter is not on
+  pages or the journal's name**: it's for what a circle reads, and a
+  private diary that refused its writer's account of their day would
+  protect nobody (hold notes are the same). Not asked about as a product
+  decision; put `refuse_objectionable` back in `routes/journal.py` if it
+  should be otherwise. Nothing about the book counts anything (no streak,
+  no "pages written"); a page's number is its place in the book.
 - **The board's notes are everyone's own and the day's alone** (build 27).
   One note per person per circle per day, changed or taken down only by its
   author, gone at the end of their day (deleted, not archived). No replies,
@@ -240,7 +253,9 @@ The authoritative source for the physics constants is
   40's widget (small copies of photos kept on the phone; a deleted photo
   lingering in a widget for up to a day) November 12. Build 42's letters
   (unsigned to the circle, not to the server; a block hides none) made
-  both November 13.
+  both November 13. Build 45's journal (its pages, kept for their writer
+  alone; the Journal widget's few lines on the phone) made both November
+  14.
 
 ## Implemented and working
 
@@ -321,11 +336,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     named "morning pages" and "prompts"; neither exists as a feature, so
     Pages is the reflections and Questions is the circle's question. Not
     asked about as a product decision; move them back if that's wrong.
+    **Superseded in build 45: the Journal tab is a book** (the next
+    section). What's said here about its type and surfaces still holds
+    for the cover screen.
   - **The You tab**: a card with your photo, your name in SF Rounded, your
     username and words in system type (the bookplate in a double rule is
     gone); the circle as overlapping faces with system names; milestones
-    as cards; Held as small straight photos; the sealed-letters compose
-    row. Reflections are no longer here.
+    as cards; Held as small straight photos. Reflections are no longer
+    here, and since build 45 neither is the sealed-letters compose row
+    (it's on the Letters page under the journal's cover).
   - **Settings** is plain iOS: the system's large title and grouped rows,
     no masthead, no paper. **Appearance** is one segmented control,
     **Light | Dark | Rain**, and a **Match iPhone** switch (on by default:
@@ -433,6 +452,167 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **The journal as a book** (build 45, November 14, 2026, a product brief
+  from Ayush, "Part 1 of 2"; screenshots in `docs/journal-book-build45/`).
+  The Journal tab is no longer a list. It opens to a book's cover; a tap
+  opens the book over the whole app, and its pages turn sideways. Phone
+  and server both; **it needs a deploy** (below).
+  - **The cover screen** (`MemoriesView`, `BookCover.swift`): a dateline
+    and a "+" where Today has its own (the "+" writes today's page), then
+    the cover, large: the journal's name in a hand (default "My Journal"),
+    the person's name under it, and "October 2026 – present" in small
+    capitals (the month of the earliest thing in the book). Cream card
+    with a grain in daylight, deep charcoal (`#262421`) with the same
+    specks barely showing in the dark; a shade and a crease down the left
+    for the spine, a ruled frame, a shadow under it. **A tap opens the
+    book; a long press on the name renames it** (an alert with a field;
+    empty puts "My Journal" back; 60 characters). **Pulling the page down
+    writes today's page** (iOS 18 and up, where a scroll view says how far
+    it's pulled; "Pull to write today's page" fades in as it goes). The
+    pull used to refresh; a tap on the Journal tab does that now. Under
+    the cover: Sunday evening's "How was your week?" card when it's due,
+    then two small cards, **Letters** and **Prompts**. Letters opens a
+    page with the letters written to you that are still sealed
+    ("Waiting") and "Write to someone" with the ones on their way (moved
+    from the You tab); its line is words, never a number ("A letter is
+    ready to open", "Sealed, waiting for their day", "Write to someone").
+    Prompts opens the circle journal. **There is no Jar card: the
+    gratitude jar doesn't exist.**
+  - **The book** (`Book.swift`, `BookPages.swift`, `BookView.swift`):
+    pages oldest first.
+    - *Chapter pages*: a month's name large in a hand, the year under it,
+      before the month's first page. No page number, as in a printed book.
+    - *Written pages*: a day's page, on ruled paper (very faint rules in
+      daylight, none in the dark), the date written at its head in the
+      same ink, a line left, then the words. A day too long for a page
+      runs on to the next: the words are laid out with TextKit at a fixed
+      line (`Paginator`) and each page drawn with the same (`InkText`),
+      so they sit on the rules and break where the page ends.
+    - *Photo pages*: a photo you hold, pasted in a little crooked
+      (daylight only) with a shadow under it, **its caption in a hand**
+      (the brief's; Quiet Warmth's rule would set someone else's caption
+      in plain type, and the book goes with the brief), then "From Jonah ·
+      Griffy Lake" (the circle too, with more than one), and under your
+      own photo what you wrote about the day. A tap opens it large
+      (`HeldViewer`). A photo is on the day it was taken, so **the
+      per-friend threads are gone**. A tombstone is a dashed frame, "A
+      memory was here".
+    - *Letter pages*: a letter written to you, once opened, lying on the
+      page on its own cream paper (cream in the dark too): "From Theo" at
+      its head, the words, the name signed at the foot, the day it was
+      written. Long ones run on like a long day.
+    - *Reflection pages*: "WEEK OF 9 NOVEMBER" small at the head, the
+      words in black ink on ruled paper, and the week's photos that are
+      still there under them when there's room. At the end of its week
+      (or, written before the week was out, on the day it was written).
+    - *Today's page* is always in the book, last: written, or blank with
+      the date and "Tap to write today's page."
+    - **There are no grid pages: there is no mood feature to draw them
+      from** (the brief's "mood matrix"), and no morning pages; the
+      written pages are the daily pages this build adds.
+    Page numbers are small, in the outer corner: odd pages right, even
+    left. The spine's shade is always on the left, since on a phone one
+    page shows at a time and each turns on its left edge. The paper is
+    `#FCF7EB` with a grain in daylight and `#141414` in the dark
+    (`BookPaper`, shared with the widget), not the dark room's black.
+  - **Turning pages** (`PageTurner`, a `UIPageViewController`): the
+    system's page curl, spine on the left, which follows the finger and
+    is the one page turn on iOS that behaves like paper. **Its timing is
+    the system's, not the brief's 0.35s and damping 0.9**, which a curl
+    that follows the finger has no setting for. With Reduce Motion on,
+    pages slide. The curl's own tap-an-edge-to-turn is off, since it
+    turned the page under taps meant for a photo or today's blank page.
+  - **Gestures.** A pinch in lays the pages out small, two across and
+    three down, six to a screen (each the top of its page, cut to a
+    print's shape; the one that was open is ringed and scrolled to); a
+    tap goes to a page, a pinch out or Done goes back. A long press on a
+    page lifts it with a menu: **Edit, Change Ink, Delete** on a written
+    page; Delete Reflection; Report Letter and Delete Letter; Open on a
+    photo. Deletes ask first. A swipe straight down (or the small
+    chevron, top left, for anyone who doesn't swipe) shuts the book.
+  - **Finding your place.** Along the foot, a thin line with a dot: how
+    far through the book. A tap on it opens a calendar and goes to the
+    first page on or after the date picked. At the right edge a ribbon in
+    the accent hangs from the top, longer on today's page; a tap on it
+    turns to today from anywhere. **The book opens at the ribbon.**
+  - **Opening and shutting** (`BookView.open`, `.close`): the cover grows
+    from where it lies to the middle of the screen (a spring, 0.36s),
+    swings open on its spine (0.4s) as the page comes up under it, and is
+    gone; shutting is that backwards. Only a fade under Reduce Motion, or
+    when there's no cover to grow from (the widget). The book is drawn as
+    an overlay above the tab view (`HomeView`, `AppState.book`), not a
+    sheet, so it covers the tab bar and the cover can be its own.
+  - **Writing a page** (`BookWritingView`, `BookWriting.swift`): a ruled
+    page with the cursor in it (a TextKit text view whose line is exactly
+    the rules' pitch), the date at its head, Cancel and Done, and at the
+    foot three small circles of ink: black `#1A1A1A`, blue `#2B4C7E`, red
+    `#9B2C2C`; in the dark warm white `#F0EBE3`, `#7BA3D9`, `#E08585`
+    (`Ink`). A page is one ink; choosing another sets the whole page in
+    it, and the last one used is the next page's (`InkWell`). No counter
+    and no limit shown. Done keeps it (a light haptic once the server has
+    it) at today's date; today's page written again is replaced. Rubbing
+    every word out of a page that existed asks to tear it out.
+  - **The server** (`journal_pages`, `users.journal_title`;
+    `routes/journal.py`): `GET /me/journal` (the name, and pages oldest
+    first, a hundred at a time with `after`), `PUT /me/journal/today`
+    (the server says which day, from the zone the phone sends; an upsert,
+    so one page a day), `PATCH /me/journal/pages/{id}` (words, ink, or
+    both; the day stays), `DELETE /me/journal/pages/{id}`, `PUT
+    /me/journal/title`. Three inks and no others (400 `bad_ink`); text
+    cleaned as everywhere, lines kept; the journal's rate limit. **A page
+    may be 50,000 characters** (`journal.PAGE_MAX`): the brief says no
+    limit and the app shows none, but one request can't be any size, and
+    the app stops typing there. Deleting an account deletes the pages and
+    the name; the export carries both. A server from before build 45
+    answers 404 and the app shows the book of what's kept, with no "+"
+    and no blank page.
+  - **The Journal widget** (a second widget, `StanleyJournalWidget`;
+    `Shared/JournalWidget.swift`, `JournalWidgetFeed`): small is today's
+    page, its first three lines in their ink on ruled paper with the
+    page's number; medium is the book lying open, yesterday on the left
+    and today on the right. A tap opens the journal at that day's page
+    (`stanley://journal?day=…`, followed in `RootView.follow`). Like the
+    circle's widget it makes no network calls: the app leaves the first
+    240 characters of the last three days' pages, their inks and page
+    numbers in the App Group folder (`journal.json`, not backed up).
+    Only the person's own words; **nothing is left while no Journal
+    widget is on the Home Screen, or with the app lock on** (it says
+    "Locked"), and it's emptied on sign-out. Both documents say so.
+  - **Fixed on the way.** Opened from the widget, the book could land on
+    the page beside the one asked for: the rest of the book arrived
+    after it opened and the page was kept by position. It's kept by name
+    now (`currentID`). The letter reader closed itself as the last
+    sealed letter was opened (its sheet hung from a section that had just
+    emptied); the Letters page owns it.
+  - **A Debug hook**: `STANLEY_OPEN_URL=stanley://journal?day=2026-11-13`
+    at launch follows a widget's link on a simulator (the scheme isn't
+    registered, so `simctl openurl` can't).
+  - **Calls made that the brief didn't spell out** (none asked about):
+    pages are kept on the server, like reflections, not only on the
+    phone; the journal's name too; a photo page is dated by the day the
+    photo was taken; the book opens at today, not where it was left; the
+    Sunday card stays on the cover screen, since it's the only way a
+    reflection gets written; "Write to someone" moved off the You tab.
+  - **Checked on the iPhone 17 Pro simulator**, against the screenshot
+    circle with ten days of pages seeded: the cover screen, the opening
+    and shutting (frames from a screen recording), every kind of page,
+    the curl by swipe, the grid, the ribbon, the date, the long-press
+    menu and a change of ink, tearing a page out, writing a page and
+    writing it again, renaming, the pull, the Letters page and a letter
+    opened into a page, the widget's link, all in light; the cover, a
+    written page, a letter page, a chapter page, the grid, writing, the
+    Letters page and both widget sizes (Debug gallery) in dark too. **On
+    the Duo's cover**, light: the cover screen and a written page (the
+    writing stops short of the strip down the trailing side; found there
+    and fixed). **Not seen:** a real phone; the Duo's inner display (it
+    would show one page in a 520pt column, not a two-page spread);
+    VoiceOver; Reduce Motion; large Dynamic Type (the hand scales from
+    19pt up to 25pt and the pages re-break); iOS 17 (no pull); the widget
+    on a real Home Screen; a Sunday reflection becoming a page (tests and
+    a seeded one only).
+  - **Part 2 hasn't been given.** Left for it or for a decision: mood and
+    its grid pages, the jar, a two-page spread on the inner display.
 
 - **Capture** — one-a-day, 12h gap, EXIF-stripped, claim-slot-then-upload (no
   orphan blobs), caption ≤2000. The shot opens a preview with the filter pills
@@ -1006,7 +1186,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (44)", at the
+  production audit), and the version, "Stanley 0.2.0 (45)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   With more than one circle, a **Circle** picker heads the Circle group
   (build 30; documented earlier but missing until the QA audit).
@@ -1536,10 +1716,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 44** (0.2.0) is the number to archive next: the Quiet Warmth
-  design pass (above), which also removed the filters and rest-a-memory
-  from the app. The next upload carries builds 41 to 44 (43 was only a
-  bump). The last build uploaded is 40. Nothing in 44 needs a deploy.
+- **Build 45** (0.2.0) is the number to archive next: the journal as a
+  book (above). The next upload carries builds 41 to 45 (43 was only a
+  bump; 44 is the Quiet Warmth design pass, which also removed the filters
+  and rest-a-memory from the app). The last build uploaded is 40.
+- **Build 45 needs a deploy, and hasn't had one.** Fly is still v25. Until
+  `fly deploy`: `/me/journal` is a 404, so a build 45 phone shows the book
+  of what's kept with no way to write a page, no blank page and nothing
+  for the Journal widget to show; and `/terms` and `/privacy` say November
+  13 while the app's own copies say November 14. On the first start the
+  server makes `journal_pages` and adds `users.journal_title`. Nothing
+  else changes for older builds.
 - **A flaky server test, fixed** (November 13). `test_journaling.py::
   test_nothing_about_the_question_counts_anyone` failed one run in forty:
   it looked for "count" in every string of the payload, and one of the
@@ -1811,7 +1998,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**504 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**531 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -1889,7 +2076,17 @@ your own back before and after; leaving taking a sealed letter and leaving
 an opened one; account deletion; the export; a report only once readable,
 keeping the words and the writer and telling the reporter nothing; the
 operator's takedown; no notification; the months, and the older database's
-column).
+column), and the journal as a book (`test_journal_book.py`: a page written
+and read back; one a day, written again in place; the day the writer's own,
+the zone remembered and a bad one refused; the book oldest first, a stretch
+at a time; three inks and no others; cleaned, its lines kept; a blank page
+refused; ten thousand characters kept and one past the guard refused; not
+run past the word filter; an edit keeping its day, an ink changed alone, no
+edit to blank; a page torn out and the day free again; nobody else reading,
+changing or removing one; in nothing anyone else is sent; no sign-in, no
+book; no notification; no field that counts; the journal named, renamed,
+cleaned and bounded; the writing pace; account deletion; the export; the
+older database's column; the day).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
@@ -1909,6 +2106,9 @@ live APNs, concurrency under real load.
 - Letters to the circle (build 42): the months and when they open
   `circle_letters.py`; routes `routes/circle_letters.py`; opening and
   clearing in the sweep `decay.open_letters`, `decay.clear_letters`
+- The journal as a book (build 45): the limits and the day in
+  `journal.py` (`PAGE_MAX`, `INKS`, `local_day`); routes in
+  `routes/journal.py` ("a page a day"); `JournalPage` in `models.py`
 - The production audit: rate limits `ratelimit.py`; text cleaning `text.py`;
   word filter `wordfilter.py` + `blocklist.txt`; the operator's moderation
   tool `moderation.py` (`python -m stanley.moderation`)
@@ -1971,6 +2171,16 @@ live APNs, concurrency under real load.
   `WidgetViews.swift`, and the look the two share: `Countdown.swift`,
   `AtmospherePalette.swift`, `PaperGrain.swift`, `Hand.swift`,
   `JournalColors.swift`, `NotePaper.swift`)
+- The journal as a book (build 45): `MemoriesView.swift` (the cover
+  screen, the Letters page), `BookCover.swift` (the cover), `Book.swift`
+  (the page's size, the kinds of page, `Paginator`, `BookBuilder`),
+  `BookPages.swift` (each page drawn, `InkText`, the long-press menu, the
+  small pages of the grid), `BookView.swift` (the open book: `PageTurner`,
+  the grid, the ribbon, the place marker, opening and shutting),
+  `BookWriting.swift` (writing a page, the ruled text view, the inks),
+  and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
+  and `JournalWidget.swift` (the Journal widget's snapshot and views);
+  its feed is in `WidgetFeed.swift`, its widget in `StanleyWidgets.swift`
 - Project gen: `ios/project.yml` (two targets, `Stanley` and
   `StanleyWidgets`; run `xcodegen generate` after adding files)
 - App icon: since build 23 a bookmark, the hold's own mark, sketched as one

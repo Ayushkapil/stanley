@@ -79,7 +79,10 @@ Personalization, never Other.
   **linked to identity all the same**, because the server keeps who wrote
   each one (to let the writer change or delete it, and to act on a
   report). Unsigned to the circle is not anonymous to Stanley, and the
-  label must not claim it. The same answers as before: collected, linked,
+  label must not claim it. Since build 45, the pages of the
+  journal: a page a day in the person's own words, the ink chosen for
+  each, and the name given to the journal, read by no one but their
+  writer. The same answers as before: collected, linked,
   used for App Functionality, not for tracking.
 - [ ] Emails or Text Messages / Audio / Gameplay / Customer Support — **not collected.**
 
@@ -197,6 +200,14 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   consequence worth saying out loud: a photo its poster deletes can stay in
   someone's widget until they next open the app, for about a day at most
   (Privacy Policy §4, Terms §9).
+- The Journal widget (build 45) collects nothing either. While a Journal
+  widget is on the Home Screen, the app keeps in the same App Group folder
+  the first 240 characters of the person's own last three days' journal
+  pages, the ink of each, its page number and the journal's name
+  (`journal.json`, excluded from backups). Only their own words, which the
+  server already holds; the widget makes no network requests. Nothing is
+  kept with no Journal widget installed, with the app lock on, or after
+  sign-out. No label category changes.
 - Push notifications: when APNs is wired, the server stores a **device push
   token**. Tokens exist to deliver the five notices (the two reminders a person sets for themselves since build 39, last light, the
   digest, and since build 37 the circle-post notice) and are not an Apple

@@ -63,6 +63,10 @@ enum APIError: LocalizedError {
             case "empty_circle_letter": return "A letter needs a few words."
             case "circle_letters_opened": return "This month's letters are already open, so it's too late to change one."
             case "circle_letters_sealed": return "The letters aren't open right now."
+            // The journal as a book (build 45).
+            case "empty_page": return "A page needs a few words."
+            case "bad_ink": return "That ink isn't one of the three. Pick another and try again."
+            case "title_too_long": return "That's a little long for a cover. Try a shorter name."
             default: return Self.words(forStatus: status)
             }
         case .status(let status):

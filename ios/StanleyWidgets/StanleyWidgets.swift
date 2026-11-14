@@ -10,6 +10,7 @@ import WidgetKit
 struct StanleyWidgetBundle: WidgetBundle {
     var body: some Widget {
         StanleyWidget()
+        JournalWidget()
     }
 }
 
@@ -127,5 +128,78 @@ struct StanleyWidgetEntryView: View {
             .containerBackground(for: .widget) {
                 WidgetBackdrop(atmosphere: entry.snapshot.atmosphere)
             }
+    }
+}
+
+// MARK: - The Journal widget (build 45)
+
+/// Today's page of the journal, and in the medium size yesterday's beside
+/// it. Drawn from the few lines the app last left in the shared folder
+/// (`JournalWidgetSnapshot`): the person's own words and nobody else's.
+struct JournalWidget: Widget {
+    static let kind = "StanleyJournalWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: Self.kind, provider: JournalTimeline()) { entry in
+            JournalWidgetEntryView(entry: entry)
+        }
+        .configurationDisplayName("Journal")
+        .description("Today's page of your journal, in your own ink.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct JournalTimelineEntry: TimelineEntry {
+    let date: Date
+    let snapshot: JournalWidgetSnapshot
+}
+
+/// Now, and midnight: a new day's page is blank, and today's is yesterday's.
+struct JournalTimeline: TimelineProvider {
+    func placeholder(in context: Context) -> JournalTimelineEntry {
+        JournalTimelineEntry(date: .now, snapshot: Self.sample)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (JournalTimelineEntry) -> Void) {
+        let stored = JournalWidgetStore.read()
+        let shown = context.isPreview && (!stored.signedIn || stored.days.isEmpty) ? Self.sample : stored
+        completion(JournalTimelineEntry(date: .now, snapshot: shown))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<JournalTimelineEntry>) -> Void) {
+        let now = Date.now
+        let snapshot = JournalWidgetStore.read()
+        var entries = [JournalTimelineEntry(date: now, snapshot: snapshot)]
+        let midnight = Calendar.current.dateInterval(of: .day, for: now)?.end ?? now.addingTimeInterval(86_400)
+        entries.append(JournalTimelineEntry(date: midnight, snapshot: snapshot))
+        completion(Timeline(entries: entries, policy: .after(midnight.addingTimeInterval(60))))
+    }
+
+    /// A made-up page for the widget gallery.
+    static var sample: JournalWidgetSnapshot {
+        let today = WidgetSnapshot.day(.now)
+        let yesterday = JournalWidgetSnapshot.dayBefore(.now)
+        return JournalWidgetSnapshot(
+            writtenAt: .now, signedIn: true,
+            days: [
+                .init(day: today, text: "Rain all morning, then the lawn after, everything rinsed and bright.", ink: "blue", page: 24),
+                .init(day: yesterday, text: "Stayed up too late talking on the stairs. Worth it.", ink: "black", page: 23),
+            ],
+            nextPage: 25
+        )
+    }
+}
+
+struct JournalWidgetEntryView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: JournalTimelineEntry
+
+    var body: some View {
+        // An entry on the stroke of midnight is drawn a second in, so its
+        // day is the new one.
+        let date = entry.date.addingTimeInterval(1)
+        JournalWidgetView(snapshot: entry.snapshot, date: date, size: family == .systemMedium ? .medium : .small)
+            .widgetURL(JournalLink.url(day: WidgetSnapshot.day(date)))
+            .containerBackground(for: .widget) { JournalWidgetBackdrop() }
     }
 }

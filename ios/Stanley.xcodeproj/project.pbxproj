@@ -12,6 +12,7 @@
 		085A358993C019819E3E1743 /* CircleGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */; };
 		0964E9E411DB56AD9A1ADC53 /* NotePaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4C10AAB5D65F385106D774 /* NotePaper.swift */; };
 		0CC4F7FA34CA0186377FD125 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31AD660F2C25D0127589383 /* SetupView.swift */; };
+		0FDEEB6D62C338D8044AFB6B /* BookWriting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */; };
 		118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB8427334A459A620854705 /* AvatarPicker.swift */; };
 		11F670FEC7907E1CBAF0A580 /* PaperGrain.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8D7E1C22936B55B3DB8EB0 /* PaperGrain.swift */; };
 		1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B371E63EBC11AC20695ED507 /* StanleyApp.swift */; };
@@ -44,21 +45,28 @@
 		69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */; };
 		6A7483A75FBDC6102F5DC4C3 /* AtmospherePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2296FB39842563CF1F4E2B2 /* AtmospherePalette.swift */; };
 		6A8050442F9E778834687E15 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43DA9DBBFC78AE87EE56D899 /* Places.swift */; };
+		6A855929061B0B7C9713D7A6 /* JournalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */; };
+		6EF070F119595AC146AE150D /* BookCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4167960EEE6EC7DCB6051C /* BookCover.swift */; };
 		6F9A60A9341F464C3A24AC5B /* Whereabouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA186266B8710917748C184C /* Whereabouts.swift */; };
 		70427E223F09A23142109DB1 /* JournalColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */; };
 		782CD1F0E2D3CC4EE7CF4E66 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8381587E53B72E1B5127D6F9 /* WidgetSnapshot.swift */; };
 		7853A5B3B7F656C0273824EE /* WidgetFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = C045C767C9F70850B55FEEF2 /* WidgetFeed.swift */; };
+		785FAFD68215F38893B3A3DB /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D713EC95A1BA95F6043E0E8 /* Book.swift */; };
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
 		7D568C853EDBC51A865B7B7D /* NotePaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4C10AAB5D65F385106D774 /* NotePaper.swift */; };
 		7E8ECE93946E5F9D7EBE4D02 /* NoteBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C87A0573C9ECAE1BB64BB331 /* NoteBoard.swift */; };
+		861AF92B3B302F8A9166C004 /* BookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E237A15BDE57446BB210AB40 /* BookView.swift */; };
 		8887611E81BD4BC25E98C7CC /* SignedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED7B00C39F6576DE540B581C /* SignedImage.swift */; };
+		8B0E56E51EEF2204B17CCAAE /* BookPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39FC79B48BB2EA062F8B6E65 /* BookPages.swift */; };
 		8B834070638386F599F8A94F /* CountdownRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9564E665D2B5D8EF218192E3 /* CountdownRoute.swift */; };
 		8CF0B0A27D227251AF2BB691 /* Polish.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A5DB513E078FEDB3DA3EF7 /* Polish.swift */; };
 		94AEB28C15F346341A3D530D /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 084BA58C8E57A560A7FCABDD /* Sentry */; };
 		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
 		9B875E138E72B8C9EB4B13A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B9C29C3CAA06BA510C076FD /* Assets.xcassets */; };
 		A218937F0265E72919AAE872 /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38170E6EF5384B93F19F643 /* UIComponents.swift */; };
+		A7F7AF0C0BB4FF3433DEE086 /* JournalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */; };
 		A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */; };
+		A89E8EBBE150361E5A1D48C9 /* JournalInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD47418CFF8A076A7B864619 /* JournalInk.swift */; };
 		ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B910D5D0535C57C080D6460 /* Keychain.swift */; };
 		B2F6DB4DA1B7888FFCE2FA1C /* StanleyWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB37B70B453BD197952E7525 /* StanleyWidgets.swift */; };
 		B70470B18621E67B9CC8343F /* Countdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D8A5CF25BBCE7C3BF926A /* Countdown.swift */; };
@@ -71,6 +79,7 @@
 		D8071F47E9D8249B8B0B20BC /* Countdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D8A5CF25BBCE7C3BF926A /* Countdown.swift */; };
 		EA560D28272AA841F51AD6A5 /* CircleLetters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F315219FA2D96398B7CA7B6 /* CircleLetters.swift */; };
 		EDFAC774E6BB72C74F38F8E3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */; };
+		F2BFA4BEB3EC28AEFC7A8888 /* JournalInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD47418CFF8A076A7B864619 /* JournalInk.swift */; };
 		F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1401F690E1241EB4B8D190DC /* AppState.swift */; };
 		F7209C28237DF8A2588F6C12 /* Writing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6651E84FAC14531BCD5F1A6F /* Writing.swift */; };
 		FCC537D2E099C14871723492 /* Legal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E5AD82A467F941E84D908A /* Legal.swift */; };
@@ -104,15 +113,19 @@
 		0C775715F391ED80D954D9ED /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		0C7F9A2E36EC8E6D1F7C4FFF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		0D713EC95A1BA95F6043E0E8 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
 		101D8A5CF25BBCE7C3BF926A /* Countdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Countdown.swift; sourceTree = "<group>"; };
 		1276CA9EF7DFA94B5A25EC74 /* Journal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Journal.swift; sourceTree = "<group>"; };
 		1401F690E1241EB4B8D190DC /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		1803DD8144604B228075043B /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
+		1D4167960EEE6EC7DCB6051C /* BookCover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCover.swift; sourceTree = "<group>"; };
 		1ECC85BC9521389F2FAECE50 /* StanleyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = StanleyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		28BF0640C2B868C0AD896FBF /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prompts.swift; sourceTree = "<group>"; };
 		2EA2B6537E9B17BD17EB16A5 /* LibraryPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPhoto.swift; sourceTree = "<group>"; };
 		31A5DB513E078FEDB3DA3EF7 /* Polish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polish.swift; sourceTree = "<group>"; };
+		39FC79B48BB2EA062F8B6E65 /* BookPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookPages.swift; sourceTree = "<group>"; };
+		3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalWidget.swift; sourceTree = "<group>"; };
 		43DA9DBBFC78AE87EE56D899 /* Places.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
 		47D985F23D96D5CE5746525A /* Hand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hand.swift; sourceTree = "<group>"; };
 		4885E2268DC6C00B5529E694 /* Acknowledgements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Acknowledgements.swift; sourceTree = "<group>"; };
@@ -125,6 +138,7 @@
 		74E3C2EDF7A9388B26E93DA4 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		7996693C098F3CB199D03DB5 /* TabTaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabTaps.swift; sourceTree = "<group>"; };
 		7B910D5D0535C57C080D6460 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookWriting.swift; sourceTree = "<group>"; };
 		830E153D6B3273810AD97B6E /* Stanley.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Stanley.entitlements; sourceTree = "<group>"; };
 		8381587E53B72E1B5127D6F9 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayFeedView.swift; sourceTree = "<group>"; };
@@ -144,6 +158,7 @@
 		B371E63EBC11AC20695ED507 /* StanleyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanleyApp.swift; sourceTree = "<group>"; };
 		B9198F9599AA1483CD973906 /* HeldViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeldViewer.swift; sourceTree = "<group>"; };
 		BB37B70B453BD197952E7525 /* StanleyWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanleyWidgets.swift; sourceTree = "<group>"; };
+		BD47418CFF8A076A7B864619 /* JournalInk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalInk.swift; sourceTree = "<group>"; };
 		BD4C10AAB5D65F385106D774 /* NotePaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePaper.swift; sourceTree = "<group>"; };
 		C045C767C9F70850B55FEEF2 /* WidgetFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetFeed.swift; sourceTree = "<group>"; };
 		C24FE2CDDC93860CDD78E6E7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -155,6 +170,7 @@
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E137B196869A47ACE289A041 /* WorldTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldTodayView.swift; sourceTree = "<group>"; };
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E237A15BDE57446BB210AB40 /* BookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookView.swift; sourceTree = "<group>"; };
 		E323BCEF8A28432A187DE505 /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleGateView.swift; sourceTree = "<group>"; };
 		E5CDD4A42801C110D1E00C6C /* Trail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trail.swift; sourceTree = "<group>"; };
@@ -199,6 +215,11 @@
 				8B9C29C3CAA06BA510C076FD /* Assets.xcassets */,
 				E323BCEF8A28432A187DE505 /* Atmosphere.swift */,
 				9BB8427334A459A620854705 /* AvatarPicker.swift */,
+				0D713EC95A1BA95F6043E0E8 /* Book.swift */,
+				1D4167960EEE6EC7DCB6051C /* BookCover.swift */,
+				39FC79B48BB2EA062F8B6E65 /* BookPages.swift */,
+				E237A15BDE57446BB210AB40 /* BookView.swift */,
+				7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */,
 				0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */,
 				E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */,
 				4F315219FA2D96398B7CA7B6 /* CircleLetters.swift */,
@@ -252,6 +273,8 @@
 				101D8A5CF25BBCE7C3BF926A /* Countdown.swift */,
 				47D985F23D96D5CE5746525A /* Hand.swift */,
 				DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */,
+				BD47418CFF8A076A7B864619 /* JournalInk.swift */,
+				3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */,
 				BD4C10AAB5D65F385106D774 /* NotePaper.swift */,
 				EA8D7E1C22936B55B3DB8EB0 /* PaperGrain.swift */,
 				8381587E53B72E1B5127D6F9 /* WidgetSnapshot.swift */,
@@ -381,6 +404,8 @@
 				D8071F47E9D8249B8B0B20BC /* Countdown.swift in Sources */,
 				4F135F394D4624710874F567 /* Hand.swift in Sources */,
 				4F757909B3B8A62FB338AC0C /* JournalColors.swift in Sources */,
+				A89E8EBBE150361E5A1D48C9 /* JournalInk.swift in Sources */,
+				6A855929061B0B7C9713D7A6 /* JournalWidget.swift in Sources */,
 				7D568C853EDBC51A865B7B7D /* NotePaper.swift in Sources */,
 				11F670FEC7907E1CBAF0A580 /* PaperGrain.swift in Sources */,
 				B2F6DB4DA1B7888FFCE2FA1C /* StanleyWidgets.swift in Sources */,
@@ -401,6 +426,11 @@
 				4F53B77262DFC4F2B0FB4972 /* Atmosphere.swift in Sources */,
 				6A7483A75FBDC6102F5DC4C3 /* AtmospherePalette.swift in Sources */,
 				118E7B02A28425573C3A116D /* AvatarPicker.swift in Sources */,
+				785FAFD68215F38893B3A3DB /* Book.swift in Sources */,
+				6EF070F119595AC146AE150D /* BookCover.swift in Sources */,
+				8B0E56E51EEF2204B17CCAAE /* BookPages.swift in Sources */,
+				861AF92B3B302F8A9166C004 /* BookView.swift in Sources */,
+				0FDEEB6D62C338D8044AFB6B /* BookWriting.swift in Sources */,
 				4DE6E33CACC3E68900A4D8A9 /* CaptureView.swift in Sources */,
 				085A358993C019819E3E1743 /* CircleGateView.swift in Sources */,
 				EA560D28272AA841F51AD6A5 /* CircleLetters.swift in Sources */,
@@ -412,6 +442,8 @@
 				6021F929D7619EB3502C84A8 /* HeldViewer.swift in Sources */,
 				BEA0FC11A01234EE4A91B060 /* Journal.swift in Sources */,
 				70427E223F09A23142109DB1 /* JournalColors.swift in Sources */,
+				F2BFA4BEB3EC28AEFC7A8888 /* JournalInk.swift in Sources */,
+				A7F7AF0C0BB4FF3433DEE086 /* JournalWidget.swift in Sources */,
 				ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */,
 				36FA6366C2603F007A32B030 /* Layout.swift in Sources */,
 				FCC537D2E099C14871723492 /* Legal.swift in Sources */,

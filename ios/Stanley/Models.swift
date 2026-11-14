@@ -424,6 +424,32 @@ struct Answer: Codable, Identifiable, Hashable {
     let createdAt: Date
 }
 
+// MARK: - The journal as a book (build 45)
+
+/// A day's page in your journal: what you wrote, in the ink you wrote it
+/// in. Read by no one else.
+struct DayPage: Codable, Identifiable, Hashable {
+    let id: String
+    /// The day it's about ("2026-11-14"), your own.
+    let day: String
+    let body: String
+    let ink: String
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+/// A stretch of the journal: its name, pages oldest first, and the day to
+/// ask after for the next stretch.
+struct JournalStretch: Codable {
+    let title: String?
+    let pages: [DayPage]
+    let nextAfter: String?
+}
+
+struct JournalTitle: Codable {
+    let title: String?
+}
+
 /// This week's question for the circle on screen, your own answer if you've
 /// given it, and whether everyone's are open yet.
 struct WeekQuestion: Codable, Hashable {

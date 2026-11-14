@@ -33,6 +33,10 @@ enum Haptics {
     /// Your letter to the circle, sealed (or changed and sealed again).
     static func circleLetterSealed() { impact(.light, "letter sealed") }
 
+    /// A page of the journal is in the book (build 45): a light tap, once
+    /// the server has it.
+    static func pageKept() { impact(.light, "page kept") }
+
     /// Today's photo is up: posted, not merely queued for later.
     static func posted() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
