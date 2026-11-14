@@ -1768,7 +1768,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (52)", at the
+  production audit), and the version, "Stanley 0.2.0 (53)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2300,9 +2300,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 52** (0.2.0) is the number to archive next: the covers, a page
-  for one person, ruled paper as a choice, and the dots and the month's
-  sheet (above), over build 51's shared journal.
+- **Build 53** (0.2.0) is the number to archive next: only a bump over
+  build 52 (the covers, a page for one person, ruled paper as a choice,
+  and the dots and the month's sheet, above), over build 51's shared
+  journal.
 - **Build 52 needs a deploy, and hasn't had one.** Fly is v28 (build
   51's server). On its first start the new server adds
   `journal_pages.recipient_id`, `photos.score` and the `day_moods`
