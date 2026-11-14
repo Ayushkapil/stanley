@@ -2425,7 +2425,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   the cover black until the simulator is shut down and booted again;
   there is no fold or posture verb in `simctl`, CoreSimulator, Xcode's
   Device Hub or the 27.1 runtime; and Xcode 27.1 ships no Simulator.app
-  to click a fold button in. Whether the 669×951pt inner panel reports **regular** to an
+  to click a fold button in. **A device type of one's own doesn't get
+  round it either**: the Duo's `capabilities.plist` lists both panels
+  (screenID 1 the cover, screenID 3 "LCD-1" the inner one), but a copy
+  of the type in `~/Library/Developer/CoreSimulator/Profiles/DeviceTypes`
+  with the two swapped can't make a device ("Incompatible device": the
+  27.1 runtime is `restrictedToDeviceTypes` Apple's own, by its product
+  alias V68), and CoreSimulator keeps an existing device's type in
+  memory, so editing the Duo's `device.plist` does nothing without
+  restarting the service and every booted simulator with it. Tried and
+  put back; nothing of it is left on the machine. Whether the 669×951pt inner panel reports **regular** to an
   iPhone-family app is therefore still not directly observed — the iPad proxy
   (below) is the nearest evidence. (b) The crease: no SDK fold geometry exists,
   so `creaseBuffer` is a conservative 20pt margin rather than a measurement. It
