@@ -2583,17 +2583,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
-- **Builds 52 to 58 need a deploy, and haven't had one** (58 changed
-  nothing on the server). Fly is v28
-  (build 51's server). Against it no journal notice goes, and the
-  Journal Entries switch isn't shown. Against it every cover is the warm field (no
-  `cover_url`) and every journal shows no dates. On its first start the new server adds
-  `journal_pages.recipient_id`, `photos.score` and the `day_moods`
-  table, and `/terms` and `/privacy` gain the words for both. Until then
-  a build 52 phone shows no dots (`/me/moods` is a 404) and doesn't
-  offer a page for one person (`AppState.onePersonAvailable`, known from
-  the same route: a build 51 server would ignore `recipient_id` and put
-  the page in the whole circle's book).
+- **Builds 52 to 58's server is on Fly** (2026-11-14, asked for by
+  Ayush): release **v29** runs `main` as of `b4a5fb3`, after the full
+  suite passed on that code (644). Checked after the deploy: `/health`
+  ok; `GET /me/moods`, `PUT /photos/{id}/score` and `PUT
+  /circles/{id}/journal/mute` answer 401 without a sign-in; `/privacy`
+  says November 14 with the words for a page for one person, the mark
+  on a day and Journal Entries; `journal_pages.recipient_id`,
+  `photos.score`, `memberships.journal_muted`,
+  `users.journal_posts_enabled` and the `day_moods` table exist on the
+  volume; integrity ok, no foreign-key problems. Nothing changes for
+  older builds. Not yet seen: a real phone getting a journal notice, a
+  cover from `cover_url`, or the dots, against it.
 - **Build 51's server is on Fly** (2026-11-14, asked for by Ayush):
   release **v28** runs `main` as of `68aa2f6`, after the full suite
   passed on that code (573). Checked after the deploy: `/health` ok; the
