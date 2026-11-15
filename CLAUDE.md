@@ -2655,8 +2655,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
+- **Build 59's server is on Fly** (2026-11-14, asked for in its brief):
+  release **v30** runs `main` as of `bf16e0e`, after the full suite
+  passed on that code (647). Checked after the deploy: `/health` ok;
+  `POST /me/letters/send` answers 401 without a sign-in; `/privacy` has
+  "Written to You" and no longer says a circle hears of a page;
+  `notification_log.sender_id` exists on the volume; integrity ok, no
+  foreign-key problems. From now on a whole circle's journal notifies
+  nobody on the live server, whatever build a phone is on. Not yet
+  seen: a real phone receiving "… wrote you a page" or "… sent you a
+  letter" from it.
 - **Builds 52 to 58's server is on Fly** (2026-11-14, asked for by
-  Ayush): release **v29** runs `main` as of `b4a5fb3`, after the full
+  Ayush): release **v29** (history now) runs `main` as of `b4a5fb3`, after the full
   suite passed on that code (644). Checked after the deploy: `/health`
   ok; `GET /me/moods`, `PUT /photos/{id}/score` and `PUT
   /circles/{id}/journal/mute` answer 401 without a sign-in; `/privacy`
