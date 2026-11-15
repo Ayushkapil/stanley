@@ -3036,9 +3036,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
 - **Build 65** (0.2.0) is the number to archive next: the answer sheet
-  (above). **Its server must be on Fly before the app reaches anyone**
-  (the app reads `GET /moods`; against v32 the sheet and the cover's
-  bubbles don't show). Build 65 carries everything below.
+  (above). Its server is on Fly (v33), so it can go out. Build 65
+  carries everything below.
 - **Build 64** (0.2.0) was never archived on its own: the capture's
   daily prompt turning at local midnight, not UTC (Daily prompt, below),
   and the sweep for the same bug ("Whose day it is", above). **Its server
@@ -3057,8 +3056,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
+- **Build 65's server is on Fly** (2026-11-15, asked for in its brief):
+  release **v33** runs `main` as of `b37eeb6`, after the full suite
+  passed on that code (698). Checked after the deploy: `/health` ok;
+  `GET /moods`, `PUT /moods/{day}`, `PUT /photos/{id}/score` and `GET
+  /me/moods` answer 401 without a sign-in; `/privacy` says November 15
+  and "on that day only"; integrity all clear (the one empty circle
+  noted as before). The migration found nothing to move: no account on
+  the volume had left a mark (`photos.score` set on none, `day_moods`
+  empty). Build 65's app can go out now. Not yet seen: a real phone
+  marking a day against it.
 - **Build 64's server is on Fly** (2026-11-15, asked for by Ayush):
-  release **v32** runs `main` as of `ac1710d`, after the full suite
+  release **v32** (history now) runs `main` as of `ac1710d`, after the full suite
   passed on that code (673). Safe for older builds: a letter sent with no
   zone is checked against UTC's today as before, and a note with none
   clears as before. Checked after the deploy: `/health` ok; `POST
