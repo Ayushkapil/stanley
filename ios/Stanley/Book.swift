@@ -118,12 +118,11 @@ struct BookLayout: Hashable {
     var right: CGFloat { width - safeTrailing - margin }
     var textWidth: CGFloat { right - left }
     var middle: CGFloat { (left + right) / 2 }
-    /// The bar along the top (build 53): back, Letters, Prompts, in glass
-    /// circles. Where its middle is.
-    var barY: CGFloat { safeTop + 24 }
     /// The date, small, at the head of the page: where its line's middle
-    /// is, under the bar (it was the first line, 20pt down, until build 53).
-    var headY: CGFloat { safeTop + 64 }
+    /// is. The safe area's top is under the navigation bar since the Duo
+    /// brief made Letters and Prompts the system's toolbar (or the status
+    /// bar alone, with the toolbar in a rail down the side).
+    var headY: CGFloat { safeTop + 16 }
     /// The hand's size for the date at the head.
     var headSize: CGFloat { fontSize - 4 }
     /// How much of the head's width the date may take: the rest, at the
@@ -131,9 +130,9 @@ struct BookLayout: Hashable {
     var headWidth: CGFloat { max(90, textWidth - 150) }
     /// Under the date, smaller still: where a page says it's shared, and
     /// the writing view says where the page will land (build 51).
-    var tagY: CGFloat { safeTop + 81 }
+    var tagY: CGFloat { safeTop + 33 }
     /// Where the first line begins: under the date and that line.
-    var contentTop: CGFloat { safeTop + 92 }
+    var contentTop: CGFloat { safeTop + 44 }
     /// Where the last line may end: above the page's number (or the inks).
     var contentBottom: CGFloat { height - safeBottom - Self.foot }
     var rows: Int { max(4, Int((contentBottom - contentTop) / pitch)) }

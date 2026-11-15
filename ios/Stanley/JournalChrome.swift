@@ -36,41 +36,6 @@ struct GlassCircle<Label: View>: View {
     }
 }
 
-/// A mark of the bar: a glyph in a 34pt glass circle, in a 44pt target.
-struct ChromeButton: View {
-    let symbol: String
-    let label: String
-    var hint = ""
-    var tint: Color
-    /// A sealed letter is waiting: a dot of red.
-    var dot = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            GlassCircle(size: 34) {
-                Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(tint)
-            }
-            .overlay(alignment: .topTrailing) {
-                if dot {
-                    Circle()
-                        .fill(Ink.red.color)
-                        .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1.2))
-                        .frame(width: 9, height: 9)
-                        .offset(x: 1, y: -1)
-                }
-            }
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityHint(hint)
-    }
-}
-
 /// The "+", larger than it was: a 32pt plus drawn at a 1.6pt stroke in a
 /// 61pt glass circle.
 struct PlusGlass: View {
@@ -89,161 +54,115 @@ struct PlusGlass: View {
     }
 }
 
-/// Letters, the week (on Sunday evening) and Prompts as one control (build
-/// 57): a single capsule of glass with the glyphs inside it, a hairline
-/// between each, each part a 44pt target. The red dot stays on Letters.
-struct ChromeCapsule: View {
+/// The Journal tab's toolbar (the Duo brief, "Rework the Journal cover
+/// screen to Apple's iPhone Duo guidance"; it replaces build 57's capsule
+/// and build 54's glass circles). Letters, the week's moon on Sunday
+/// evening and Prompts are real toolbar items, each a title and a symbol,
+/// grouped and spaced by the system: a bar along the top on an iPhone and
+/// the inner display upright, a rail down the side on the outer display
+/// and the inner one turned. In a book, back to the covers at the leading
+/// end and "Mine" and "Ours" in the middle. Letters keeps its mark while a
+/// letter is sealed, at a high visibility priority so it outlasts the
+/// others when the bar is short of room. A mark, never a number.
+struct JournalToolbar: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
-    let tint: Color
+    let opened: Bool
+    let ours: Bool
+    let hasOurs: Bool
     let sealed: Bool
     let ready: Bool
     let prompts: Bool
     let week: ThisWeek?
-    let openLetters: () -> Void
-    let openPrompts: () -> Void
-    let openWeek: () -> Void
-
-    private struct Part: Identifiable {
-        let id: String
-        let symbol: String
-        let label: String
-        let hint: String
-        var dot = false
-        let action: () -> Void
-    }
-
-    private func parts(_ now: Date) -> [Part] {
-        var all = [Part(
-            id: "letters", symbol: "envelope", label: "Letters",
-            hint: ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "",
-            dot: sealed, action: openLetters
-        )]
-        if let week, week.reflection == nil, ReflectionWindow.isOpen(now) {
-            all.append(Part(id: "week", symbol: "moon", label: "How was your week?", hint: "Write this week's reflection", action: openWeek))
-        }
-        if prompts {
-            all.append(Part(
-                id: "prompts", symbol: "questionmark.bubble", label: "Prompts",
-                hint: "Your circle's questions and what everyone said", action: openPrompts
-            ))
-        }
-        return all
-    }
-
-    var body: some View {
-        let dark = colorScheme == .dark
-        let edge = dark ? TextTone.onPhoto.opacity(0.55) : Atmosphere.resolve(raw).palette.edge
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            let parts = parts(context.date)
-            HStack(spacing: 0) {
-                ForEach(Array(parts.enumerated()), id: \.element.id) { at, part in
-                    if at > 0 {
-                        Rectangle().fill(edge).frame(width: 0.5, height: 18)
-                            .accessibilityHidden(true)
-                    }
-                    Button(action: part.action) {
-                        Image(systemName: part.symbol)
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(tint)
-                            .overlay(alignment: .topTrailing) {
-                                if part.dot {
-                                    Circle()
-                                        .fill(Ink.red.color)
-                                        .overlay(Circle().strokeBorder(BookPaper.page, lineWidth: 1.2))
-                                        .frame(width: 8, height: 8)
-                                        .offset(x: 5, y: -3)
-                                }
-                            }
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(part.label)
-                    .accessibilityHint(part.hint)
-                }
-            }
-            .padding(.horizontal, 2)
-            .frame(height: 34)
-            .background {
-                ZStack {
-                    if dark {
-                        Capsule().fill(Color.white.opacity(0.08))
-                    } else {
-                        Capsule().fill(.ultraThinMaterial)
-                        Capsule().fill(Color.white.opacity(0.35))
-                    }
-                    Capsule().strokeBorder(edge, lineWidth: 0.5)
-                }
-                .shadow(color: .black.opacity(dark ? 0 : 0.1), radius: 3, x: 0, y: 1)
-            }
-            .frame(height: 44)
-            .accessibilityElement(children: .contain)
-        }
-    }
-}
-
-/// Along the top of an open book: back at the left, "Mine" and "Ours"
-/// (with a shared journal beside it); and on the date's line under it, at
-/// the right, the capsule of Letters and Prompts, its right edge on the
-/// writing's margin. On the covers only the date's line, its edges on the
-/// card's (`JournalCovers`).
-struct JournalTopBar: View {
-    let layout: BookLayout
     let tint: Color
-    var back: (() -> Void)?
-    let sealed: Bool
-    let ready: Bool
-    let prompts: Bool
-    let week: ThisWeek?
+    let back: () -> Void
+    let pick: (Bool) -> Void
     let openLetters: () -> Void
     let openPrompts: () -> Void
     let openWeek: () -> Void
-    /// In a book with a shared journal beside it: "Mine" and "Ours", the
-    /// one open in the accent (build 51's switch, kept in the bar).
-    var ours: Bool? = nil
-    var pick: (Bool) -> Void = { _ in }
-    /// Where the capsule's line is, and its right edge: by default the
-    /// page's date line and the writing's margin.
-    var lineY: CGFloat?
-    var rightEdge: CGFloat?
-    /// On the covers: words at the left of the capsule's line.
-    var leading: AnyView?
-    var leftEdge: CGFloat?
 
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            if back != nil || ours != nil {
-                HStack(spacing: 2) {
-                    if let back {
-                        ChromeButton(symbol: "chevron.left", label: "Back", hint: "Back to the covers", tint: tint, action: back)
-                    }
-                    Spacer(minLength: 0)
-                    if let ours {
+    /// The tint, settled for this screen's light or dark: the bar's glass
+    /// resolves a color that changes with the room in a context of its
+    /// own, and at night drew the glyphs in the day's ink.
+    private var ink: Color { settled(tint) }
+
+    private func settled(_ color: Color) -> Color {
+        let style: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        return Color(UIColor(color).resolvedColor(with: UITraitCollection(userInterfaceStyle: style)))
+    }
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.0, *) {
+            content.toolbar {
+                bookItems
+                lettersGroup.visibilityPriority(.high)
+                restGroup
+            }
+        } else {
+            content.toolbar {
+                bookItems
+                lettersGroup
+                restGroup
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var bookItems: some ToolbarContent {
+        if opened {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: back) {
+                    Label("Covers", systemImage: "chevron.left")
+                        .foregroundStyle(ink)
+                }
+                .tint(ink)
+                .accessibilityHint("Back to the covers")
+            }
+            if hasOurs {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 4) {
                         word("Mine", on: !ours) { pick(false) }
                         word("Ours", on: ours) { pick(true) }
                     }
-                    Spacer(minLength: 0)
-                    // Balancing the back button, so the words sit centered.
-                    Color.clear.frame(width: 44, height: 44)
                 }
-                .padding(.leading, layout.left - 5)
-                .padding(.trailing, layout.width - layout.right - 5)
-                .frame(width: layout.width, height: 44)
-                .offset(y: layout.barY - 22)
             }
-            let right = rightEdge ?? layout.right
-            let left = leftEdge ?? layout.left
-            HStack(spacing: 0) {
-                if let leading { leading }
-                Spacer(minLength: 0)
-                ChromeCapsule(
-                    tint: tint, sealed: sealed, ready: ready, prompts: prompts, week: week,
-                    openLetters: openLetters, openPrompts: openPrompts, openWeek: openWeek
-                )
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var lettersGroup: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button(action: openLetters) {
+                Label("Letters", systemImage: "envelope")
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(ink)
             }
-            .frame(width: max(0, right - left), height: 44)
-            .offset(x: left, y: (lineY ?? layout.headY) - 22)
+            .tint(ink)
+            // A mark while one is sealed: a presence, not a count.
+            .badge(sealed ? Text(verbatim: "\u{2022}") : nil)
+            .accessibilityValue(ready ? "A letter is ready to open" : sealed ? "A sealed letter is waiting for its day" : "")
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var restGroup: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if let week, week.reflection == nil, ReflectionWindow.isOpen(.now) {
+                Button(action: openWeek) {
+                    Label("How was your week?", systemImage: "moon")
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(ink)
+                }
+                .tint(ink)
+                .accessibilityHint("Write this week's reflection")
+            }
+            if prompts {
+                Button(action: openPrompts) {
+                    Label("Prompts", systemImage: "questionmark.bubble")
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(ink)
+                }
+                .tint(ink)
+            }
         }
     }
 
@@ -251,7 +170,7 @@ struct JournalTopBar: View {
         Button(action: action) {
             Text(name)
                 .font(.system(.subheadline, design: .rounded).weight(on ? .semibold : .regular))
-                .foregroundStyle(on ? tint : TextTone.secondary)
+                .foregroundStyle(on ? ink : settled(TextTone.secondary))
                 .frame(minWidth: 46, minHeight: 44)
                 .contentShape(Rectangle())
         }

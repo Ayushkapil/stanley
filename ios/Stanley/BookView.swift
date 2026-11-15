@@ -438,23 +438,18 @@ struct BookView: View {
                             palette.floor
                                 .frame(width: full.width, height: full.height + 160)
                                 .accessibilityHidden(true)
+                            // Down, stopping at the tab bar: iOS 26's bar takes
+                            // its light or dark from the scrolling page beneath
+                            // it. Across, the whole width; the content keeps
+                            // inside the safe area (bars, a rail, the island).
                             JournalCovers(
-                                layout: layout,
-                                // Across, the room without a side dock (the Duo's
-                                // cover), so the next card's edge clears it.
-                                // Down, stopping at the tab bar: iOS 26's bar
-                                // takes its light or dark from the scrolling page
-                                // beneath it.
-                                width: layout.width + BookLayout.edge,
-                                height: full.height,
-                                beyond: insets.trailing,
-                                lead: insets.leading,
-                                bar: { left, right, y in
-                                    AnyView(bar(layout, back: nil, tint: palette.accent, line: (left, right, y)))
-                                },
+                                insets: EdgeInsets(
+                                    top: insets.top, leading: insets.leading, bottom: 0, trailing: insets.trailing
+                                ),
                                 open: { journal in openBook(journal, layout: layout) },
                                 page: $coverPage
                             )
+                            .frame(width: full.width, height: full.height)
                             TabBarGlass(height: 160, base: palette.floor)
                                 .frame(width: full.width)
                                 .offset(y: full.height)
@@ -561,6 +556,25 @@ struct BookView: View {
         .sheet(item: $reportingPage, onDismiss: { Task { await state.loadShared() } }) { page in
             ReportSheet(target: .page(page))
         }
+        // Letters, the week and Prompts, and in a book back and "Mine" and
+        // "Ours": the system's own toolbar (the Duo brief), which puts them
+        // in a bar along the top or in the rail down the side, as the
+        // screen has room. Out of the way while a page is written or the
+        // pages are laid out small.
+        .modifier(JournalToolbar(
+            opened: opened, ours: ours && hasOurs, hasOurs: hasOurs,
+            sealed: !state.lettersReceived.sealed.isEmpty,
+            ready: state.lettersReceived.sealed.contains { $0.deliverable == true },
+            prompts: state.circle != nil,
+            week: state.thisWeek,
+            tint: palette.accent,
+            back: { shut() },
+            pick: { wanted in if wanted != (ours && hasOurs) { open(ours: wanted) } },
+            openLetters: { readingLetters = true },
+            openPrompts: { readingPrompts = true },
+            openWeek: { reflecting = true }
+        ))
+        .toolbar(writing != nil || grid ? .hidden : .automatic, for: .navigationBar)
         .fullScreenCover(isPresented: $viewing) {
             HeldViewer(current: $openedPhoto)
         }
@@ -879,14 +893,6 @@ struct BookView: View {
             .opacity(grid ? 0 : 1)
             .accessibilityHidden(grid)
 
-            // Along the top: back to the covers, Letters and Prompts, in
-            // glass (build 53; they were at the foot of the page).
-            bar(layout, back: { shut() }, tint: accent, ours: hasOurs ? shared : nil) { wanted in
-                if wanted != shared { open(ours: wanted) }
-            }
-            .opacity(grid ? 0 : 1)
-            .accessibilityHidden(grid)
-
             // The "+", at the foot of the page on the right.
             PlusMenu(
                 layout: layout, accent: accent, showsOurs: hasOurs,
@@ -916,35 +922,6 @@ struct BookView: View {
             }
         }
         .frame(width: whole.width, height: whole.height, alignment: .topLeading)
-    }
-
-    /// The bar along the top: back (in a book), Letters, the week, Prompts.
-    private func bar(
-        _ layout: BookLayout, back: (() -> Void)?, tint: Color, ours: Bool? = nil,
-        line: (left: CGFloat, right: CGFloat, y: CGFloat)? = nil,
-        pick: @escaping (Bool) -> Void = { _ in }
-    ) -> some View {
-        JournalTopBar(
-            layout: layout, tint: tint, back: back,
-            sealed: !state.lettersReceived.sealed.isEmpty,
-            ready: state.lettersReceived.sealed.contains { $0.deliverable == true },
-            prompts: state.circle != nil,
-            week: state.thisWeek,
-            openLetters: { readingLetters = true },
-            openPrompts: { readingPrompts = true },
-            openWeek: { reflecting = true },
-            ours: ours, pick: pick,
-            lineY: line?.y, rightEdge: line?.right,
-            // On the covers, the day at the left of the line.
-            leading: line == nil ? nil : AnyView(
-                Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                    .smallCaps()
-                    .foregroundStyle(TextTone.label)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            ),
-            leftEdge: line?.left
-        )
     }
 
     // MARK: where the journal is open

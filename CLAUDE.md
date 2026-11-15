@@ -567,6 +567,80 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The covers to Apple's iPhone Duo guidance** (build 62, November 15,
+  2026, a product brief from Ayush, "Rework the Journal cover screen to
+  Apple's iPhone Duo guidance"; screenshots in `docs/journal-duo-build62/`).
+  Phone only. **Where builds 54 to 58 below say otherwise about the
+  Journal tab's chrome or the covers' layout, this wins.**
+  - **A real toolbar** (`JournalToolbar` in `JournalChrome.swift`; build
+    57's `ChromeCapsule` and build 54's `JournalTopBar` and glass circles
+    are deleted). The Journal tab is a `NavigationStack` (`MemoriesView`;
+    the tab bar stays outside it). Letters, the Sunday moon and Prompts
+    are toolbar items, each a `Label` with a title and a symbol, at
+    `.topBarTrailing` with no spacing of ours; Letters is a `ToolbarItem`
+    with `.visibilityPriority(.high)` (iOS 27), the rest a
+    `ToolbarItemGroup`. Its mark while a letter is sealed is a `.badge`
+    of a dot, never a number. In a book, back to the covers is a
+    `.topBarLeading` item and "Mine" and "Ours" the `.principal` one; the
+    toolbar hides while a page is written or the grid is open. The system
+    places it: a bar along the top on an iPhone, **the rail on the Duo's
+    cover display**. The glyphs' ink is resolved for the screen's light
+    or dark before it's handed over (`JournalToolbar.settled`): the
+    bar's glass resolved Stanley's dynamic colors in a context of its own
+    and drew them in the day's ink at night. The date is content on the
+    covers, and the page's head moved up under the real bar
+    (`BookLayout.headY` = safe top + 16, `tagY` + 33, `contentTop` + 44;
+    `barY` is gone).
+  - **`ArrangementView`** (iOS 27.1): primary the paged deck, secondary
+    the name, line, pips and arrow, `.split` on both axes, the deck at a
+    0.62 ratio. Build 58's `landscape` branch, its window and its centered
+    row are gone. Below 27.1, `CoverArrangement` (a small `Layout`) splits
+    the same two by the room's shape. **Seen on the Duo's cover on its
+    side: the split keeps only its primary** (the deck was given the whole
+    594 by 388 room, the second part never laid out), whatever the
+    minimum sizes or ratio; so when the deck is handed the whole
+    arrangement it lays the two out itself with `CoverArrangement`, and
+    the name and the arrow never go. `Turning` (the covers may rotate)
+    stays: it's what lets a phone show the wide layout at all.
+  - **Reserved regions** (`Reserved` in `JournalCovers.swift`, from
+    `GeometryProxy.reservedRegions`, iOS 27.1): anything covering an edge
+    (`.occlusion`, the outer camera) is cut from the deck's and the row's
+    room; a fold (`.division`) standing through the deck with room either
+    side puts **one card each side, the fold in the gap** (two visible,
+    an even number), lying across or near an edge sends the deck to the
+    larger side; the row keeps to the roomier side of a fold
+    (`Reserved.side`). A Debug-only stand-in, `STANLEY_FAKE_FOLD=standing`
+    or `lying`, adds a 48pt band down or across the middle of the screen,
+    for seeing what only a folding device reports; it's generic, not a
+    Duo path.
+  - **Sizes**: the card is 74% of the deck's room across in a compact
+    width and 56% in a regular one, held to 290:416, no taller than the
+    room, at least 38pt of neighbour either side; the words under it
+    scale with the card. No fixed card size, no device or display check
+    (none was found in the covers; the dock and the island were always
+    safe-area insets).
+  - **Kept as it was, checked**: the backdrop (build 58) under the bars
+    and the rail, cross-fading as the deck pages; symmetric peeks.
+  - **Checked**, light and dark: **the Duo's cover display (iOS 27.1, the
+    one simulator that runs `ArrangementView`)** upright (deck over row,
+    Letters and Prompts in the rail with the badge) and on its side (the
+    collapsed arrangement laid out by the deck, the tab dock and an
+    overflow "…" in the rail: there's room for one toolbar slot there, so
+    Letters goes into "…" with Prompts, priority or not), with the
+    stand-in fold (two cards, the row clear of it), and a book open (back
+    and the two marks in the rail, "Mine" and "Ours" along the top). **The
+    iPhone 17 Pro (iOS 26.5, so the fallback layout)** upright and on its
+    side, a book open, the stand-in fold. **The inner panel's sizes on an
+    iPad Air held to 669 by 951 and 951 by 669** (iOS 27.0, fallback
+    layout, regular width; device family widened and Debug hooks for the
+    run, none kept), with folds standing and lying. Unit tests (6) pass;
+    the Release configuration compiles.
+  - **Not seen, and why**: the Duo's inner display in any pose,
+    partially folded, and a real reserved region. Xcode 27.1's Device
+    Hub, SimulatorKit and CoreSimulator have no fold, hinge or posture
+    control (searched again for this build), the inner panel stays
+    black, and no iPad can run the 27.1 runtime. A real phone.
+
 - **Asking to notify, moved** (build 61, November 14, 2026, "Move the
   notification permission request", from Ayush; screenshots in
   `docs/notify-ask-build61/`). Build 60 asked iOS the first time the
@@ -2201,7 +2275,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (61)", at the
+  production audit), and the version, "Stanley 0.2.0 (62)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2733,8 +2807,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 61** (0.2.0) is the number to archive next: asking to notify
-  at the first concrete moment, behind a soft sheet (above), over
+- **Build 62** (0.2.0) is the number to archive next: the covers to
+  Apple's iPhone Duo guidance (above), over build 61's asking to notify
+  at the first concrete moment, over
   build 60's Written to You as corrected, over build 58's covers' room, centered peeks and the covers
   on their side, build 57's
   Journal Entries, the capsule and the inks at night, build 56's cover

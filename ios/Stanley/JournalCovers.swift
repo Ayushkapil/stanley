@@ -1,20 +1,25 @@
 import SwiftUI
 
-// The covers (build 54; redrawn in build 56 from the brief of 2026-11-14,
-// "Five fixes to the Journal cover screen"). The Journal tab opens here:
-// one journal to a card, paged sideways, yours first and then one for each
-// circle you're in. Each card is its cover photo with a slab of glass laid
-// over it: where it's kept and its title in the hand, and at its foot the
-// dates it covers and its volume. The next card's edge shows at the right,
-// and is a real card: a swipe brings it. Under the cards, the journal's
-// name and a line, the pips (which follow the scroll) and the arrow that
-// opens it, as a tap on the card does.
+// The covers (build 54; redrawn in build 56; laid out to Apple's iPhone
+// Duo guidance in build 62). The Journal tab opens here: one journal to a
+// card, paged sideways, yours first and then one for each circle you're
+// in. Each card is its cover photo with a slab of glass laid over it:
+// where it's kept and its title in the hand, and at its foot the dates it
+// covers and its volume. The card in view is centered with a sliver of
+// each neighbour. Beside or under the cards, the journal's name and a
+// line, the pips (which follow the scroll) and the arrow that opens it, as
+// a tap on the card does.
 //
-// The room is the atmosphere's own floor, cream by day and black by night,
-// as every other screen is; the photo is on the card, not the room. By day
-// the slab is 20% white; at night 8%, with its thin white edge carrying it
-// (material over black goes muddy). A dark scrim only where the card's
-// words sit on the photo.
+// The two parts are an `ArrangementView` (iOS 27.1): side by side or one
+// over the other as the room is, the fold between them; a small layout
+// does the same before 27.1. The card is sized from the deck's own room
+// and the size class, never from a device, and kept clear of reserved
+// regions (a fold, the outer camera). Letters and Prompts are the system's
+// toolbar (`JournalToolbar`), not drawn here; the date is content.
+//
+// The room behind everything is the cover photo, blurred, or the
+// journal's own warm glow (build 58, `CoverBackdrop`), cross-faded as the
+// deck pages.
 //
 // The cover photo is the reader's own newest keep in that journal, else
 // its newest photo still in the light (`sharing.cover`, with a signed link).
@@ -47,23 +52,12 @@ struct CoverJournal: Identifiable, Hashable {
 struct JournalCovers: View {
     @Environment(AppState.self) private var state
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("stanley.atmosphere") private var raw = "auto"
-    let layout: BookLayout
-    /// The room the covers have: across (without a side dock) and down
-    /// (to the tab bar).
-    let width: CGFloat
-    let height: CGFloat
-    /// How much further the room runs on under a side dock: the backdrop
-    /// goes there too.
-    var beyond: CGFloat = 0
-    /// The safe edge at the leading side (a phone on its side keeps its
-    /// cards clear of the island): the cards are centered between it and
-    /// the room's trailing edge.
-    var lead: CGFloat = 0
-    /// The date's line along the top, with Letters and Prompts at its
-    /// right: drawn for a left edge, a right edge and a middle (the card's
-    /// edges, so the three line up).
-    let bar: (_ left: CGFloat, _ right: CGFloat, _ y: CGFloat) -> AnyView
+    /// The safe area the covers' content keeps inside: the status bar, the
+    /// navigation bar or the toolbar's rail, the island. The room behind
+    /// the cards runs on under all of it.
+    let insets: EdgeInsets
     let open: (CoverJournal) -> Void
     @Binding var page: String
     @State private var shown: String?
@@ -73,6 +67,9 @@ struct JournalCovers: View {
     /// first, 1 at the second, and between while paging (iOS 18 and up;
     /// nil before, and the room changes as each card settles).
     @State private var progress: CGFloat?
+    /// The card's width, as the deck worked it out from its own room: what
+    /// the words under it are measured and scaled by.
+    @State private var cardWidth: CGFloat = 290
 
     private var palette: Atmosphere.Palette { Atmosphere.resolve(raw).palette }
 
@@ -110,136 +107,41 @@ struct JournalCovers: View {
         )
     }
 
-    /// On its side (build 58): the room is wider than it's tall (a phone
-    /// turned, or the Duo's inner display turned). The cards and what's
-    /// under them are then centered as one group, not the portrait layout
-    /// stretched.
-    private var landscape: Bool { width > height }
-
-    /// The room across, between the leading safe edge and the trailing
-    /// edge (a dock's, or the screen's).
-    private var across: CGFloat { width - lead }
-
-    /// Where the cards begin: under the date's line.
-    private var top: CGFloat { layout.safeTop + (landscape ? 64 : 72) }
-
-    /// The card: about three quarters of the room across, held at 290 by
-    /// 416, never over 420 wide, leaving a sliver of a card either side,
-    /// and no taller than the room leaves under the bar and above what's
-    /// written under it. On its side the room's height decides it.
-    private var card: CGSize {
-        let across = min(420, (self.across * 0.74).rounded(), self.across - 2 * (14 + 24))
-        let down = (across * 416 / 290).rounded()
-        if landscape {
-            // The deck's frame (the card and 24 for its shadow), the gap,
-            // the row (the arrow's 44 and a little), and a margin.
-            let tallest = height - top - 24 - 14 - 48 - 12
-            let fitted = max(140, min(down, tallest)).rounded()
-            return CGSize(width: (fitted * 290 / 416).rounded(), height: fitted)
-        }
-        let tallest = height - top - 4 - 150 - 16
-        guard down > tallest else { return CGSize(width: across, height: down) }
-        let fitted = max(240, tallest)
-        return CGSize(width: (fitted * 290 / 416).rounded(), height: fitted)
-    }
+    /// The page's side margin, as every other page has it.
+    private static let margin: CGFloat = 20
 
     var body: some View {
         let journals = self.journals
-        let card = self.card
-        let scale = card.width / 290
-        let gap = (14 * scale).rounded()
-        // The card in view is always centered (build 58), with an equal
-        // sliver of the one before and the one after; the first and the
-        // last show only the neighbour they have, and don't move over.
-        let leading = (lead + (across - card.width) / 2).rounded()
-        // On its side there's room for more than a sliver: the deck is
-        // shown through a window a little wider than the card, its edges
-        // soft, so either neighbour shows as much as it would upright.
-        let peek = max(28, (card.width * 0.4).rounded())
-        let window = landscape ? min(across, card.width + 2 * (gap + peek)) : width
         let current = journals.first { $0.id == (shown ?? page) } ?? journals[0]
         let at = journals.firstIndex(of: current) ?? 0
-        // The date's line: the card's edges upright; on its side, no
-        // narrower than the line needs.
-        let span = landscape ? max(card.width, min(across - 32, 360)) : card.width
-        let left = (lead + (across - span) / 2).rounded()
 
-        ZStack(alignment: .topLeading) {
-            CoverBackdrop(
-                journals: journals, progress: progress ?? CGFloat(at),
-                size: CGSize(width: width + beyond, height: height + 160)
-            )
-            .animation(progress == nil ? .easeInOut(duration: 0.35) : nil, value: at)
-            .ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 0) {
-                if landscape { Spacer(minLength: 0) }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: gap) {
-                        ForEach(journals) { journal in
-                            CoverCard(
-                                journal: journal, size: card,
-                                open: { open(journal) },
-                                rename: journal.circleId == nil ? {
-                                    name = state.journalTitle ?? ""
-                                    renaming = true
-                                } : nil
-                            )
-                            // The journal's own settings: its notices, muted
-                            // or not (build 57).
-                            .contextMenu {
-                                if let circleId = journal.circleId, let muted = journal.muted {
-                                    Button {
-                                        Task { await state.setJournalMuted(circleId, !muted) }
-                                    } label: {
-                                        muted
-                                            ? Label("Unmute Pages Written to You", systemImage: "bell")
-                                            : Label("Mute Pages Written to You", systemImage: "bell.slash")
-                                    }
-                                }
-                                Button { open(journal) } label: { Label("Open", systemImage: "book") }
-                            }
-                            .id(journal.id)
-                        }
-                    }
-                    .scrollTargetLayout()
+        GeometryReader { room in
+            ZStack(alignment: .topLeading) {
+                // The room behind everything, under the bars and the rail.
+                CoverBackdrop(
+                    journals: journals, progress: progress ?? CGFloat(at),
+                    size: CGSize(width: room.size.width, height: room.size.height + 160)
+                )
+                .animation(progress == nil ? .easeInOut(duration: 0.35) : nil, value: at)
+                .ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 0) {
+                    // The day, as content: the toolbar holds Letters and
+                    // Prompts, never this.
+                    Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                        .smallCaps()
+                        .foregroundStyle(TextTone.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, Self.margin)
+                        .padding(.top, 8)
+                    arranged(journals: journals, current: current, at: at, room: room.size.width)
                 }
-                .contentMargins(.leading, leading, for: .scrollContent)
-                .contentMargins(.trailing, width - leading - card.width, for: .scrollContent)
-                .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $shown)
-                .modifier(ScrollProgress(step: card.width + gap, count: journals.count, progress: $progress))
-                .frame(width: width, height: card.height + 24)
-                // A turn (or any new size) keeps the journal in view where
-                // it was: the scroll would otherwise keep its old offset,
-                // with the cards somewhere off to the side.
-                .onChange(of: card) { _, _ in
-                    let id = shown ?? page
-                    shown = nil
-                    DispatchQueue.main.async { shown = id }
-                }
-                // Shadows run on up and down; sideways the cards stop at the
-                // room's edge, which stops short of a side dock (the Duo's
-                // cover), so the next card's edge is never under the dock.
-                // On its side, at the window's soft edges.
-                .scrollClipDisabled()
-                .mask { DeckWindow(width: width, center: lead + across / 2, window: window, height: card.height + 140, soft: landscape) }
-                Group {
-                    if landscape {
-                        across(current, at: at, of: journals.count, scale: scale)
-                    } else {
-                        underneath(current, at: at, of: journals.count, width: card.width, scale: scale)
-                    }
-                }
-                .frame(width: across)
-                .padding(.leading, lead)
-                .padding(.top, 14)
-                Spacer(minLength: 16)
+                .padding(.top, insets.top)
+                .padding(.leading, insets.leading)
+                .padding(.trailing, insets.trailing)
+                .frame(width: room.size.width, height: room.size.height, alignment: .topLeading)
             }
-            .padding(.top, top)
-            .frame(width: width, height: height, alignment: .topLeading)
-            bar(left, left + span, layout.safeTop + 30)
         }
-        .frame(width: width, height: height, alignment: .topLeading)
         .onAppear {
             shown = page
             Turning.coversShowing(true)
@@ -258,59 +160,310 @@ struct JournalCovers: View {
         }
     }
 
-    /// On its side: one row centered under the card, the journal's name
-    /// and its line, the pips, and the arrow at the row's right.
-    private func across(_ journal: CoverJournal, at: Int, of: Int, scale: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 18) {
-            VStack(alignment: .center, spacing: 2) {
+    /// The deck and what's under it, arranged by the system (build 59 of
+    /// the Duo brief, "Rework the Journal cover screen to Apple's iPhone Duo
+    /// guidance"): side by side when the room is wider than it's tall, one
+    /// over the other when it's taller, the fold between them when there is
+    /// one. One layout for every pose; nothing here asks which.
+    @ViewBuilder
+    private func arranged(journals: [CoverJournal], current: CoverJournal, at: Int, room: CGFloat) -> some View {
+        GeometryReader { container in
+            let deck = GeometryReader { proxy in
+                // Where the arrangement keeps only its first part (the outer
+                // display on its side: it splits only where both halves have
+                // room), the deck is given everything; it then makes room
+                // for the rest itself, so the name and the arrow never go.
+                if proxy.size.width >= container.size.width - 1 && proxy.size.height >= container.size.height - 1 {
+                    CoverArrangement {
+                        GeometryReader { inner in self.deck(journals: journals, in: inner, room: room) }
+                        GeometryReader { inner in self.secondary(current, at: at, of: journals.count, in: inner) }
+                    }
+                } else {
+                    self.deck(journals: journals, in: proxy, room: room)
+                }
+            }
+            // What each part needs, so the arrangement can tell whether both
+            // fit side by side or one goes over the other: a card and its
+            // neighbours' edges; a name, a line, the pips and the arrow.
+            .frame(minWidth: 200, idealWidth: 320, minHeight: 200, idealHeight: 420)
+            let secondary = GeometryReader { proxy in
+                self.secondary(current, at: at, of: journals.count, in: proxy)
+            }
+            .frame(minWidth: 220, idealWidth: 280, minHeight: 96, idealHeight: 140)
+            if #available(iOS 27.1, *) {
+                ArrangementView {
+                    deck.splitArrangementLayoutRatio(0.62)
+                } secondary: {
+                    secondary
+                }
+                .arrangementViewStyle(.split.axes([.horizontal, .vertical]))
+            } else {
+                CoverArrangement {
+                    deck
+                    secondary
+                }
+            }
+        }
+    }
+
+    /// The paged deck, sized from the room it was given: three quarters of
+    /// it across in a compact width, a little over half in a regular one,
+    /// held to a cover's proportions, and no taller than the room. Kept
+    /// clear of anything reserved over it (a camera); where a fold runs
+    /// down through it, two cards show, one either side.
+    private func deck(journals: [CoverJournal], in proxy: GeometryProxy, room: CGFloat) -> some View {
+        let reserved = Reserved.read(proxy)
+        let region = CGRect(origin: .zero, size: proxy.size)
+        let clear = reserved.clearing(region)
+        let fold = reserved.fold(across: clear)
+        let shadow: CGFloat = 24
+        // A fold standing through the deck with room for a card either side
+        // of it: one card each side. Nearer an edge than that, or lying
+        // across, the deck keeps to the larger side.
+        let standing: Bool = {
+            guard let fold, fold.height > fold.width else { return false }
+            let before = fold.minX - clear.minX
+            let after = clear.maxX - fold.maxX
+            return min(before, after) >= 0.6 * max(before, after)
+        }()
+        let usable = standing ? clear : reserved.side(of: clear)
+        // Each card's share of the width: one card centered, or with a fold
+        // standing through the deck, one in each half.
+        let share = standing ? min(fold!.minX - usable.minX, usable.maxX - fold!.maxX) : usable.width
+        let fraction: CGFloat = standing ? 0.84 : (sizeClass == .regular ? 0.56 : 0.74)
+        var width = (share * fraction).rounded()
+        if !standing { width = min(width, usable.width - 2 * 38) }
+        var height = (width * 416 / 290).rounded()
+        if height > usable.height - shadow {
+            height = max(120, usable.height - shadow)
+            width = (height * 290 / 416).rounded()
+        }
+        let card = CGSize(width: max(80, width), height: height)
+        let scale = card.width / 290
+        let leading: CGFloat
+        let gap: CGFloat
+        if standing, let fold {
+            // The fold falls in the gap: the card in view is centered in the
+            // half before it, the next in the half after.
+            let first = (fold.minX + usable.minX) / 2
+            let second = (fold.maxX + usable.maxX) / 2
+            leading = (first - card.width / 2).rounded()
+            gap = (second - first - card.width).rounded()
+        } else {
+            // The card in view centered, an equal sliver of each neighbour.
+            leading = (usable.midX - card.width / 2).rounded()
+            gap = (14 * scale).rounded()
+        }
+        let global = proxy.frame(in: .global)
+        return ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: gap) {
+                ForEach(journals) { journal in
+                    CoverCard(
+                        journal: journal, size: card,
+                        open: { open(journal) },
+                        rename: journal.circleId == nil ? {
+                            name = state.journalTitle ?? ""
+                            renaming = true
+                        } : nil
+                    )
+                    // The journal's own settings: its notices, muted or
+                    // not (build 57).
+                    .contextMenu {
+                        if let circleId = journal.circleId, let muted = journal.muted {
+                            Button {
+                                Task { await state.setJournalMuted(circleId, !muted) }
+                            } label: {
+                                muted
+                                    ? Label("Unmute Pages Written to You", systemImage: "bell")
+                                    : Label("Mute Pages Written to You", systemImage: "bell.slash")
+                            }
+                        }
+                        Button { open(journal) } label: { Label("Open", systemImage: "book") }
+                    }
+                    .id(journal.id)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .contentMargins(.leading, leading, for: .scrollContent)
+        .contentMargins(.trailing, max(0, proxy.size.width - leading - card.width), for: .scrollContent)
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $shown)
+        .modifier(ScrollProgress(step: card.width + gap, count: journals.count, progress: $progress))
+        .frame(width: proxy.size.width, height: card.height + shadow)
+        .position(x: proxy.size.width / 2, y: usable.midY)
+        // A turn, a fold or any new room keeps the journal in view where
+        // it was: the scroll would otherwise keep its old offset, with the
+        // cards somewhere off to the side.
+        .onChange(of: card, initial: true) { _, now in
+            cardWidth = now.width
+            let id = shown ?? page
+            shown = nil
+            DispatchQueue.main.async { shown = id }
+        }
+        .onChange(of: gap) { _, _ in
+            let id = shown ?? page
+            shown = nil
+            DispatchQueue.main.async { shown = id }
+        }
+        // Shadows run on up and down; sideways the cards stop at the deck's
+        // own edges, softly where those aren't the screen's.
+        .scrollClipDisabled()
+        .mask {
+            DeckWindow(
+                size: proxy.size, card: card.height + 140, y: usable.midY,
+                softLeading: global.minX > 1, softTrailing: global.maxX < room - 1
+            )
+        }
+    }
+
+    /// Under or beside the deck: the journal in view, its name and a line,
+    /// the pips and the arrow that opens it, measured by the card and
+    /// scaled with it, and kept clear of anything reserved over it.
+    private func secondary(_ journal: CoverJournal, at: Int, of: Int, in proxy: GeometryProxy) -> some View {
+        let reserved = Reserved.read(proxy)
+        // Clear of a camera at an edge, and of a fold through the middle:
+        // the row keeps to the roomier side of it, the arrow with it.
+        let clear = reserved.side(of: reserved.clearing(CGRect(origin: .zero, size: proxy.size)))
+        let scale = min(max(cardWidth / 290, 0.8), 1.3)
+        return HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4 * scale) {
                 Text(journal.name)
-                    .font(.system(size: 20 * min(max(scale, 0.9), 1.2), weight: .semibold, design: .rounded))
+                    .font(.system(size: 22 * scale, weight: .semibold, design: .rounded))
                     .foregroundStyle(TextTone.primary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(journal.subtitle)
-                    .font(.system(size: 13 * min(max(scale, 0.9), 1.2)))
+                    .font(.system(size: 14 * scale))
                     .foregroundStyle(TextTone.secondary)
                     .lineLimit(1)
-            }
-            .fixedSize()
-            Pips(at: at, of: of, ink: TextTone.primary)
-            arrow(journal)
-        }
-    }
-
-    private func arrow(_ journal: CoverJournal) -> some View {
-        Button { open(journal) } label: {
-            GlassCircle(size: 44) {
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(palette.accent)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Open \(journal.name)")
-    }
-
-    /// Under the cards: the journal in view, its name and a line, the pips,
-    /// and the arrow that opens it. In the room's own ink.
-    private func underneath(_ journal: CoverJournal, at: Int, of: Int, width: CGFloat, scale: CGFloat) -> some View {
-        let ink = TextTone.primary
-        return HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(journal.name)
-                    .font(.system(size: 22 * min(scale, 1.2), weight: .semibold, design: .rounded))
-                    .foregroundStyle(ink)
-                    .lineLimit(1)
-                Text(journal.subtitle)
-                    .font(.system(size: 14 * min(scale, 1.2)))
-                    .foregroundStyle(TextTone.secondary)
-                    .lineLimit(1)
-                Pips(at: at, of: of, ink: ink)
-                    .padding(.top, 8)
+                    .minimumScaleFactor(0.8)
+                Pips(at: at, of: of, ink: TextTone.primary)
+                    .padding(.top, 8 * scale)
             }
             Spacer(minLength: 8)
-            arrow(journal)
+            Button { open(journal) } label: {
+                GlassCircle(size: 44) {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(palette.accent)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open \(journal.name)")
         }
-        .frame(width: width)
+        .frame(width: max(120, min(max(cardWidth, 220), clear.width - 2 * Self.margin)))
+        // In the middle of its own room, beside the deck or under it.
+        .position(x: clear.midX, y: clear.midY)
+    }
+}
+
+/// Before iOS 27.1, which has no `ArrangementView`: the same two parts,
+/// side by side when the room is wider than it's tall and one over the
+/// other when it's taller, the deck taking the larger share.
+private struct CoverArrangement: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2 else { return }
+        if bounds.width > bounds.height {
+            let first = bounds.width * 0.6
+            subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: first, height: bounds.height))
+            subviews[1].place(
+                at: CGPoint(x: bounds.minX + first, y: bounds.minY),
+                proposal: ProposedViewSize(width: bounds.width - first, height: bounds.height)
+            )
+        } else {
+            let first = bounds.height * 0.72
+            subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: first))
+            subviews[1].place(
+                at: CGPoint(x: bounds.minX, y: bounds.minY + first),
+                proposal: ProposedViewSize(width: bounds.width, height: bounds.height - first)
+            )
+        }
+    }
+}
+
+/// What's reserved over a part of the screen (iOS 27.1): a fold the
+/// content should divide around, and anything covering the screen (the
+/// outer camera), with their margins for things that are pressed, in the
+/// part's own coordinates. Empty before 27.1, and wherever nothing is.
+struct Reserved {
+    var folds: [CGRect] = []
+    var covered: [CGRect] = []
+
+    static func read(_ proxy: GeometryProxy) -> Reserved {
+        var reserved = Reserved()
+        if #available(iOS 27.1, *) {
+            reserved.folds = proxy.reservedRegions(kind: .division).filter(\.isActive).map(\.frame)
+            reserved.covered = proxy.reservedRegions(kind: .occlusion).filter(\.isActive).map(\.frame)
+        }
+        #if DEBUG
+        // STANLEY_FAKE_FOLD=standing|lying: a fold down (or across) the
+        // middle of the screen, 24pt with 12 either side, for seeing on a
+        // simulator what only a folding device reports. Debug only.
+        if let fake = ProcessInfo.processInfo.environment["STANLEY_FAKE_FOLD"], !fake.isEmpty {
+            let screen = proxy.frame(in: .global)
+            let bounds = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds ?? screen
+            let band: CGRect = fake == "lying"
+                ? CGRect(x: 0, y: bounds.midY - 24, width: bounds.width, height: 48)
+                : CGRect(x: bounds.midX - 24, y: 0, width: 48, height: bounds.height)
+            reserved.folds.append(band.offsetBy(dx: -screen.minX, dy: -screen.minY))
+        }
+        #endif
+        return reserved
+    }
+
+    /// The part of `region` clear of what covers it at an edge: a camera
+    /// over the top of it pushes it down, one at a side pushes it in. A
+    /// fold running through the middle isn't an edge; `fold(across:)`.
+    func clearing(_ region: CGRect) -> CGRect {
+        var clear = region
+        for cover in covered + folds where cover.intersects(clear) {
+            let overlap = cover.intersection(clear)
+            let touchesTop = overlap.minY <= clear.minY + 1
+            let touchesBottom = overlap.maxY >= clear.maxY - 1
+            let touchesLeading = overlap.minX <= clear.minX + 1
+            let touchesTrailing = overlap.maxX >= clear.maxX - 1
+            if touchesTop && !touchesBottom && overlap.height < clear.height / 2 {
+                clear = CGRect(x: clear.minX, y: overlap.maxY, width: clear.width, height: clear.maxY - overlap.maxY)
+            } else if touchesBottom && !touchesTop && overlap.height < clear.height / 2 {
+                clear.size.height = overlap.minY - clear.minY
+            } else if touchesLeading && !touchesTrailing && overlap.width < clear.width / 2 {
+                clear = CGRect(x: overlap.maxX, y: clear.minY, width: clear.maxX - overlap.maxX, height: clear.height)
+            } else if touchesTrailing && !touchesLeading && overlap.width < clear.width / 2 {
+                clear.size.width = overlap.minX - clear.minX
+            }
+        }
+        return clear
+    }
+
+    /// The roomier side of `region` where a fold runs through it; all of
+    /// it where none does.
+    func side(of region: CGRect) -> CGRect {
+        guard let fold = fold(across: region) else { return region }
+        if fold.height > fold.width {
+            let before = CGRect(x: region.minX, y: region.minY, width: fold.minX - region.minX, height: region.height)
+            let after = CGRect(x: fold.maxX, y: region.minY, width: region.maxX - fold.maxX, height: region.height)
+            return before.width >= after.width ? before : after
+        }
+        let above = CGRect(x: region.minX, y: region.minY, width: region.width, height: fold.minY - region.minY)
+        let below = CGRect(x: region.minX, y: fold.maxY, width: region.width, height: region.maxY - fold.maxY)
+        return above.height >= below.height ? above : below
+    }
+
+    /// A fold running through `region`, from one side of it to the other,
+    /// not at its edge: the deck divides around it.
+    func fold(across region: CGRect) -> CGRect? {
+        folds.first { fold in
+            let overlap = fold.intersection(region)
+            guard !overlap.isNull else { return false }
+            let standing = overlap.height >= region.height - 1 && overlap.minX > region.minX + 40 && overlap.maxX < region.maxX - 40
+            let lying = overlap.width >= region.width - 1 && overlap.minY > region.minY + 40 && overlap.maxY < region.maxY - 40
+            return standing || lying
+        }.map { $0.intersection(region) }
     }
 }
 
@@ -562,33 +715,31 @@ private struct ScrollProgress: ViewModifier {
     }
 }
 
-/// Where the deck shows: the whole room across upright, its edge hard (the
-/// screen's, or a dock's); on its side a window a little wider than the
-/// card, centered, fading out at its edges.
+/// Where the deck shows: its own room across, with the cards' shadows
+/// running on up and down; softly at an edge that isn't the screen's (the
+/// deck beside what's under it, or beside a rail).
 private struct DeckWindow: View {
-    let width: CGFloat
-    /// Where the window is centered across the room.
-    let center: CGFloat
-    let window: CGFloat
-    let height: CGFloat
-    let soft: Bool
+    let size: CGSize
+    let card: CGFloat
+    let y: CGFloat
+    let softLeading: Bool
+    let softTrailing: Bool
 
     var body: some View {
-        if soft && window < width {
-            let fade = min(32, window / 6)
-            HStack(spacing: 0) {
+        let fade = min(28, size.width / 8)
+        HStack(spacing: 0) {
+            if softLeading {
                 LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
                     .frame(width: fade)
-                Rectangle()
+            }
+            Rectangle()
+            if softTrailing {
                 LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
                     .frame(width: fade)
             }
-            .frame(width: window, height: height)
-            .position(x: center, y: height / 2)
-            .frame(width: width, height: height)
-        } else {
-            Rectangle().frame(width: width, height: height)
         }
+        .frame(width: size.width, height: card)
+        .position(x: size.width / 2, y: y)
     }
 }
 
