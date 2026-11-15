@@ -236,6 +236,7 @@ class Report(Base):
         Index("ix_reports_comment", "comment_id"),
         Index("ix_reports_photo", "photo_id"),
         Index("ix_reports_response", "response_id"),
+        Index("ix_reports_stroke", "stroke_id"),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
@@ -249,6 +250,8 @@ class Report(Base):
     # clears at the end of its day, sooner than a report may be read, so the
     # report keeps a copy of its words in `reason` and names it here.
     note_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # A stroke on the circle's doodle (build 39).
+    stroke_id: Mapped[str | None] = mapped_column(ForeignKey("doodle_strokes.id"), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -416,4 +419,42 @@ class PromptResponse(Base):
     prompt_id: Mapped[str] = mapped_column(ForeignKey("circle_prompts.id"))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class DoodleStroke(Base):
+    """One line on a circle's shared canvas for the week (build 39,
+    `doodle.py`): its points, each 0 to 1 across a square, and its color.
+    One per person per circle per day of their own calendar, as a photo is.
+    Never edited or deleted by anyone in the circle; it goes with its
+    author's account, or on the operator's takedown."""
+
+    __tablename__ = "doodle_strokes"
+    __table_args__ = (
+        UniqueConstraint("circle_id", "author_id", "local_date", name="uq_doodle_stroke_day"),
+        Index("ix_doodle_strokes_week", "circle_id", "week_start"),
+        Index("ix_doodle_strokes_author", "author_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"))
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    # The circle's week (its Monday, UTC), the same one its question keeps.
+    week_start: Mapped[date] = mapped_column(Date)
+    # The drawer's own calendar day: what "one a day" means.
+    local_date: Mapped[date] = mapped_column(Date)
+    stroke_data: Mapped[list] = mapped_column(JSON)  # [{"x": 0.1234, "y": 0.5}, ...]
+    stroke_color: Mapped[str] = mapped_column(String(7))  # "#RRGGBB"
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class DoodleArchive(Base):
+    """A finished week's canvas, drawn once it closed and kept as a picture
+    for the circle journal. One per circle per week that anyone drew on."""
+
+    __tablename__ = "doodle_archives"
+
+    circle_id: Mapped[str] = mapped_column(ForeignKey("circles.id"), primary_key=True)
+    week_start: Mapped[date] = mapped_column(Date, primary_key=True)
+    image_key: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)

@@ -28,6 +28,7 @@ def get_blob(
         raise HTTPException(404, "not found")
     return Response(
         content=data,
-        media_type="image/jpeg",
+        # Photos and faces are JPEGs; a finished doodle is a PNG (build 39).
+        media_type="image/png" if key.endswith(".png") else "image/jpeg",
         headers={"Cache-Control": "private, max-age=300"},
     )
