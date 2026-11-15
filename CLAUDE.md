@@ -61,8 +61,10 @@ guarded by tests; treat a change to any of them as a spec change.
   ranking, no engagement signals, no recommendation.
 - **Notifications are almost nothing.** Six exist (the sixth, **Written
   to You**, at the end of this rule: build 57's Journal Entries as
-  narrowed in build 59), and all are **off until
-  the person turns them on** in Settings → Quiet: the owner's single
+  narrowed in build 59), and all but that one are **off until
+  the person turns them on** in Settings → Quiet (Written to You is on
+  until turned off, build 60; iOS's own permission still has to be
+  given): the owner's single
   LAST_LIGHT notice for their own photo, at most one evening digest a day
   ("Something new from your circle today.", when someone else in one of
   their circles posted), since build 37 **Circle Posts** ("Ruby shared a
@@ -106,16 +108,24 @@ guarded by tests; treat a change to any of them as a spec change.
   - **Counts are still never shown**, in a notification or anywhere
     else: the words are a name and what they did, nothing of the page
     or the letter, no number, no "new" with a count.
-  It's the one switch it was ("Written to You" in Settings → Quiet,
-  `users.journal_posts_enabled`), off until turned on. Never to the
-  writer, across a block neither way, nothing for a rewrite in place
-  or a page made private, none while the recipient has **muted that
-  circle** (Settings → Circle, or the journal's cover;
-  `memberships.journal_muted`; a letter, which isn't in a circle, is
-  quiet if any circle the two share is muted), and **at most one an
-  hour from each sender to each recipient**, pages and letters
-  together: a second inside the hour is skipped, never stacked or
-  summed. A tap opens the page or the letter. It carries a name, as
+  It's one switch, "Written to You" in Settings → Quiet, and **since
+  build 60 it is on until the person turns it off** (a product
+  decision, Ayush, 2026-11-14: iOS's permission prompt is already an
+  opt-in, and a second, off-by-default switch would be found by almost
+  nobody). `users.written_to_you`: null is never chosen, which is on;
+  a new column, so everyone already here got the default once (build
+  57's `journal_posts_enabled`, off for everyone, is no longer read;
+  the API field keeps that name). The app asks iOS the first time the
+  Journal tab is opened, since nothing turns this switch on. Never to
+  the writer, across a block neither way, nothing for a rewrite in
+  place or a page made private. **A page is quiet while the recipient
+  has muted the circle it's in** ("Mute Pages Written to You" in
+  Settings → Circle, or the journal's cover; `memberships.
+  journal_muted`). **A letter answers to no circle's mute** (build 60:
+  it's from a person, not a circle); only the switch quiets it. **At
+  most one an hour from each sender to each recipient**, pages and
+  letters together: a second inside the hour is skipped, never stacked
+  or summed. A tap opens the page or the letter. It carries a name, as
   Circle Posts does.
   Likes, holds, stories, mentions and notes still notify nobody. Build 18
   made them real pushes (APNs, `apns.py`) and, because of that, made the
@@ -555,6 +565,40 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **Written to You, corrected** (build 60, November 14, 2026, "Two
+  corrections to build 59", from Ayush). Where build 59's section below
+  says otherwise, this wins.
+  - **Letters answer to no circle's mute.** Build 59 quieted a letter
+    if the recipient had muted any circle they shared with the sender;
+    that link is gone (`send_letter_notice`). The per-circle toggle is
+    now **Mute Pages Written to You**, in Settings → Circle and on the
+    cover's long-press, and quiets one-person pages in that circle
+    only; the footer says letters aren't muted there.
+  - **On by default.** `users.written_to_you` (null = on), the API's
+    `journal_posts_enabled` reading and writing it. Existing accounts
+    got the default: the column is new, so it's null for everyone. No
+    released build had shown the old switch (TestFlight is at build 40),
+    so nobody on Fly had chosen anything to lose. The app asks iOS for
+    permission the first time the Journal tab is opened
+    (`AppState.askForWrittenToYou`), once, and only if the switch is
+    on; build 18's rule was to ask only when a notice is turned on,
+    which this switch never is. Not asked about as a product decision.
+  - Both documents and `PRIVACY_LABEL.md` say Written to You is on
+    until turned off, and that a page's notice can be muted per circle
+    and a letter's can't.
+  - **Tests**: on until turned off, off and back on, an old account
+    reading as on, a muted circle quieting its pages and not a letter,
+    a letter reaching someone who muted every shared circle, and the
+    two older tests that said a page for one person and a letter
+    notify nobody (true only while the switch was off by default) now
+    say they notify their recipient alone. 649 pass.
+  - **Checked** against a local server on this code: the existing
+    database's eight accounts all read as on; with Third Floor muted,
+    Maya's letter still sent Ruby "Maya Chen sent you a letter"; the
+    renamed toggle and its footer in Settings on the iPhone 17
+    simulator. Not seen: the iOS prompt on a first visit to the Journal
+    tab (this simulator had already answered it).
 
 - **Written to You** (build 59, November 14, 2026, a product brief from
   Ayush, "Reverse one locked rule, narrowly"). The notifications rule,
@@ -2116,7 +2160,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (59)", at the
+  production audit), and the version, "Stanley 0.2.0 (60)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2648,8 +2692,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 59** (0.2.0) is the number to archive next: Written to You
-  (above), over build 58's covers' room, centered peeks and the covers
+- **Build 60** (0.2.0) is the number to archive next: Written to You
+  as corrected (above), over build 58's covers' room, centered peeks and the covers
   on their side, build 57's
   Journal Entries, the capsule and the inks at night, build 56's cover
   screen and build 54's glass chrome with "Mine" and "Ours" in
@@ -2995,7 +3039,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**647 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**649 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

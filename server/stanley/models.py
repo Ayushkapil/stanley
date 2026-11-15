@@ -57,11 +57,18 @@ class User(Base):
     note_reminder_hour: Mapped[int] = mapped_column(Integer, default=9, server_default=text("9"))
     photo_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     photo_reminder_hour: Mapped[int] = mapped_column(Integer, default=18, server_default=text("18"))
-    # §10 N7 (build 57, a product decision): a notice when a page lands in a
-    # shared journal you read (a circle's, or one written to you). Off by
-    # default, in the database too; each circle's can be muted on its own
-    # (`Membership.journal_muted`).
+    # Build 57's switch for the shared-journal notice, off for everyone. Not
+    # read since build 60: it can't tell "never chosen" from "turned off",
+    # and Written to You is on until chosen otherwise (`written_to_you`).
     journal_posts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # §10 N7, Written to You (build 60, a product decision): null is never
+    # chosen, which is on; true or false is the person's own choice. A new
+    # column so that everyone already here starts at the default, once.
+    written_to_you: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=None)
+
+    @property
+    def written_to_you_on(self) -> bool:
+        return self.written_to_you is not False
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 

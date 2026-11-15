@@ -105,6 +105,8 @@ _LATER_COLUMNS = {
         "journal_title": "VARCHAR(60)",
         # Build 57: the shared-journal notice, off for everyone already here.
         "journal_posts_enabled": "BOOLEAN DEFAULT 0",
+        # Build 60: Written to You, never chosen (on) for everyone already here.
+        "written_to_you": "BOOLEAN",
     },
     # Build 57: a circle's shared journal muted by one member; none is.
     "memberships": {"journal_muted": "BOOLEAN DEFAULT 0"},

@@ -39,8 +39,9 @@ N7: (build 57, a product decision on 2026-11-14; narrowed in build 59, a
     notify. The name is all it carries: no words, no ink, no count (N4).
     Never to the writer, never across a block either way, never for a
     rewrite in place or a page made private, never while the recipient has
-    muted the circle (a letter, in no circle, is quiet if any circle the two
-    share is muted), and at most once an hour from each sender to each
+    muted the circle a page was written in (a letter is from a person, not
+    a circle, and no circle's mute reaches it: build 60), and at most once
+    an hour from each sender to each
     recipient, pages and letters together: a second within the hour is
     quiet, not "2 new". Beside the words, the ids the app needs to open the
     page or the letter; nothing else. Hearts still notify nobody.
@@ -49,7 +50,9 @@ There is deliberately no generic "send a push" endpoint anywhere else in the
 codebase; everything funnels through the functions below.
 
 All of them are off until the person turns them on (build 18; the digest used
-to go to everyone, back when it was only ever logged). A notice reaches a
+to go to everyone, back when it was only ever logged), but N7, Written to
+You, which since build 60 is on until the person turns it off (iOS's own
+permission still has to be given). A notice reaches a
 phone through APNs (`apns.py`) once its log row is committed, never before: a
 pass that rolls back sends nothing, so nothing is ever sent twice.
 """
@@ -336,12 +339,12 @@ def _heard_within_the_hour(session: Session, recipient_id: str, sender_id: str, 
 
 def _wants_it(session: Session, recipient_id: str, sender: User) -> User | None:
     """The recipient, if a notice from this sender may reach them at all:
-    a live account that asked for it, someone other than the sender, and
+    a live account that hasn't turned Written to You off, someone other than the sender, and
     no block between them either way."""
     if recipient_id == sender.id:
         return None
     recipient = session.get(User, recipient_id)
-    if recipient is None or recipient.deleted_at is not None or not recipient.journal_posts_enabled:
+    if recipient is None or recipient.deleted_at is not None or not recipient.written_to_you_on:
         return None
     if _blocked_either_way(session, recipient.id, sender.id):
         return None
@@ -358,7 +361,8 @@ def send_journal_page_notices(
 ) -> int:
     """§10 N7. Called only when a page has just landed somewhere shared
     (never for a rewrite where it already was, nor a private page). Only a
-    page for one person tells anyone: that person, if they asked, haven't
+    page for one person tells anyone: that person, unless they turned it
+    off (on until they choose, build 60), haven't
     muted the circle, have no block with the writer, and haven't heard from
     this writer within the hour. **A page in the whole circle's journal
     tells nobody.** Returns sends."""
@@ -394,22 +398,12 @@ def send_letter_notice(
     later=None,
 ) -> int:
     """§10 N7. Called only when a sealed letter to a person has just been
-    written. Its recipient, if they asked, have no block with the sender,
-    haven't muted any circle the two share (a letter isn't in a circle, so
-    a mute anywhere between them wins), and haven't heard from this sender
-    within the hour. Letters to the circle never come here. Returns sends."""
+    written. Its recipient, unless they turned Written to You off, have no
+    block with the sender, and haven't heard from this sender within the
+    hour. A letter is from a person, not a circle: no circle's mute reaches
+    it (build 60). Letters to the circle never come here. Returns sends."""
     recipient = _wants_it(session, letter.recipient_id, sender)
     if recipient is None:
-        return 0
-    theirs = select(Membership.circle_id).where(Membership.user_id == sender.id)
-    muted = session.scalars(
-        select(Membership.circle_id).where(
-            Membership.user_id == recipient.id,
-            Membership.circle_id.in_(theirs),
-            Membership.journal_muted.is_(True),
-        ).limit(1)
-    ).first()
-    if muted is not None:
         return 0
     if _heard_within_the_hour(session, recipient.id, sender.id, now):
         return 0

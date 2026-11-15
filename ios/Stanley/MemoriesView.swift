@@ -8,8 +8,14 @@ import SwiftUI
 /// and the journal's name is in Settings. It was a list until build 44
 /// ("Held" before that); the internal names are unchanged.
 struct MemoriesView: View {
+    @Environment(AppState.self) private var state
+
     var body: some View {
         BookView()
+            // Written to You is on until turned off (build 60), so nothing
+            // turning it on ever asks iOS: the first visit to the journal,
+            // where pages and letters are, does, once.
+            .task { await state.askForWrittenToYou() }
     }
 }
 

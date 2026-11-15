@@ -129,10 +129,11 @@ struct SettingsView: View {
                 NavigationLink("Circle Journal") {
                     CircleJournalView()
                 }
-                // Build 59: this circle's pages and letters to you stay
-                // quiet (the same mute as its journal's cover).
+                // Build 59, narrowed in 60: pages written to you in this
+                // circle stay quiet (the same mute as its journal's cover).
+                // Letters are from a person, not a circle: never muted here.
                 if let muted = state.circles.first(where: { $0.id == circle.id })?.journalMuted {
-                    Toggle("Mute Pages and Letters", isOn: Binding(
+                    Toggle("Mute Pages Written to You", isOn: Binding(
                         get: { muted },
                         set: { on in Task { await state.setJournalMuted(circle.id, on) } }
                     ))
@@ -154,7 +155,7 @@ struct SettingsView: View {
             } header: {
                 Text("Circle").smallCaps(11)
             } footer: {
-                Text("Stanley works best with people you actually know. Each circle keeps its own day: one photo a day in each. Muted, a page or a letter from someone here won't notify you; it's still there when you look.")
+                Text("Stanley works best with people you actually know. Each circle keeps its own day: one photo a day in each. Muted, a page someone here writes to you won't notify you; it's still there when you look. Letters aren't muted here: they come from a person, not a circle.")
             }
         }
     }
@@ -355,8 +356,9 @@ private struct QuietSection: View {
             }
             // Build 59 (narrowing build 57's Journal Entries): a page
             // written to you or a letter sent to you, "Ruby wrote you a
-            // page". A whole circle's journal never notifies. Muted per
-            // circle under Circle, or on its journal's cover.
+            // page". A whole circle's journal never notifies. On until
+            // turned off (build 60). A circle's pages muted under Circle,
+            // or on its journal's cover; letters only by this switch.
             if offersJournalPosts {
                 Toggle(isOn: $journalPosts) {
                     QuietRow(
@@ -405,7 +407,7 @@ private struct QuietSection: View {
             Text(blocked
                 ? "Notifications for Stanley are off in iOS Settings, so these can't reach you yet."
                 : offersJournalPosts
-                    ? "Stanley is quiet on purpose. Six notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, one each time someone in your circle shares a moment, one when someone writes you a page or sends you a letter (at most once an hour from each, and you can mute a circle under Circle; the circle's own journal never notifies), and two reminders you can set for yourself. No streaks, nothing about likes or holds, and never a number."
+                    ? "Stanley is quiet on purpose. Six notices exist, and all but Written to You are off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, one each time someone in your circle shares a moment, one when someone writes you a page or sends you a letter (on until you turn it off, at most once an hour from each; a circle's pages can be muted under Circle; the circle's own journal never notifies), and two reminders you can set for yourself. No streaks, nothing about likes or holds, and never a number."
                 : offersReminders
                     ? "Stanley is quiet on purpose. Five notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, one each time someone in your circle shares a moment, and two reminders you can set for yourself. No streaks, nothing about likes or holds, and never a number."
                     : "Stanley is quiet on purpose. Three notices exist, all off unless you ask: one when your own photo reaches its last day, one in the evening when someone in your circle has posted, and one each time someone in your circle shares a moment. No streaks, no nudges, nothing about likes or holds, and never a number.")

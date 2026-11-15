@@ -57,7 +57,8 @@ def _notice_settings(user: User) -> dict:
         "note_reminder_hour": user.note_reminder_hour,
         "photo_reminder_enabled": user.photo_reminder_enabled,
         "photo_reminder_hour": user.photo_reminder_hour,
-        "journal_posts_enabled": user.journal_posts_enabled,
+        # The field keeps its build 57 name for the phones that send it.
+        "journal_posts_enabled": user.written_to_you_on,
     }
 
 
@@ -217,7 +218,7 @@ def patch_settings(
     if body.photo_reminder_hour is not None:
         user.photo_reminder_hour = body.photo_reminder_hour
     if body.journal_posts_enabled is not None:
-        user.journal_posts_enabled = body.journal_posts_enabled
+        user.written_to_you = body.journal_posts_enabled
     return _notice_settings(user)
 
 
@@ -555,4 +556,5 @@ def delete_account(
     user.note_reminder_enabled = False
     user.photo_reminder_enabled = False
     user.journal_posts_enabled = False
+    user.written_to_you = False
     user.deleted_at = now

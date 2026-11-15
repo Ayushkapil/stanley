@@ -2,9 +2,10 @@
 build 59 by "Reverse one locked rule, narrowly"). A page shared with one
 person tells that person, "{name} wrote you a page"; a sealed letter tells
 its recipient, "{name} sent you a letter". A page in the whole circle's
-journal tells nobody, nor does a private page. Off until asked for, never
-to the writer, never for a rewrite in place, never across a block, never
-while the circle is muted, at most one an hour from each sender to each
+journal tells nobody, nor does a private page. On until turned off (build
+60), never to the writer, never for a rewrite in place, never across a
+block, a page never while its circle is muted (a letter answers to no
+circle's mute), at most one an hour from each sender to each
 recipient, no count anywhere, and handed to Apple only after the response
 with the ids the app needs beside the words.
 
@@ -76,11 +77,39 @@ def everyone_asks(circle):
 # --- asking ----------------------------------------------------------------------
 
 
-def test_it_is_off_until_asked_for(circle, db):
+def test_it_is_on_until_turned_off(circle, db, clock):
+    """Build 60: nobody asked, and Ben hears of a page for him and a letter."""
     me = circle.ben.client.get("/me", headers=circle.ben.h).json()
-    assert me["journal_posts_enabled"] is False
-    assert write(circle.ana, "A good day.", shared=True).status_code == 200
+    assert me["journal_posts_enabled"] is True
+    assert write(circle.ana, "For Ben.", shared=True, to=circle.ben.id).status_code == 200
+    letter(circle.cam, circle.ben, clock)
+    assert notices(db) == [(circle.ben.id, "ana wrote you a page"), (circle.ben.id, "cam sent you a letter")]
+
+
+def test_turned_off_it_stays_off_and_on_again_it_is_on(circle, db, clock):
+    assert circle.ben.patch_settings(journal_posts_enabled=False).json()["journal_posts_enabled"] is False
+    assert circle.ben.client.get("/me", headers=circle.ben.h).json()["journal_posts_enabled"] is False
+    write(circle.ana, "For Ben.", shared=True, to=circle.ben.id)
     assert notices(db) == []
+    assert circle.ben.patch_settings(journal_posts_enabled=True).json()["journal_posts_enabled"] is True
+    letter(circle.cam, circle.ben, clock)
+    assert notices(db) == [(circle.ben.id, "cam sent you a letter")]
+
+
+def test_everyone_already_here_starts_at_the_default(db, app):
+    """The old build 57 column said off for everyone; the new one is empty
+    for everyone, which is on. A choice made since is kept."""
+    from stanley.models import User
+
+    with db() as s:
+        u = User(id="u" * 8, display_name="old", created_at=app.state.clock.now(), journal_posts_enabled=False)
+        s.add(u)
+        s.commit()
+        u = s.get(User, "u" * 8)
+        assert u.written_to_you is None and u.written_to_you_on is True
+        u.written_to_you = False
+        s.commit()
+        assert s.get(User, "u" * 8).written_to_you_on is False
 
 
 def test_turning_it_on_leaves_the_others_alone(circle):
@@ -254,14 +283,17 @@ def test_circles_say_whether_they_are_muted(circle):
     assert c["journal_muted"] is False
 
 
-def test_a_muted_circle_tells_that_reader_nothing(circle, db, clock):
+def test_a_muted_circle_quiets_its_pages_and_nothing_else(circle, db, clock):
+    """Ben mutes floor 3: Cam's page for him there is quiet; Ana's letter,
+    from a person and not a circle, still reaches him (build 60)."""
     everyone_asks(circle)
     mute(circle.ben, circle.id)
     write(circle.cam, "For you, Ben.", shared=True, to=circle.ben.id)
-    letter(circle.ana, circle.ben, clock)
     assert notices(db) == []
+    letter(circle.ana, circle.ben, clock)
+    assert notices(db) == [(circle.ben.id, "ana sent you a letter")]
     write(circle.ana, "For you, Cam.", shared=True, to=circle.cam.id)
-    assert notices(db) == [(circle.cam.id, "ana wrote you a page")]
+    assert notices(db)[-1] == (circle.cam.id, "ana wrote you a page")
 
 
 def test_a_mute_is_for_that_circle_only(circle, db, client):
@@ -277,16 +309,20 @@ def test_a_mute_is_for_that_circle_only(circle, db, client):
     assert notices(db) == [(circle.ben.id, "dee wrote you a page")]
 
 
-def test_a_letter_is_quiet_if_any_shared_circle_is_muted(circle, db, client, clock):
-    """Ana and Ben share floor 3 and climbing; Ben muted climbing alone.
-    A letter isn't in either, and the mute wins."""
+def test_a_letter_answers_to_no_circles_mute(circle, db, client, clock):
+    """Ana and Ben share floor 3 and climbing; Ben muted both. A letter is
+    from Ana, not from either circle: it still reaches him. Only Written to
+    You turned off quiets it."""
     r = circle.ana.client.post("/circles", json={"name": "climbing"}, headers=circle.ana.h)
     climbing = r.json()["id"]
     assert circle.ben.join(r.json()["invite_token"]).status_code == 201
-    circle.ben.patch_settings(journal_posts_enabled=True)
     mute(circle.ben, climbing)
+    mute(circle.ben, circle.id)
     letter(circle.ana, circle.ben, clock)
-    assert notices(db) == []
+    assert notices(db) == [(circle.ben.id, "ana sent you a letter")]
+    circle.ben.patch_settings(journal_posts_enabled=False)
+    letter(circle.cam, circle.ben, clock)
+    assert len(notices(db)) == 1
 
 
 def test_muting_is_for_members_only(circle, client):
@@ -342,7 +378,6 @@ def test_the_hour_doesnt_mind_other_notices(circle, db):
 
 
 def test_turning_it_off_stops_it(circle, db, clock):
-    circle.ben.patch_settings(journal_posts_enabled=True)
     circle.ben.patch_settings(journal_posts_enabled=False)
     write(circle.ana, "For Ben.", shared=True, to=circle.ben.id)
     letter(circle.ana, circle.ben, clock)
@@ -355,7 +390,7 @@ def test_a_deleted_account_hears_nothing_and_its_switch_is_cleared(circle, db, a
     circle.ben.patch_settings(journal_posts_enabled=True)
     assert circle.ben.delete_me().status_code in (200, 204)
     with db() as s:
-        assert s.get(User, circle.ben.id).journal_posts_enabled is False
+        assert s.get(User, circle.ben.id).written_to_you is False
     write(circle.ana, "For Ben.", shared=True, to=circle.ben.id)
     assert notices(db) == []
 

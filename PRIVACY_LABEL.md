@@ -237,8 +237,11 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   circle's journal notifies nobody. The same names those readers already
   see on the page or the envelope, so nothing above changes (re-derived
   for build 59, 2026-11-14; the log row now keeps the sender's opaque id
-  for the one-an-hour guard). Which circles a person muted is kept with
-  their membership: App Functionality, nothing new to declare.
+  for the one-an-hour guard). Since build 60 it's on until the person
+  turns it off (iOS's permission is still asked for), and a circle's mute
+  quiets only the pages written to them there, never a letter. Whether
+  they turned it off, and which circles they muted, are kept with their
+  account and membership: App Functionality, nothing new to declare.
 - Data deletion: account deletion cascades — photos, blobs, comments, holds
   all purge. Owner-deleted photos purge everywhere immediately.
 

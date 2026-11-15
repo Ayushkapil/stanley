@@ -343,7 +343,9 @@ def test_the_export_names_the_person_a_page_was_shared_with(circle, clock):
     assert b"For Ben." not in circle.ben.export().content
 
 
-def test_a_page_for_one_person_notifies_nobody_and_counts_nothing(circle, db):
+def test_a_page_for_one_person_notifies_only_them_and_counts_nothing(circle, db):
+    """Build 59 (Written to You, on by default since 60): Ben alone hears of
+    it, in words with no number; the heart he leaves notifies nobody."""
     page = write(circle.ana, "For Ben.", shared=True, to=circle.ben.id).json()
     heart(circle.ben, page["id"])
 
@@ -360,7 +362,9 @@ def test_a_page_for_one_person_notifies_nobody_and_counts_nothing(circle, db):
         for key in names(payload):
             assert not any(word in key for word in ("count", "total", "number", "tally")), key
     with db() as s:
-        assert s.scalars(select(NotificationLog)).all() == []
+        assert [(n.user_id, n.body) for n in s.scalars(select(NotificationLog)).all()] == [
+            (circle.ben.id, "ana wrote you a page")
+        ]
 
 
 # --- the mark on a day ----------------------------------------------------------------------------

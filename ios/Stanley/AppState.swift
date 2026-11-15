@@ -1297,6 +1297,16 @@ final class AppState {
         journalAsked += 1
     }
 
+    /// The first time the Journal tab is opened (build 60): if iOS hasn't
+    /// been asked about notifications yet and Written to You is on (the
+    /// default), ask now. Once iOS has an answer it never asks again, and
+    /// a switch turned off isn't asked about.
+    func askForWrittenToYou() async {
+        guard signedIn, await Push.shared.authorization() == .notDetermined else { return }
+        guard let me: MeSettings = try? await api.send("GET", "/me"), me.journalPostsEnabled == true else { return }
+        _ = await Push.shared.requestPermission()
+    }
+
     /// Mute a circle, or unmute it (build 57; since build 59 its pages and
     /// letters written to you, "… wrote you a page"): stops for you alone. Shown at once, put back if refused.
     func setJournalMuted(_ circleId: String, _ muted: Bool) async {

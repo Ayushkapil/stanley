@@ -262,13 +262,17 @@ def test_moderation_takedown_detaches_the_report(circle, clock, db):
         assert row is not None and row.letter_id is None and row.resolved_at is not None
 
 
-def test_full_lifecycle_no_notification_is_ever_logged(circle, clock, app):
-    """A letter never notifies anyone — not when written, not on the day."""
+def test_a_letter_notifies_its_recipient_once_and_never_on_the_day(circle, clock, app):
+    """Build 59: sealing tells the recipient alone ("ana sent you a letter",
+    on by default since build 60); its day coming, and its opening, tell
+    nobody."""
+    from sqlalchemy import select
+
     from stanley.models import NotificationLog
+
     r = _send(circle.ana, circle.ben.id, 10, body="quiet", clock=clock)
     clock.advance(timedelta(days=10))
     _open(circle.ben, r.json()["id"])
     with app.state.sessionmaker() as session:
-        from sqlalchemy import select
-        kinds = set(session.scalars(select(NotificationLog.kind)).all())
-    assert all("letter" not in k for k in kinds)
+        rows = [(n.user_id, n.kind, n.body) for n in session.scalars(select(NotificationLog)).all()]
+    assert rows == [(circle.ben.id, "letter", "ana sent you a letter")]
