@@ -576,6 +576,62 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The answer sheet to VoiceOver, taking a mark back, two paths seen**
+  (build 66, November 15, 2026, from Ayush, "Accessibility pass on the
+  OMR sheet, plus two unseen paths"; the reading order in
+  `docs/omr-sheet-build66/voiceover-order.txt`). Phone only: the server
+  already did what part 2 asks, and gained tests, not code, so there was
+  nothing to deploy. Nothing visible changed.
+  - **What VoiceOver reads** (`MoodSheet.row`; the words in
+    `MarkSheet`): each row is a container named for its day ("Sunday
+    15", `spokenDay`). **Today's row**: its date, then five buttons, each
+    its day and its place along the five, "Sunday 15, 3 of 5"
+    (`spokenBubble`), the filled one **selected**, with a hint that it
+    marks today or, on the filled one, takes today's mark back. **A day
+    gone by**: its date as a button that turns to that day ("Turns to
+    that day"), then its filled bubble ("Thursday 12, 4 of 5",
+    selected); with no mark the date reads "not marked". Its empty
+    bubbles aren't read: they say nothing, and five more stops a day
+    over a month is noise (the brief's "each bubble" was read as each
+    bubble that means something; not asked). **Days to come** aren't
+    focusable at all. **The foot** (the month's squares and its line) is
+    decorative and not read; it's drawn as one `Canvas` now, since the
+    line as a `Text` was still read with `accessibilityHidden` on it.
+    The under-photo dots read the same way ("Sunday 15, 4 of 5").
+  - **Hiding has to be done at the leaf**: `accessibilityHidden` on a
+    row left the bubbles inside that declared themselves elements still
+    read (every past bubble came out "selected"). Each piece is now
+    spoken or hidden on its own.
+  - **How it was checked**: a plain in-process walk of the accessibility
+    tree finds nothing unless an assistive technology is attached, and
+    XCUITest's own snapshot lists elements marked hidden. So a Debug
+    hook walked the containers as VoiceOver does (isAccessibilityElement,
+    accessibilityElements, accessibilityElement(at:)) from inside a
+    UI-test session, on the iPhone 17 Pro against the local server; the
+    hook and the UI-test target were removed after. Not heard with
+    VoiceOver itself.
+  - **Seen there, not part of the sheet, left for another task**: two
+    silent stops on every page of the book, the ribbon's bead on the
+    fore-edge (9 by 9) and a full-page node with no label.
+  - **Taking a mark back** was already built (a tap on the filled bubble,
+    `PUT /moods/{today}` with `level: null`); now held by tests.
+    `MarkSheet.afterTap` is the rule (the filled one clears, another
+    replaces, nothing on any other row). Server, `test_moods.py`:
+    taken back on the owner's own day in Bloomington, Delhi and the
+    night the clocks went back; yesterday's and tomorrow's refused with
+    the mark left as it was; UTC's day refused; a day with no mark
+    cleared harmlessly, nobody else's touched; the photo route's
+    take-back today only. Phone, `MarkSheetTests`: the same rule in a
+    Bloomington evening, and the spoken words exactly.
+  - **The two paths seen** on the iPhone 17 Pro against a local server:
+    a tap on the filled bubble of today's row (`PUT /moods/2026-11-15`,
+    the day's row gone from `day_moods`, the row and its square empty);
+    a tap on Thu 12 turning the book to Thursday 12 November's page; a
+    photo posted from the app and its fourth dot tapped (`PUT
+    /moods/2026-11-15` 200, `day_moods` 4 with no photo id, `photos.score`
+    set on no row anywhere), then the sheet's today row showing the
+    fourth bubble filled. The same mark, one store.
+
 - **The answer sheet** (build 65, November 15, 2026, a product brief
   from Ayush, "Add the OMR sheet to the Journal"; screenshots in
   `docs/omr-sheet-build65/`). The month's page of marks, redrawn as an
@@ -2503,7 +2559,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (65)", at the
+  production audit), and the version, "Stanley 0.2.0 (66)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3035,9 +3091,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 65** (0.2.0) is the number to archive next: the answer sheet
-  (above). Its server is on Fly (v33), so it can go out. Build 65
-  carries everything below.
+- **Build 66** (0.2.0) is the number to archive next: the answer sheet
+  read by VoiceOver (above). Phone only; v33 on Fly is its server, so
+  it can go out. Build 66 carries everything below.
+- **Build 65** (0.2.0) was never archived on its own: the answer sheet
+  (above).
 - **Build 64** (0.2.0) was never archived on its own: the capture's
   daily prompt turning at local midnight, not UTC (Daily prompt, below),
   and the sweep for the same bug ("Whose day it is", above). **Its server
@@ -3422,7 +3480,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**698 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**709 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -3540,7 +3598,8 @@ ask about notifications, six; since build 63 the suggestion over a new
 page, six more; since build 64 the capture's daily prompt turning at
 local midnight, four more; and a day written out and read back on the
 phone's calendar, four more; since build 65 the answer sheet's rules,
-eight more, twenty-eight in all). `tests/test_moods.py` (build 65) holds
+eight more; since build 66 what VoiceOver says and taking a mark back,
+five more, thirty-three in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

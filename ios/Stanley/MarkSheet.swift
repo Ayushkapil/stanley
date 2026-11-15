@@ -55,6 +55,39 @@ enum MarkSheet {
         }
     }
 
+    /// What a tap on a bubble in today's row leaves: that bubble, or, on
+    /// the one already filled, nothing (the day's mark taken back). Only
+    /// today's row can be changed either way (build 66).
+    static func afterTap(on at: Int, in row: Row) -> Int?? {
+        guard row.takesAMark, (1...5).contains(at) else { return .none }
+        return .some(row.level == at ? nil : at)
+    }
+
+    // MARK: what VoiceOver says (build 66)
+    //
+    // The sheet is unlabelled to the eye on purpose; to VoiceOver each
+    // bubble is its day and its place along the five ("Sunday 15, 3 of 5"),
+    // which is a position on the sheet, not a count of anything.
+
+    /// "Sunday 15": a row's day, as VoiceOver reads it.
+    static func spokenDay(_ date: Date, calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = calendar.locale ?? .current
+        formatter.setLocalizedDateFormatFromTemplate("EEEE")
+        let weekday = formatter.string(from: date)
+        return weekday + " " + String(calendar.component(.day, from: date))
+    }
+
+    /// "Sunday 15, 3 of 5": a bubble, by its day and its place.
+    static func spokenBubble(_ date: Date, _ at: Int, calendar: Calendar = .current) -> String {
+        "\(spokenDay(date, calendar: calendar)), \(at) of 5"
+    }
+
+    /// What a day gone by with no mark reads as.
+    static let notMarked = "not marked"
+
     /// How much ink a mark's square takes at the foot of the sheet: five
     /// neutral shades, lightest to darkest, the same ink throughout, with
     /// no colour that could read as good or bad. None is no ink at all.
@@ -66,23 +99,20 @@ enum MarkSheet {
     /// The one line written at the foot, in the hand.
     static let footLine = "the whole month, one mark a day"
 
-    /// What VoiceOver calls each bubble: where it sits in the row, never a
-    /// value or a meaning.
-    static let bubbles = ["First bubble", "Second bubble", "Third bubble", "Fourth bubble", "Fifth bubble"]
+    /// The sheet, as VoiceOver names it.
+    static let sheetName = "Your days this month. Only you see them."
+    /// A bubble in today's row, after its day and place.
+    static let todayHint = "Marks today. On the filled one, takes today's mark back."
+    /// A day gone by, after its date.
+    static let pastHint = "Turns to that day"
+    /// The cover's five bubbles.
+    static let lastFewName = "Your last few days. Only you see them."
+    static let lastFewHint = "Opens this month's sheet"
 
     /// Everything the sheet and the cover's five bubbles say, on screen or
-    /// to VoiceOver (a day's own date aside). The unit tests read every
-    /// one: no number, no count, no streak, no average, nothing about how
-    /// anyone has been.
-    static let words: [String] = [
-        footLine,
-        "Your days this month. Only you see them.",
-        "Marked",
-        "Not marked",
-        "Today. Tap a bubble to mark it; tap it again to take it back.",
-        "Turns to that day",
-        "Still to come",
-        "Your last few days. Only you see them.",
-        "Opens this month's sheet",
-    ] + bubbles
+    /// to VoiceOver, but a day's date and a bubble's place ("3 of 5",
+    /// `spokenBubble`), which the tests hold on their own. The unit tests
+    /// read every one: no number, no count, no streak, no average, nothing
+    /// about how anyone has been.
+    static let words: [String] = [footLine, sheetName, notMarked, todayHint, pastHint, lastFewName, lastFewHint]
 }

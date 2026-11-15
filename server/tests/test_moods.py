@@ -122,6 +122,70 @@ def test_null_takes_todays_mark_back(circle, clock):
     assert marks(circle.ana) == [{"day": "2026-11-16", "level": 3}]
 
 
+# --- taking a mark back (build 66) -----------------------------------------------------------------
+
+
+@CASES
+def test_a_mark_is_taken_back_on_the_owners_own_day(circle, clock, zone, now, local):
+    clock.set(now)
+    mark(circle.ana, local, 4, zone)
+    r = mark(circle.ana, local, None, zone)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"day": local, "level": None}
+    assert marks(circle.ana) == []
+    # Marked again the same day, and taken back again.
+    mark(circle.ana, local, 2, zone)
+    assert marks(circle.ana) == [{"day": local, "level": 2}]
+    assert mark(circle.ana, local, None, zone).status_code == 200
+    assert marks(circle.ana) == []
+
+
+@CASES
+def test_taking_back_yesterdays_or_tomorrows_is_refused(circle, clock, zone, now, local):
+    # Yesterday's mark, set while it was yesterday's today.
+    clock.set(now - timedelta(days=1))
+    assert mark(circle.ana, shift(local, -1), 3, zone).status_code == 200
+    clock.set(now)
+    for day in (shift(local, -1), shift(local, 1)):
+        r = mark(circle.ana, day, None, zone)
+        assert r.status_code == 400, day
+        assert r.json()["detail"]["code"] == "not_today"
+    # What was there stays, exactly.
+    assert marks(circle.ana) == [{"day": shift(local, -1), "level": 3}]
+
+
+@CASES
+def test_utcs_day_cant_be_taken_back_either(circle, clock, zone, now, local):
+    clock.set(now)
+    utc_day = now.date().isoformat()
+    assert mark(circle.ana, utc_day, None, zone).json()["detail"]["code"] == "not_today"
+
+
+def test_taking_back_a_day_with_no_mark_changes_nothing(circle, clock):
+    clock.set(BLOOMINGTON_EVENING[1])
+    mark(circle.ben, "2026-11-15", 5, INDY)
+    assert mark(circle.ana, "2026-11-15", None, INDY).json() == {"day": "2026-11-15", "level": None}
+    assert marks(circle.ana) == []
+    # Someone else's mark on the same day is theirs, untouched.
+    assert marks(circle.ben) == [{"day": "2026-11-15", "level": 5}]
+
+
+def test_a_photos_dots_take_back_only_today_too(circle, clock):
+    """Builds 52 to 64 take a mark back through the photo: today's only."""
+    photo = circle.ana.post_photo(tz=INDY).json()
+    score = lambda value: circle.ana.client.put(
+        f"/photos/{photo['id']}/score", json={"score": value}, headers=circle.ana.h
+    )
+    assert score(4).status_code == 200
+    assert score(None).status_code == 200
+    assert marks(circle.ana) == []
+    assert score(2).status_code == 200
+    clock.advance(timedelta(days=1))
+    r = score(None)
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "not_today"
+    assert marks(circle.ana) == [{"day": "2026-06-09", "level": 2}]
+
+
 def test_a_mark_is_one_of_five(circle, clock):
     today = "2026-06-09"
     for bad in (0, 6, -1, 100):

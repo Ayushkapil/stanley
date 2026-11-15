@@ -38,7 +38,7 @@ struct MoodDots: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Self.ordinals[at - 1] + " dot")
+                .accessibilityLabel(MarkSheet.spokenBubble(.now, at))
                 .accessibilityAddTraits(shown == at ? .isSelected : [])
             }
         }
@@ -48,7 +48,6 @@ struct MoodDots: View {
         .onChange(of: score) { _, _ in picked = nil }
     }
 
-    static let ordinals = ["First", "Second", "Third", "Fourth", "Fifth"]
 }
 
 /// One circle of five: filled, 14pt in the accent; empty, 12pt and faint.
@@ -111,7 +110,7 @@ struct MoodSheet: View {
             .frame(width: layout.textWidth, alignment: .topLeading)
             .offset(x: layout.left, y: top)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel(MarkSheet.words[1])
+            .accessibilityLabel(MarkSheet.sheetName)
             foot(rows: rows, ink: ink)
                 .frame(width: layout.textWidth, height: Self.footHeight, alignment: .bottom)
                 .offset(x: layout.left, y: layout.contentBottom - Self.footHeight)
@@ -120,18 +119,43 @@ struct MoodSheet: View {
 
     // MARK: a row
 
+    /// A row. To the eye it's a date and five bare bubbles; to VoiceOver
+    /// (build 66) it reads as its date, and each bubble as its day and its
+    /// place along the five ("Sunday 15, 3 of 5"), the filled one selected.
+    /// Today's five are buttons. A day gone by reads as its date, turning
+    /// to that day's page, then its filled bubble, or "not marked"; its
+    /// empty bubbles, which say nothing, are left out. Days to come aren't
+    /// read at all. Nothing visible is added for any of it.
     @ViewBuilder
     private func row(_ row: MarkSheet.Row, height: CGFloat, bubble: CGFloat, column: CGFloat, ink: Color) -> some View {
+        let day = MarkSheet.spokenDay(row.date)
+        let past = row.when == .past
+        // (Each piece is spoken or hidden on its own: hiding a row from
+        // above leaves anything inside that's its own element still read,
+        // which a dump of the tree showed.)
+        let date = Text(Self.label(row.date))
+            .font(.system(size: min(11, max(9, height * 0.55)), weight: row.when == .today ? .semibold : .regular)
+                .monospacedDigit())
+            .foregroundStyle(row.when == .today ? ink : BookPaper.quiet)
+            .frame(width: 52, alignment: .leading)
         let line = HStack(spacing: 0) {
-            Text(Self.label(row.date))
-                .font(.system(size: min(11, max(9, height * 0.55)), weight: row.when == .today ? .semibold : .regular)
-                    .monospacedDigit())
-                .foregroundStyle(row.when == .today ? ink : BookPaper.quiet)
-                .frame(width: 52, alignment: .leading)
+            switch row.when {
+            case .today:
+                date.accessibilityLabel(day)
+            case .past:
+                date
+                    .accessibilityLabel(day)
+                    .accessibilityValue(row.level == nil ? MarkSheet.notMarked : "")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint(MarkSheet.pastHint)
+                    .accessibilityAction { if live { open(row.day) } }
+            case .future:
+                date.accessibilityHidden(true)
+            }
             ForEach(1...5, id: \.self) { at in
                 if row.takesAMark {
                     Button {
-                        let next = row.level == at ? nil : at
+                        guard let next = MarkSheet.afterTap(on: at, in: row) else { return }
                         if next != nil { Haptics.moodMarked() }
                         mark(next)
                     } label: {
@@ -141,12 +165,22 @@ struct MoodSheet: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!live)
-                    .accessibilityLabel(MarkSheet.bubbles[at - 1])
-                    .accessibilityValue(row.level == at ? MarkSheet.words[2] : MarkSheet.words[3])
+                    .accessibilityLabel(MarkSheet.spokenBubble(row.date, at))
+                    .accessibilityHint(MarkSheet.todayHint)
                     .accessibilityAddTraits(row.level == at ? .isSelected : [])
-                } else {
-                    Bubble(filled: row.level == at, size: bubble, ink: ink, strength: 0.3)
+                } else if past, row.level == at {
+                    // A day gone by's filled bubble: its day, its place, selected.
+                    Bubble(filled: true, size: bubble, ink: ink, strength: 0.3)
                         .frame(width: column)
+                        .accessibilityElement()
+                        .accessibilityLabel(MarkSheet.spokenBubble(row.date, at))
+                        .accessibilityAddTraits(.isSelected)
+                } else {
+                    // An empty bubble on a day gone by, or any on a day to
+                    // come: nothing to read.
+                    Bubble(filled: false, size: bubble, ink: ink, strength: 0.3)
+                        .frame(width: column)
+                        .accessibilityHidden(true)
                 }
             }
             Spacer(minLength: 0)
@@ -165,25 +199,20 @@ struct MoodSheet: View {
         case .today:
             line
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel(row.date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .accessibilityHint(MarkSheet.words[4])
+                .accessibilityLabel(day)
         case .past:
-            Button { open(row.day) } label: { line.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .disabled(!live)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(row.date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .accessibilityValue(row.level.map { MarkSheet.bubbles[$0 - 1] + ", " + MarkSheet.words[2].lowercased() }
-                    ?? MarkSheet.words[3])
-                .accessibilityHint(MarkSheet.words[5])
+            // A tap anywhere on the row turns to its day.
+            line
+                .contentShape(Rectangle())
+                .onTapGesture { if live { open(row.day) } }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(day)
         case .future:
-            // Still to come: faint, and nothing to tap.
+            // Still to come: faint, nothing to tap, nothing to read.
             line
                 .opacity(0.32)
                 .allowsHitTesting(false)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(row.date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .accessibilityValue(MarkSheet.words[6])
+                .accessibilityHidden(true)
         }
     }
 
@@ -210,33 +239,41 @@ struct MoodSheet: View {
     }
 
     /// The whole month small: a square a day, in as much ink as its mark,
-    /// the same ink for all five, and the one line in the hand.
+    /// the same ink for all five, and the one line in the hand. Decorative:
+    /// VoiceOver reads the sheet above it, not this (build 66). Squares and
+    /// line are drawn in one `Canvas`, whose contents VoiceOver never sees;
+    /// the line as a `Text` was still read with `accessibilityHidden` on it.
     private func foot(rows: [MarkSheet.Row], ink: Color) -> some View {
         let count = CGFloat(max(rows.count, 1))
         let step = min(10, ((layout.textWidth - 2 * (Self.registration + 10)) / count).rounded(.down))
         let side = max(4, step - 2)
-        return VStack(spacing: 10) {
-            Canvas { context, _ in
-                for (x, row) in rows.enumerated() {
-                    let rect = CGRect(x: CGFloat(x) * step, y: 0, width: side, height: side)
-                    let shade = MarkSheet.shade(row.level)
-                    if shade > 0 {
-                        context.fill(Path(rect), with: .color(ink.opacity(shade)))
-                    }
-                    context.stroke(
-                        Path(rect.insetBy(dx: 0.25, dy: 0.25)),
-                        with: .color(ink.opacity(row.when == .future ? 0.08 : 0.2)), lineWidth: 0.5
-                    )
+        let strip = count * step - (step - side)
+        let quiet = BookPaper.quiet
+        let room = layout.textWidth
+        return Canvas { context, size in
+            let left = (size.width - strip) / 2
+            for (x, row) in rows.enumerated() {
+                let rect = CGRect(x: left + CGFloat(x) * step, y: 0, width: side, height: side)
+                let shade = MarkSheet.shade(row.level)
+                if shade > 0 {
+                    context.fill(Path(rect), with: .color(ink.opacity(shade)))
                 }
+                context.stroke(
+                    Path(rect.insetBy(dx: 0.25, dy: 0.25)),
+                    with: .color(ink.opacity(row.when == .future ? 0.08 : 0.2)), lineWidth: 0.5
+                )
             }
-            .frame(width: count * step - (step - side), height: side)
-            Text(MarkSheet.footLine)
-                .font(Font(BookHand.font(15)))
-                .foregroundStyle(BookPaper.quiet)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            // The line, a little smaller if the page is too narrow for it.
+            var line = context.resolve(Text(MarkSheet.footLine).font(Font(BookHand.font(15))).foregroundStyle(quiet))
+            let width = line.measure(in: CGSize(width: CGFloat.infinity, height: 40)).width
+            if width > room {
+                let smaller = max(10.5, 15 * room / width)
+                line = context.resolve(Text(MarkSheet.footLine).font(Font(BookHand.font(smaller))).foregroundStyle(quiet))
+            }
+            context.draw(line, at: CGPoint(x: size.width / 2, y: side + 10), anchor: .top)
         }
         .frame(maxWidth: .infinity)
+        .frame(height: side + 34)
         .padding(.bottom, Self.registration + 4)
         .accessibilityHidden(true)
     }
@@ -292,7 +329,7 @@ struct LastFiveDays: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(MarkSheet.words[7])
-        .accessibilityHint(MarkSheet.words[8])
+        .accessibilityLabel(MarkSheet.lastFewName)
+        .accessibilityHint(MarkSheet.lastFewHint)
     }
 }

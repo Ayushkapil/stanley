@@ -110,6 +110,73 @@ final class MarkSheetTests: XCTestCase {
             }
         }
         XCTAssertEqual(MarkSheet.footLine, "the whole month, one mark a day")
-        XCTAssertEqual(MarkSheet.bubbles.count, 5)
+    }
+
+    // MARK: VoiceOver (build 66)
+
+    private func english(_ zone: String) -> Calendar {
+        var calendar = self.calendar(zone)
+        calendar.locale = Locale(identifier: "en_US")
+        return calendar
+    }
+
+    func testEachBubbleIsItsDayAndItsPlace() {
+        let indy = english("America/Indiana/Indianapolis")
+        let now = utc(11, 16, 1) // 8 PM EST on Sunday the 15th
+        XCTAssertEqual(MarkSheet.spokenDay(now, calendar: indy), "Sunday 15")
+        XCTAssertEqual(MarkSheet.spokenBubble(now, 3, calendar: indy), "Sunday 15, 3 of 5")
+        XCTAssertEqual(
+            (1...5).map { MarkSheet.spokenBubble(now, $0, calendar: indy) },
+            ["Sunday 15, 1 of 5", "Sunday 15, 2 of 5", "Sunday 15, 3 of 5", "Sunday 15, 4 of 5", "Sunday 15, 5 of 5"]
+        )
+        // Delhi's small hour is already Monday the 16th there.
+        XCTAssertEqual(MarkSheet.spokenBubble(utc(11, 15, 21, 30), 1, calendar: english("Asia/Kolkata")), "Monday 16, 1 of 5")
+    }
+
+    func testAnEmptyDayGoneByReadsAsNotMarked() {
+        XCTAssertEqual(MarkSheet.notMarked, "not marked")
+    }
+
+    func testOnlyAPlaceAlongTheFiveIsANumberVoiceOverSays() {
+        // The one number spoken is a bubble's place; nothing totals,
+        // counts or compares, and no word judges.
+        let indy = english("America/Indiana/Indianapolis")
+        let spoken = MarkSheet.spokenBubble(utc(11, 16, 1), 4, calendar: indy)
+        XCTAssertTrue(spoken.hasSuffix(", 4 of 5"))
+        let words = spoken.lowercased()
+        for word in ["streak", "average", "count", "total", "good", "bad", "mood", "score"] {
+            XCTAssertFalse(words.contains(word), word)
+        }
+    }
+
+    // MARK: taking a mark back (build 66)
+
+    func testATapOnTheFilledBubbleTakesTodaysMarkBack() {
+        let indy = calendar("America/Indiana/Indianapolis")
+        let now = utc(11, 15, 17)
+        let rows = MarkSheet.rows(month: now, marks: ["2026-11-15": 3, "2026-11-14": 2], now: now, calendar: indy)
+        let today = rows.first { $0.day == "2026-11-15" }!
+        // The filled one: nothing left.
+        XCTAssertEqual(MarkSheet.afterTap(on: 3, in: today), .some(nil))
+        // Another: that one instead.
+        XCTAssertEqual(MarkSheet.afterTap(on: 5, in: today), .some(5))
+        // Past and future rows take neither a mark nor a mark taken back.
+        let yesterday = rows.first { $0.day == "2026-11-14" }!
+        XCTAssertNil(MarkSheet.afterTap(on: 2, in: yesterday) as Int??)
+        XCTAssertNil(MarkSheet.afterTap(on: 4, in: yesterday) as Int??)
+        let tomorrow = rows.first { $0.day == "2026-11-16" }!
+        XCTAssertNil(MarkSheet.afterTap(on: 1, in: tomorrow) as Int??)
+        // Not a bubble.
+        XCTAssertNil(MarkSheet.afterTap(on: 6, in: today) as Int??)
+    }
+
+    func testTakingBackIsTodayOnThePhonesOwnCalendar() {
+        // In a Bloomington evening (the 16th in UTC) the 15th can still be
+        // cleared, and UTC's 16th can't.
+        let indy = calendar("America/Indiana/Indianapolis")
+        let now = utc(11, 16, 1)
+        let rows = MarkSheet.rows(month: now, marks: ["2026-11-15": 2], now: now, calendar: indy)
+        XCTAssertEqual(MarkSheet.afterTap(on: 2, in: rows.first { $0.day == "2026-11-15" }!), .some(nil))
+        XCTAssertNil(MarkSheet.afterTap(on: 2, in: rows.first { $0.day == "2026-11-16" }!) as Int??)
     }
 }
