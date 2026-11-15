@@ -43,8 +43,10 @@ enum DailyPrompt {
     ]
 
     /// Deterministic by local calendar day — same prompt across the circle.
+    /// It turns at the phone's own midnight (`LocalDay`); until build 64 it
+    /// turned at midnight UTC, seven in the evening in Bloomington.
     static func forToday(_ date: Date = Date(), calendar: Calendar = .current) -> String {
-        let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
+        let day = LocalDay.number(of: date, calendar: calendar)
         return all[((day % all.count) + all.count) % all.count]
     }
 }

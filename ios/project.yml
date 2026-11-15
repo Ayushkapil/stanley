@@ -50,7 +50,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "63"
+        CFBundleVersion: "64"
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to
@@ -95,7 +95,7 @@ targets:
   StanleyTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [StanleyTests, Stanley/AskToNotify.swift, Stanley/WritingPrompts.swift]
+    sources: [StanleyTests, Stanley/AskToNotify.swift, Stanley/WritingPrompts.swift, Stanley/Prompts.swift, Stanley/LocalDay.swift]
     scheme:
       testTargets: [StanleyTests]
     settings:
@@ -122,7 +122,7 @@ targets:
         # The same two as the app's: the store refuses an extension whose
         # version differs from the app that carries it.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "63"
+        CFBundleVersion: "64"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

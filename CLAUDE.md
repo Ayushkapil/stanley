@@ -2131,7 +2131,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **Shared moments** — photos with the same location label on the same local day by
   2+ people group into one view-only card; each photo keeps its own decay/like/hold.
 - **Daily prompt** (client only) — a deterministic-by-date whisper in the capture
-  screen; optional, never tracked.
+  screen; optional, never tracked. **It turns at the phone's own midnight**
+  (build 64, `LocalDay.number`, shared with build 63's page suggestions):
+  until then it was `ordinality(of: .day, in: .era)`, which turns at
+  midnight UTC, so in Bloomington the whisper changed at 7 PM (8 PM in
+  daylight time) and a photo taken that evening had the next day's.
+  `DailyPromptTests` (four) hold it, and fail on the old line.
 - **Weekly mosaic** — the week's photos as an ephemeral card, creator's local
   Sun/Mon only, view-only.
 - **Who-was-there tags** — optional member tags, faces on the photo and into Held,
@@ -2343,7 +2348,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (63)", at the
+  production audit), and the version, "Stanley 0.2.0 (64)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2875,7 +2880,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 63** (0.2.0) is the number to archive next: Prompts out of
+- **Build 64** (0.2.0) is the number to archive next: the capture's
+  daily prompt turning at local midnight, not UTC (Daily prompt, below),
+  over build 63's Prompts out of
   the Journal tab's toolbar and onto the page being written (above),
   over build 62's covers to
   Apple's iPhone Duo guidance, over build 61's asking to notify
@@ -3347,7 +3354,8 @@ no book; and the older database's columns).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 The phone has unit tests since build 61 (`StanleyTests`: when to offer to
 ask about notifications, six; since build 63 the suggestion over a new
-page, six more). `tests/test_writing_prompts.py` (build 63) holds the
+page, six more; since build 64 the capture's daily prompt turning at
+local midnight, four more, sixteen in all). `tests/test_writing_prompts.py` (build 63) holds the
 app's suggestions to the circle's questions, word for word.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
@@ -3432,7 +3440,7 @@ live APNs, concurrency under real load.
   `WideButton`), `Haptics.swift` (the five gestures' haptics, the shutter),
   `TabTaps.swift` (a tap on the current tab: to the top, or refresh),
   `SignedImage.swift` (every photo and face behind a signed
-  link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (the flat floor, `Look`: Light, Dark, Rain), `Prompts.swift`, `AppLock.swift`,
+  link, renewing it when it runs out; `PhotoMemory`), `AvatarPicker.swift` (choose, Move and Scale, upload), `Atmosphere.swift` (the flat floor, `Look`: Light, Dark, Rain), `Prompts.swift` (the capture's daily whisper; the day it turns by is `LocalDay.swift`, build 64), `AppLock.swift`,
   `Keychain.swift`, `Trail.swift` (the crash report's fixed-word trail),
   `Acknowledgements.swift` (open-source notices)
 - The widget (build 40): `ios/StanleyWidgets/StanleyWidgets.swift` (the

@@ -62,11 +62,7 @@ enum WritingPrompt {
     static func first(
         on date: Date = .now, calendar: Calendar = .current, fits: (String) -> Bool = { _ in true }
     ) -> Int? {
-        // Days counted on the calendar's own clock. (`ordinality(of: .day,
-        // in: .era)` turns at midnight UTC, which is seven in the evening
-        // in Bloomington: a test caught it.)
-        let epoch = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)) ?? date
-        let day = calendar.dateComponents([.day], from: epoch, to: calendar.startOfDay(for: date)).day ?? 0
+        let day = LocalDay.number(of: date, calendar: calendar)
         let start = ((day % all.count) + all.count) % all.count
         return from(start, fits: fits)
     }
