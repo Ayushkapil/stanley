@@ -610,9 +610,25 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     UI-test session, on the iPhone 17 Pro against the local server; the
     hook and the UI-test target were removed after. Not heard with
     VoiceOver itself.
-  - **Seen there, not part of the sheet, left for another task**: two
-    silent stops on every page of the book, the ribbon's bead on the
-    fore-edge (9 by 9) and a full-page node with no label.
+  - **Seen there, and fixed after it** (the same day, in build 66):
+    two silent stops on every page of the book, the ribbon's bead on
+    the fore-edge (9 by 9) and a page-sized node with no label. Both
+    came from `.accessibilityHidden(grid)` on the page turner, the
+    fore-edge and the "+" in `BookView`: with the grid shut it said
+    `false`, which isn't nothing in SwiftUI. On the fore-edge it
+    overrode the bead's own `accessibilityHidden(true)`; on the
+    `PageTurner` it made the representable an element of its own,
+    0,0 to 402 by 790, with no label or traits. The three are gone,
+    and the grid of small pages is `.isModal` instead, so VoiceOver
+    still keeps to the grid while it's open. Walked again the same
+    way (a temporary UI test and a probe, both removed): today's blank
+    page, a written page (13 November) and the grid, on the iPhone 17
+    Pro against a local server; every other element read as before
+    ("Write today's page", "Place in the journal", the page's own
+    words, date and number, the inks). One stop left, not from the
+    book: Letters' sealed-letter dot (a toolbar `.badge`) is read on
+    its own as "•", after the Letters button that already says a
+    letter is waiting.
   - **Taking a mark back** was already built (a tap on the filled bubble,
     `PUT /moods/{today}` with `level: null`); now held by tests.
     `MarkSheet.afterTap` is the rule (the filled one clears, another

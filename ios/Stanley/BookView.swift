@@ -882,7 +882,6 @@ struct BookView: View {
             .id("\(reduceMotion)-\(shared)")
             .transition(.opacity)
             .frame(width: whole.width, height: whole.height)
-            .accessibilityHidden(grid)
 
             if book.pages.isEmpty {
                 // Nothing fetched yet (or nothing can be): a page all the same.
@@ -897,7 +896,6 @@ struct BookView: View {
                 step: { by in jump(to: index + by, in: book) }
             )
             .opacity(grid ? 0 : 1)
-            .accessibilityHidden(grid)
 
             // The "+", at the foot of the page on the right.
             PlusMenu(
@@ -909,7 +907,6 @@ struct BookView: View {
                 writeTo: { wants(.person($0)) }
             )
             .opacity(grid ? 0 : 1)
-            .accessibilityHidden(grid)
 
             if grid {
                 BookGrid(book: book, layout: layout, current: index, floor: palette.floor, accent: accent) { picked in
@@ -924,6 +921,13 @@ struct BookView: View {
                         animatesJumps = true
                     }
                 }
+                // VoiceOver keeps to the grid while it's open. (The page,
+                // the edge and the "+" behind it used to say
+                // `accessibilityHidden(grid)`, but a `false` there isn't
+                // nothing: it overrode the bead's own hiding, so the bead
+                // was read, and made the page turner a page-sized element
+                // with no label. Seen in build 66's VoiceOver walk.)
+                .accessibilityAddTraits(.isModal)
                 .transition(.opacity.combined(with: .scale(scale: 1.06)))
             }
         }
