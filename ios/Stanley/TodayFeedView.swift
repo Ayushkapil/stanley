@@ -129,9 +129,9 @@ struct TodayFeedView: View {
                                         .padding(.top, Spacing.section)
                                 }
                                 // And under that, five dots (build 52).
-                                if let offered = moodOffered(in: item) {
-                                    MoodDots(score: offered.score) { score in
-                                        Task { _ = await state.setScore(offered, score) }
+                                if moodOffered(in: item) != nil {
+                                    MoodDots(score: state.moods[LocalDay.text(of: .now)]) { level in
+                                        Task { _ = await state.setMark(level) }
                                     }
                                     .padding(.top, Spacing.tight)
                                 }
@@ -225,11 +225,14 @@ struct TodayFeedView: View {
     }
 
     /// Your photo just posted, for the five dots under it: only against a
-    /// server that keeps them.
+    /// server that keeps them, and only while its day is still today (the
+    /// dots mark today, and a day gone by can't be marked, build 65).
     private func moodOffered(in item: FeedItem) -> Photo? {
         guard let offer = state.moodOffer, state.moodsAvailable else { return nil }
         let photos = item.photo.map { [$0] } ?? item.photos ?? []
-        return photos.first { $0.id == offer && $0.owner.id == state.myId }
+        return photos.first {
+            $0.id == offer && $0.owner.id == state.myId && Calendar.current.isDateInToday($0.takenAt)
+        }
     }
 }
 

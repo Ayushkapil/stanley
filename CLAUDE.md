@@ -14,8 +14,8 @@ weekly reflections; since build 54 the Journal tab opens to its covers, one jour
 for each circle, each over a photo you kept), which nobody else ever sees
 unless they choose to share a page: since build 51 a page can be put in the circle's **shared journal**, read there as
 facing pages, two people's pages from the same day, and since build 52 shared with **one person** in the circle instead.
-Also since build 52, after posting a photo, a person may fill one of **five unlabelled dots** for their day, kept for
-them alone and gathered at the end of each month's chapter into a sheet. The product's identity lives as much in what it
+Also since build 52 a person may fill one of **five unlabelled dots** for their day, kept for them alone; since
+build 65 each month is an **answer sheet** in their journal, a row a day, and only today's row takes a mark. The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -217,19 +217,28 @@ guarded by tests; treat a change to any of them as a spec change.
   block, isn't a cover. **Asked for again in build 56's brief and kept
   this way**, said to Ayush.
 - **The mark on your day is yours alone and never counts anything**
-  (build 52, a product decision, the same brief, part 4). After posting
-  a photo, five empty dots; a tap fills one. No labels, no numbers, no
-  "1 = bad", in the app or anywhere it's described. It's kept as
-  `photos.score` (1–5) and, because a fading photo's row is anonymized
-  at purge, as `day_moods` (one a day per person, the last set wins).
-  It's in no payload to anyone else (`score` is None on anyone else's
-  photo, like `has_journal`; a test walks the JSON), never notifies,
-  never fades (purge clears `photos.score` and keeps the day's), and
-  goes when its owner deletes the photo it was set with, clears it, or
-  deletes the account. It's a private mark, not a count of anything
-  anyone did, so the "No counts" rule stands as it was; nothing may ever
-  total, average, chart or compare it ("the pattern is the insight": the
-  month's sheet draws dots and nothing joins them).
+  (build 52, a product decision, the same brief, part 4; **reshaped in
+  build 65**, the answer-sheet brief of 2026-11-15). Five bubbles, no
+  labels, no numbers, no "1 = bad", in the app or anywhere it's
+  described; a tap fills one. **It's the day's, kept in `day_moods`
+  alone** (one a day per person; `GET /moods`, `PUT /moods/{day}`):
+  since build 65 no photo carries it, its owner's own included, and
+  `photos.score` is cleared and unused. **Only today takes a mark, and
+  today is the person's own** (the zone the phone sends; 400
+  `not_today` for any other day): a missed day stays empty for good,
+  nothing fills one in after, and a day to come can't be marked. It can
+  be set from the month's answer sheet or under that day's photo, and
+  changed or taken back while the day lasts. It's in no payload to
+  anyone else, nor in any circle or shared response (tests walk the
+  JSON), never notifies, never fades, **stays when a photo from that day
+  is deleted or purged** (build 52 took it with a deleted photo; build
+  65 made it the day's, not asked about separately), and goes when its
+  owner clears it that day or deletes the account. It's a private mark,
+  not a count of anything anyone did, so the "No counts" rule stands as
+  it was; nothing may ever total, average, streak, trend, compare or
+  describe it, and nothing nudges toward a missed day ("the pattern is
+  the insight": the sheet's foot shades each day's square by its mark in
+  five neutral steps of one ink, and nothing joins or reads them).
 - **The board's notes are everyone's own and the day's alone** (build 27).
   One note per person per circle per day, changed or taken down only by its
   author, gone at the end of their day (deleted, not archived). No replies,
@@ -566,6 +575,94 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **The answer sheet** (build 65, November 15, 2026, a product brief
+  from Ayush, "Add the OMR sheet to the Journal"; screenshots in
+  `docs/omr-sheet-build65/`). The month's page of marks, redrawn as an
+  exam's answer sheet. **Where build 52's section below describes the
+  month's sheet or the dots' store, this wins**; the locked rule above
+  has the rule. Phone and server both; **the server needs a deploy
+  before the app ships** (the app reads `GET /moods`, which v32 lacks).
+  - **The sheet** (`MoodSheet` in `Moods.swift`; its rules in
+    `MarkSheet.swift`, compiled into the unit tests): every day of the
+    month a row, the date small at the left (a date, not a label on a
+    bubble), five bubbles spread across, ringed and filled in pencil
+    (one ink; which bubble says the mark). **Faint registration squares
+    in three corners** (top left, top right, bottom left). **Today's row
+    is the only one that takes a mark**: taller, on a faint band, its
+    bubbles stronger; a tap fills one (the soft haptic), a tap on the
+    filled one takes it back. Today is the phone's own (`LocalDay`). A
+    day gone by is a button that turns to that day's page, its mark as
+    it was; **the days to come are faint and take no tap**. At the foot,
+    **the whole month as small squares**, one a day, each in as much of
+    the one ink as its mark (five neutral steps, lightest to darkest,
+    `MarkSheet.shade`; none is an empty outline), over one line in the
+    hand: "the whole month, one mark a day". Nothing on it counts,
+    totals, averages or says anything about the marks.
+  - **Where it is**: at the end of each month's chapter in your own book.
+    **This month's is always there** (after today's page, so the book
+    still lands on today); a month gone by has one only if a day in it
+    was marked. And from **your journal's cover**: under "Only you read
+    it", five small bubbles for your last five days, oldest first and
+    today last, each shaded by its mark or an empty ring
+    (`LastFiveDays`, `MarkSheet.lastFive`, from the same `state.moods`);
+    a tap opens your book at this month's sheet (`BookStart.sheet`).
+    Never on a circle's cover. The brief's "opened-cover state" was read
+    as the cover in view (there's no separate opened or detail state);
+    not asked about.
+  - **Under a fresh photo** the five dots stay (build 52), marking the
+    same day's one mark through `PUT /moods/{today}`, shown only while
+    the photo's day is still today.
+  - **The server** (`routes/moods.py`): `PUT /moods/{day}` `{level:
+    1..5 | null, tz}` sets, changes or takes back today's mark; `tz` is
+    required (422 without, 400 `bad_timezone`), and any day that isn't
+    the sender's own today is 400 `not_today`; `bad_level`, `bad_day`.
+    `GET /moods?from=&to=` is your own marks, oldest first, `{day,
+    level}` and nothing else (400 `bad_range`). Builds 52 to 64 still
+    mark through `PUT /photos/{id}/score`, which now writes only
+    `day_moods` and refuses a photo whose day isn't the owner's today
+    (`tz` if sent, else the zone last seen; a build before 65 sends
+    none, and its post has just sent it); `GET /me/moods` still answers
+    them. **No photo payload carries `score` any more**, the owner's
+    own included (the feed, Held, profiles, the week's photos); those
+    builds decode it as absent. `ensure_schema` copied any mark a day
+    lacked from `photos.score` and cleared the column. Deleting a photo
+    no longer deletes the day's mark.
+  - **Both documents**: the Privacy Policy (November 15, 2026; the Terms
+    unchanged at November 14) says the mark is set on its day only and
+    stays when a photo from the day is deleted, no longer "after posting
+    a photo" or "delete the photo you left it with";
+    `PRIVACY_LABEL.md` the same.
+  - **Tests**: `tests/test_moods.py` (24): set and changed on the
+    owner's own day in a Bloomington evening, a Delhi small hour and the
+    night the clocks went back, the 25-hour day one day, yesterday and
+    tomorrow and UTC's day refused, the turn at the owner's midnight,
+    taking back only today, one of five, the zone required and real,
+    marking without a photo, the sheet and a photo's dots the same mark,
+    a stretch read with `from` and `to`, only your own, no circle or
+    shared response (Today, circles, the shared journal with a page for
+    one person, notes, the question, letters, profiles, Held, Returned)
+    carrying any mark key, no field that counts, streaks or averages,
+    no notification, the export, and the old copy migrated.
+    `test_journal_build52.py`'s mark tests follow the new rule (no photo
+    payload has it; deleting a photo leaves it; an older photo can't
+    fill its day). On the phone, `MarkSheetTests` (eight): today in
+    Bloomington, Delhi and across the clock change; every day a row and
+    only today taking a mark; a month gone by taking none; the last five
+    days on the phone's calendar; five distinct shades in order; and no
+    word the sheet says carrying a digit, a count, a streak, an average
+    or a judgement.
+  - **Checked** on the iPhone 17 Pro simulator against a local server on
+    this code, signed in as Maya with marks seeded: the cover's five
+    bubbles in light and dark, a tap on them opening November's sheet,
+    the sheet in light and dark, the third bubble of today's row tapped
+    (`PUT /moods/2026-11-15` 200, the 15th's square shaded at the foot,
+    the cover's last bubble with it). **On the Duo's cover**: the cover
+    on its side with the bubbles, and the sheet upright (all thirty rows
+    and the foot fit). **Not seen**: a past row tapped turning to its
+    day, a mark taken back by a second tap, the dots under a fresh
+    photo against this server, VoiceOver, large Dynamic Type, a real
+    phone.
 
 - **Whose day it is** (build 64, November 15, 2026, from Ayush: "Sweep
   for the same timezone bug elsewhere", after the capture prompt was
@@ -2406,7 +2503,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (64)", at the
+  production audit), and the version, "Stanley 0.2.0 (65)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2938,7 +3035,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 64** (0.2.0) is the number to archive next: the capture's
+- **Build 65** (0.2.0) is the number to archive next: the answer sheet
+  (above). **Its server must be on Fly before the app reaches anyone**
+  (the app reads `GET /moods`; against v32 the sheet and the cover's
+  bubbles don't show). Build 65 carries everything below.
+- **Build 64** (0.2.0) was never archived on its own: the capture's
   daily prompt turning at local midnight, not UTC (Daily prompt, below),
   and the sweep for the same bug ("Whose day it is", above). **Its server
   must be on Fly before the app reaches anyone**: against v31, the first
@@ -3312,7 +3413,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**673 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**698 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -3429,7 +3530,9 @@ The phone has unit tests since build 61 (`StanleyTests`: when to offer to
 ask about notifications, six; since build 63 the suggestion over a new
 page, six more; since build 64 the capture's daily prompt turning at
 local midnight, four more; and a day written out and read back on the
-phone's calendar, four more, twenty in all). `tests/test_local_days.py`
+phone's calendar, four more; since build 65 the answer sheet's rules,
+eight more, twenty-eight in all). `tests/test_moods.py` (build 65) holds
+the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the
 app's suggestions to the circle's questions, word for word.

@@ -59,6 +59,8 @@ struct JournalCovers: View {
     /// the cards runs on under all of it.
     let insets: EdgeInsets
     let open: (CoverJournal) -> Void
+    /// Your own book at this month's answer sheet (build 65).
+    let openSheet: () -> Void
     @Binding var page: String
     @State private var shown: String?
     @State private var renaming = false
@@ -338,6 +340,17 @@ struct JournalCovers: View {
                     .foregroundStyle(TextTone.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                // Your own journal: your last few days as five bubbles, each
+                // in as much ink as its mark (build 65). Never on a circle's.
+                if journal.circleId == nil, state.moodsAvailable {
+                    Button(action: openSheet) {
+                        LastFiveDays(levels: MarkSheet.lastFive(marks: state.moods), ink: TextTone.primary, size: 11 * scale)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2 * scale)
+                }
                 Pips(at: at, of: of, ink: TextTone.primary)
                     .padding(.top, 8 * scale)
             }

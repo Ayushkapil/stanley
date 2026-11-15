@@ -246,6 +246,23 @@ def ensure_schema(engine) -> list[str]:
             conn.execute(text("DROP TABLE community_notes"))
             log.info("ensure_schema: moved %d note(s) onto the circle's board", moved.rowcount)
 
+        # Build 65: a mark on a day lives in `day_moods` alone. Builds 52 to
+        # 64 kept it on the photo too (`photos.score`), always beside the
+        # day's row, so this copies across only a mark the day somehow
+        # lacks, then clears the column. Run once, it finds nothing after.
+        if "photos" in tables and "day_moods" in tables:
+            have = {c["name"] for c in inspector.get_columns("photos")}
+            if "score" in have:
+                conn.execute(text(
+                    "INSERT OR IGNORE INTO day_moods (user_id, day, score, photo_id, updated_at) "
+                    "SELECT owner_id, local_date, score, NULL, CURRENT_TIMESTAMP FROM photos "
+                    "WHERE score IS NOT NULL AND owner_id IS NOT NULL "
+                    "AND owner_id IN (SELECT id FROM users)"
+                ))
+                cleared = conn.execute(text("UPDATE photos SET score = NULL WHERE score IS NOT NULL"))
+                if cleared.rowcount:
+                    log.info("ensure_schema: %d mark(s) kept by day alone", cleared.rowcount)
+
         # Migrate old 32-char hex invite tokens to the short XXXX-XXXX format.
         # Existing circles get a new code; the old long string is unusable anyway
         # since the new join endpoint validates only the short format.

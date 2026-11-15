@@ -53,10 +53,8 @@ struct Photo: Codable, Identifiable, Hashable {
     /// only when you open it. Nil on anyone else's photo, and from an older
     /// server.
     let hasJournal: Bool?
-    /// Yours only (build 52): the dot you filled under it, one of five.
-    /// Nil on anyone else's photo, on yours with none, and from an older
-    /// server.
-    let score: Int?
+    // No mark on a day rides on a photo since build 65, not even your own:
+    // they're `GET /moods`'s alone.
 }
 
 /// A sticky note on the circle's board (Part 4; one each since build 27). The
@@ -523,18 +521,20 @@ struct SharedDay: Codable, Hashable {
     }
 }
 
-/// The dot filled on a day (build 52), one of five: yours alone.
-struct DayMood: Codable, Hashable {
+/// The mark on a day (build 52), one of five: yours alone, from `GET
+/// /moods` (build 65).
+struct MarkOnADay: Codable, Hashable {
     let day: String
-    let score: Int
+    let level: Int
 }
 
-struct DayMoods: Codable {
-    let moods: [DayMood]
+struct DayMarks: Codable {
+    let moods: [MarkOnADay]
 }
 
-struct ScoreState: Codable {
-    let score: Int?
+struct DayMarkState: Codable {
+    let day: String
+    let level: Int?
 }
 
 struct MuteState: Codable {

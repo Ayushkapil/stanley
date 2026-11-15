@@ -17,7 +17,7 @@ CAPTION_MAX = 2000  # I4: cap caption like comments (unbounded TEXT otherwise)
 # server keeps only the name. There is no fifth, and no intensity.
 FILTERS = frozenset({"mono", "grain", "dusk", "clean"})
 
-from .. import physics
+from .. import journal, physics
 from ..decay import TOMBSTONE, enqueue_purge, fade_journal, owner_hash_for, scrub
 from ..deps import (
     active_circle_id,
@@ -36,7 +36,7 @@ from ..images import BadImage, PreparedUpload, prepare_upload
 from ..notifications import send_circle_post_notices
 from ..ratelimit import per_person
 from ..text import clean_optional
-from ..models import Anchor, Comment, DayMood, Like, Membership, Photo, PhotoTag, User, new_id
+from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
 from ..serialize import photo_payload, user_brief
 
 log = logging.getLogger("stanley")
@@ -75,6 +75,9 @@ class CommentBody(BaseModel):
 class ScoreBody(BaseModel):
     # Required, and null clears it.
     score: int | None
+    # Builds 52 to 64 send none: the zone the post itself just gave is
+    # theirs (`tz_last_seen`).
+    tz: str | None = Field(default=None, max_length=64)
 
 
 def valid_timezone(tz: str | None) -> bool:
@@ -310,11 +313,13 @@ def set_score(
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
 ):
-    """The mark you leave on your day after posting its photo (build 52):
-    one of five, no labels, or null to take it back. Yours alone: anyone
-    else's photo, or one deleted or purged, reads as not found. Kept on the
-    photo and by day (`day_moods`), which outlives a purge. Nothing is told
-    to anyone."""
+    """The mark you leave on your day after posting its photo (build 52),
+    from builds 52 to 64; build 65 marks the day itself (`PUT
+    /moods/{day}`). One of five, or null to take it back. It's the day's
+    mark, kept in `day_moods` and nowhere else, so it's taken only while
+    the photo's day is the owner's today: a photo from a day gone by can't
+    fill that day in (400 `not_today`). Anyone else's photo, or one
+    deleted or purged, reads as not found. Nothing is told to anyone."""
     photo = db.get(Photo, photo_id)
     if (
         photo is None
@@ -324,24 +329,17 @@ def set_score(
         or photo.state == physics.PURGED
     ):
         raise HTTPException(404, "not found")
+    if body.tz is not None and not valid_timezone(body.tz):
+        raise HTTPException(400, {"code": "bad_timezone"})
     score = body.score
     if score is not None and not (physics.SCORE_MIN <= score <= physics.SCORE_MAX):
         raise HTTPException(400, {"code": "bad_score"})
-    photo.score = score
-    if score is None:
-        db.execute(delete(DayMood).where(
-            DayMood.user_id == user.id, DayMood.day == photo.local_date, DayMood.photo_id == photo.id,
-        ))
-    else:
-        now = clock.now()
-        db.execute(
-            sqlite_insert(DayMood)
-            .values(user_id=user.id, day=photo.local_date, score=score, photo_id=photo.id, updated_at=now)
-            .on_conflict_do_update(
-                index_elements=["user_id", "day"],
-                set_={"score": score, "photo_id": photo.id, "updated_at": now},
-            )
-        )
+    now = clock.now()
+    if photo.local_date != journal.local_day(now, body.tz or user.tz_last_seen or "UTC"):
+        raise HTTPException(400, {"code": "not_today"})
+    from .moods import set_mark
+
+    set_mark(db, user, photo.local_date, score, now)
     return {"score": score}
 
 

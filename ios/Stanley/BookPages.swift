@@ -36,6 +36,8 @@ struct BookActions {
     var shareWithPerson: (DayPage, CircleMember) -> Void = { _, _ in }
     /// A row of a month's dots: that day's page.
     var openDay: (String) -> Void = { _ in }
+    /// Today's mark on the answer sheet (build 65): one of five, or none.
+    var markToday: (Int?) -> Void = { _ in }
 }
 
 /// Words set by `BookType`, drawn exactly as `Paginator` measured them: the
@@ -278,7 +280,7 @@ struct BookPageView: View {
         case .single(let single):
             SingleView(page: single, layout: layout, actions: actions, live: live)
         case .moods(let month):
-            MoodSheet(month: month, layout: layout, live: live, open: actions.openDay)
+            MoodSheet(month: month, layout: layout, live: live, open: actions.openDay, mark: actions.markToday)
         }
     }
 

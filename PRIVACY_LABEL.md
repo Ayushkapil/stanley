@@ -88,10 +88,12 @@ Personalization, never Other.
   build 52 a page can also be shared with one person in a circle
   (`journal_pages.recipient_id`), and then it's read by that person and
   its writer only. Since build 52 too, the mark a person may leave on
-  their day after posting a photo: one of five, with no labels
-  (`photos.score`, and `day_moods` by day, which outlives the photo's
-  purge), read by no one but them, kept until they clear it, delete the
-  photo it was left with, or delete the account. It is a number the
+  their day: one of five, with no labels (`day_moods`, one a day, the
+  only place it's kept since build 65; set on that day only, from the
+  month's answer sheet or under that day's photo), read by no one but
+  them, in no payload about a photo or a circle, kept until they clear
+  it that day or delete the account; a photo from the day fading or
+  being deleted leaves it. It is a number the
   person picks with no words attached, not a health measure, so it's
   declared here and not under Health & Fitness; revisit that if the
   app ever names the five. The same answers as before: collected, linked,

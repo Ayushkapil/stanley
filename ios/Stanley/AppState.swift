@@ -52,7 +52,8 @@ final class AppState {
     /// The same photo, for the five dots under that slip (build 52). They
     /// outlast the slip (an entry kept, or "Not now"), until the next launch.
     var moodOffer: String?
-    /// The dots filled, a day each (build 52): yours alone. And whether the
+    /// The marks on your days, one each (build 52), from `GET /moods`, the
+    /// one place they're kept (build 65): yours alone. And whether the
     /// server keeps them at all.
     var moods: [String: Int] = [:]
     var moodsAvailable = false
@@ -1384,11 +1385,12 @@ final class AppState {
         return nil
     }
 
-    /// The days' dots, all of them (build 52).
+    /// The marks on your days, all of them (build 52; from `GET /moods`
+    /// since build 65).
     func loadMoods() async {
         do {
-            let got: DayMoods = try await api.send("GET", "/me/moods")
-            moods = Dictionary(got.moods.map { ($0.day, $0.score) }, uniquingKeysWith: { _, last in last })
+            let got: DayMarks = try await api.send("GET", "/moods")
+            moods = Dictionary(got.moods.map { ($0.day, $0.level) }, uniquingKeysWith: { _, last in last })
             moodsAvailable = true
         } catch APIError.status(404) {
             moods = [:]
@@ -1398,17 +1400,21 @@ final class AppState {
         }
     }
 
-    /// Fill one of the five dots under your photo, or empty it (nil).
-    /// True once the server has it; the month's sheet follows.
-    func setScore(_ photo: Photo, _ score: Int?) async -> Bool {
+    /// Mark today, change today's mark, or take it back (nil): today on
+    /// the phone's own calendar, the zone sent with it (build 65). Shown at
+    /// once, and put back if the server says no. True once it has it.
+    func setMark(_ level: Int?) async -> Bool {
+        let day = LocalDay.text(of: .now)
+        let before = moods[day]
+        moods[day] = level
         do {
-            let _: ScoreState = try await api.send(
-                "PUT", "/photos/\(photo.id)/score", json: ["score": score.map { $0 as Any } ?? NSNull()]
+            let _: DayMarkState = try await api.send(
+                "PUT", "/moods/\(day)",
+                json: ["level": level.map { $0 as Any } ?? NSNull(), "tz": TimeZone.current.identifier]
             )
-            await refreshToday()
-            await loadMoods()
             return true
         } catch {
+            moods[day] = before
             surface(error)
             return false
         }

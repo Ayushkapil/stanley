@@ -372,18 +372,19 @@ def test_a_page_for_one_person_notifies_only_them_and_counts_nothing(circle, db)
 
 def test_the_owner_marks_their_day_and_nobody_else_can(circle, db):
     photo = circle.ana.post_photo().json()
-    assert photo["score"] is None
+    # Build 65: no photo carries a mark, its owner's own included.
+    assert "score" not in photo
     r = score(circle.ana, photo["id"], 4)
     assert r.status_code == 200 and r.json() == {"score": 4}
     with db() as s:
-        assert s.get(Photo, photo["id"]).score == 4
+        # Kept by day and nowhere else (build 65).
+        assert s.get(Photo, photo["id"]).score is None
         mood = s.get(DayMood, (circle.ana.id, date(2026, 6, 9)))
-        assert (mood.score, mood.photo_id) == (4, photo["id"])
+        assert (mood.score, mood.photo_id) == (4, None)
     # Not anyone else's to set, or to learn exists.
     assert score(circle.ben, photo["id"], 1).status_code == 404
     assert score(circle.ben, "0" * 32, 1).status_code == 404
-    with db() as s:
-        assert s.get(Photo, photo["id"]).score == 4
+    assert moods(circle.ana) == [{"day": "2026-06-09", "score": 4}]
 
 
 def test_a_mark_is_one_of_five(circle):
@@ -427,9 +428,10 @@ def test_a_day_has_one_mark_whichever_circle_it_was_left_in(circle, db):
     score(circle.ana, here["id"], 2)
     score(circle.ana, there["id"], 4)
     assert moods(circle.ana) == [{"day": "2026-06-09", "score": 4}]
-    # Clearing the photo the day's mark no longer comes from leaves it.
+    # The mark is the day's (build 65): taken back through either photo,
+    # the day has none.
     score(circle.ana, here["id"], None)
-    assert moods(circle.ana) == [{"day": "2026-06-09", "score": 4}]
+    assert moods(circle.ana) == []
 
 
 def _keys_and_values(value, key=None):
@@ -443,39 +445,30 @@ def _keys_and_values(value, key=None):
         yield key, value
 
 
-def test_no_one_else_is_ever_sent_the_mark(circle, clock):
+def test_no_photo_payload_carries_the_mark_not_even_to_its_owner(circle, clock):
+    """Build 65: a mark is in no payload about a photo, anyone's. Its
+    owner reads it from `GET /moods` alone."""
     photo = circle.ana.post_photo(caption="A good one.").json()
     score(circle.ana, photo["id"], 5)
     circle.ben.anchor(photo["id"])
+    circle.ana.anchor(photo["id"])
     circle.ben.like(photo["id"])
     circle.ben.comment(photo["id"], "I remember.")
-    # Ana sees her own.
-    assert [p["score"] for p in circle.ana.feed_photos()] == [5]
-    # Everywhere Ben could meet Ana's photo: Today, Held, her profile,
-    # Returned, and what he's rested.
-    payloads = [
-        circle.ben.feed().json(),
-        circle.ben.memories().json(),
-        circle.ben.client.get(f"/members/{circle.ana.id}", headers=circle.ben.h).json(),
-        circle.ben.returned().json(),
-        circle.cam.feed().json(),
-        circle.cam.client.get(f"/members/{circle.ana.id}", headers=circle.cam.h).json(),
-    ]
+    payloads = [photo]
+    for api in (circle.ana, circle.ben, circle.cam):
+        payloads += [
+            api.feed().json(),
+            api.memories().json(),
+            api.client.get(f"/members/{circle.ana.id}", headers=api.h).json(),
+            api.returned().json(),
+        ]
+    payloads.append(circle.ana.client.get("/me/reflections/this-week", headers=circle.ana.h).json())
     clock.advance(timedelta(days=3))
     circle.ben.rest(photo["id"])
-    payloads.append(circle.ben.rested().json())
-    payloads.append(circle.ben.memories().json())
-    seen_photo = False
+    payloads += [circle.ben.rested().json(), circle.ben.memories().json(), circle.ana.memories().json()]
     for payload in payloads:
-        for key, value in _keys_and_values(payload):
-            if key == "score":
-                seen_photo = True
-                assert value is None, payload
-    assert seen_photo
-    # Ana's own Held copy has it.
-    circle.ana.anchor(photo["id"])
-    held = [m for t in circle.ana.memories().json()["threads"] for m in t["memories"]]
-    assert [m["score"] for m in held] == [5]
+        for key, _ in _keys_and_values(payload):
+            assert key not in ("score", "level", "mood", "moods"), payload
 
 
 def test_a_purge_takes_the_mark_off_the_photo_and_leaves_it_on_the_day(circle, clock, sweep, db):
@@ -493,20 +486,22 @@ def test_a_purge_takes_the_mark_off_the_photo_and_leaves_it_on_the_day(circle, c
     assert score(circle.ana, photo["id"], 1).status_code == 404
 
 
-def test_deleting_the_photo_deletes_its_mark(circle, clock, db):
+def test_deleting_the_photo_leaves_the_days_mark(circle, clock, db):
+    """Build 65: the mark is the day's, not the photo's."""
     photo = circle.ana.post_photo().json()
     score(circle.ana, photo["id"], 3)
     assert circle.ana.delete_photo(photo["id"]).status_code == 204
-    assert moods(circle.ana) == []
-    with db() as s:
-        assert s.get(Photo, photo["id"]).score is None
+    assert moods(circle.ana) == [{"day": "2026-06-09", "score": 3}]
     assert score(circle.ana, photo["id"], 2).status_code == 404
-    # An older photo too, not only today's.
-    clock.advance(timedelta(days=1))
+
+
+def test_an_older_photo_cant_fill_in_its_day(circle, clock):
+    """A photo from a day gone by can't be marked through (build 65): a
+    missed day stays missed."""
     older = circle.ana.post_photo().json()
-    score(circle.ana, older["id"], 4)
-    clock.advance(timedelta(days=2))
-    assert circle.ana.delete_photo(older["id"]).status_code == 204
+    clock.advance(timedelta(days=1))
+    r = score(circle.ana, older["id"], 4)
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "not_today"
     assert moods(circle.ana) == []
 
 

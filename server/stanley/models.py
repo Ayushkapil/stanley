@@ -142,10 +142,9 @@ class Photo(Base):
     # §13: after purge the row is reduced to an anonymous tombstone; the owner
     # survives only as a hash, for abuse audit.
     owner_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # Build 52: the mark its owner left on their day after posting it, one
-    # of five (1 to 5), or None. For the owner alone: no payload carries it
-    # to anyone else. Gone with the photo's other details when it's purged
-    # or deleted; the day keeps it in `day_moods` past a purge.
+    # Builds 52 to 64: a copy of the mark its owner left on their day.
+    # Nothing writes or reads it since build 65 (the mark is `day_moods`'
+    # alone), and `ensure_schema` cleared it.
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
@@ -478,10 +477,13 @@ class JournalPage(Base):
 
 class DayMood(Base):
     """The mark someone left on their day (build 52), one of five, kept for
-    them alone. It's set on the day's photo (`photos.score`) and kept here
-    by day, because a purge reduces the photo to an anonymous tombstone and
-    the mark doesn't fade. It goes when its owner deletes the photo it was
-    set on (`photo_id`), or their account. Never sent to anyone else."""
+    them alone: the one place a mark lives (build 65, the answer sheet;
+    `photos.score` held a copy until then). Set only on the day itself, the
+    owner's own today (`routes/moods.py`); a day gone by is never filled in.
+    It doesn't fade, and stays when a photo from that day is deleted or
+    purged; it goes when its owner takes it back that day, or deletes their
+    account. Never sent to anyone else. `score` is the API's `level`;
+    `photo_id` is what builds 52 to 64 set it on, null since."""
 
     __tablename__ = "day_moods"
     # A photo deleted or purged finds its mark by photo.

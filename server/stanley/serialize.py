@@ -240,9 +240,9 @@ def photo_payload(
         # it, for the small book on your print. Never the words, which only
         # their own request fetches, and None on anyone else's photo.
         "has_journal": journal_body(session, photo, viewer) is not None if photo.owner_id == viewer.id else None,
-        # Yours only (build 52): the mark you left on your day with this
-        # photo, one of five, or None. None on anyone else's photo, always.
-        "score": photo.score if photo.owner_id is not None and photo.owner_id == viewer.id else None,
+        # No mark on a day (build 52) rides on a photo, the owner's own
+        # included (build 65): a photo goes to a circle, and the mark is in
+        # `day_moods` alone, read by `GET /moods`.
     }
 
 

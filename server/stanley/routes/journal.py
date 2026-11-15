@@ -239,8 +239,6 @@ def _week_photos(db: Session, settings, now: datetime, user: User, week_start: d
             # in Today and fades as it does there.
             "held": p.id in held,
             "decay_progress": physics.decay_progress(p.taken_at, now),
-            # Your own photo, so your own mark on its day (build 52).
-            "score": p.score,
         }
         for p in photos
         if p.state in physics.PUBLIC_STATES or p.id in held
