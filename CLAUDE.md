@@ -115,8 +115,9 @@ guarded by tests; treat a change to any of them as a spec change.
   nobody). `users.written_to_you`: null is never chosen, which is on;
   a new column, so everyone already here got the default once (build
   57's `journal_posts_enabled`, off for everyone, is no longer read;
-  the API field keeps that name). The app asks iOS the first time the
-  Journal tab is opened, since nothing turns this switch on. Never to
+  the API field keeps that name). **When iOS is asked** (build 61): at the
+  first moment the value is concrete, never on launch or on opening a
+  tab, behind a soft sheet of Stanley's first (`AskToNotify`, below). Never to
   the writer, across a block neither way, nothing for a rewrite in
   place or a page made private. **A page is quiet while the recipient
   has muted the circle it's in** ("Mute Pages Written to You" in
@@ -565,6 +566,46 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **Asking to notify, moved** (build 61, November 14, 2026, "Move the
+  notification permission request", from Ayush; screenshots in
+  `docs/notify-ask-build61/`). Build 60 asked iOS the first time the
+  Journal tab was opened; iOS asks once ever, and a new user didn't yet
+  know what for. Phone only.
+  - **The moments** (whichever comes first): you come upon a letter or a
+    page written to you that you hadn't come upon before (Letters opened
+    with it in view, or Ours open with a page for you), or you send a
+    letter or write or move a page to one person (`AppState.sendLetter`,
+    `writeToday`, `sharePage`). "Receiving" is when you see it, not when
+    it reaches the phone, so a letter waiting at launch doesn't make the
+    sheet a launch prompt; not asked about.
+  - **The soft sheet first** (`AskToNotifySheet`, presented by UIKit over
+    whatever is showing, like `Spoken`, and held until a choice): an
+    envelope, "Stanley only notifies you when someone writes to you
+    directly.", **Not now** and **Continue**. Only Continue calls iOS.
+    Not now is offered again at the next moment, **at most twice more,
+    then never**; the same letter seen again isn't a new moment. Nothing
+    is offered once iOS has its answer, Continue was chosen, or Written
+    to You is off.
+  - Kept per account on the phone (`AskToNotify`, JSON in UserDefaults
+    under `stanley.askToNotify.<id>`): Not now's count, Continue, and the
+    ids already come upon. A phone signed into by someone else starts
+    fresh.
+  - **The app has unit tests now**: `StanleyTests`, a logic bundle with
+    no host app (`xcodebuild test -scheme StanleyTests`), compiling
+    `AskToNotify.swift` alone. Six tests: offered only while iOS hasn't
+    answered and the switch is on; Continue the last offer; Not now
+    re-asked twice, then never; only something new written to you is a
+    moment; kept across launches; the line has no number.
+  - Settings' switches still ask iOS when one is turned on (build 18).
+  - **Checked** on the iPhone 17 Pro simulator with the app reinstalled
+    (iOS undecided), against a local server: nothing at launch, nothing
+    on opening the Journal tab; Theo's letter came upon in Letters
+    brought the sheet; Not now closed it with no iOS prompt; Letters
+    opened again with the same letter offered nothing; Priya's new letter
+    brought it again; Continue brought iOS's prompt. **Not seen**: the
+    sending moments, a page for you in Ours as the moment, the third Not
+    now ending it (the unit tests cover the count).
 
 - **Written to You, corrected** (build 60, November 14, 2026, "Two
   corrections to build 59", from Ayush). Where build 59's section below
@@ -2160,7 +2201,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (60)", at the
+  production audit), and the version, "Stanley 0.2.0 (61)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2692,8 +2733,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 60** (0.2.0) is the number to archive next: Written to You
-  as corrected (above), over build 58's covers' room, centered peeks and the covers
+- **Build 61** (0.2.0) is the number to archive next: asking to notify
+  at the first concrete moment, behind a soft sheet (above), over
+  build 60's Written to You as corrected, over build 58's covers' room, centered peeks and the covers
   on their side, build 57's
   Journal Entries, the capsule and the inks at night, build 56's cover
   screen and build 54's glass chrome with "Mine" and "Ours" in
@@ -3158,6 +3200,8 @@ keeping how the page began; the operator's takedown leaving the page in
 its writer's journal; no notification; no fading; the export; no sign-in,
 no book; and the older database's columns).
 The filter looks themselves are checked in a macOS harness, not in pytest.
+The phone has unit tests since build 61 (`StanleyTests`: when to offer to
+ask about notifications, six).
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
 

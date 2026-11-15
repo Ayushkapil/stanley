@@ -469,6 +469,13 @@ struct BookView: View {
                     BookLayout.shown = layout
                 }
                 .onChange(of: ids) { _, _ in follow(book) }
+                // A page written to you, come upon in a circle's journal:
+                // the moment to offer to notify you of the next (build 61).
+                .onChange(of: opened && shared, initial: true) { _, reading in
+                    guard reading else { return }
+                    let forMe = state.sharedDays.flatMap(\.singles).filter { !$0.mine && $0.to?.id == state.myId }
+                    state.cameUponWrittenToYou(forMe.map(\.id))
+                }
                 .onChange(of: found, initial: true) { _, at in
                     if let at { lastIndex = at }
                 }

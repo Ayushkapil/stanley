@@ -8,14 +8,8 @@ import SwiftUI
 /// and the journal's name is in Settings. It was a list until build 44
 /// ("Held" before that); the internal names are unchanged.
 struct MemoriesView: View {
-    @Environment(AppState.self) private var state
-
     var body: some View {
         BookView()
-            // Written to You is on until turned off (build 60), so nothing
-            // turning it on ever asks iOS: the first visit to the journal,
-            // where pages and letters are, does, once.
-            .task { await state.askForWrittenToYou() }
     }
 }
 
@@ -50,6 +44,10 @@ struct LettersPage: View {
         .sheet(item: $reading) { LetterReaderSheet(letter: $0) }
         .task {
             await state.refreshLetters()
+            // Letters written to you, come upon: the moment to offer to
+            // notify you of the next (build 61), if it's the first.
+            let mine = state.lettersReceived.sealed + state.lettersReceived.opened
+            state.cameUponWrittenToYou(mine.map(\.id))
             guard let asked else { return }
             if let ready = state.lettersReceived.sealed.first(where: { $0.id == asked && $0.deliverable == true }) {
                 reading = ready

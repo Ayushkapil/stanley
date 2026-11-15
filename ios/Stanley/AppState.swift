@@ -790,6 +790,7 @@ final class AppState {
         do {
             let _: Letter = try await api.send("POST", "/me/letters/send", json: payload)
             await refreshLetters()
+            sentToSomeone()
             return true
         } catch {
             surface(error)
@@ -1297,14 +1298,61 @@ final class AppState {
         journalAsked += 1
     }
 
-    /// The first time the Journal tab is opened (build 60): if iOS hasn't
-    /// been asked about notifications yet and Written to You is on (the
-    /// default), ask now. Once iOS has an answer it never asks again, and
-    /// a switch turned off isn't asked about.
-    func askForWrittenToYou() async {
+    // MARK: asking to notify (build 61)
+
+    /// Where this account's `AskToNotify` is kept on the phone.
+    private var askKey: String? { myId.map { "stanley.askToNotify.\($0)" } }
+
+    private var askToNotify: AskToNotify {
+        get {
+            guard let askKey, let data = UserDefaults.standard.data(forKey: askKey),
+                  let kept = try? JSONDecoder().decode(AskToNotify.self, from: data) else { return AskToNotify() }
+            return kept
+        }
+        set {
+            guard let askKey, let data = try? JSONEncoder().encode(newValue) else { return }
+            UserDefaults.standard.set(data, forKey: askKey)
+        }
+    }
+
+    /// You came upon letters or pages written to you (Letters, or a page
+    /// for you in a circle's journal): a moment, if any is new.
+    func cameUponWrittenToYou(_ ids: [String]) {
+        var ask = askToNotify
+        let moment = ask.cameUpon(ids)
+        askToNotify = ask
+        if moment { Task { await offerToNotify() } }
+    }
+
+    /// You sent a letter, or wrote a page to one person: a moment.
+    func sentToSomeone() {
+        Task { await offerToNotify() }
+    }
+
+    /// At a moment: Stanley's own sheet, if iOS hasn't been asked, Written
+    /// to You is on and the sheet hasn't been put off too often; iOS's
+    /// prompt only on Continue. Never on launch or on opening a tab.
+    private func offerToNotify() async {
         guard signedIn, await Push.shared.authorization() == .notDetermined else { return }
-        guard let me: MeSettings = try? await api.send("GET", "/me"), me.journalPostsEnabled == true else { return }
-        _ = await Push.shared.requestPermission()
+        guard let me: MeSettings = try? await api.send("GET", "/me") else { return }
+        guard askToNotify.offers(iosUndecided: true, switchOn: me.journalPostsEnabled == true) else { return }
+        // Let whatever just closed (a letter being written) finish closing.
+        try? await Task.sleep(for: .milliseconds(700))
+        AskToNotifySheet.present(
+            continue: { [weak self] in
+                guard let self else { return }
+                var ask = self.askToNotify
+                ask.choseContinue()
+                self.askToNotify = ask
+                Task { _ = await Push.shared.requestPermission() }
+            },
+            notNow: { [weak self] in
+                guard let self else { return }
+                var ask = self.askToNotify
+                ask.choseNotNow()
+                self.askToNotify = ask
+            }
+        )
     }
 
     /// Mute a circle, or unmute it (build 57; since build 59 its pages and
@@ -1442,6 +1490,7 @@ final class AppState {
             place(page)
             Trail.note(.wroteJournal)
             if page.isShared || was?.isShared == true { await loadShared() }
+            if shared == true, recipient != nil { sentToSomeone() }
             return true
         } catch {
             surface(error)
@@ -1518,6 +1567,7 @@ final class AppState {
             let changed: DayPage = try await api.send("PATCH", "/journal/\(page.id)", json: fields)
             place(changed)
             await loadShared()
+            if shared, recipient != nil { sentToSomeone() }
             return true
         } catch {
             surface(error)
