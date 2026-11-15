@@ -53,6 +53,13 @@ struct JournalCovers: View {
     /// (to the tab bar).
     let width: CGFloat
     let height: CGFloat
+    /// How much further the room runs on under a side dock: the backdrop
+    /// goes there too.
+    var beyond: CGFloat = 0
+    /// The safe edge at the leading side (a phone on its side keeps its
+    /// cards clear of the island): the cards are centered between it and
+    /// the room's trailing edge.
+    var lead: CGFloat = 0
     /// The date's line along the top, with Letters and Prompts at its
     /// right: drawn for a left edge, a right edge and a middle (the card's
     /// edges, so the three line up).
@@ -62,6 +69,10 @@ struct JournalCovers: View {
     @State private var shown: String?
     @State private var renaming = false
     @State private var name = ""
+    /// How far through the journals the deck is, as it moves: 0 at the
+    /// first, 1 at the second, and between while paging (iOS 18 and up;
+    /// nil before, and the room changes as each card settles).
+    @State private var progress: CGFloat?
 
     private var palette: Atmosphere.Palette { Atmosphere.resolve(raw).palette }
 
@@ -99,14 +110,34 @@ struct JournalCovers: View {
         )
     }
 
+    /// On its side (build 58): the room is wider than it's tall (a phone
+    /// turned, or the Duo's inner display turned). The cards and what's
+    /// under them are then centered as one group, not the portrait layout
+    /// stretched.
+    private var landscape: Bool { width > height }
+
+    /// The room across, between the leading safe edge and the trailing
+    /// edge (a dock's, or the screen's).
+    private var across: CGFloat { width - lead }
+
+    /// Where the cards begin: under the date's line.
+    private var top: CGFloat { layout.safeTop + (landscape ? 64 : 72) }
+
     /// The card: about three quarters of the room across, held at 290 by
-    /// 416, never over 420 wide, and no taller than the room leaves under
-    /// the bar and above what's written under it.
+    /// 416, never over 420 wide, leaving a sliver of a card either side,
+    /// and no taller than the room leaves under the bar and above what's
+    /// written under it. On its side the room's height decides it.
     private var card: CGSize {
-        let below: CGFloat = 150
-        let tallest = height - layout.safeTop - 76 - below - 16
-        let across = min(420, (width * 0.74).rounded())
+        let across = min(420, (self.across * 0.74).rounded(), self.across - 2 * (14 + 24))
         let down = (across * 416 / 290).rounded()
+        if landscape {
+            // The deck's frame (the card and 24 for its shadow), the gap,
+            // the row (the arrow's 44 and a little), and a margin.
+            let tallest = height - top - 24 - 14 - 48 - 12
+            let fitted = max(140, min(down, tallest)).rounded()
+            return CGSize(width: (fitted * 290 / 416).rounded(), height: fitted)
+        }
+        let tallest = height - top - 4 - 150 - 16
         guard down > tallest else { return CGSize(width: across, height: down) }
         let fitted = max(240, tallest)
         return CGSize(width: (fitted * 290 / 416).rounded(), height: fitted)
@@ -115,21 +146,33 @@ struct JournalCovers: View {
     var body: some View {
         let journals = self.journals
         let card = self.card
-        let gap = (14 * card.width / 290).rounded()
-        let peek = (56 * card.width / 290).rounded()
-        // The card's leading edge: so the next one's edge shows at least
-        // `peek` wide at the room's right (which stops short of a side
-        // dock), and centered once there's room for that.
-        let leading = max(16, min(((width - card.width) / 2).rounded(), width - card.width - gap - peek))
+        let scale = card.width / 290
+        let gap = (14 * scale).rounded()
+        // The card in view is always centered (build 58), with an equal
+        // sliver of the one before and the one after; the first and the
+        // last show only the neighbour they have, and don't move over.
+        let leading = (lead + (across - card.width) / 2).rounded()
+        // On its side there's room for more than a sliver: the deck is
+        // shown through a window a little wider than the card, its edges
+        // soft, so either neighbour shows as much as it would upright.
+        let peek = max(28, (card.width * 0.4).rounded())
+        let window = landscape ? min(across, card.width + 2 * (gap + peek)) : width
         let current = journals.first { $0.id == (shown ?? page) } ?? journals[0]
         let at = journals.firstIndex(of: current) ?? 0
+        // The date's line: the card's edges upright; on its side, no
+        // narrower than the line needs.
+        let span = landscape ? max(card.width, min(across - 32, 360)) : card.width
+        let left = (lead + (across - span) / 2).rounded()
 
         ZStack(alignment: .topLeading) {
-            palette.floor
-                .frame(width: width, height: height)
-                .ignoresSafeArea()
+            CoverBackdrop(
+                journals: journals, progress: progress ?? CGFloat(at),
+                size: CGSize(width: width + beyond, height: height + 160)
+            )
+            .animation(progress == nil ? .easeInOut(duration: 0.35) : nil, value: at)
+            .ignoresSafeArea()
             VStack(alignment: .leading, spacing: 0) {
-                Spacer(minLength: layout.safeTop + 72)
+                if landscape { Spacer(minLength: 0) }
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: gap) {
                         ForEach(journals) { journal in
@@ -161,28 +204,47 @@ struct JournalCovers: View {
                     .scrollTargetLayout()
                 }
                 .contentMargins(.leading, leading, for: .scrollContent)
-                .contentMargins(.trailing, max(16, width - leading - card.width), for: .scrollContent)
+                .contentMargins(.trailing, width - leading - card.width, for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
                 .scrollPosition(id: $shown)
+                .modifier(ScrollProgress(step: card.width + gap, count: journals.count, progress: $progress))
                 .frame(width: width, height: card.height + 24)
+                // A turn (or any new size) keeps the journal in view where
+                // it was: the scroll would otherwise keep its old offset,
+                // with the cards somewhere off to the side.
+                .onChange(of: card) { _, _ in
+                    let id = shown ?? page
+                    shown = nil
+                    DispatchQueue.main.async { shown = id }
+                }
                 // Shadows run on up and down; sideways the cards stop at the
                 // room's edge, which stops short of a side dock (the Duo's
                 // cover), so the next card's edge is never under the dock.
+                // On its side, at the window's soft edges.
                 .scrollClipDisabled()
-                .mask {
-                    Rectangle()
-                        .frame(width: width, height: card.height + 140)
+                .mask { DeckWindow(width: width, center: lead + across / 2, window: window, height: card.height + 140, soft: landscape) }
+                Group {
+                    if landscape {
+                        across(current, at: at, of: journals.count, scale: scale)
+                    } else {
+                        underneath(current, at: at, of: journals.count, width: card.width, scale: scale)
+                    }
                 }
-                underneath(current, at: at, of: journals.count, width: card.width, scale: card.width / 290)
-                    .padding(.leading, leading)
-                    .padding(.top, 14)
+                .frame(width: across)
+                .padding(.leading, lead)
+                .padding(.top, 14)
                 Spacer(minLength: 16)
             }
+            .padding(.top, top)
             .frame(width: width, height: height, alignment: .topLeading)
-            bar(leading, leading + card.width, layout.safeTop + 30)
+            bar(left, left + span, layout.safeTop + 30)
         }
         .frame(width: width, height: height, alignment: .topLeading)
-        .onAppear { shown = page }
+        .onAppear {
+            shown = page
+            Turning.coversShowing(true)
+        }
+        .onDisappear { Turning.coversShowing(false) }
         .onChange(of: shown) { _, now in if let now { page = now } }
         .alert("Name your journal", isPresented: $renaming) {
             TextField(JournalName.fallback, text: $name)
@@ -194,6 +256,38 @@ struct JournalCovers: View {
         } message: {
             Text("It's on the cover, and at the head of each month. Leave it empty for \u{201C}\(JournalName.fallback)\u{201D}.")
         }
+    }
+
+    /// On its side: one row centered under the card, the journal's name
+    /// and its line, the pips, and the arrow at the row's right.
+    private func across(_ journal: CoverJournal, at: Int, of: Int, scale: CGFloat) -> some View {
+        HStack(alignment: .center, spacing: 18) {
+            VStack(alignment: .center, spacing: 2) {
+                Text(journal.name)
+                    .font(.system(size: 20 * min(max(scale, 0.9), 1.2), weight: .semibold, design: .rounded))
+                    .foregroundStyle(TextTone.primary)
+                    .lineLimit(1)
+                Text(journal.subtitle)
+                    .font(.system(size: 13 * min(max(scale, 0.9), 1.2)))
+                    .foregroundStyle(TextTone.secondary)
+                    .lineLimit(1)
+            }
+            .fixedSize()
+            Pips(at: at, of: of, ink: TextTone.primary)
+            arrow(journal)
+        }
+    }
+
+    private func arrow(_ journal: CoverJournal) -> some View {
+        Button { open(journal) } label: {
+            GlassCircle(size: 44) {
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(palette.accent)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(journal.name)")
     }
 
     /// Under the cards: the journal in view, its name and a line, the pips,
@@ -214,15 +308,7 @@ struct JournalCovers: View {
                     .padding(.top, 8)
             }
             Spacer(minLength: 8)
-            Button { open(journal) } label: {
-                GlassCircle(size: 44) {
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(palette.accent)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open \(journal.name)")
+            arrow(journal)
         }
         .frame(width: width)
     }
@@ -319,14 +405,14 @@ private struct CoverCard: View {
         }
     }
 
-    /// The atmosphere's accent warmed and graded: a field, never flat gray.
+    /// The journal's warmth, graded: a field, never flat gray.
     private var field: some View {
-        let accent = Atmosphere.resolve(raw).palette.accent
         return ZStack {
-            // A warm ground, the palette's accent laid lightly over it, and
-            // light coming in from the top left (`CoverTone`).
+            // A warm ground, the journal's own warmth laid lightly over it
+            // (the same the room glows with, build 58), and light coming in
+            // from the top left (`CoverTone`).
             CoverTone.ground(colorScheme)
-            accent.opacity(CoverTone.accentWash(colorScheme))
+            CoverTone.warmth(journal.id).opacity(CoverTone.accentWash(colorScheme))
             LinearGradient(colors: [CoverTone.light(colorScheme), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
             LinearGradient(colors: [.clear, CoverTone.deep(colorScheme)], startPoint: .center, endPoint: .bottom)
         }
@@ -377,5 +463,157 @@ private struct CoverCard: View {
         let start = since.formatted(.dateTime.month(.abbreviated).year())
         if Calendar.current.isDate(since, equalTo: .now, toGranularity: .month) { return start }
         return start + " – now"
+    }
+}
+
+/// The room behind the cards (build 58, from the brief of 2026-11-14,
+/// "Three fixes to the Journal cover screen"): the glass needs something
+/// behind it. A journal with a cover photo lays it under everything, filling
+/// the room, blurred heavily and veiled (at night to about 35% of its
+/// brightness; by day under the floor, so the room stays light), and the
+/// slab sits over a bloom of its own photo's colour. A journal with no photo
+/// glows with its own warm colour, top left and bottom right, over the
+/// floor: never flat black or gray. Paging cross-fades from one journal's
+/// room to the next's as the deck moves.
+private struct CoverBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    let journals: [CoverJournal]
+    let progress: CGFloat
+    let size: CGSize
+
+    var body: some View {
+        let floor = Atmosphere.resolve(raw).palette.floor
+        let clamped = min(max(progress, 0), CGFloat(max(journals.count - 1, 0)))
+        let under = Int(clamped.rounded(.down))
+        let over = clamped - CGFloat(under)
+        ZStack {
+            floor
+            ForEach(Array(journals.enumerated()), id: \.element.id) { index, journal in
+                // The journal in view, and the next one coming in over it.
+                if index == under || (index == under + 1 && over > 0.001) {
+                    room(journal, floor: floor)
+                        .opacity(index == under ? 1 : over)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func room(_ journal: CoverJournal, floor: Color) -> some View {
+        if let cover = journal.cover {
+            ZStack {
+                floor
+                SignedImage(url: cover) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    glow(journal, floor: floor)
+                }
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .blur(radius: CoverTone.backdropBlur, opaque: true)
+                CoverTone.backdropVeil(colorScheme, floor: floor)
+            }
+        } else {
+            glow(journal, floor: floor)
+        }
+    }
+
+    private func glow(_ journal: CoverJournal, floor: Color) -> some View {
+        let warmth = CoverTone.warmth(journal.id)
+        let reach = max(size.width, size.height)
+        return ZStack {
+            floor
+            RadialGradient(
+                colors: [warmth.opacity(CoverTone.glowNear), warmth.opacity(0)],
+                center: .topLeading, startRadius: 0, endRadius: reach * 0.85
+            )
+            RadialGradient(
+                colors: [warmth.opacity(CoverTone.glowFar), warmth.opacity(0)],
+                center: .bottomTrailing, startRadius: 0, endRadius: reach * 0.75
+            )
+        }
+    }
+}
+
+/// How far through the deck the scroll is, journal by journal (iOS 18 and
+/// up, where a scroll view says where it is).
+private struct ScrollProgress: ViewModifier {
+    let step: CGFloat
+    let count: Int
+    @Binding var progress: CGFloat?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.x + geometry.contentInsets.leading
+            } action: { _, x in
+                guard step > 0 else { return }
+                progress = min(max(x / step, 0), CGFloat(max(count - 1, 0)))
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Where the deck shows: the whole room across upright, its edge hard (the
+/// screen's, or a dock's); on its side a window a little wider than the
+/// card, centered, fading out at its edges.
+private struct DeckWindow: View {
+    let width: CGFloat
+    /// Where the window is centered across the room.
+    let center: CGFloat
+    let window: CGFloat
+    let height: CGFloat
+    let soft: Bool
+
+    var body: some View {
+        if soft && window < width {
+            let fade = min(32, window / 6)
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fade)
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fade)
+            }
+            .frame(width: window, height: height)
+            .position(x: center, y: height / 2)
+            .frame(width: width, height: height)
+        } else {
+            Rectangle().frame(width: width, height: height)
+        }
+    }
+}
+
+/// Which way Stanley may turn (build 58). Upright everywhere, as since the
+/// QA audit (build 30), except while the journals' covers are on screen,
+/// which may lie on their side: the brief asked for the covers in
+/// landscape. Leaving them (opening a book, another tab) turns the app
+/// upright again. The plist lists the landscape orientations so that the
+/// app delegate's answer (`AppDelegate`, from `allowed`) can let them in.
+@MainActor
+enum Turning {
+    private(set) static var covers = false
+
+    static var allowed: UIInterfaceOrientationMask { covers ? .allButUpsideDown : .portrait }
+
+    static func coversShowing(_ showing: Bool) {
+        guard covers != showing else { return }
+        covers = showing
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            for window in scene.windows {
+                window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            }
+            if !showing, scene.interfaceOrientation != .portrait {
+                scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { _ in }
+            }
+        }
     }
 }

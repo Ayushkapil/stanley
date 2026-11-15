@@ -445,6 +445,8 @@ struct BookView: View {
                                 // beneath it.
                                 width: layout.width + BookLayout.edge,
                                 height: full.height,
+                                beyond: insets.trailing,
+                                lead: insets.leading,
                                 bar: { left, right, y in
                                     AnyView(bar(layout, back: nil, tint: palette.accent, line: (left, right, y)))
                                 },

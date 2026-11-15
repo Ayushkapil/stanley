@@ -126,6 +126,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    /// Upright, but for the journals' covers (`Turning`, build 58).
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        MainActor.assumeIsolated { Turning.allowed }
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Task { @MainActor in Push.shared.received(deviceToken) }
     }

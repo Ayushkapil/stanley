@@ -73,6 +73,35 @@ enum CoverTone {
     static func accentWash(_ scheme: ColorScheme) -> Double { scheme == .dark ? 0.22 : 0.18 }
     /// The card's shadow.
     static func shadow(_ scheme: ColorScheme) -> Color { .black.opacity(scheme == .dark ? 0.5 : 0.22) }
+
+    // The room behind the cards (build 58): the cover photo, blurred and
+    // laid under everything, or a glow of the journal's own warm colour.
+
+    /// How far the photo is blurred.
+    static let backdropBlur: CGFloat = 60
+    /// What's laid over the blurred photo: at night black, leaving it at
+    /// about 35% of its brightness; by day the floor, so the room stays
+    /// light and the words under the cards keep their dark ink.
+    static func backdropVeil(_ scheme: ColorScheme, floor: Color) -> Color {
+        scheme == .dark ? .black.opacity(0.65) : floor.opacity(0.6)
+    }
+    /// The two glows of a journal with no photo yet: top left, bottom right.
+    static let glowNear = 0.30
+    static let glowFar = 0.18
+    /// A journal's own warm colour, the same every time for the same
+    /// journal: a stable hash of its id (FNV-1a, never Swift's `hashValue`,
+    /// which changes each launch), kept to reds, oranges and ambers.
+    static func warmth(_ id: String) -> Color {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in id.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        let hue = 0.03 + Double(hash % 1000) / 1000 * 0.09
+        let saturation = 0.5 + Double((hash >> 16) % 100) / 100 * 0.18
+        let brightness = 0.78 + Double((hash >> 32) % 100) / 100 * 0.12
+        return Color(hue: hue, saturation: saturation, brightness: brightness)
+    }
 }
 
 /// Paint the atmosphere's floor behind a scrolling surface: flat, no grain

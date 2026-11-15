@@ -534,6 +534,73 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The cover screen's room, its peeks, and the covers on their side**
+  (build 58, November 14, 2026, a product brief from Ayush, "Three fixes
+  to the Journal cover screen"; screenshots in
+  `docs/journal-backdrop-build58/`). Phone only; nothing on the server
+  changed. **Where build 56's section below says the room is the
+  palette's floor, or that the next card's edge shows only at the
+  right, this wins.**
+  - **The room behind the cards** (`CoverBackdrop` in
+    `JournalCovers.swift`; its numbers in `CoverTone` in
+    `Shared/Atmosphere.swift`). A journal with a cover photo lays it
+    under everything, full bleed (under the status bar, on under the
+    tab bar's band and a side dock), filled, blurred 60pt and veiled:
+    **at night black at 65%, leaving the photo at about 35% of its
+    brightness, as the brief asked; by day the floor at 60%**, so the
+    room stays light and the words under the cards keep their dark ink
+    (the brief only described the dark room; not asked about). A
+    journal with no photo glows with **its own warm colour**
+    (`CoverTone.warmth`: an FNV-1a hash of the journal's id, never
+    Swift's `hashValue`, which changes each launch; hues from orange-red
+    to amber), two soft radial gradients over the floor, top left at
+    30% and bottom right at 18%; never flat black or gray. The empty
+    card's field takes the same warmth in place of the palette's
+    accent, so card and room agree. **Paging cross-fades the room** as
+    the deck moves (iOS 18 and up, from the scroll's offset,
+    `ScrollProgress`; on iOS 17 it fades as each card settles).
+  - **The card in view is always centered**, with an equal sliver of
+    the one before and the one after (about 37pt on a 17 Pro); the
+    first and the last show only the neighbour they have and don't
+    move over. The card is held to leave at least 24pt of each
+    neighbour.
+  - **On its side** (any room wider than it's tall; `landscape`): the
+    cards and one row under them are centered as a group, across the
+    room between the leading safe edge and the trailing one (a dock's,
+    which on the Duo's cover moves to the left when it's turned) and
+    down between the date's line and the tab bar. The card is sized
+    from the room's height. The deck shows through a window a little
+    wider than the card (40% of a card each side), its edges fading
+    out, so each neighbour shows the same. The row is the journal's
+    name over its line, then the pips, then the arrow at its right.
+    The date's line spans at least 360pt there. "That row" in the
+    brief was read as one row of title, subtitle and pips; not asked.
+  - **Turning** (`Turning` in `JournalCovers.swift`, the app
+    delegate's `supportedInterfaceOrientationsFor`). The app had been
+    portrait only since the QA audit (build 30), so nothing could be
+    seen on its side. **Now the covers alone may turn**: the plist
+    lists both landscapes, and the app delegate allows them only while
+    the covers are on screen. Opening a book, or going to another tab,
+    turns the app upright again (`requestGeometryUpdate`); every other
+    screen, launch included, is portrait as it was. Not asked about as
+    a product decision; take the two landscapes out of `project.yml`
+    to lock it again (the landscape layout still applies to any room
+    wider than tall). A turn keeps the journal in view (the scroll
+    position is set again when the card's size changes).
+  - **Checked**: on the iPhone 17 Pro simulator, portrait in light and
+    dark (a kept photo's bloom, paging to Third Floor with a peek each
+    side, the empty Climbing Club's glow with one peek on the left),
+    and landscape in light and dark (the first and the middle journal,
+    turning both ways on the middle one, and a book opened on its side
+    coming upright); on **the Duo's cover**, portrait and landscape,
+    light and dark; and **the inner panel's size on the iPad mini
+    proxy** (the device family widened and the app held to 669 by 951
+    and to 951 by 669 for the run, with Debug hooks to sign in and open
+    the Journal tab; none of it kept), light and dark, the middle
+    journal on its side with both peeks. The Release configuration
+    compiles. **Not seen**: the Duo's inner display itself (open
+    items), the iOS 17 fade, a real phone, VoiceOver.
+
 - **Journal Entries, one capsule, inks at night** (build 57, November 14,
   2026, a product brief from Ayush, "Four changes"; screenshots in
   `docs/journal-notices-build57/`).
@@ -1978,7 +2045,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (57)", at the
+  production audit), and the version, "Stanley 0.2.0 (58)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2510,12 +2577,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 57** (0.2.0) is the number to archive next: Journal Entries,
-  the capsule and the inks at night (above), over build 56's cover
+- **Build 58** (0.2.0) is the number to archive next: the covers' room,
+  centered peeks and the covers on their side (above), over build 57's
+  Journal Entries, the capsule and the inks at night, build 56's cover
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
-- **Builds 52 to 57 need a deploy, and haven't had one.** Fly is v28
+- **Builds 52 to 58 need a deploy, and haven't had one** (58 changed
+  nothing on the server). Fly is v28
   (build 51's server). Against it no journal notice goes, and the
   Journal Entries switch isn't shown. Against it every cover is the warm field (no
   `cover_url`) and every journal shows no dates. On its first start the new server adds
@@ -2727,7 +2796,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 - **QA audit** (November 4, 2026, build 30; `docs/qa-2026-11-04/QA_AUDIT.md`
   with screenshots): fixed the app rotating (the portrait-only key was a
   build setting that never reached Stanley's own Info.plist; it's in the plist
-  now), the empty Today's camera falling behind the tab bar (it's inside the
+  now; since build 58 the journals' covers alone may turn, above), the empty Today's camera falling behind the tab bar (it's inside the
   sheet now), the username check's low-contrast orange and green, and the
   circle never reloading after launch (now on Today's pull and tab tap,
   Settings, and coming to the front, with the Settings circle picker that had
