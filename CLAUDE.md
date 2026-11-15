@@ -2699,8 +2699,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
+- **Build 60's server is on Fly** (2026-11-14, asked for in its brief):
+  release **v31** runs `main` as of `63de349`, after the full suite
+  passed on that code (649). Checked after the deploy: `/health` ok;
+  `/privacy` says Written to You is on until turned off;
+  `users.written_to_you` was added and is null (on) for all five
+  accounts on the volume; integrity ok, no foreign-key problems.
 - **Build 59's server is on Fly** (2026-11-14, asked for in its brief):
-  release **v30** runs `main` as of `bf16e0e`, after the full suite
+  release **v30** (history now) runs `main` as of `bf16e0e`, after the full suite
   passed on that code (647). Checked after the deploy: `/health` ok;
   `POST /me/letters/send` answers 401 without a sign-in; `/privacy` has
   "Written to You" and no longer says a circle hears of a page;
