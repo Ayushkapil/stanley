@@ -2956,8 +2956,18 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
   paper and the dots.
+- **Build 64's server is on Fly** (2026-11-15, asked for by Ayush):
+  release **v32** runs `main` as of `ac1710d`, after the full suite
+  passed on that code (673). Safe for older builds: a letter sent with no
+  zone is checked against UTC's today as before, and a note with none
+  clears as before. Checked after the deploy: `/health` ok; `POST
+  /me/letters/send` and `PUT /circles/{id}/notes/mine` answer 401
+  without a sign-in; the running code has the zone-or-UTC letter check
+  and the note's zone; integrity all clear. Build 64's app can go out
+  now. Not yet seen: a real phone sending a letter or a note with its
+  zone.
 - **Build 60's server is on Fly** (2026-11-14, asked for in its brief):
-  release **v31** runs `main` as of `63de349`, after the full suite
+  release **v31** (history now) runs `main` as of `63de349`, after the full suite
   passed on that code (649). Checked after the deploy: `/health` ok;
   `/privacy` says Written to You is on until turned off;
   `users.written_to_you` was added and is null (on) for all five
