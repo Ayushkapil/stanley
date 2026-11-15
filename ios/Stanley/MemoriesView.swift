@@ -10,7 +10,7 @@ import SwiftUI
 struct MemoriesView: View {
     var body: some View {
         // A navigation stack for the toolbar's sake (the Duo brief): the
-        // tab's Letters, Prompts and the week are the system's toolbar
+        // tab's Letters and the week are the system's toolbar
         // items. The tab bar stays outside, as the tabs do.
         NavigationStack {
             BookView()

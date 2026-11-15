@@ -38,6 +38,9 @@ private struct RuledEditor: UIViewRepresentable {
     let layout: BookLayout
     /// The most a page holds. Far past a day's writing; never shown.
     let limit: Int
+    /// Room left above the first line: a line's worth while a suggestion
+    /// sits over a new page (build 63), none otherwise.
+    var lead: CGFloat = 0
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -46,6 +49,7 @@ private struct RuledEditor: UIViewRepresentable {
         let view = RuledTextView(fontSize: layout.fontSize, left: layout.left, right: layout.width - layout.right)
         view.delegate = context.coordinator
         view.load(start, pen: ink)
+        view.settle(lead: lead, sliding: false)
         handle.view = view
         return view
     }
@@ -53,6 +57,7 @@ private struct RuledEditor: UIViewRepresentable {
     func updateUIView(_ view: RuledTextView, context: Context) {
         context.coordinator.parent = self
         if view.ink != ink { view.use(ink) }
+        if view.lead != lead { view.settle(lead: lead, sliding: true) }
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
@@ -121,6 +126,35 @@ final class RuledTextView: UITextView {
     required init?(coder: NSCoder) { fatalError("not used") }
 
     private var arrived = false
+
+    /// Room above the first line, in place of the paper's own nothing.
+    private(set) var lead: CGFloat = 0
+
+    /// Make room above the first line, or give it back. Given back while
+    /// someone writes, the page slides up into it rather than jumping.
+    func settle(lead: CGFloat, sliding: Bool) {
+        let was = self.lead
+        self.lead = lead
+        var inset = textContainerInset
+        inset.top = lead
+        textContainerInset = inset
+        layRules()
+        guard sliding, was != lead, window != nil, !UIAccessibility.isReduceMotionEnabled else { return }
+        transform = CGAffineTransform(translationX: 0, y: was - lead)
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+            self.transform = .identity
+        }
+    }
+
+    /// Put a line at the top of the page, in the pen in hand, and the
+    /// cursor on the line under it: a suggestion taken.
+    func drop(_ line: String) {
+        let words = NSAttributedString(string: line + "\n", attributes: attributes(ink))
+        textStorage.insert(words, at: 0)
+        selectedRange = NSRange(location: words.length, length: 0)
+        delegate?.textViewDidChange?(self)
+        if !isFirstResponder { becomeFirstResponder() }
+    }
 
     /// The cursor is in the page as it's laid down: at the top of a blank
     /// one, after the last word of one being gone on with.
@@ -334,6 +368,10 @@ struct PageWriting: View {
     @State private var saving = false
     @State private var confirmDiscard = false
     @State private var confirmDelete = false
+    /// The suggestion over a new page, by its place in `WritingPrompt.all`
+    /// (build 63); nil once it's taken or written past, or on a page that
+    /// was already written.
+    @State private var prompt: Int?
 
     /// The page already in the journal that this would replace: the one
     /// asked for, or today's if it's been written.
@@ -399,7 +437,10 @@ struct PageWriting: View {
         VStack(spacing: 0) {
             Group {
                 if let start {
-                    RuledEditor(text: $text, ink: ink, start: start, handle: handle, layout: layout, limit: 50_000)
+                    RuledEditor(
+                        text: $text, ink: ink, start: start, handle: handle, layout: layout, limit: 50_000,
+                        lead: prompt == nil ? 0 : layout.pitch
+                    )
                 } else {
                     Color.clear
                 }
@@ -464,6 +505,19 @@ struct PageWriting: View {
             }
             .frame(width: layout.width, height: layout.contentTop, alignment: .topLeading)
         }
+        .overlay(alignment: .topLeading) {
+            // A suggestion, on the line above where the writing begins.
+            if let prompt {
+                PromptLine(
+                    words: WritingPrompt.all[prompt], layout: layout,
+                    take: { take(prompt) },
+                    another: { self.prompt = WritingPrompt.after(prompt, fits: fits) ?? prompt }
+                )
+                .offset(x: layout.left, y: layout.contentTop)
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: prompt)
         .background(alignment: .topLeading) {
             // The same sheet, unruled: the rules are the text view's own,
             // so they move with the words when a long day scrolls.
@@ -481,7 +535,17 @@ struct PageWriting: View {
             let held = existing?.stretches ?? []
             text = existing?.body ?? ""
             if let last = held.last { ink = Ink.named(last.ink) }
+            // A new page, and only a new one, is offered somewhere to begin.
+            if case .today = target, existing == nil {
+                prompt = WritingPrompt.first(fits: fits)
+            }
             start = held
+        }
+        // Written past: the suggestion goes, and the page slides up into
+        // the room it had. Nothing is kept of it.
+        .onChange(of: text) { _, now in
+            guard prompt != nil, !now.isEmpty else { return }
+            prompt = nil
         }
         .alert("Leave this page unwritten?", isPresented: $confirmDiscard) {
             Button("Discard", role: .destructive) { close(false) }
@@ -505,6 +569,21 @@ struct PageWriting: View {
         }
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { cancel() }
+    }
+
+    /// Whether a suggestion fits on its one line, with the arrow beside
+    /// it, the hand no smaller than `PromptLine.least` of its size.
+    private func fits(_ words: String) -> Bool {
+        let width = (words as NSString).size(withAttributes: [.font: PromptLine.font(layout)]).width
+        return width * PromptLine.least <= layout.textWidth - PromptLine.arrow - 6
+    }
+
+    /// The suggestion taken: at the top of the page, as its first line.
+    private func take(_ index: Int) {
+        prompt = nil
+        // No slide: its words now stand where the suggestion stood.
+        handle.view?.settle(lead: 0, sliding: false)
+        handle.view?.drop(WritingPrompt.all[index])
     }
 
     private func cancel() {
@@ -555,5 +634,49 @@ struct PageWriting: View {
                 close(true)
             }
         }
+    }
+}
+
+/// One suggestion over a new page (build 63): faint handwriting on the
+/// line above the first, the words a button that puts them on the page,
+/// a small arrow that brings another. A suggestion, not a destination.
+struct PromptLine: View {
+    let words: String
+    let layout: BookLayout
+    let take: () -> Void
+    let another: () -> Void
+
+    /// The arrow's target, square.
+    static let arrow: CGFloat = 44
+    /// How far a long suggestion's hand may shrink to stay on its line.
+    static let least: CGFloat = 0.8
+
+    static func font(_ layout: BookLayout) -> UIFont { BookHand.font(layout.fontSize - 3) }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(action: take) {
+                Text(words)
+                    .font(Font(Self.font(layout)))
+                    .foregroundStyle(BookPaper.quiet.opacity(0.8))
+                    .lineLimit(1)
+                    .minimumScaleFactor(Self.least)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Suggestion: \(words)")
+            .accessibilityHint("Puts it at the top of the page")
+            Button(action: another) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundStyle(BookPaper.quiet.opacity(0.8))
+                    .frame(width: Self.arrow, height: Self.arrow)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Another suggestion")
+        }
+        .frame(width: layout.textWidth, height: layout.pitch)
     }
 }

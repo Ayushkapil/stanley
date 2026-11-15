@@ -354,7 +354,6 @@ struct BookView: View {
     @State private var readingLetters = false
     /// The letter a notice was about (build 59): Letters opens at it.
     @State private var askedLetter: String?
-    @State private var readingPrompts = false
     @State private var reflecting = false
     @State private var tearingOut: DayPage?
     @State private var forgetting: Reflection?
@@ -366,7 +365,7 @@ struct BookView: View {
     /// The page keeps its size: something is up that brings a keyboard
     /// (writing, or a sheet with a field in it), or one is showing.
     private var held: Bool {
-        writing != nil || typing || readingLetters || readingPrompts || reflecting || reporting != nil
+        writing != nil || typing || readingLetters || reflecting || reporting != nil
             || reportingPage != nil
     }
 
@@ -556,7 +555,7 @@ struct BookView: View {
         .sheet(item: $reportingPage, onDismiss: { Task { await state.loadShared() } }) { page in
             ReportSheet(target: .page(page))
         }
-        // Letters, the week and Prompts, and in a book back and "Mine" and
+        // Letters and the week, and in a book back and "Mine" and
         // "Ours": the system's own toolbar (the Duo brief), which puts them
         // in a bar along the top or in the rail down the side, as the
         // screen has room. Out of the way while a page is written or the
@@ -565,13 +564,11 @@ struct BookView: View {
             opened: opened, ours: ours && hasOurs, hasOurs: hasOurs,
             sealed: !state.lettersReceived.sealed.isEmpty,
             ready: state.lettersReceived.sealed.contains { $0.deliverable == true },
-            prompts: state.circle != nil,
             week: state.thisWeek,
             tint: palette.accent,
             back: { shut() },
             pick: { wanted in if wanted != (ours && hasOurs) { open(ours: wanted) } },
             openLetters: { readingLetters = true },
-            openPrompts: { readingPrompts = true },
             openWeek: { reflecting = true }
         ))
         .toolbar(writing != nil || grid ? .hidden : .automatic, for: .navigationBar)
@@ -587,14 +584,6 @@ struct BookView: View {
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) { Button("Done") { readingLetters = false } }
                 }
-            }
-        }
-        .sheet(isPresented: $readingPrompts) {
-            NavigationStack {
-                CircleJournalView(title: "Prompts")
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Done") { readingPrompts = false } }
-                    }
             }
         }
         .sheet(isPresented: $reflecting) {

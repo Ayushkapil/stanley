@@ -56,14 +56,19 @@ struct PlusGlass: View {
 
 /// The Journal tab's toolbar (the Duo brief, "Rework the Journal cover
 /// screen to Apple's iPhone Duo guidance"; it replaces build 57's capsule
-/// and build 54's glass circles). Letters, the week's moon on Sunday
-/// evening and Prompts are real toolbar items, each a title and a symbol,
-/// grouped and spaced by the system: a bar along the top on an iPhone and
-/// the inner display upright, a rail down the side on the outer display
-/// and the inner one turned. In a book, back to the covers at the leading
-/// end and "Mine" and "Ours" in the middle. Letters keeps its mark while a
-/// letter is sealed, at a high visibility priority so it outlasts the
-/// others when the bar is short of room. A mark, never a number.
+/// and build 54's glass circles). Letters and the week's moon on Sunday
+/// evening are real toolbar items, each a title and a symbol, grouped and
+/// spaced by the system: a bar along the top on an iPhone and the inner
+/// display upright, a rail down the side on the outer display and the
+/// inner one turned. In a book, back to the covers at the leading end and
+/// "Mine" and "Ours" in the middle. Letters keeps its mark while a letter
+/// is sealed, at a high visibility priority so it outlasts the others when
+/// the bar is short of room. A mark, never a number.
+///
+/// Prompts was an item here until build 63: in the Duo's cover turned on
+/// its side the rail has one slot, and Letters, the item that carries
+/// something, went into the overflow with it whatever its priority. The
+/// prompts are on the page being written now (`PromptLine`).
 struct JournalToolbar: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     let opened: Bool
@@ -71,13 +76,11 @@ struct JournalToolbar: ViewModifier {
     let hasOurs: Bool
     let sealed: Bool
     let ready: Bool
-    let prompts: Bool
     let week: ThisWeek?
     let tint: Color
     let back: () -> Void
     let pick: (Bool) -> Void
     let openLetters: () -> Void
-    let openPrompts: () -> Void
     let openWeek: () -> Void
 
     /// The tint, settled for this screen's light or dark: the bar's glass
@@ -90,18 +93,33 @@ struct JournalToolbar: ViewModifier {
         return Color(UIColor(color).resolvedColor(with: UITraitCollection(userInterfaceStyle: style)))
     }
 
+    /// Sunday evening's moon is showing: the week's reflection is open
+    /// and not yet written.
+    private var weekShowing: Bool {
+        guard let week else { return false }
+        return week.reflection == nil && ReflectionWindow.isOpen(.now)
+    }
+
     func body(content: Content) -> some View {
         if #available(iOS 27.0, *) {
+            // Letters never goes into the overflow (build 63). On the Duo's
+            // cover turned on its side the rail has one slot; two items
+            // there both went behind "…" whatever their priority. Pinned,
+            // Letters keeps its place and the system folds the tab rail
+            // instead. Pinned only beside the moon: pinned on its own, the
+            // bar wasn't drawn at all (iOS 27.1, the Duo simulator), and
+            // alone it needs no pin, being the one item in the one slot.
             content.toolbar {
                 bookItems
-                lettersGroup.visibilityPriority(.high)
-                restGroup
+                lettersItem(weekShowing ? .topBarPinnedTrailing : .topBarTrailing)
+                    .visibilityPriority(.high)
+                weekItem
             }
         } else {
             content.toolbar {
                 bookItems
-                lettersGroup
-                restGroup
+                lettersItem(.topBarTrailing)
+                weekItem
             }
         }
     }
@@ -129,8 +147,8 @@ struct JournalToolbar: ViewModifier {
     }
 
     @ToolbarContentBuilder
-    private var lettersGroup: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
+    private func lettersItem(_ placement: ToolbarItemPlacement) -> some ToolbarContent {
+        ToolbarItem(placement: placement) {
             Button(action: openLetters) {
                 Label("Letters", systemImage: "envelope")
                     .symbolRenderingMode(.monochrome)
@@ -144,9 +162,9 @@ struct JournalToolbar: ViewModifier {
     }
 
     @ToolbarContentBuilder
-    private var restGroup: some ToolbarContent {
-        ToolbarItemGroup(placement: .topBarTrailing) {
-            if let week, week.reflection == nil, ReflectionWindow.isOpen(.now) {
+    private var weekItem: some ToolbarContent {
+        if weekShowing {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button(action: openWeek) {
                     Label("How was your week?", systemImage: "moon")
                         .symbolRenderingMode(.monochrome)
@@ -154,14 +172,6 @@ struct JournalToolbar: ViewModifier {
                 }
                 .tint(ink)
                 .accessibilityHint("Write this week's reflection")
-            }
-            if prompts {
-                Button(action: openPrompts) {
-                    Label("Prompts", systemImage: "questionmark.bubble")
-                        .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(ink)
-                }
-                .tint(ink)
             }
         }
     }

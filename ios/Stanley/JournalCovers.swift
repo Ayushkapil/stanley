@@ -14,7 +14,7 @@ import SwiftUI
 // over the other as the room is, the fold between them; a small layout
 // does the same before 27.1. The card is sized from the deck's own room
 // and the size class, never from a device, and kept clear of reserved
-// regions (a fold, the outer camera). Letters and Prompts are the system's
+// regions (a fold, the outer camera). Letters and the week are the system's
 // toolbar (`JournalToolbar`), not drawn here; the date is content.
 //
 // The room behind everything is the cover photo, blurred, or the
@@ -126,7 +126,7 @@ struct JournalCovers: View {
                 .ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 0) {
                     // The day, as content: the toolbar holds Letters and
-                    // Prompts, never this.
+                    // the week, never this.
                     Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                         .smallCaps()
                         .foregroundStyle(TextTone.label)

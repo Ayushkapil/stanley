@@ -567,6 +567,74 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Prompts leave the toolbar for the page** (build 63, November 15,
+  2026, a product brief from Ayush, "Remove Prompts from the toolbar";
+  screenshots in `docs/journal-prompts-build63/`). Phone only (a server
+  test was added, nothing on the server changed). **Where build 62 below
+  says Prompts is a toolbar item, this wins.**
+  - **The toolbar is Letters and the Sunday moon** (`JournalToolbar`).
+    Prompts is gone from it, and the sheet it opened (`readingPrompts`,
+    the circle journal titled "Prompts") is deleted; the circle journal
+    itself (`CircleJournalView`) stays, opened from the circle's name
+    atop Today and from Settings → Circle as before. **Letters never goes
+    into the overflow**: in the Duo's cover turned on its side the rail
+    has one slot, and build 62's Letters and Prompts both went behind "…"
+    whatever their `visibilityPriority`. Priorities alone still did that
+    with Letters and the moon (high and low, tried). So on iOS 27,
+    while the moon shows, Letters is at `.topBarPinnedTrailing`, which
+    keeps it in the rail; the system then folds the tab rail to the tab
+    on screen (a tap opens it, labelled). **Only beside the moon**:
+    pinned on its own, the Duo simulator drew no bar at all (Letters
+    gone, the covers laid out as if there were no bar); alone, Letters
+    is the one item in the one slot and needs no pin. Below iOS 27 both
+    are plain `.topBarTrailing`. In a book (always upright) the rail
+    holds back, Letters and the moon.
+  - **A suggestion over a new page** (`PromptLine` in
+    `BookWriting.swift`, `WritingPrompt` in `WritingPrompts.swift`).
+    Writing today's page when nothing is written yet (from a tap on the
+    blank page or the "+"), one line of faint handwriting sits on the
+    line above where the writing begins (`BookPaper.quiet` at 80%, the
+    hand 3pt under the page's), with a small arrow at its end for
+    another. **A tap on the words puts them on the page as its first
+    line**, in the pen in hand, the cursor on the line under it (the
+    room the suggestion had is given back without a slide, its words
+    now standing where it stood). **Ignored, it costs nothing**: the
+    first letter written takes it away and the page slides up a line
+    into its place (0.25s; none under Reduce Motion), so the words are
+    where the kept page will have them. Not on a page already written,
+    an older page, or once taken or written past. Never stored or
+    tracked; nothing counts it.
+  - **The words are the circle's forty questions of the week**, mirrored
+    from `journal.QUESTIONS` into `WritingPrompt.all`
+    (`tests/test_writing_prompts.py` fails if they drift, as
+    `test_legal.py` does for the Terms). The questions, their weekly
+    turn for the circle and `DailyPrompt` (the capture's whisper) are
+    kept as they were. **The turn**: the day's first suggestion is fixed
+    for the day (days counted on the phone's own calendar), the arrow
+    steps to the next, round to the start. **One line, always**: a
+    suggestion that won't fit beside the arrow with its hand at 80% is
+    skipped, so on the Duo's cover (a 308pt column) about a dozen of the
+    forty are offered, about half on an iPhone 17 Pro, more the wider
+    the page. The brief
+    didn't name the content; the questions were the content behind the
+    Prompts item, so they're what the page offers. Not asked about.
+  - **Unit tests** (`WritingPromptTests`, six more, twelve in all): the
+    same all day and the next tomorrow (late evening included, which
+    `ordinality(of: .day, in: .era)` got wrong: it turns at midnight
+    UTC); every suggestion before any comes again; only what fits; none
+    when nothing fits; the only one that fits offered again; forty
+    distinct, one line, no number.
+  - **Checked** on the Duo's cover (iOS 27.1), light: upright with Letters
+    and the moon; on its side with both (pinned, the tab rail folded,
+    and opened), and on a weekday with Letters alone and the full tab
+    rail; a book open; and coming back from a book to the covers. The
+    writing page in light and dark: the suggestion, the arrow bringing
+    another, a tap putting it on the page, and writing past it. On the
+    iPhone 17 Pro (iOS 26.5): the covers with Letters and the moon in
+    the top bar, and the writing page. The Release configuration
+    compiles. **Not seen**: the inner display (as before), VoiceOver
+    reading the suggestion, a real phone.
+
 - **The covers to Apple's iPhone Duo guidance** (build 62, November 15,
   2026, a product brief from Ayush, "Rework the Journal cover screen to
   Apple's iPhone Duo guidance"; screenshots in `docs/journal-duo-build62/`).
@@ -576,7 +644,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     57's `ChromeCapsule` and build 54's `JournalTopBar` and glass circles
     are deleted). The Journal tab is a `NavigationStack` (`MemoriesView`;
     the tab bar stays outside it). Letters, the Sunday moon and Prompts
-    are toolbar items, each a `Label` with a title and a symbol, at
+    (gone since build 63, above) are toolbar items, each a `Label` with a title and a symbol, at
     `.topBarTrailing` with no spacing of ours; Letters is a `ToolbarItem`
     with `.visibilityPriority(.high)` (iOS 27), the rest a
     `ToolbarItemGroup`. Its mark while a letter is sealed is a `.badge`
@@ -2275,7 +2343,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (62)", at the
+  production audit), and the version, "Stanley 0.2.0 (63)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2807,8 +2875,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 62** (0.2.0) is the number to archive next: the covers to
-  Apple's iPhone Duo guidance (above), over build 61's asking to notify
+- **Build 63** (0.2.0) is the number to archive next: Prompts out of
+  the Journal tab's toolbar and onto the page being written (above),
+  over build 62's covers to
+  Apple's iPhone Duo guidance, over build 61's asking to notify
   at the first concrete moment, over
   build 60's Written to You as corrected, over build 58's covers' room, centered peeks and the covers
   on their side, build 57's
@@ -3162,7 +3232,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**649 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**651 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -3276,7 +3346,9 @@ its writer's journal; no notification; no fading; the export; no sign-in,
 no book; and the older database's columns).
 The filter looks themselves are checked in a macOS harness, not in pytest.
 The phone has unit tests since build 61 (`StanleyTests`: when to offer to
-ask about notifications, six).
+ask about notifications, six; since build 63 the suggestion over a new
+page, six more). `tests/test_writing_prompts.py` (build 63) holds the
+app's suggestions to the circle's questions, word for word.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.
 
@@ -3380,7 +3452,8 @@ live APNs, concurrency under real load.
   `BookBar` with the marks for Letters and Prompts at the page's foot,
   `BookSwitch` with "Mine", "Ours" and the "+", `BookFoot`, the grid),
   `BookWriting.swift` (`PageWriting`, the ruled text view, the inks and
-  the pen in hand, `PageLanding`), `JournalCovers.swift` (build 54: the
+  the pen in hand, `PageLanding`, build 63's `PromptLine`),
+  `WritingPrompts.swift` (build 63: the suggestions and their turn), `JournalCovers.swift` (build 54: the
   cover pager, the slab), `JournalChrome.swift` (build 54: the glass
   circles, the top bar, the "+", the band under the tab bar; build 52's
   `BookCovers.swift` is deleted), `Moods.swift` (build 52: the five

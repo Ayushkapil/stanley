@@ -526,9 +526,6 @@ struct AnswersSheet: View {
 /// circle's name atop Today and from Settings.
 struct CircleJournalView: View {
     @Environment(AppState.self) private var state
-    /// What the page is called in its bar: "Prompts" from the journal's
-    /// foot (build 49).
-    var title = "Circle Journal"
     @State private var weeks: [PastQuestion] = []
     @State private var cursor: String?
     @State private var loaded = false
@@ -587,7 +584,7 @@ struct CircleJournalView: View {
             .frame(maxWidth: .infinity)
         }
         .atmosphereWash()
-        .navigationTitle(title)
+        .navigationTitle("Circle Journal")
         .navigationBarTitleDisplayMode(.inline)
         .sunRefreshable {
             Haptics.refreshed()

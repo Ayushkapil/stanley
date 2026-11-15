@@ -120,7 +120,7 @@ struct BookLayout: Hashable {
     var middle: CGFloat { (left + right) / 2 }
     /// The date, small, at the head of the page: where its line's middle
     /// is. The safe area's top is under the navigation bar since the Duo
-    /// brief made Letters and Prompts the system's toolbar (or the status
+    /// brief made Letters the system's toolbar (or the status
     /// bar alone, with the toolbar in a rail down the side).
     var headY: CGFloat { safeTop + 16 }
     /// The hand's size for the date at the head.
@@ -142,7 +142,7 @@ struct BookLayout: Hashable {
     var ruleRise: CGFloat { max(0, -font.descender - 3) }
     /// The band along the foot that holds the page's number when it's read
     /// and the three inks when it's written, and since build 53 the "+" at
-    /// its right (Letters and Prompts moved to the bar at the top). Nothing
+    /// its right (Letters moved to the bar at the top). Nothing
     /// on a page comes down into it, so what's pressed there is never over
     /// a photo or a letter.
     static let foot: CGFloat = 76
