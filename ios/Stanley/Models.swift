@@ -684,14 +684,11 @@ struct Letter: Codable, Identifiable, Hashable {
     let createdAt: Date?
     let openedAt: Date?
 
-    /// `deliverAt` as a calendar day in whoever's reading's zone. The server
-    /// enforces "the day" against UTC; the UI shows it as a plain date.
-    var deliveryDay: Date? {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(identifier: "UTC")
-        return f.date(from: deliverAt)
-    }
+    /// `deliverAt` as the start of that calendar day on the reader's own
+    /// calendar, so it's shown as the day it names (build 64; read as UTC,
+    /// it was the day before west of Greenwich). When it opens is the
+    /// server's to say (`deliverable`).
+    var deliveryDay: Date? { LocalDay.date(deliverAt) }
 }
 
 struct SentLetters: Codable {

@@ -36,6 +36,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import journal
+from .photos import valid_timezone
 from ..deps import (
     event, get_clock, get_current_user, get_db, get_notifier, get_settings, refuse_objectionable,
     shares_a_circle,
@@ -66,8 +68,12 @@ class LetterBody(BaseModel):
     recipient_id: str = Field(max_length=64)
     body: str = Field(min_length=1, max_length=LETTER_MAX)
     occasion: str | None = Field(default=None, max_length=OCCASION_MAX)
-    # YYYY-MM-DD, the day the seal may be broken, in UTC.
+    # YYYY-MM-DD, the day the seal may be broken: a calendar day, the one
+    # the sender picked on their own calendar.
     deliver_at: date
+    # The sender's zone (build 64), so "a week from today" is a week from
+    # their today, not UTC's. An older build sends none: the zone last seen.
+    tz: str | None = Field(default=None, max_length=64)
 
 
 def _sender_payload(now: datetime, row: PersonLetter, recipient: dict) -> dict:
@@ -146,7 +152,14 @@ def send_letter(
         raise HTTPException(404, "not found")
 
     now = clock.now()
-    today = now.date()
+    # A week from the sender's own today (build 64): by UTC's, the first
+    # day the picker offers was refused as too soon in a Bloomington
+    # evening, when UTC is already tomorrow.
+    if body.tz is not None and not valid_timezone(body.tz):
+        raise HTTPException(400, {"code": "bad_timezone"})
+    if body.tz:
+        user.tz_last_seen = body.tz
+    today = journal.local_day(now, body.tz or user.tz_last_seen or "UTC")
     earliest = today + timedelta(days=MIN_DAYS_AHEAD)
     latest = today + timedelta(days=MAX_DAYS_AHEAD)
     if body.deliver_at < earliest:

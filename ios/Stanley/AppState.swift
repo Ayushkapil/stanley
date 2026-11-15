@@ -705,7 +705,7 @@ final class AppState {
         do {
             do {
                 let _: CommunityNote = try await api.send(
-                    "PUT", "/circles/\(circle.id)/notes/mine", json: ["text": text]
+                    "PUT", "/circles/\(circle.id)/notes/mine", json: ["text": text, "tz": TimeZone.current.identifier]
                 )
             } catch APIError.status(404) {
                 // A server from before the board: its one note.
@@ -778,14 +778,14 @@ final class AppState {
 
     @discardableResult
     func sendLetter(recipientId: String, body: String, occasion: String?, deliverAt: Date) async -> Bool {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(identifier: "UTC")
+        // The day picked, on the phone's calendar, and the zone it's in, so
+        // the server's "at least a week" is from the sender's today (build 64).
         let payload: [String: Any?] = [
             "recipient_id": recipientId,
             "body": body,
             "occasion": occasion?.isEmpty == true ? nil : occasion,
-            "deliver_at": f.string(from: deliverAt),
+            "deliver_at": LocalDay.text(of: deliverAt),
+            "tz": TimeZone.current.identifier,
         ]
         do {
             let _: Letter = try await api.send("POST", "/me/letters/send", json: payload)

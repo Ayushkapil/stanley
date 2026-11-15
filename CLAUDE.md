@@ -567,6 +567,59 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Whose day it is** (build 64, November 15, 2026, from Ayush: "Sweep
+  for the same timezone bug elsewhere", after the capture prompt was
+  found turning at midnight UTC). Every day boundary was found and its
+  clock named; the rule is that what a person lives as "today" turns at
+  their own midnight, in the zone the phone sends (an IANA name, as every
+  other request sends it, never guessed from the address), and the
+  server's own bookkeeping may stay absolute or UTC. **Phone and server
+  both; the server side needs a deploy before this app ships** (open
+  items).
+  - **Fixed:**
+    - *A sealed letter's day* (`routes/letters.py`, `LocalDay.text` and
+      `.date`). The phone wrote the picked day out in UTC (picked in a
+      Bloomington evening it was sent as the day after; before 5:30 AM in
+      Delhi, the day before) and read it back in UTC (shown, and placed in
+      the book, as the day before anywhere west of Greenwich). The server
+      checked "at least a week" from UTC's today, so the first day the
+      picker offers would be refused once the phone stopped sending the
+      wrong day. Now the day goes and comes back on the phone's calendar,
+      `POST /me/letters/send` takes `tz` (400 `bad_timezone`; none, from
+      an older build, is the zone last seen), and the week is from the
+      sender's today.
+    - *A note on the board* (`routes/circles.py`). It cleared at the end
+      of the zone last seen, which is UTC for someone who writes a note
+      before anything else carries their zone (7 PM in Bloomington).
+      `PUT /circles/{id}/notes/mine` takes `tz` now, and the app sends it.
+    - *A held photo's date* (`serialize.memory_payload`'s tombstone, the
+      export's `date` and its file name): the UTC date of the moment, so
+      an evening photo in Bloomington was dated the next day and a
+      tombstone landed on the wrong page of the book. Now the photo's own
+      `local_date`, its poster's day.
+  - **Already the person's own, and now held by tests**: the photo slot
+    (`physics.local_capture_date`, the zone sent with the upload), a
+    journal page (`journal.local_day`, the zone sent), the mark on a day
+    (the photo's `local_date`; the month's sheet reads days on the phone's
+    calendar), the weekly reflection, Returned, the reminders and digest
+    (`tz_last_seen`, as a pass the server starts can only use), Today's
+    day marks and "today's moment is out there" (the phone's calendar).
+  - **Absolute, rightly**: decay and the purge (hours from the moment, no
+    calendar), the 12-hour gap, sign-in tokens, backups.
+  - **One moment for everyone, by design (locked rules)**: the question of
+    the week (UTC week, open Saturday 00:00 UTC), letters to the circle
+    (the last midnight among the members), the countdown (calendar days
+    in the trip's own zone, `target_tz`).
+  - **Left for a decision** (reported, not changed): *when a sealed letter
+    opens* is UTC's day (`deliverable`, `not_yet`): 7 PM the evening
+    before in Bloomington, 5:30 AM in Delhi, and whose day it should be
+    (the recipient's, most likely) isn't settled when the two are apart;
+    and *the weekly mosaic* shows on the circle creator's Sunday and
+    Monday for everyone.
+  - **Tests**: `tests/test_local_days.py` (20: each case in a Bloomington
+    evening, a Delhi small hour and the night the clocks went back; 14
+    fail on the old code), `LocalDayTests` on the phone (four).
+
 - **Prompts leave the toolbar for the page** (build 63, November 15,
   2026, a product brief from Ayush, "Remove Prompts from the toolbar";
   screenshots in `docs/journal-prompts-build63/`). Phone only (a server
@@ -2882,6 +2935,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   moment".
 - **Build 64** (0.2.0) is the number to archive next: the capture's
   daily prompt turning at local midnight, not UTC (Daily prompt, below),
+  and the sweep for the same bug ("Whose day it is", above). **Its server
+  must be on Fly before the app reaches anyone**: against v31, the first
+  day the letter picker offers is refused as too soon in an American
+  evening.
   over build 63's Prompts out of
   the Journal tab's toolbar and onto the page being written (above),
   over build 62's covers to
@@ -3239,7 +3296,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**651 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**671 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -3355,7 +3412,10 @@ The filter looks themselves are checked in a macOS harness, not in pytest.
 The phone has unit tests since build 61 (`StanleyTests`: when to offer to
 ask about notifications, six; since build 63 the suggestion over a new
 page, six more; since build 64 the capture's daily prompt turning at
-local midnight, four more, sixteen in all). `tests/test_writing_prompts.py` (build 63) holds the
+local midnight, four more; and a day written out and read back on the
+phone's calendar, four more, twenty in all). `tests/test_local_days.py`
+(build 64) holds every day a person lives as theirs in Bloomington, Delhi
+and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the
 app's suggestions to the circle's questions, word for word.
 Untested by nature: real-device SIWA,
 live APNs, concurrency under real load.

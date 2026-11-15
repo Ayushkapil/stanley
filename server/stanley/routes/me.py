@@ -375,7 +375,7 @@ def export_memories(
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for i, (anchor, photo) in enumerate(rows, start=1):
             entry = {
-                "date": photo.taken_at.date().isoformat(),
+                "date": photo.local_date.isoformat(),
                 "caption": photo.caption,
                 "location": photo.location,
                 "filter": photo.filter,
@@ -387,7 +387,7 @@ def export_memories(
             if journal is not None:
                 entry["journal"] = journal
             if photo.state != physics.PURGED and photo.deriv_key and storage.exists(photo.deriv_key):
-                name = f"held/{i:03d}_{photo.taken_at.date().isoformat()}.jpg"
+                name = f"held/{i:03d}_{photo.local_date.isoformat()}.jpg"
                 zf.writestr(name, storage.get(photo.deriv_key))
                 entry["image"] = name
             else:

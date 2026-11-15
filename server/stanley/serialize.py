@@ -306,7 +306,7 @@ def memory_payload(
         return {
             "tombstone": True,
             "photo_id": photo.id,
-            "date": photo.taken_at.date().isoformat(),
+            "date": photo.local_date.isoformat(),
             "note": anchor.note,
             "anchored_at": iso(anchor.created_at),
             "comments": [comment_payload(session, c) for c in own_comments],

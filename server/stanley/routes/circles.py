@@ -25,6 +25,7 @@ from ..deps import (
     shares_a_circle,
 )
 from ..text import clean
+from .photos import valid_timezone
 from .. import physics, sharing
 from ..models import Circle, CircleLetter, CircleNote, Membership, Photo, User, new_id, new_invite_code
 from ..physics import CIRCLES_PER_PERSON
@@ -51,6 +52,9 @@ class JoinCodeBody(BaseModel):
 class NoteBody(BaseModel):
     # A sticky note's worth (build 27; a 90-character line before the board).
     text: str = Field(min_length=1, max_length=200)
+    # The writer's zone (build 64): the note clears at the end of their
+    # day, which only the phone knows. An older build sends none.
+    tz: str | None = Field(default=None, max_length=64)
 
 
 class RenameBody(BaseModel):
@@ -360,9 +364,10 @@ def leave_circle(
             successor.role = "creator"
 
 
-def _end_of_their_day(user: User, now):
-    """When a note written now clears: the author's next local midnight."""
-    tz = ZoneInfo(user.tz_last_seen or "UTC")
+def _end_of_their_day(user: User, now, tz_name: str | None = None):
+    """When a note written now clears: the author's next local midnight, in
+    the zone the phone sent with the note, else the one last seen."""
+    tz = ZoneInfo(tz_name or user.tz_last_seen or "UTC")
     local_next_midnight = (now.astimezone(tz) + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -389,6 +394,10 @@ def set_my_note(
     if not text:
         raise HTTPException(400, {"code": "empty_note"})
     refuse_objectionable(text)
+    if body.tz is not None and not valid_timezone(body.tz):
+        raise HTTPException(400, {"code": "bad_timezone"})
+    if body.tz:
+        user.tz_last_seen = body.tz
 
     now = clock.now()
     mine = (CircleNote.circle_id == circle.id, CircleNote.author_id == user.id)
@@ -400,7 +409,7 @@ def set_my_note(
         sqlite_insert(CircleNote)
         .values(
             id=new_id(), circle_id=circle.id, author_id=user.id, body=text,
-            created_at=now, updated_at=now, expires_at=_end_of_their_day(user, now),
+            created_at=now, updated_at=now, expires_at=_end_of_their_day(user, now, body.tz),
         )
         .on_conflict_do_update(
             index_elements=["circle_id", "author_id"], set_={"body": text, "updated_at": now}
