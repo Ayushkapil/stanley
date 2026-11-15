@@ -72,7 +72,7 @@ class LetterBody(BaseModel):
     # the sender picked on their own calendar.
     deliver_at: date
     # The sender's zone (build 64), so "a week from today" is a week from
-    # their today, not UTC's. An older build sends none: the zone last seen.
+    # their today, not UTC's. An older build sends none, and gets UTC's.
     tz: str | None = Field(default=None, max_length=64)
 
 
@@ -159,7 +159,11 @@ def send_letter(
         raise HTTPException(400, {"code": "bad_timezone"})
     if body.tz:
         user.tz_last_seen = body.tz
-    today = journal.local_day(now, body.tz or user.tz_last_seen or "UTC")
+    # No zone is a build before 64, which writes the day out in UTC: it's
+    # checked against UTC's today, as it always was. Not the zone last
+    # seen: against that, the first day its picker offers was refused in
+    # Delhi's small hours, and the last in an American evening.
+    today = journal.local_day(now, body.tz or "UTC")
     earliest = today + timedelta(days=MIN_DAYS_AHEAD)
     latest = today + timedelta(days=MAX_DAYS_AHEAD)
     if body.deliver_at < earliest:

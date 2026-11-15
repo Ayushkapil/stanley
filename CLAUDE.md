@@ -585,9 +585,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       checked "at least a week" from UTC's today, so the first day the
       picker offers would be refused once the phone stopped sending the
       wrong day. Now the day goes and comes back on the phone's calendar,
-      `POST /me/letters/send` takes `tz` (400 `bad_timezone`; none, from
-      an older build, is the zone last seen), and the week is from the
-      sender's today.
+      `POST /me/letters/send` takes `tz` (400 `bad_timezone`), and the
+      week is from the sender's today. **None, from a build before 64, is
+      UTC's today, as it always was**, since that build writes the day out
+      in UTC: checked against the zone last seen (the first version of
+      this), build 61's picker had its first day refused in Delhi between
+      midnight and 5:30 and its last in an American evening, which a test
+      now holds (`test_a_build_before_64_sends_no_zone_and_keeps_its_whole_range`).
+      The note's and the dates' changes need nothing of an older build.
     - *A note on the board* (`routes/circles.py`). It cleared at the end
       of the zone last seen, which is UTC for someone who writes a note
       before anything else carries their zone (7 PM in Bloomington).
@@ -616,9 +621,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     (the recipient's, most likely) isn't settled when the two are apart;
     and *the weekly mosaic* shows on the circle creator's Sunday and
     Monday for everyone.
-  - **Tests**: `tests/test_local_days.py` (20: each case in a Bloomington
+  - **Tests**: `tests/test_local_days.py` (22: each case in a Bloomington
     evening, a Delhi small hour and the night the clocks went back; 14
-    fail on the old code), `LocalDayTests` on the phone (four).
+    fail on the old code, and 3 on a fallback to the zone last seen), `LocalDayTests` on the phone (four).
 
 - **Prompts leave the toolbar for the page** (build 63, November 15,
   2026, a product brief from Ayush, "Remove Prompts from the toolbar";
@@ -2938,7 +2943,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   and the sweep for the same bug ("Whose day it is", above). **Its server
   must be on Fly before the app reaches anyone**: against v31, the first
   day the letter picker offers is refused as too soon in an American
-  evening.
+  evening. The server is safe for older builds (no zone is UTC, as
+  before), so the order is deploy, then upload.
   over build 63's Prompts out of
   the Journal tab's toolbar and onto the page being written (above),
   over build 62's covers to
@@ -3296,7 +3302,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**671 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**673 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

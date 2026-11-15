@@ -62,12 +62,26 @@ def test_a_letter_is_a_week_from_the_senders_own_today(circle, clock, zone, now,
     assert r.json()["detail"]["code"] == "too_soon"
 
 
-def test_a_letter_from_an_older_build_uses_the_zone_last_seen(circle, clock):
-    zone, now, local = BLOOMINGTON_EVENING
+def _utc_day(moment) -> str:
+    """What a build before 64 sends for a day picked at `moment`."""
+    return moment.astimezone(timezone.utc).date().isoformat()
+
+
+@CASES
+def test_a_build_before_64_sends_no_zone_and_keeps_its_whole_range(circle, clock, zone, now, local):
+    """Build 61 sends no zone and writes the picked moment out in UTC; its
+    picker offers now + 7 days to now + 365. Both ends must still go,
+    whatever zone the server last saw for the sender."""
+    from datetime import timedelta
     clock.set(now)
-    circle.ana.post_photo(tz=zone)  # the phone said where it is
-    r = _send(circle.ana, circle.ben.id, _add_days(local, 7))
-    assert r.status_code == 201, r.text
+    circle.ana.post_photo(tz=zone)  # the zone last seen is theirs
+    first = _send(circle.ana, circle.ben.id, _utc_day(now + timedelta(days=7)))
+    assert first.status_code == 201, first.text
+    last = _send(circle.ana, circle.cam.id, _utc_day(now + timedelta(days=365)))
+    assert last.status_code == 201, last.text
+    # And a day too soon by UTC's reckoning is still refused, as it was.
+    r = _send(circle.ana, circle.ben.id, _utc_day(now + timedelta(days=6)))
+    assert r.json()["detail"]["code"] == "too_soon"
 
 
 def test_a_letter_with_a_zone_nobody_knows_is_refused(circle, clock):
