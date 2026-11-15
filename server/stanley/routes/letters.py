@@ -23,21 +23,25 @@ Rules, in code:
 - The recipient's opened letters carry the full body. Deleting: the sender
   may delete only while it's sealed (and takes the envelope away); the
   recipient may delete only once it's opened.
-- No notification, ever. The envelope in Held is the only signal.
+- Since build 59, sealing one notifies its recipient, if they asked
+  (§10 N7: "{name} sent you a letter", nothing of the words), at most once
+  an hour from one sender, and handed to Apple only after the response.
 """
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..deps import (
-    event, get_clock, get_current_user, get_db, get_settings, refuse_objectionable, shares_a_circle,
+    event, get_clock, get_current_user, get_db, get_notifier, get_settings, refuse_objectionable,
+    shares_a_circle,
 )
 from ..models import PersonLetter, User, new_id
+from ..notifications import send_letter_notice
 from ..ratelimit import per_person
 from ..serialize import iso, user_brief
 from ..text import clean, clean_optional
@@ -124,10 +128,12 @@ def _waiting_count(db: Session, recipient_id: str) -> int:
 @router.post("/me/letters/send", status_code=201, dependencies=[per_person("journal")])
 def send_letter(
     body: LetterBody,
+    background: BackgroundTasks,
     db: Session = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
     clock=Depends(get_clock),
     settings=Depends(get_settings),
+    notifier=Depends(get_notifier),
 ):
     """Seal a letter to someone in one of your circles, for a day between a
     week and a year away. The sender gives up their words at the seal."""
@@ -169,6 +175,7 @@ def send_letter(
     db.add(row)
     db.flush()
     event("letter_sent", letter=row.id, sender=user.id, recipient=recipient.id)
+    send_letter_notice(db, notifier, row, user, now, later=background)
     return _sender_payload(now, row, user_brief(db, recipient.id, settings, now))
 
 

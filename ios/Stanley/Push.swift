@@ -57,20 +57,31 @@ final class Push: NSObject, UNUserNotificationCenterDelegate {
         #endif
     }
 
-    /// A journal's notice (build 57), "{name} wrote in {journal}": its
-    /// words, and the page it's about.
+    /// Something written to you (build 59): a page for you ("Ruby wrote
+    /// you a page", with the page's and its circle's ids) or a letter
+    /// ("Ruby sent you a letter", with the letter's).
     struct JournalNotice: Equatable, Identifiable {
+        enum About: Equatable {
+            case page(id: String, circleId: String)
+            case letter(id: String)
+        }
+
         let id = UUID()
         let text: String
-        let circleId: String
-        let pageId: String
+        let about: About
+
+        var isLetter: Bool { if case .letter = about { true } else { false } }
 
         init?(_ content: UNNotificationContent) {
-            guard let page = content.userInfo["journal_page"] as? String,
-                  let circle = content.userInfo["circle_id"] as? String else { return nil }
+            if let page = content.userInfo["journal_page"] as? String,
+               let circle = content.userInfo["circle_id"] as? String {
+                about = .page(id: page, circleId: circle)
+            } else if let letter = content.userInfo["letter"] as? String {
+                about = .letter(id: letter)
+            } else {
+                return nil
+            }
             text = content.body.isEmpty ? content.title : content.body
-            circleId = circle
-            pageId = page
         }
     }
 

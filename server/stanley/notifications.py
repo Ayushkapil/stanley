@@ -28,20 +28,22 @@ N6: (build 39, a product decision on 2026-11-11 by the person who builds
     circle today. They carry no name, count, deadline or image (N4), and
     nothing about what anyone else did.
 
-N7: (build 57, a product decision on 2026-11-14 by the person who builds
-    Stanley.) A page landing in a shared journal: "{name} wrote in {circle}"
-    to the others in that circle who turned it on, or, for a page written to
-    one person, "{name} wrote to you in {circle}" to that person alone. The
-    second notice that carries a name, and like N5 the name is all it
-    carries of the writer, with the circle's name to say which journal: no
-    words of the page, no ink, no count. It goes when a page lands somewhere
-    it wasn't (written there, shared from private, or moved to another
-    circle or person), never for a rewrite in place, never for a page made
-    private or kept private, never to the writer, never across a block
-    either way, never into a journal its reader muted, and at most once an
-    hour per journal per person: a second page within the hour is quiet,
-    not "2 new". Beside the words it carries the page's id and its circle's,
-    so the app can open the page; nothing else. Hearts still notify nobody.
+N7: (build 57, a product decision on 2026-11-14; narrowed in build 59, a
+    product decision the same day: "Reverse one locked rule, narrowly".)
+    Written to you, and only to you: a page shared with one person sends
+    "{name} wrote you a page" to that person; a sealed letter sends "{name}
+    sent you a letter" to its recipient. **A page in a whole circle's shared
+    journal notifies nobody** (build 57 sent "{name} wrote in {circle}" to
+    the circle; the circle's journal is ambient, and that's gone), a private
+    page notifies nobody, and letters to the circle, being unsigned, never
+    notify. The name is all it carries: no words, no ink, no count (N4).
+    Never to the writer, never across a block either way, never for a
+    rewrite in place or a page made private, never while the recipient has
+    muted the circle (a letter, in no circle, is quiet if any circle the two
+    share is muted), and at most once an hour from each sender to each
+    recipient, pages and letters together: a second within the hour is
+    quiet, not "2 new". Beside the words, the ids the app needs to open the
+    page or the letter; nothing else. Hearts still notify nobody.
 
 There is deliberately no generic "send a push" endpoint anywhere else in the
 codebase; everything funnels through the functions below.
@@ -61,7 +63,7 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from .clock import Clock
-from .models import Block, Circle, CircleNote, JournalPage, Membership, NotificationLog, Photo, User
+from .models import Block, Circle, CircleNote, JournalPage, Membership, NotificationLog, PersonLetter, Photo, User
 
 
 def make_notifier(settings, sessionmaker) -> "Notifier":
@@ -107,6 +109,7 @@ class Notifier:
         later=None,
         data: dict | None = None,
         circle_id: str | None = None,
+        sender_id: str | None = None,
     ) -> None:
         """`later`, a request's BackgroundTasks: deliver after the response
         rather than inside the commit, so a request never waits on Apple.
@@ -115,10 +118,12 @@ class Notifier:
         its background tasks after.
 
         `data` (build 57, N7 alone): ids the app needs to open what the
-        notice is about, set beside the alert, never shown. `circle_id`
-        is logged with the notice, for N7's one an hour."""
+        notice is about, set beside the alert, never shown. `circle_id` and
+        `sender_id` are logged with the notice, for N7's one an hour."""
         session.add(
-            NotificationLog(user_id=user_id, kind=kind, body=body, sent_at=now, circle_id=circle_id)
+            NotificationLog(
+                user_id=user_id, kind=kind, body=body, sent_at=now, circle_id=circle_id, sender_id=sender_id
+            )
         )
         if self._transport is None:
             return
@@ -285,18 +290,62 @@ def send_circle_post_notices(
     return sent
 
 
-# --- §10 N7: a page landing in a shared journal ------------------------------
+# --- §10 N7: written to you (a page for you, a letter to you) ---------------
 
 JOURNAL_POST_KIND = "journal_page"
-# At most one shared-journal notice per journal per person in this long.
+LETTER_KIND = "letter"
+WRITTEN_KINDS = (JOURNAL_POST_KIND, LETTER_KIND)
+# At most one of these from any one sender to any one recipient in this long.
 JOURNAL_POST_QUIET = timedelta(minutes=60)
 
 
-def journal_post_body(writer: User, circle_name: str, to_one: bool) -> str:
-    """The writer's name and which journal: nothing of the page, and no
-    number (N4, N7)."""
-    name = (writer.display_name or "").strip() or "Someone"
-    return f"{name} wrote to you in {circle_name}" if to_one else f"{name} wrote in {circle_name}"
+def _first_name_or_someone(writer: User) -> str:
+    return (writer.display_name or "").strip() or "Someone"
+
+
+def journal_post_body(writer: User) -> str:
+    """Who wrote, and that it's for you: nothing of the page, no number,
+    not even which circle (N4, N7)."""
+    return f"{_first_name_or_someone(writer)} wrote you a page"
+
+
+def letter_body(sender: User) -> str:
+    """Who sent it: nothing of the words, the occasion or the day."""
+    return f"{_first_name_or_someone(sender)} sent you a letter"
+
+
+def _blocked_either_way(session: Session, a: str, b: str) -> bool:
+    return session.scalars(
+        select(Block.blocker_id).where(
+            ((Block.blocker_id == a) & (Block.blocked_id == b))
+            | ((Block.blocker_id == b) & (Block.blocked_id == a))
+        ).limit(1)
+    ).first() is not None
+
+
+def _heard_within_the_hour(session: Session, recipient_id: str, sender_id: str, now: datetime) -> bool:
+    return session.scalars(
+        select(NotificationLog.id).where(
+            NotificationLog.user_id == recipient_id,
+            NotificationLog.sender_id == sender_id,
+            NotificationLog.kind.in_(WRITTEN_KINDS),
+            NotificationLog.sent_at > now - JOURNAL_POST_QUIET,
+        ).limit(1)
+    ).first() is not None
+
+
+def _wants_it(session: Session, recipient_id: str, sender: User) -> User | None:
+    """The recipient, if a notice from this sender may reach them at all:
+    a live account that asked for it, someone other than the sender, and
+    no block between them either way."""
+    if recipient_id == sender.id:
+        return None
+    recipient = session.get(User, recipient_id)
+    if recipient is None or recipient.deleted_at is not None or not recipient.journal_posts_enabled:
+        return None
+    if _blocked_either_way(session, recipient.id, sender.id):
+        return None
+    return recipient
 
 
 def send_journal_page_notices(
@@ -307,57 +356,68 @@ def send_journal_page_notices(
     now: datetime,
     later=None,
 ) -> int:
-    """§10 N7. Called only when a page has just landed in a shared journal
-    (a circle's, or one person's in it): never for a rewrite where it
-    already was, nor for a private page. A circle's page goes to everyone
-    else in the circle; a page for one person, to that person. Either way
-    only to someone who turned the notice on, hasn't muted this circle's
-    journal, has no block with the writer either way, and hasn't had one
-    about this journal within the hour. Returns sends."""
-    if not page.shared or page.circle_id is None:
+    """§10 N7. Called only when a page has just landed somewhere shared
+    (never for a rewrite where it already was, nor a private page). Only a
+    page for one person tells anyone: that person, if they asked, haven't
+    muted the circle, have no block with the writer, and haven't heard from
+    this writer within the hour. **A page in the whole circle's journal
+    tells nobody.** Returns sends."""
+    if not page.shared or page.circle_id is None or page.recipient_id is None:
         return 0
-    circle = session.get(Circle, page.circle_id)
-    if circle is None:
+    recipient = _wants_it(session, page.recipient_id, writer)
+    if recipient is None:
         return 0
-    query = (
-        select(User)
-        .join(Membership, Membership.user_id == User.id)
-        .where(
-            Membership.circle_id == circle.id,
-            Membership.journal_muted.is_not(True),
-            User.id != writer.id,
-            User.deleted_at.is_(None),
-            User.journal_posts_enabled.is_(True),
+    muted = session.scalars(
+        select(Membership.journal_muted).where(
+            Membership.circle_id == page.circle_id, Membership.user_id == recipient.id
         )
+    ).first()
+    if muted:
+        return 0
+    if _heard_within_the_hour(session, recipient.id, writer.id, now):
+        # No stacking: the page is there when they open the journal.
+        return 0
+    notifier.send(
+        session, recipient.id, JOURNAL_POST_KIND, journal_post_body(writer), now, later=later,
+        data={"journal_page": page.id, "circle_id": page.circle_id},
+        circle_id=page.circle_id, sender_id=writer.id,
     )
-    if page.recipient_id is not None:
-        query = query.where(User.id == page.recipient_id)
-    recipients = session.scalars(query).all()
-    blocked = set(
-        session.scalars(select(Block.blocked_id).where(Block.blocker_id == writer.id)).all()
-    ) | set(session.scalars(select(Block.blocker_id).where(Block.blocked_id == writer.id)).all())
-    body = journal_post_body(writer, circle.name, page.recipient_id is not None)
-    data = {"journal_page": page.id, "circle_id": circle.id}
-    sent = 0
-    for user in recipients:
-        if user.id in blocked:
-            continue
-        recent = session.scalars(
-            select(NotificationLog.id).where(
-                NotificationLog.user_id == user.id,
-                NotificationLog.kind == JOURNAL_POST_KIND,
-                NotificationLog.circle_id == circle.id,
-                NotificationLog.sent_at > now - JOURNAL_POST_QUIET,
-            ).limit(1)
-        ).first()
-        if recent is not None:
-            # No stacking: the page is there when they open the journal.
-            continue
-        notifier.send(
-            session, user.id, JOURNAL_POST_KIND, body, now, later=later, data=data, circle_id=circle.id
-        )
-        sent += 1
-    return sent
+    return 1
+
+
+def send_letter_notice(
+    session: Session,
+    notifier: Notifier,
+    letter: PersonLetter,
+    sender: User,
+    now: datetime,
+    later=None,
+) -> int:
+    """§10 N7. Called only when a sealed letter to a person has just been
+    written. Its recipient, if they asked, have no block with the sender,
+    haven't muted any circle the two share (a letter isn't in a circle, so
+    a mute anywhere between them wins), and haven't heard from this sender
+    within the hour. Letters to the circle never come here. Returns sends."""
+    recipient = _wants_it(session, letter.recipient_id, sender)
+    if recipient is None:
+        return 0
+    theirs = select(Membership.circle_id).where(Membership.user_id == sender.id)
+    muted = session.scalars(
+        select(Membership.circle_id).where(
+            Membership.user_id == recipient.id,
+            Membership.circle_id.in_(theirs),
+            Membership.journal_muted.is_(True),
+        ).limit(1)
+    ).first()
+    if muted is not None:
+        return 0
+    if _heard_within_the_hour(session, recipient.id, sender.id, now):
+        return 0
+    notifier.send(
+        session, recipient.id, LETTER_KIND, letter_body(sender), now, later=later,
+        data={"letter": letter.id}, sender_id=sender.id,
+    )
+    return 1
 
 
 # --- §10 N6: the two reminders a person sets for themselves -------------------

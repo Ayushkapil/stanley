@@ -297,7 +297,9 @@ struct MeSettings: Codable {
     let digestEnabled: Bool?
     /// "{name} shared a moment" (build 37). Absent from an older server.
     let circlePostsEnabled: Bool?
-    /// "{name} wrote in {journal}" (build 57). Absent from an older server.
+    /// Written to You (build 57's Journal Entries, narrowed in build 59):
+    /// "{name} wrote you a page", "{name} sent you a letter". Absent from
+    /// an older server.
     let journalPostsEnabled: Bool?
     /// The two reminders (build 39), and the hour of the day each is set
     /// for. Nil from a server before them, which then offers neither.

@@ -352,6 +352,8 @@ struct BookView: View {
     @State private var viewing = false
     @State private var openedPhoto = ""
     @State private var readingLetters = false
+    /// The letter a notice was about (build 59): Letters opens at it.
+    @State private var askedLetter: String?
     @State private var readingPrompts = false
     @State private var reflecting = false
     @State private var tearingOut: DayPage?
@@ -480,10 +482,18 @@ struct BookView: View {
                     touched = false
                     grid = false
                     if let notice = state.journalPageAsked {
-                        // A journal's notice (build 57): that circle's shared
-                        // journal, at the page it's about.
+                        // Something written to you (builds 57 and 59): a
+                        // page opens that circle's shared journal at it; a
+                        // letter opens Letters, at it.
                         state.journalPageAsked = nil
-                        Task { await openNoticed(notice, layout: layout) }
+                        switch notice.about {
+                        case let .page(id, circleId):
+                            Task { await openNoticed(page: id, circleId: circleId, layout: layout) }
+                        case let .letter(id):
+                            opened = false
+                            askedLetter = id
+                            readingLetters = true
+                        }
                     } else if let day {
                         // The widget asked for a day: straight into your own
                         // book at its page.
@@ -547,9 +557,9 @@ struct BookView: View {
         .fullScreenCover(isPresented: $viewing) {
             HeldViewer(current: $openedPhoto)
         }
-        .sheet(isPresented: $readingLetters) {
+        .sheet(isPresented: $readingLetters, onDismiss: { askedLetter = nil }) {
             NavigationStack {
-                LettersPage { letter in
+                LettersPage(asked: askedLetter) { letter in
                     readingLetters = false
                     turn(to: "l-\(letter.id)-0")
                 }
@@ -650,14 +660,14 @@ struct BookView: View {
 
     /// The page a notice is about: its circle on screen, its shared journal
     /// fetched again (the page is new), open at that page.
-    private func openNoticed(_ notice: Push.JournalNotice, layout: BookLayout) async {
-        if notice.circleId != state.circle?.id { await state.switchCircle(to: notice.circleId) }
+    private func openNoticed(page pageId: String, circleId: String, layout: BookLayout) async {
+        if circleId != state.circle?.id { await state.switchCircle(to: circleId) }
         await state.loadShared()
-        coverPage = notice.circleId
+        coverPage = circleId
         ours = hasOurs
         let book = BookBuilder.shared(state, layout: layout)
         touched = true
-        go(to: book.index(sharedPage: notice.pageId) ?? max(book.pages.count - 1, 0), in: book)
+        go(to: book.index(sharedPage: pageId) ?? max(book.pages.count - 1, 0), in: book)
         withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) {
             opened = true
         }

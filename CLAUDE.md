@@ -59,8 +59,9 @@ guarded by tests; treat a change to any of them as a spec change.
   Today). Never archived, never recountable.
 - **No algorithmic feed.** Today is reverse-chronological and nothing else. No
   ranking, no engagement signals, no recommendation.
-- **Notifications are almost nothing.** Six exist (the sixth, build 57's
-  **Journal Entries**, at the end of this rule), and all are **off until
+- **Notifications are almost nothing.** Six exist (the sixth, **Written
+  to You**, at the end of this rule: build 57's Journal Entries as
+  narrowed in build 59), and all are **off until
   the person turns them on** in Settings → Quiet: the owner's single
   LAST_LIGHT notice for their own photo, at most one evening digest a day
   ("Something new from your circle today.", when someone else in one of
@@ -84,20 +85,38 @@ guarded by tests; treat a change to any of them as a spec change.
   goes to the poster, across a block either way, or twice for one person's
   day in one circle (a retake after the redo is quiet), and it's handed to
   Apple only after the post's response, so posting never waits on a push.
-  **Build 57's Journal Entries is a product decision** (the brief of
-  2026-11-14, "Four changes"; §10 N7 in `notifications.py`): when a page
-  lands in a circle's shared journal, the others in that circle who
-  turned it on get "{name} wrote in {circle}"; a page for one person
-  sends "{name} wrote to you in {circle}" to that person alone. Never
-  the page's words, never a number, never to the writer, never for a
-  private page, nothing for a rewrite in place or a page made private,
-  across a block neither way, none while that person has muted that
-  circle's journal (from its cover, `memberships.journal_muted`), and
-  **at most one an hour for each journal for each person**: one inside
-  the hour is skipped, never stacked. The brief didn't say off or on;
-  it said to respect the existing preferences, so it's off until turned
-  on like the rest. It carries a name and a circle's name, which only
-  Circle Posts did before.
+  **Written to You, build 59, a product decision that narrows build
+  57's** (the brief of 2026-11-14, "Reverse one locked rule, narrowly";
+  §10 N7 in `notifications.py`). **It supersedes both the Phase 2
+  shared-journal brief's "no notification when someone shares" (build
+  51) and build 57's notice for every page in a circle's journal; it is
+  not a contradiction of either, it replaces them.** The rule now:
+  - **Whole-circle shared journal pages never notify anyone.** The
+    circle's journal is ambient: you go to it, it doesn't pull you.
+    (Build 57 sent "{name} wrote in {circle}" to the circle; that's
+    gone, and a test says nobody hears of such a page.)
+  - **A page shared with one person notifies that person only**:
+    "{name} wrote you a page".
+  - **A sealed letter to a person notifies its recipient**: "{name}
+    sent you a letter", when it's sealed (its day may be a year off;
+    the envelope says when). Letters to the circle are unsigned and
+    never notify: a notice would have to say, or would give away, who
+    wrote one.
+  - **A private page notifies nobody**, the writer included.
+  - **Counts are still never shown**, in a notification or anywhere
+    else: the words are a name and what they did, nothing of the page
+    or the letter, no number, no "new" with a count.
+  It's the one switch it was ("Written to You" in Settings → Quiet,
+  `users.journal_posts_enabled`), off until turned on. Never to the
+  writer, across a block neither way, nothing for a rewrite in place
+  or a page made private, none while the recipient has **muted that
+  circle** (Settings → Circle, or the journal's cover;
+  `memberships.journal_muted`; a letter, which isn't in a circle, is
+  quiet if any circle the two share is muted), and **at most one an
+  hour from each sender to each recipient**, pages and letters
+  together: a second inside the hour is skipped, never stacked or
+  summed. A tap opens the page or the letter. It carries a name, as
+  Circle Posts does.
   Likes, holds, stories, mentions and notes still notify nobody. Build 18
   made them real pushes (APNs, `apns.py`) and, because of that, made the
   digest opt-in (it had gone to everyone back when it was only logged). A
@@ -148,9 +167,9 @@ guarded by tests; treat a change to any of them as a spec change.
   member. **One heart per reader per page**, left or taken back at the
   foot of the page: the writer is shown who, as faces, never a number,
   and nobody else is shown anything (the photo payload's A2, again). **No
-  comments**, and **no notification when someone leaves a heart**; since
-  build 57 a page landing in the book can notify, if the reader asked
-  (the notifications rule, above; until then nothing did), and
+  comments**, **no notification when someone leaves a heart**, and
+  **none when a page lands in the circle's book** (build 59, superseding
+  build 57's notice; the notifications rule, above), and
   **a shared page never fades**. The word filter is on shared pages (a
   circle reads them) and still not on private ones. Leaving a circle, or
   being removed, takes your pages out of its book and leaves them in
@@ -166,7 +185,10 @@ guarded by tests; treat a change to any of them as a spec change.
   only the recipient can leave the heart, and the writer sees it as a
   face. The word filter is on it (someone else reads it). It goes back
   to its writer's alone if either leaves the circle or the recipient's
-  account is deleted. No replies, no notification. **This edges toward
+  account is deleted. No replies. Since build 59 it notifies the one
+  person it's for, if they asked (the notifications rule, above; until
+  then it notified nobody, then, in build 57, them alone too, with the
+  circle's name). **This edges toward
   the DMs that are a permanent non-goal for the pilot** (open items): it
   is a page, not a conversation, and nothing answers it but a heart; the
   brief asked for it, and the line should be held there.
@@ -533,6 +555,55 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **Written to You** (build 59, November 14, 2026, a product brief from
+  Ayush, "Reverse one locked rule, narrowly"). The notifications rule,
+  above, has the rule itself; it supersedes build 51's "no notification
+  when someone shares" and build 57's notice for every page in a
+  circle's journal. Phone and server both.
+  - **The server** (§10 N7 in `notifications.py`):
+    `send_journal_page_notices` now returns at once unless the page is
+    for one person; `send_letter_notice` (new) is called from `POST
+    /me/letters/send` after the letter is flushed, delivered after the
+    response like the rest. Words: "{name} wrote you a page", "{name}
+    sent you a letter" (the display name; no circle's name any more).
+    Payloads: `journal_page` and `circle_id` for a page, `letter` for a
+    letter, beside `aps.alert` and nothing else. `notification_log`
+    gained `sender_id` (added on startup), and the quiet hour is one
+    from each sender to each recipient, pages and letters together
+    (it was one per journal per person). A letter is quiet if the
+    recipient muted any circle they share with the sender. Letters to
+    the circle never notify.
+  - **On the phone**: Settings → Quiet's switch is **Written to You**
+    ("When someone writes you a page or sends you a letter, at most
+    once an hour from each"); Settings → Circle has **Mute Pages and
+    Letters** for the circle on screen (the same flag as the cover's
+    long-press, which says the same words now). The banner shows an
+    envelope for a letter; a tap on it, or on the system notification,
+    opens the Journal tab's Letters sheet (`LettersPage(asked:)`: a
+    letter whose day has come opens to be read, an opened one turns
+    the book to it, a sealed one is there waiting). A page still opens
+    Ours at it (`Push.JournalNotice.About`).
+  - Both documents say who's told what (the same date, November 14).
+  - **Tests**: `test_journal_notices.py` rewritten to the new rule (32):
+    a whole-circle page tells nobody however it got there, nor a page
+    moved to another circle's book; a private page tells nobody, not its
+    writer; a page for one person tells them alone; a letter tells only
+    its recipient; letters to the circle tell nobody; a mute in one
+    circle quiets that circle's pages and any letter between people who
+    share it; one an hour from each sender to each recipient (a letter
+    inside the hour of a page dropped, another sender not); no digit in
+    any notice's words, and no badge, sound, count or number in any
+    APNs payload.
+  - **Checked** on the iPhone 17 simulator signed in as Ruby, against a
+    local server on this code: Theo's page shared to Third Floor sent
+    nothing (Ruby had the switch on); Theo's letter sent Ruby "Theo
+    Brooks sent you a letter"; that payload with `simctl push` showed
+    the banner with an envelope, and a tap opened Letters with Theo's
+    sealed letter; Mute Pages and Letters turned on in Settings, and
+    Maya's letter then sent nothing. **Not seen**: a real push from
+    APNs, the system notification tapped, a letter whose day has come
+    opened from a notice.
 
 - **The cover screen's room, its peeks, and the covers on their side**
   (build 58, November 14, 2026, a product brief from Ayush, "Three fixes
@@ -2045,7 +2116,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (58)", at the
+  production audit), and the version, "Stanley 0.2.0 (59)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -2577,8 +2648,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 58** (0.2.0) is the number to archive next: the covers' room,
-  centered peeks and the covers on their side (above), over build 57's
+- **Build 59** (0.2.0) is the number to archive next: Written to You
+  (above), over build 58's covers' room, centered peeks and the covers
+  on their side, build 57's
   Journal Entries, the capsule and the inks at night, build 56's cover
   screen and build 54's glass chrome with "Mine" and "Ours" in
   an open book's bar (55), and build 52's page for one person, ruled
@@ -2913,7 +2985,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**644 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**647 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

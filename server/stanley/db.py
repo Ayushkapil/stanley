@@ -109,7 +109,7 @@ _LATER_COLUMNS = {
     # Build 57: a circle's shared journal muted by one member; none is.
     "memberships": {"journal_muted": "BOOLEAN DEFAULT 0"},
     # Build 57: the circle a shared-journal notice was about; null for the rest.
-    "notification_log": {"circle_id": "VARCHAR(32)"},
+    "notification_log": {"circle_id": "VARCHAR(32)", "sender_id": "VARCHAR(32)"},
     # Build 50: a journal page in more than one ink; null is all one ink.
     # Build 51: a page shared with a circle; private for every page there is.
     "journal_pages": {

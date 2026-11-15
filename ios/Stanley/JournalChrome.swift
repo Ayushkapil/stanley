@@ -290,7 +290,8 @@ struct TabBarGlass: View {
 }
 
 /// A journal's notice while Stanley is open (build 57): words on a capsule
-/// of glass sliding down from the top, "Aryan wrote in Anti mosquito",
+/// of glass sliding down from the top, "Aryan wrote you a page" or "Aryan
+/// sent you a letter" (build 59; build 57's "wrote in" a circle is gone),
 /// never a number or a word of the page. A tap opens the page; it goes by
 /// itself after seven seconds, or with a swipe up.
 struct JournalBanner: View {
@@ -305,7 +306,7 @@ struct JournalBanner: View {
         let palette = Atmosphere.resolve(raw).palette
         Button(action: open) {
             HStack(spacing: 10) {
-                Image(systemName: "book.closed")
+                Image(systemName: notice.isLetter ? "envelope" : "book.closed")
                     .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(palette.accent)
                 Text(notice.text)

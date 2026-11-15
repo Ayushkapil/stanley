@@ -1297,8 +1297,8 @@ final class AppState {
         journalAsked += 1
     }
 
-    /// Mute a circle's journal, or unmute it (build 57): its "… wrote in …"
-    /// notices stop for you alone. Shown at once, put back if refused.
+    /// Mute a circle, or unmute it (build 57; since build 59 its pages and
+    /// letters written to you, "… wrote you a page"): stops for you alone. Shown at once, put back if refused.
     func setJournalMuted(_ circleId: String, _ muted: Bool) async {
         func set(_ value: Bool) {
             if let at = circles.firstIndex(where: { $0.id == circleId }) { circles[at].journalMuted = value }

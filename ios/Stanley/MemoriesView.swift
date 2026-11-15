@@ -20,6 +20,10 @@ struct MemoriesView: View {
 struct LettersPage: View {
     @Environment(AppState.self) private var state
     @State private var reading: Letter?
+    /// A letter a notice was about (build 59): once Letters has it, one
+    /// whose day has come opens to be read; one still sealed is there with
+    /// the others, waiting.
+    var asked: String? = nil
     /// An opened letter was picked: turn the journal to its page.
     var onRead: (Letter) -> Void = { _ in }
 
@@ -38,7 +42,15 @@ struct LettersPage: View {
         .navigationTitle("Letters")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $reading) { LetterReaderSheet(letter: $0) }
-        .task { await state.refreshLetters() }
+        .task {
+            await state.refreshLetters()
+            guard let asked else { return }
+            if let ready = state.lettersReceived.sealed.first(where: { $0.id == asked && $0.deliverable == true }) {
+                reading = ready
+            } else if let opened = state.lettersReceived.opened.first(where: { $0.id == asked }) {
+                onRead(opened)
+            }
+        }
     }
 }
 

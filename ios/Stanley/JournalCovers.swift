@@ -192,8 +192,8 @@ struct JournalCovers: View {
                                         Task { await state.setJournalMuted(circleId, !muted) }
                                     } label: {
                                         muted
-                                            ? Label("Unmute This Journal", systemImage: "bell")
-                                            : Label("Mute This Journal", systemImage: "bell.slash")
+                                            ? Label("Unmute Pages and Letters", systemImage: "bell")
+                                            : Label("Mute Pages and Letters", systemImage: "bell.slash")
                                     }
                                 }
                                 Button { open(journal) } label: { Label("Open", systemImage: "book") }

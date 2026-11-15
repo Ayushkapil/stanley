@@ -356,6 +356,10 @@ class NotificationLog(Base):
     # there's at most one an hour per journal per person. Null for every
     # other kind. Not a foreign key: a log row outlives nothing it names.
     circle_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Build 59: who a "written to you" notice was from (§10 N7), so there's
+    # at most one an hour from each sender to each recipient. Null for every
+    # other kind; not a foreign key, for the same reason.
+    sender_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class PushToken(Base):
@@ -568,7 +572,8 @@ class PersonLetter(Base):
     sender gives up their words at the seal — they can take back a letter
     still sealed, but not reread it. The recipient can't refuse one before
     the date, and can delete it only once they've opened it: it's a gift.
-    No notification: the sealed envelope in Held is the only signal."""
+    Since build 59 its sealing notifies the recipient, if they asked
+    (§10 N7: "{name} sent you a letter", nothing of the words)."""
 
     __tablename__ = "person_letters"
     __table_args__ = (

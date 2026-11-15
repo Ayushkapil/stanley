@@ -223,20 +223,22 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
 - Push notifications: when APNs is wired, the server stores a **device push
   token**. Tokens exist to deliver the six notices (the two reminders a person sets for themselves since build 39, last light, the
   digest, since build 37 the circle-post notice, and since build 57 the
-  shared-journal notice) and are not an Apple
+  written-to-you notice, narrowed in build 59) and are not an Apple
   label category by themselves. The circle-post notice carries the poster's
   display name to the people in their circle who turned it on: the same
   name those people already see in the app, so Name stays as declared
   (Linked, App Functionality) and Device ID's purpose is unchanged
-  (re-derived for build 37, 2026-11-07). The shared-journal notice carries
-  the writer's display name and the circle's name to the members of that
-  journal who turned it on (or, for a page written to one person, to that
-  person), never the page's words; beside the words it carries the page's
-  and the circle's opaque ids so the app can open the page. The same names
-  those readers already see on the page, so nothing above changes
-  (re-derived for build 57, 2026-11-14). Which circles' journals a person
-  muted is kept with their membership: App Functionality, nothing new to
-  declare.
+  (re-derived for build 37, 2026-11-07). The written-to-you notice (build
+  59; build 57's shared-journal notice narrowed) carries the writer's
+  display name to the one person a page was written to, or a sealed
+  letter's sender's name to its recipient, never the words, the circle's
+  name or a number; beside the words it carries the page's and circle's
+  opaque ids, or the letter's, so the app can open it. A page in a whole
+  circle's journal notifies nobody. The same names those readers already
+  see on the page or the envelope, so nothing above changes (re-derived
+  for build 59, 2026-11-14; the log row now keeps the sender's opaque id
+  for the one-an-hour guard). Which circles a person muted is kept with
+  their membership: App Functionality, nothing new to declare.
 - Data deletion: account deletion cascades — photos, blobs, comments, holds
   all purge. Owner-deleted photos purge everywhere immediately.
 
