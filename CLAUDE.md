@@ -579,6 +579,35 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Days and hours, to midnight on the 23rd** (build 75, November 16,
+  2026, from Ayush on seeing build 74: "we can at least have hours right,
+  instead of just days? like 7 days 3 hours. set to say 12 am on the
+  23rd"). Phone only; the config on Fly is unchanged. **Where build 74's
+  section below says the days turn at the viewer's midnight, or that the
+  last day counts hours to the first leg, this wins.**
+  - **What it counts to** (`Countdown.departureDay`): the first moment of
+    the departure day where the journey begins, from the first leg's own
+    date and offset (`2026-11-23T09:00:00-05:00` gives midnight on the
+    23rd at -05:00, Bloomington's). One moment, so the words are the same
+    in Bloomington and Mumbai (build 74 counted calendar days on each
+    viewer's own calendar). A config without legs counts to midnight on
+    `target_date` in `target_tz`. Whose midnight was taken, not asked:
+    Bloomington's, where the trip begins.
+  - **The words**: "India in 7 days 3 hours" (9 PM on the 15th), "India
+    in 7 days" on the hour, "India in 1 day 1 hour", "India in 14 hours",
+    "India in under an hour"; then **"Leaving today"** from midnight to
+    the first leg (9 AM), then the legs as before. Within seven whole days
+    both numbers are in the hand. The strip warms toward midnight (over
+    eight days); the plane still reaches the journey's part of the strip
+    at the first leg.
+  - **Tests**: `CountdownJourneyTests` rewritten for it (still 11; 61
+    phone tests): 7 days 3 hours at 9 PM on the 15th, the same words in
+    Mumbai, the last hours, "Leaving today" until 9 AM, spoken as "India.
+    Leaving today", an old config counting to Chicago's midnight.
+  - **Checked** on the iPhone 17 Pro against the local server, dark, the
+    clock moved to 9 PM on the 15th, 10:20 PM on the 22nd and 3 AM on
+    the 23rd (Bloomington).
+
 - **The India countdown as a flight path** (build 74, November 16, 2026,
   a product brief from Ayush, "Make the India countdown nicer";
   screenshots in `docs/countdown-build74/`). Phone, plus the script's
@@ -3068,7 +3097,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (74)", at the
+  production audit), and the version, "Stanley 0.2.0 (75)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3628,6 +3657,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
+- **Build 75** (0.2.0): days and hours to midnight on the 23rd (above).
+  Phone only; v34 on Fly is its server, and the legs set on Anti mosquito
+  need nothing new. Not archived.
 - **Build 74** (0.2.0): the India countdown as a flight path (above).
   Phone only; v34 on Fly is its server. **Archived and uploaded to App
   Store Connect on November 16, 2026**, as 73 was ("Stanley 0.2.0 (74)"

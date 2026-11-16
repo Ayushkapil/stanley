@@ -4,11 +4,13 @@ import Foundation
 /// (build 74): the plane's place on the line, the words under it, and how
 /// warm it's drawn. Foundation only, so the unit tests read it as it is.
 ///
-/// Days are the viewer's own (`LocalDay`, turning at their midnight); the
-/// legs begin at absolute moments, shown in the viewer's own zone, so the
-/// same strip is right in Bloomington and in Mumbai. Nothing is ever a
-/// negative number: before the first leg it counts down, from it on it
-/// names the leg, and a day after landing it's gone.
+/// Before the trip it counts days and hours (build 75) to the first moment
+/// of the departure day where the journey begins (midnight on the 23rd in
+/// Bloomington): one moment, so "India in 7 days 3 hours" is the same in
+/// Bloomington and in Mumbai. From that midnight to the first leg it's
+/// "Leaving today"; then the legs, which begin at absolute moments and are
+/// shown in the viewer's own zone. Nothing is ever a negative number, and a
+/// day after landing it's gone.
 extension Countdown {
     /// A leg with its moment known.
     struct Stop: Equatable {
@@ -18,11 +20,11 @@ extension Countdown {
 
     struct Journey: Equatable {
         enum Stage: Equatable {
-            /// Before the first leg: whole days left on the viewer's
-            /// calendar, or, inside the last day, whole hours (0 is "under
-            /// an hour").
-            case days(Int)
-            case hours(Int)
+            /// Before the departure day begins: whole days and hours left
+            /// (0 and 0 is "under an hour").
+            case left(days: Int, hours: Int)
+            /// The departure day, before its first leg.
+            case today
             /// On the way: the leg it's on, an index into `stops`. The last
             /// is the landing.
             case leg(Int)
@@ -39,12 +41,10 @@ extension Countdown {
         let warmth: Double
         let label: String
 
-        /// Seven days or fewer: the number is written in the hand.
+        /// Seven days or fewer: the numbers are written in the hand.
         var close: Bool {
-            switch stage {
-            case .days(let days): return days <= Countdown.closeDays
-            case .hours, .leg: return true
-            }
+            if case .left(let days, _) = stage { return days <= Countdown.closeDays }
+            return true
         }
 
         /// The leg it's on, if it's begun.
@@ -55,32 +55,38 @@ extension Countdown {
 
         var landed: Bool { current == stops.count - 1 }
 
-        /// The words, cut where the number is, so the view can set the
-        /// number apart: ("India in ", "9", " days").
-        var words: (lead: String, number: String?, tail: String) {
+        /// The words in pieces, each number apart so the view can set it in
+        /// the hand: "India in ", "7", " days ", "3", " hours".
+        var words: [(text: String, number: Bool)] {
             switch stage {
-            case .days(let days):
-                return ("\(label) in ", "\(days)", days == 1 ? " day" : " days")
-            case .hours(0):
-                return ("\(label) in under an hour", nil, "")
-            case .hours(let hours):
-                return ("\(label) in ", "\(hours)", hours == 1 ? " hour" : " hours")
+            case .left(0, 0):
+                return [("\(label) in under an hour", false)]
+            case .left(let days, let hours):
+                var pieces: [(text: String, number: Bool)] = [("\(label) in ", false)]
+                if days > 0 {
+                    pieces += [("\(days)", true), (days == 1 ? " day" : " days", false)]
+                }
+                if hours > 0 {
+                    if days > 0 { pieces.append((" ", false)) }
+                    pieces += [("\(hours)", true), (hours == 1 ? " hour" : " hours", false)]
+                }
+                return pieces
+            case .today:
+                return [("Leaving today", false)]
             case .leg(let index):
-                return (stops[index].words, nil, "")
+                return [(stops[index].words, false)]
             }
         }
 
-        var text: String {
-            let parts = words
-            return parts.lead + (parts.number ?? "") + parts.tail
-        }
+        var text: String { words.map(\.text).joined() }
 
         /// What VoiceOver reads for the whole strip, one element: the day's
-        /// note if there is one, then where things stand, "India in 9 days",
-        /// or the trip and the leg it's on, "India. In the air". The plane
-        /// says nothing.
+        /// note if there is one, then where things stand, "India in 7 days 3
+        /// hours", or the trip and where it is, "India. In the air". The
+        /// plane says nothing.
         func spoken(reminder: String?) -> String {
-            let state = current == nil ? text : "\(label). \(text)"
+            let state: String
+            if case .left = stage { state = text } else { state = "\(label). \(text)" }
             guard let note = reminder?.trimmingCharacters(in: .whitespaces), !note.isEmpty else { return state }
             let ended = note.last.map { ".!?".contains($0) } ?? false
             return "\(note)\(ended ? "" : ".") \(state)"
@@ -106,12 +112,29 @@ extension Countdown {
                 return words.isEmpty ? nil : Stop(words: words, at: at)
             }
         }
-        guard let zone = TimeZone(identifier: targetTz), let lands = arrivesAt.flatMap(Self.moment)
+        guard let departs = departureDay, let lands = arrivesAt.flatMap(Self.moment), departs < lands
         else { return [] }
+        return [Stop(words: "On the way", at: departs), Stop(words: "Landed", at: lands)]
+    }
+
+    /// What the days and hours count to: the first moment of the departure
+    /// day where the journey begins, by the first leg's own date and offset
+    /// ("2026-11-23T09:00:00-05:00" is midnight on the 23rd at -05:00).
+    /// Without legs, midnight on `target_date` in `target_tz`.
+    var departureDay: Date? {
+        if let legs {
+            for leg in legs {
+                guard let text = leg.at, Self.moment(text) != nil else { continue }
+                let offset = text.range(of: "(Z|[+-]\\d{2}:\\d{2})$", options: .regularExpression)
+                guard text.count >= 10, let offset else { return nil }
+                return Self.moment("\(text.prefix(10))T00:00:00\(text[offset])")
+            }
+            return nil
+        }
+        guard let zone = TimeZone(identifier: targetTz) else { return nil }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = zone
-        guard let departs = LocalDay.date(targetDate, calendar: calendar), departs < lands else { return [] }
-        return [Stop(words: "On the way", at: departs), Stop(words: "Landed", at: lands)]
+        return LocalDay.date(targetDate, calendar: calendar)
     }
 
     /// The strip at a moment, or nil once "Landed" has held its day (or
@@ -129,11 +152,11 @@ extension Countdown {
         }
 
         if now < first.at {
-            let remaining = first.at.timeIntervalSince(now)
-            let days = LocalDay.number(of: first.at, calendar: calendar) - LocalDay.number(of: now, calendar: calendar)
-            let stage: Journey.Stage = remaining < 86_400
-                ? .hours(Int(remaining / 3_600))
-                : .days(max(1, days))
+            let target = min(departureDay ?? first.at, first.at)
+            let remaining = max(0, target.timeIntervalSince(now))
+            let stage: Journey.Stage = now < target
+                ? .left(days: Int(remaining / 86_400), hours: Int(remaining.truncatingRemainder(dividingBy: 86_400) / 3_600))
+                : .today
             // Along the wait, from the start day's midnight to departure.
             let start = startDate.flatMap { LocalDay.date($0, calendar: calendar) }
             let progress: Double
@@ -143,8 +166,8 @@ extension Countdown {
                 progress = 0
             }
             let close: Bool
-            if case .days(let days) = stage { close = days <= Self.closeDays } else { close = true }
-            let window = (Double(Self.closeDays) + 0.5) * 86_400
+            if case .left(let days, _) = stage { close = days <= Self.closeDays } else { close = true }
+            let window = (Double(Self.closeDays) + 1) * 86_400
             let warmth = close ? min(1, max(0.12, 1 - remaining / window)) : 0
             return Journey(stage: stage, progress: progress, marks: marks, stops: stops, warmth: warmth, label: label)
         }

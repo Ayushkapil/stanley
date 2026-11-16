@@ -4,9 +4,10 @@ import SwiftUI
 /// since build 74). A thin hairline across the page with a small drawn
 /// plane where the trip stands today: solid behind it, dotted ahead, the
 /// journey's legs marked along its last part. Under it, the words: "India
-/// in 9 days" while it's more than a week off, plain; a week or less, the
-/// number in the hand and the strip warming as it comes; the last day in
-/// hours; then the leg it's on ("Chicago", "In the air"), and "Landed",
+/// in 9 days 3 hours" while it's more than a week off, plain; a week or
+/// less, the numbers in the hand and the strip warming as it comes, counting
+/// to midnight on the departure day (build 75); "Leaving today" until the
+/// first leg; then the leg it's on ("Chicago", "In the air"), and "Landed",
 /// which holds a day before the strip goes on its own. Never a negative
 /// number. A tap opens the journey as a card (`JourneyCard`). The day's
 /// note a friend tucked in (build 36) sits above it on its day. No emoji
@@ -73,21 +74,19 @@ struct CountdownRoute: View {
     }
 }
 
-/// The words, with the number apart: in the hand, larger, once the trip is
+/// The words, with the numbers apart: in the hand, larger, once the trip is
 /// a week off or less; set like the rest before then.
 private struct JourneyWords: View {
     let journey: Countdown.Journey
     let size: CGFloat
 
     var body: some View {
-        let parts = journey.words
-        var line = AttributedString(parts.lead)
-        if let number = parts.number {
-            var figure = AttributedString(number)
-            if journey.close { figure.font = .hand(size, bold: true, relativeTo: .title3) }
-            line += figure
+        var line = AttributedString()
+        for piece in journey.words {
+            var part = AttributedString(piece.text)
+            if piece.number && journey.close { part.font = .hand(size, bold: true, relativeTo: .title3) }
+            line += part
         }
-        line += AttributedString(parts.tail)
         return Text(line)
     }
 }

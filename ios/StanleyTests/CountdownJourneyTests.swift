@@ -2,8 +2,9 @@ import XCTest
 
 /// The India countdown's flight path (build 74): the clock moved to each
 /// leg, and to the day after landing, for a viewer in Bloomington and one in
-/// Mumbai. Days turn at the viewer's own midnight (`LocalDay`); legs begin
-/// at absolute moments.
+/// Mumbai. Before the trip it counts days and hours to midnight on the
+/// departure day where the journey begins (build 75), the same for every
+/// viewer; legs begin at absolute moments.
 final class CountdownJourneyTests: XCTestCase {
     private static let config = """
     {
@@ -46,42 +47,48 @@ final class CountdownJourneyTests: XCTestCase {
 
     func testMoreThanAWeekOutIsPlain() throws {
         let journey = try XCTUnwrap(countdown().journey(at: at("2026-11-13T12:00:00-05:00"), calendar: calendar(bloomington)))
-        XCTAssertEqual(journey.text, "India in 10 days")
+        XCTAssertEqual(journey.text, "India in 9 days 12 hours")
         XCTAssertFalse(journey.close)
         XCTAssertEqual(journey.warmth, 0)
     }
 
+    /// Days and hours to midnight on the 23rd in Bloomington, where the
+    /// journey begins: 9 PM on the 15th is 7 days 3 hours.
     func testAWeekOrLessIsWrittenAndWarms() throws {
         let c = try countdown()
-        let week = try XCTUnwrap(c.journey(at: at("2026-11-16T12:00:00-05:00"), calendar: calendar(bloomington)))
-        XCTAssertEqual(week.text, "India in 7 days")
+        let week = try XCTUnwrap(c.journey(at: at("2026-11-15T21:00:00-05:00"), calendar: calendar(bloomington)))
+        XCTAssertEqual(week.text, "India in 7 days 3 hours")
         XCTAssertTrue(week.close)
-        XCTAssertEqual(week.words.number, "7")
+        XCTAssertEqual(week.words.filter(\.number).map(\.text), ["7", "3"])
         let three = try XCTUnwrap(c.journey(at: at("2026-11-20T12:00:00-05:00"), calendar: calendar(bloomington)))
-        XCTAssertEqual(three.text, "India in 3 days")
+        XCTAssertEqual(three.text, "India in 2 days 12 hours")
         XCTAssertGreaterThan(week.warmth, 0)
         XCTAssertGreaterThan(three.warmth, week.warmth)
         XCTAssertLessThan(three.warmth, 1)
+        XCTAssertEqual(words("2026-11-16T00:00:00-05:00", in: bloomington, c), "India in 7 days")
+        XCTAssertEqual(words("2026-11-21T23:00:00-05:00", in: bloomington, c), "India in 1 day 1 hour")
     }
 
-    func testDaysTurnAtTheViewersOwnMidnight() throws {
+    /// One moment for everyone: the same words in Mumbai as in Bloomington.
+    func testTheSameEverywhere() throws {
         let c = try countdown()
-        // 34 hours off at 11 PM on the 21st is still two days on the calendar.
-        XCTAssertEqual(words("2026-11-21T23:00:00-05:00", in: bloomington, c), "India in 2 days")
-        XCTAssertEqual(words("2026-11-22T00:30:00-05:00", in: bloomington, c), "India in 1 day")
-        // The same moment in Mumbai is the 22nd's morning; it leaves at 7:30
-        // PM on the 23rd there.
-        XCTAssertEqual(words("2026-11-21T23:00:00-05:00", in: mumbai, c), "India in 1 day")
-        XCTAssertEqual(words("2026-11-16T12:00:00+05:30", in: mumbai, c), "India in 7 days")
+        for moment in ["2026-11-15T21:00:00-05:00", "2026-11-21T23:00:00-05:00", "2026-11-22T10:00:00-05:00"] {
+            XCTAssertEqual(words(moment, in: mumbai, c), words(moment, in: bloomington, c))
+        }
+        XCTAssertEqual(words("2026-11-16T07:30:00+05:30", in: mumbai, c), "India in 7 days 3 hours")
     }
 
-    func testTheLastDayIsHours() throws {
+    func testTheLastDayIsHoursThenLeavingToday() throws {
         let c = try countdown()
-        XCTAssertEqual(words("2026-11-22T08:00:00-05:00", in: bloomington, c), "India in 1 day")
-        XCTAssertEqual(words("2026-11-22T10:00:00-05:00", in: bloomington, c), "India in 23 hours")
-        XCTAssertEqual(words("2026-11-23T07:30:00-05:00", in: bloomington, c), "India in 1 hour")
-        XCTAssertEqual(words("2026-11-23T08:30:00-05:00", in: bloomington, c), "India in under an hour")
-        XCTAssertEqual(words("2026-11-22T22:00:00+05:30", in: mumbai, c), "India in 21 hours")
+        XCTAssertEqual(words("2026-11-22T10:00:00-05:00", in: bloomington, c), "India in 14 hours")
+        XCTAssertEqual(words("2026-11-22T23:00:00-05:00", in: bloomington, c), "India in 1 hour")
+        XCTAssertEqual(words("2026-11-22T23:30:00-05:00", in: bloomington, c), "India in under an hour")
+        XCTAssertEqual(words("2026-11-23T00:00:00-05:00", in: bloomington, c), "Leaving today")
+        XCTAssertEqual(words("2026-11-23T08:59:00-05:00", in: mumbai, c), "Leaving today")
+        let today = try XCTUnwrap(c.journey(at: at("2026-11-23T06:00:00-05:00"), calendar: calendar(bloomington)))
+        XCTAssertTrue(today.close)
+        XCTAssertNil(today.current)
+        XCTAssertEqual(today.spoken(reminder: nil), "India. Leaving today")
     }
 
     func testEachLeg() throws {
@@ -133,8 +140,10 @@ final class CountdownJourneyTests: XCTestCase {
                     XCTAssertFalse(gone, "came back after it had gone")
                     XCTAssertFalse(journey.text.contains("-"), journey.text)
                     switch journey.stage {
-                    case .days(let days): XCTAssertGreaterThanOrEqual(days, 1)
-                    case .hours(let hours): XCTAssertTrue((0..<24).contains(hours))
+                    case .left(let days, let hours):
+                        XCTAssertGreaterThanOrEqual(days, 0)
+                        XCTAssertTrue((0..<24).contains(hours))
+                    case .today: break
                     case .leg(let index): XCTAssertTrue(journey.stops.indices.contains(index))
                     }
                     XCTAssertGreaterThanOrEqual(journey.progress, last)
@@ -169,6 +178,9 @@ final class CountdownJourneyTests: XCTestCase {
         let c = try countdown(old)
         XCTAssertEqual(c.stops.map(\.words), ["On the way", "Landed"])
         XCTAssertEqual(words("2026-11-24T06:00:00-06:00", in: bloomington, c), "On the way")
+        // It counts to midnight in the trip's own zone: Chicago's is 1 AM in
+        // Bloomington.
+        XCTAssertEqual(words("2026-11-22T12:00:00-05:00", in: bloomington, c), "India in 13 hours")
     }
 }
 
@@ -177,8 +189,8 @@ extension CountdownJourneyTests {
         let c = try countdown()
         let cal = calendar("America/Indiana/Indianapolis")
         let before = try XCTUnwrap(c.journey(at: Countdown.moment("2026-11-16T12:00:00-05:00")!, calendar: cal))
-        XCTAssertEqual(before.spoken(reminder: "One week. ONE WEEK."), "One week. ONE WEEK. India in 7 days")
-        XCTAssertEqual(before.spoken(reminder: "Pack"), "Pack. India in 7 days")
+        XCTAssertEqual(before.spoken(reminder: "One week. ONE WEEK."), "One week. ONE WEEK. India in 6 days 12 hours")
+        XCTAssertEqual(before.spoken(reminder: "Pack"), "Pack. India in 6 days 12 hours")
         let air = try XCTUnwrap(c.journey(at: Countdown.moment("2026-11-24T06:00:00-06:00")!, calendar: cal))
         XCTAssertEqual(air.spoken(reminder: nil), "India. In the air")
     }
