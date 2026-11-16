@@ -3663,7 +3663,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   November 16, 2026**, as 74 was ("Stanley 0.2.0 (75)" in Organizer's
   folder; "Upload succeeded", then processing; the only warning
   Sentry.framework's missing dSYM). Ayush's friends were on build 55
-  in TestFlight then. Not yet seen in TestFlight.
+  in TestFlight then: builds 56 to 74 had gone only to the internal
+  group, Pilot Testers (Ayush alone), and 68 and 75 sat at "Missing
+  Compliance" (no `ITSAppUsesNonExemptEncryption` in the plist, so each
+  build waits on that question). Ayush answered it for 75, and 75 was
+  added to the external group **Friends** (seven testers) the same
+  afternoon, with a "What to Test" note; it went straight to Testing,
+  no review wait, and testers were notified.
 - **Build 74** (0.2.0): the India countdown as a flight path (above).
   Phone only; v34 on Fly is its server. **Archived and uploaded to App
   Store Connect on November 16, 2026**, as 73 was ("Stanley 0.2.0 (74)"
