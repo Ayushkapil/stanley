@@ -3763,8 +3763,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
-- **Build 76** (0.2.0): the opened cover (above). Phone and server; the
-  server deployed to Fly the same day (below). Not archived.
+- **Build 76** (0.2.0): the opened cover (above). Phone and server. Not
+  archived. **Its server is on Fly as release v35** (November 16, `main`
+  as of `74de31e`, after the full suite passed, 736): `/health` ok;
+  `POST /me/journal/cover` and `PATCH /me/journal` answer 401 without a
+  sign-in; `/privacy` says November 16, 2026 with the cover's words;
+  `users.journal_cover_key` exists on the volume; integrity ok. Older
+  builds see one change: a circle's cover is now its newest photo for
+  everyone, not their own keep in it.
 - **Build 75** (0.2.0): days and hours to midnight on the 23rd (above).
   Phone only; v34 on Fly is its server, and the legs set on Anti mosquito
   need nothing new. **Archived and uploaded to App Store Connect on
