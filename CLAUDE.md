@@ -578,6 +578,80 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Crash reports with no identifier; the policy's notice** (build 70,
+  November 15, 2026, from Ayush, "Turn on crash reporting, in this
+  order", stopped before step 4: no Sentry account, DSN or token yet).
+  Phone only; nothing on the server changed.
+  - **The scrub** (`ios/Stanley/CrashReporting.swift`). Sentry is set up
+    in one place now, `CrashReporting.configure` (the options that were
+    in `StanleyApp.init`, plus `sendDefaultPii = false`), and its last
+    line is `options.beforeSend = { CrashScrub.scrub($0) }`. Sentry
+    8.58.4, read at its source, adds three things to every report on its
+    own: a random **installation id** it keeps in a file, as `user.id`
+    whenever the app sets no user (`SentryClient.setUserIdIfNoUserSet`);
+    the phone's **time zone and locale** (`contexts.culture`, and
+    `contexts.device.locale`); and `contexts.app.device_app_hash`, a
+    hash of iOS's identifier for the vendor (found while doing this; the
+    brief named the first two). The scrub takes out the user, the
+    culture context, any `locale`, `timezone`, `time_zone` or
+    `device_app_hash` key in any context, and any value anywhere in the
+    contexts, tags or extras that is the installation id, the time zone
+    or the locale. `beforeSend` runs after Sentry has added all three,
+    and nothing after it adds more but session replay (off), so this is
+    what leaves the phone. Crash events go the same way (they're
+    captured through the same `prepareEvent` on the next launch).
+  - **The test** (`CrashScrubTests`; Sentry is now a dependency of
+    `StanleyTests`): starts the real SDK with the app's own
+    `configure`, a DSN that points nowhere, and a spy around the app's
+    `beforeSend` that records the report before and after and drops it.
+    It fails if the installation id, the time zone or a locale value,
+    the device hash, or a `culture`, `locale`, `timezone` or
+    `device_app_hash` key is in what leaves, or if Sentry stops setting
+    an installation id (the sign to read its source again). Checked by
+    breaking the scrub on purpose: all eight checks fail. (The time
+    zone's check first passed falsely: JSON writes `America/Indiana/…`
+    as `America\/Indiana\/…`; the test writes without escaping slashes.)
+  - **The policy's notice** (`PolicyNotice.swift`, `PolicyNoticeSheet.
+    swift`; `RootView`'s sheet). Section 10's promise ("in the app
+    before it takes effect") had nothing behind it, and blocked three
+    changes. A sheet, once the profile and circle have loaded, when the
+    policy's date is newer than the one this phone acknowledged
+    (`stanley.privacyAcknowledged`, a yyyy-MM-dd in UserDefaults): "Privacy
+    Policy Updated", the effective date, what changed in plain words (by
+    date when there's more than one), "Read the Privacy Policy" (the
+    full policy, pushed), and **Got It**, the only way out (it can't be
+    swiped away). **Signing in acknowledges the policy as it stands**
+    (Welcome says signing in agrees to it), so a new account never sees
+    it. Someone signed in from before this build has acknowledged
+    nothing and is taken to have read build 40's policy (November 12,
+    the last build uploaded), so the pilot is told November 13's, 14's
+    and 15's changes the first time build 70 opens. Each change to the
+    policy adds a `PolicyNotice.Revision` (its day, its date as the
+    policy writes it, what changed). Not asked about: per phone, not per
+    account (a sign-in sets it anyway); build 40 as the starting point.
+  - **Tests** (`PolicyNoticeTests`, five): the newest revision is
+    `Legal.privacyEffective` exactly (so a policy change without a
+    revision fails); revisions in order, each saying something, each
+    title its day; someone from before told everything since November
+    12, newest first; acknowledging ends it; only what's newer than the
+    last acknowledged. 45 phone tests in all.
+  - **`PRIVACY_LABEL.md`**: the scrub and what it removes, that it must
+    stay, and that a failing `CrashScrubTests` after an upgrade means
+    fixing the scrub, not relabelling.
+  - **Not done, waiting on the account**: the Privacy Policy's new
+    wording. It has to name where Sentry keeps reports (US or EU, chosen
+    when the organization is made) and for how long (**30 days on the
+    free Developer plan, 90 on Team**: the build 69 summary said "usually
+    90", which was wrong for the free plan), and say that reports carry
+    no identifier. That's a new effective date in `legal.py` and
+    `Legal.swift` (`test_legal.py` holds them together), a new
+    `PolicyNotice.Revision` with it, and a `fly deploy`.
+  - **Seen** on the iPhone 17 Pro against a local server, signed in from
+    before this build: the sheet came up after Today loaded, with
+    November 15's, 14's and 13's changes; Got It closed it, and it didn't
+    come back on the next launch. Not seen: a fresh sign-in passing it
+    by, the policy pushed from it, dark mode, VoiceOver, a real phone.
+
 - **The title's ink from its field** (build 69, November 15, 2026, from
   Ayush, "Two fixes"). Phone only; nothing on the server changed.
   - **A journal with no cover photo writes in whichever ink its field
@@ -2754,7 +2828,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (69)", at the
+  production audit), and the version, "Stanley 0.2.0 (70)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3288,17 +3362,32 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   moment".
 - **Build 69** (0.2.0): the title's ink from its field (above). Phone
   only; not archived. Carries build 68.
-- **Crash reporting, looked at for a decision** (November 15, build 69's
-  brief; nothing turned on). Found in Sentry 8.58.4's source: with no
-  user set, every event gets `user.id` = a random installation id the
-  SDK keeps in a file (`SentryClient.setUserIdIfNoUserSet`), and the
-  event's context carries the phone's time zone and locale. Neither is
-  in the Privacy Policy ("anonymous") or `PRIVACY_LABEL.md`; a
-  `beforeSend` that clears both, or words for both, before any DSN
-  ships. The archive's `Sentry.framework` is dynamic, which is why App
-  Store Connect wants its dSYM. What else it would take is in
-  `PRODUCTION_CHECKLIST.md` item 3, plus a dSYM upload step that
-  `sentry-cli` (not installed here) would run after the archive.
+- **Crash reporting is ready to switch on once the Sentry account
+  exists** (build 70; Ayush stopped the work there, November 15). Done:
+  the scrub and its test, the policy's notice, `PRIVACY_LABEL.md`. Left,
+  in order, after the account is made:
+  1. From sentry.io: the region (US or EU), the plan (Developer keeps
+     errors 30 days, Team 90), an Apple/iOS project, its organization
+     and project slugs, the DSN (a public key; fine in the repo), and
+     Security & Privacy: *Prevent Storing of IP Addresses*, *Data
+     Scrubber*, *Use Default Scrubbers*. An organization auth token for
+     symbols, which Ayush saves in `~/.sentryclirc` (`[auth]`,
+     `token=…`) or `SENTRY_AUTH_TOKEN`: never in the repo or a chat.
+  2. The Privacy Policy: region, retention, no identifier; a new date in
+     `legal.py` and `Legal.swift`; a `PolicyNotice.Revision`;
+     `PRIVACY_LABEL.md`'s "checked against" line; `fly deploy`.
+  3. `STANLEY_SENTRY_DSN` in `ios/project.yml`; `brew install
+     getsentry/tools/sentry-cli`; a Release-only post-build phase running
+     `sentry-cli debug-files upload --include-sources
+     "$DWARF_DSYM_FOLDER_PATH"` with the org and project, skipped with a
+     warning when no token is found, so a build never fails for it (and
+     covering `Sentry.framework`'s dSYM, which build 68's upload warned
+     about: that framework is dynamic).
+  4. Prove it: a Release build crashed on purpose, the report read in
+     Sentry for a readable stack and nothing identifying.
+  5. Tell the pilot: build 70's notice does it in the app.
+- **Build 70** (0.2.0): the crash scrub and the policy's notice (above).
+  Phone only; not archived. Carries build 69.
 - **Build 68** (0.2.0): the page's date as furniture and the covers'
   scrims (above). Phone only; v33 on Fly is its server. Build 68
   carries everything below. **Archived and uploaded to App Store
@@ -3817,8 +3906,9 @@ page, six more; since build 64 the capture's daily prompt turning at
 local midnight, four more; and a day written out and read back on the
 phone's calendar, four more; since build 65 the answer sheet's rules,
 eight more; since build 66 what VoiceOver says and taking a mark back,
-five more; since build 69 the title's ink on a journal's field, six more,
-thirty-nine in all). `tests/test_moods.py` (build 65) holds
+five more; since build 69 the title's ink on a journal's field, six more;
+since build 70 a crash report leaving with no identifier, one, and the
+policy's notice, five, forty-five in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

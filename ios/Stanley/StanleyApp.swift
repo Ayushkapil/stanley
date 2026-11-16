@@ -12,29 +12,12 @@ struct StanleyApp: App {
         // spinner is drawn in no color (build 39, `Polish.swift`).
         SunRefresh.prepare()
         // Crash visibility for TestFlight. DSN-gated: empty DSN (every dev
-        // build) means Sentry never starts. Crash capture only — no sessions,
-        // no tracing, no screenshots, and no user identity is ever attached,
-        // so crash data stays anonymous ("not linked to you" on the label).
+        // build) means Sentry never starts. Crash capture only, with no
+        // identifier of any kind (`CrashReporting`, `CrashScrub`), so crash
+        // data stays anonymous ("not linked to you" on the label).
         if let dsn = Bundle.main.object(forInfoDictionaryKey: "STANLEY_SENTRY_DSN") as? String,
            !dsn.isEmpty {
-            SentrySDK.start { options in
-                options.dsn = dsn
-                options.enableAutoSessionTracking = false  // sessions are usage data
-                options.enableAppHangTracking = false      // crashes only, no near-miss noise
-                options.attachScreenshot = false           // never ship a user's photo
-                options.attachViewHierarchy = false
-                options.tracesSampleRate = 0               // no performance telemetry
-                // The production audit: the only trail is Stanley's own
-                // (`Trail`), fixed words with nothing personal in them.
-                // Sentry's automatic one records taps, screens and every
-                // request's URL, and a URL can carry a username or an id.
-                options.enableAutoBreadcrumbTracking = false
-                options.enableNetworkBreadcrumbs = false
-                // A server's 5xx is a server problem, logged on the server;
-                // reporting it from phones would send request URLs too.
-                options.enableCaptureFailedRequests = false
-                options.maxBreadcrumbs = 30
-            }
+            SentrySDK.start { CrashReporting.configure($0, dsn: dsn) }
         }
     }
 
@@ -89,6 +72,16 @@ struct RootView: View {
     @AppStorage("stanley.appearance") private var appearance = "system"
     @AppStorage("stanley.atmosphere") private var atmosphere = "auto"
     @AppStorage("stanley.hasSeenOnboarding") private var hasSeenOnboarding = false
+    /// The Privacy Policy's date this phone last acknowledged (build 70,
+    /// `PolicyNotice`): empty until a sign-in or the notice's button.
+    @AppStorage(PolicyNotice.key) private var acknowledgedPolicy = ""
+
+    private var acknowledgedOrNil: String? { acknowledgedPolicy.isEmpty ? nil : acknowledgedPolicy }
+
+    private var policyNoticeDue: Bool {
+        !Self.showsWidgetGallery && state.signedIn && state.checkedCircle
+            && PolicyNotice.due(acknowledged: acknowledgedOrNil)
+    }
 
     private var colorScheme: ColorScheme? {
         switch appearance {
@@ -164,6 +157,18 @@ struct RootView: View {
             // same color at both layers, so the overlap is invisible and
             // nothing can show through.
             .background(Atmosphere.resolve(atmosphere).palette.floor.ignoresSafeArea())
+            // The policy changed since this phone last acknowledged it
+            // (build 70): told once, after the profile and circle have
+            // loaded, never on the way in for someone signing in (signing
+            // in agrees to it as it stands).
+            .sheet(isPresented: Binding(
+                get: { policyNoticeDue },
+                set: { _ in }
+            )) {
+                PolicyNoticeSheet(unread: PolicyNotice.unread(acknowledged: acknowledgedOrNil)) {
+                    acknowledgedPolicy = PolicyNotice.current.day
+                }
+            }
         }
         // Said from whatever is on top (the HCI audit, build 32). A SwiftUI
         // alert here, on the root, closed any sheet that was open to show

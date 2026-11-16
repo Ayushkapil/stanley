@@ -88,6 +88,11 @@ themselves (description, keywords, age rating, screenshots) are in
    passes (DEPLOY.md, "Integrity check").
 
 3. ⚠️ **Not done** (`STANLEY_SENTRY_DSN` is still empty in `ios/project.yml`).
+   **Build 70 did the app's half**: every report is scrubbed of the
+   installation id, time zone, locale and device hash before it leaves
+   (`CrashScrub`, held by `CrashScrubTests`). What's left is in CLAUDE.md,
+   "Crash reporting is ready to switch on once the Sentry account exists";
+   note the free plan keeps errors 30 days, not 90.
    **Turn on crash reporting** (Sentry; no build has had a DSN yet, so no
    crash has ever been reported from anyone's phone):
    1. sentry.io → Projects → Create Project → platform **Apple / iOS** →
@@ -147,7 +152,12 @@ themselves (description, keywords, age rating, screenshots) are in
      `ios/AppStoreScreenshots/6.1/` to the 6.3" slot. Read the caveats under
      "Screenshots" first.
 
-7. ⚠️ **Not done.** Now covers the November 4 wording too (the board).
+7. ✅ **Built in build 70** (not yet shipped): a one-time sheet when the
+   Privacy Policy's date is newer than the one the phone acknowledged,
+   with what changed and a link to the whole policy (`PolicyNotice`).
+   Someone signed in from before it is told everything since build 40's
+   policy (November 12). The history below is kept.
+   Now covers the November 4 wording too (the board).
    **Tell the pilot about the Privacy Policy change** before a build with a
    Sentry DSN ships. The policy now says a crash report carries a short trail
    of what the app did ("opened Held", "posted a photo"), and its section 10

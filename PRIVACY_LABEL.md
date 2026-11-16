@@ -147,6 +147,24 @@ Personalization, never Other.
   `ios/Stanley/StanleyApp.swift`, and stays true only while all of this does:
   - No `SentrySDK.setUser` call anywhere — crash reports carry no account ID,
     name, or username.
+  - **The scrub must stay** (build 70): `options.beforeSend =
+    CrashScrub.scrub`, set in `CrashReporting.configure`
+    (`ios/Stanley/CrashReporting.swift`), which the app starts Sentry
+    with. Sentry 8.58.4 adds three things of its own to every report that
+    would make "not linked" and the policy's "no identifier" untrue, and
+    the scrub takes all three out before anything leaves the phone: a
+    random **installation id** it keeps in a file and sets as `user.id`
+    whenever the app sets no user; the phone's **time zone and locale**
+    (`contexts.culture`, `contexts.device.locale`); and
+    `contexts.app.device_app_hash`, a hash of iOS's **identifier for the
+    vendor**. It also drops any value anywhere in the report that is the
+    installation id, the time zone or the locale, so a field a later
+    Sentry adds under a new name doesn't carry them out.
+    `StanleyTests/CrashScrubTests` builds a real report with the app's own
+    configuration and fails if any of them leave, or if Sentry stops
+    setting the installation id (the sign to read its source again). If
+    the scrub is ever removed, the Identifiers row gains Device ID for
+    crash reports, and the Privacy Policy has to say so.
   - `enableAutoSessionTracking = false` (sessions are usage data — off).
   - `attachScreenshot = false` and `attachViewHierarchy = false` (a screenshot
     could contain someone's photo — never shipped).
@@ -265,6 +283,11 @@ the crash trail, only in a build with a DSN; no analytics, no advertising.)
   above.)
 - Any analytics/telemetry SDK is added → Usage Data changes, and the "no
   counts, no engagement signals" product rules deserve a second look anyway.
+- `CrashScrub` is taken out of `beforeSend`, or Sentry is upgraded and
+  `CrashScrubTests` fails → the installation id, the time zone and locale
+  and the device hash go out with every report: Crash Data flips to
+  **Linked** (a stable device id), and the policy's "no identifier" is
+  untrue. Fix the scrub, don't relabel.
 - `SentrySDK.setUser` or custom Sentry events, or a `Trail` step carrying an
   id, a name or anything typed, is added → Crash Data and Product
   Interaction flip to **Linked to identity**. Sentry's automatic

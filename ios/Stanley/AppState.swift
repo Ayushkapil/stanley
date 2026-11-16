@@ -357,6 +357,9 @@ final class AppState {
         }
         api.token = auth.token
         UserDefaults.standard.set(Date.now, forKey: Self.signInRenewedKey)
+        // Signing in agrees to the Privacy Policy as it stands (Welcome
+        // says so), so its notice has nothing to tell (build 70).
+        PolicyNotice.acknowledge()
         myId = auth.user.id
         setupPending = UserDefaults.standard.bool(forKey: Self.setupKey(auth.user.id))
         signedIn = true
