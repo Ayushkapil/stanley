@@ -3669,7 +3669,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   build waits on that question). Ayush answered it for 75, and 75 was
   added to the external group **Friends** (seven testers) the same
   afternoon, with a "What to Test" note; it went straight to Testing,
-  no review wait, and testers were notified.
+  no review wait, and testers were notified. **From build 76 on**, the
+  app's plist says `ITSAppUsesNonExemptEncryption` false (in
+  `project.yml`), so builds skip the question; each upload still has to
+  be added to Friends in App Store Connect (Ayush said yes to doing that
+  with every upload).
 - **Build 74** (0.2.0): the India countdown as a flight path (above).
   Phone only; v34 on Fly is its server. **Archived and uploaded to App
   Store Connect on November 16, 2026**, as 73 was ("Stanley 0.2.0 (74)"

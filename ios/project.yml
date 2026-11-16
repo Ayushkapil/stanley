@@ -51,6 +51,10 @@ targets:
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
         CFBundleVersion: "75"
+        # Export compliance, answered once here so TestFlight stops holding
+        # each build at "Missing Compliance": Stanley uses only HTTPS and the
+        # Keychain, the operating system's own encryption, which is exempt.
+        ITSAppUsesNonExemptEncryption: false
         # Substituted from the build setting of the same name below when Xcode
         # processes this plist, so a single file carries a different address per
         # configuration: Debug leaves it empty and APIClient falls back to
