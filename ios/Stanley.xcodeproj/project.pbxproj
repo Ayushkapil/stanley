@@ -11,6 +11,7 @@
 		013DEF24EEADEF7753533AA7 /* Mentions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7076D62BCAF8F97CC12051C7 /* Mentions.swift */; };
 		085A358993C019819E3E1743 /* CircleGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */; };
 		0964E9E411DB56AD9A1ADC53 /* NotePaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4C10AAB5D65F385106D774 /* NotePaper.swift */; };
+		0ADCDE21FB81D729FA7DA46D /* CountdownJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E4E26AC43F1B823C59634F /* CountdownJourney.swift */; };
 		0CC4F7FA34CA0186377FD125 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31AD660F2C25D0127589383 /* SetupView.swift */; };
 		0F955200507910D63314D405 /* CoverField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9710447F6809769AD3ABD29B /* CoverField.swift */; };
 		0FDEEB6D62C338D8044AFB6B /* BookWriting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC96E420C1BD63087BAE9E9 /* BookWriting.swift */; };
@@ -65,6 +66,7 @@
 		6E530ED3C9A38E025BAC6A20 /* Prompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1ECA5D6FA0C3861CBCD5E8 /* Prompts.swift */; };
 		6F9A60A9341F464C3A24AC5B /* Whereabouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA186266B8710917748C184C /* Whereabouts.swift */; };
 		70427E223F09A23142109DB1 /* JournalColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */; };
+		7119969C6F144143E8ECBC47 /* Countdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D8A5CF25BBCE7C3BF926A /* Countdown.swift */; };
 		782CD1F0E2D3CC4EE7CF4E66 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8381587E53B72E1B5127D6F9 /* WidgetSnapshot.swift */; };
 		7853A5B3B7F656C0273824EE /* WidgetFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = C045C767C9F70850B55FEEF2 /* WidgetFeed.swift */; };
 		785FAFD68215F38893B3A3DB /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D713EC95A1BA95F6043E0E8 /* Book.swift */; };
@@ -85,12 +87,14 @@
 		998F9CACD2847967CC41FAA0 /* MarkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2BC067E379618D0AC42575D /* MarkSheet.swift */; };
 		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
 		9B875E138E72B8C9EB4B13A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B9C29C3CAA06BA510C076FD /* Assets.xcassets */; };
+		9EB3A977E4A0701B7EDC97FC /* CountdownJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E4E26AC43F1B823C59634F /* CountdownJourney.swift */; };
 		A218937F0265E72919AAE872 /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38170E6EF5384B93F19F643 /* UIComponents.swift */; };
 		A7F7AF0C0BB4FF3433DEE086 /* JournalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */; };
 		A8591C9EB0F9246931FAA71E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DBDA7ADA0FE16BC11A69D7 /* OnboardingView.swift */; };
 		A89E8EBBE150361E5A1D48C9 /* JournalInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD47418CFF8A076A7B864619 /* JournalInk.swift */; };
 		A8CED4FF1D069C1DEBB696E6 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636C83C3D3D660B14E60D9BC /* Atmosphere.swift */; };
 		ABC41BA61C6FD5DBA91429C2 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B910D5D0535C57C080D6460 /* Keychain.swift */; };
+		B00CEE8B69B25BEEFAE3616C /* CountdownJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A6A7175A8CB625353E315D /* CountdownJourneyTests.swift */; };
 		B2F6DB4DA1B7888FFCE2FA1C /* StanleyWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB37B70B453BD197952E7525 /* StanleyWidgets.swift */; };
 		B2FFCE0288160A4824F692D3 /* LocalDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FDE374EF58AFB604A3324F9 /* LocalDay.swift */; };
 		B70470B18621E67B9CC8343F /* Countdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D8A5CF25BBCE7C3BF926A /* Countdown.swift */; };
@@ -218,6 +222,7 @@
 		D8E1530F3914BF87D9FD0079 /* JournalCovers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalCovers.swift; sourceTree = "<group>"; };
 		DE4EEEC1A2ACD10FC74C4278 /* JournalColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalColors.swift; sourceTree = "<group>"; };
 		E023A6585893ACCFB419EF4D /* Stanley.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stanley.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0A6A7175A8CB625353E315D /* CountdownJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownJourneyTests.swift; sourceTree = "<group>"; };
 		E137B196869A47ACE289A041 /* WorldTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldTodayView.swift; sourceTree = "<group>"; };
 		E1D927F2B4D7F02207747D21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E237A15BDE57446BB210AB40 /* BookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookView.swift; sourceTree = "<group>"; };
@@ -229,6 +234,7 @@
 		EC79465A15EDB31157A01572 /* CrashReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporting.swift; sourceTree = "<group>"; };
 		ED7B00C39F6576DE540B581C /* SignedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignedImage.swift; sourceTree = "<group>"; };
 		F2BC067E379618D0AC42575D /* MarkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkSheet.swift; sourceTree = "<group>"; };
+		F4E4E26AC43F1B823C59634F /* CountdownJourney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownJourney.swift; sourceTree = "<group>"; };
 		FEBB1E80695B05BAB1F4CFC4 /* Push.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Push.swift; sourceTree = "<group>"; };
 		FF1EAA561C6AD4634B99292A /* WidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -283,6 +289,7 @@
 				0D04BCFD7BB93B8C16185E64 /* CaptureView.swift */,
 				E3B076C8477C5D3BD2DE0A72 /* CircleGateView.swift */,
 				4F315219FA2D96398B7CA7B6 /* CircleLetters.swift */,
+				F4E4E26AC43F1B823C59634F /* CountdownJourney.swift */,
 				9564E665D2B5D8EF218192E3 /* CountdownRoute.swift */,
 				EC79465A15EDB31157A01572 /* CrashReporting.swift */,
 				951D8C3FFFAD3B327B3C5F72 /* Framing.swift */,
@@ -358,6 +365,7 @@
 			isa = PBXGroup;
 			children = (
 				7B8457E1C9B95BB166473DDF /* AskToNotifyTests.swift */,
+				E0A6A7175A8CB625353E315D /* CountdownJourneyTests.swift */,
 				2700684C4D8B78EA4E7DF125 /* CoverFieldTests.swift */,
 				296D0E067C6518252D49A2D4 /* CrashScrubTests.swift */,
 				5B1D3FB5817DCFD3D6F364E6 /* DailyPromptTests.swift */,
@@ -532,6 +540,9 @@
 			files = (
 				0FE705B36B9ED2175FE41B92 /* AskToNotify.swift in Sources */,
 				515C089DEA90E15F71B74A61 /* AskToNotifyTests.swift in Sources */,
+				7119969C6F144143E8ECBC47 /* Countdown.swift in Sources */,
+				9EB3A977E4A0701B7EDC97FC /* CountdownJourney.swift in Sources */,
+				B00CEE8B69B25BEEFAE3616C /* CountdownJourneyTests.swift in Sources */,
 				DAD64DE188A2E64E543EC158 /* CoverField.swift in Sources */,
 				850ABF3A9ACC467D0092DF78 /* CoverFieldTests.swift in Sources */,
 				93EA3541D19B70C8AF549E1C /* CrashReporting.swift in Sources */,
@@ -572,6 +583,7 @@
 				085A358993C019819E3E1743 /* CircleGateView.swift in Sources */,
 				EA560D28272AA841F51AD6A5 /* CircleLetters.swift in Sources */,
 				B70470B18621E67B9CC8343F /* Countdown.swift in Sources */,
+				0ADCDE21FB81D729FA7DA46D /* CountdownJourney.swift in Sources */,
 				8B834070638386F599F8A94F /* CountdownRoute.swift in Sources */,
 				18675AEFF5EA0911588555E8 /* CoverField.swift in Sources */,
 				952CA06C49A38B22440CA705 /* CrashReporting.swift in Sources */,

@@ -32,6 +32,16 @@ The fields:
                       calendar days left ({"14": "Two weeks. Let that sink
                       in."}), "0" for the day itself; each shows on its
                       day only
+  legs                optional (build 74), the journey leg by leg, in
+                      order: [{"words": "Chicago", "at": ISO 8601 with its
+                      offset}, ...]. Each leg begins at its moment, an
+                      absolute instant the app shows in each viewer's own
+                      time. "at": null keeps a slot for a leg whose time
+                      isn't known yet (the leg before runs on through it).
+                      The last leg is the landing, held for a day before
+                      the strip goes; it must be arrives_at, and the first
+                      must fall on target_date in target_tz, so builds
+                      before 74 agree. Correct a leg here, not in the app.
 
 No emoji in the label or the messages (build 36): the app draws the plane
 and the house, and the words are only words, so a symbol there is refused.
@@ -55,6 +65,9 @@ PRESETS = {
     # landing is Nov 25 02:30 IST (Nov 24 15:00 CST); it all goes at the
     # start of Nov 28 IST, i.e. after 23:59 on Nov 27 there. The words since
     # build 36: "for Home", and no emoji. A note for every day since build 38.
+    # The legs since build 74: leaving Bloomington at 9 AM there (Eastern),
+    # Chicago and the flight at 2 PM and 7:30 PM Chicago time, a slot for
+    # the Dubai stop until its time is known, landing in Mumbai at 2:30 AM.
     "india": {
         "label": "India",
         "start_date": "2026-11-06",
@@ -92,6 +105,13 @@ PRESETS = {
             "1": "Tomorrow. TOMORROW.",
             "0": "Let's go home.",
         },
+        "legs": [
+            {"words": "Leaving Bloomington", "at": "2026-11-23T09:00:00-05:00"},
+            {"words": "Chicago", "at": "2026-11-23T14:00:00-06:00"},
+            {"words": "In the air", "at": "2026-11-23T19:30:00-06:00"},
+            {"words": "Dubai", "at": None},
+            {"words": "Landed", "at": "2026-11-25T02:30:00+05:30"},
+        ],
     },
 }
 
@@ -128,7 +148,7 @@ def validate(data: dict) -> dict:
     if not isinstance(data, dict):
         raise Invalid("a countdown is a JSON object")
     unknown = set(data) - {"label", "start_date", "target_date", "target_tz",
-                           "arrives_at", "home_until", "messages", "reminders"}
+                           "arrives_at", "home_until", "messages", "reminders", "legs"}
     if unknown:
         raise Invalid(f"unknown fields: {sorted(unknown)}")
     label = data.get("label")
@@ -168,7 +188,39 @@ def validate(data: dict) -> dict:
             raise Invalid(f"a reminder's key is the days left, 0 to {span}, not {days!r}")
         if not isinstance(words, str) or not words.strip() or len(words) > 80:
             raise Invalid("a reminder is a short line of words")
+    if "legs" in data:
+        _legs(data["legs"], target, ZoneInfo(data["target_tz"]), arrives)
     return data
+
+
+def _legs(legs, target: date, zone: ZoneInfo, arrives: datetime | None) -> None:
+    """The journey: each leg's words, and its moment or a slot kept for
+    it; the known moments in order, the first on the day itself, the last
+    the landing."""
+    if not isinstance(legs, list):
+        raise Invalid("legs is a list of {words, at}")
+    known: list[datetime] = []
+    for leg in legs:
+        if not isinstance(leg, dict) or set(leg) - {"words", "at"} or "words" not in leg:
+            raise Invalid("each leg is {words, at}")
+        words = leg["words"]
+        if not isinstance(words, str) or not words.strip() or len(words) > 40:
+            raise Invalid("a leg's words are a few words")
+        if not _plain(words):
+            raise Invalid("no emoji in a leg: the app draws its own plane")
+        if leg.get("at") is not None:
+            moment = _moment(leg["at"], f"the leg {words!r}")
+            if known and moment <= known[-1]:
+                raise Invalid(f"the leg {words!r} doesn't come after the one before it")
+            known.append(moment)
+    if len(known) < 2:
+        raise Invalid("a journey needs at least two legs with their moments")
+    if legs[-1].get("at") is None:
+        raise Invalid("the last leg is the landing, and needs its moment")
+    if known[0].astimezone(zone).date() != target:
+        raise Invalid("the first leg must begin on target_date, in target_tz")
+    if arrives is None or known[-1] != arrives:
+        raise Invalid("the last leg must land at arrives_at")
 
 
 def _connect(path: str, write: bool) -> sqlite3.Connection:

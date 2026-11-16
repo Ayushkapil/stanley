@@ -40,6 +40,10 @@ enum Haptics {
     /// One of the five dots under today's photo, filled (build 52).
     static func moodMarked() { impact(.soft, "mood marked") }
 
+    /// The countdown's journey card opening (build 74, asked for in its
+    /// brief): one soft tap, on opening only.
+    static func journeyOpened() { impact(.soft, "journey opened") }
+
     /// Today's photo is up: posted, not merely queued for later.
     static func posted() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)

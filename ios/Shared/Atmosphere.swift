@@ -49,6 +49,32 @@ enum TextTone {
     static let onPhoto = Color(rgb(0xF2EADC))
 }
 
+/// The countdown's strip as it warms (build 74): the quieter words' gray
+/// a week out, turning toward a terracotta as the trip comes, all the way
+/// once it's begun. By day #A84A24, 5.5:1 on the floor and 4.8 on Rain's;
+/// at night #E8A36B, 9.9:1 on black. Every step between keeps 4.5:1, since
+/// both ends do and so does each mix of them in either room.
+enum CountdownTone {
+    static let warmDay: UInt32 = 0xA84A24
+    static let warmNight: UInt32 = 0xE8A36B
+
+    /// The ink at a warmth from 0 (the secondary) to 1 (the terracotta).
+    static func ink(_ warmth: Double) -> Color {
+        let t = CGFloat(min(1, max(0, warmth)))
+        return Color(UIColor { traits in
+            let dark = traits.userInterfaceStyle == .dark
+            return mix(dark ? TextTone.secondaryNight : TextTone.secondaryDay,
+                       dark ? warmNight : warmDay, t)
+        })
+    }
+
+    private static func mix(_ a: UInt32, _ b: UInt32, _ t: CGFloat) -> UIColor {
+        func channel(_ hex: UInt32, _ shift: UInt32) -> CGFloat { CGFloat((hex >> shift) & 0xFF) / 255 }
+        func blend(_ shift: UInt32) -> CGFloat { channel(a, shift) * (1 - t) + channel(b, shift) * t }
+        return UIColor(red: blend(16), green: blend(8), blue: blend(0), alpha: 1)
+    }
+}
+
 /// The journal's covers (build 57: their colors are here, not in the
 /// cover's own code).
 enum CoverTone {

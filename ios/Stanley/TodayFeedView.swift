@@ -371,10 +371,11 @@ struct TodayMasthead: View {
                 .minimumScaleFactor(0.8)
             OfflineLine()
             // One circle's countdown (build 35), under the date it counts
-            // from. Every other circle has none, and nothing is drawn.
+            // from. Every other circle has none, and nothing is drawn. It
+            // keeps its own room above it (build 74), so once it has gone
+            // on its own nothing is left behind.
             if let countdown = state.circle?.countdown {
                 CountdownRoute(countdown: countdown)
-                    .padding(.top, 4)
             }
             Rule(weight: 0.5)
                 .padding(.top, 4)

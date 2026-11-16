@@ -579,6 +579,83 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The India countdown as a flight path** (build 74, November 16, 2026,
+  a product brief from Ayush, "Make the India countdown nicer";
+  screenshots in `docs/countdown-build74/`). Phone, plus the script's
+  preset; the server code is unchanged (it hands the JSON on as it is).
+  **Where build 35's section below describes the route, the words or the
+  flip clock under Today's dateline, this wins**; the widget is as it was.
+  - **The strip** (`CountdownRoute.swift`): a 1pt hairline across the
+    page, solid behind a small drawn plane (SF `airplane`, light) and
+    dotted ahead, stopping short of the plane either side; a dot where
+    it began, the journey's stops along its last 40% (filled once
+    passed), a ring at the end. The wait (from `start_date`'s midnight
+    to the first leg) takes the first 60% and the journey the rest, by
+    time, so the plane visibly moves while it's in the air
+    (`Countdown.waitShare`). The day's note (build 36) still sits above
+    it on its day. **The flip clock and the arc are gone from Today**:
+    the brief's words replace them ("plain", "hours, not days").
+  - **The journey is in the config** (`Countdown.legs`, `[{words, at}]`,
+    each `at` an ISO 8601 moment with its offset): leaving Bloomington
+    9:00 AM Eastern on 23 November, Chicago 2:00 PM and in the air 7:30
+    PM **Chicago time** (the brief gave no zone for those two; they
+    happen in Chicago, so Chicago's was taken; not asked), **a Dubai slot
+    with `at: null`**, skipped until filled, so "In the air" runs on to
+    landing, and landed 2:30 AM in Mumbai on 25 November. Each leg
+    begins at its moment and is shown in the viewer's own zone. The
+    script refuses legs out of order, a landing with no moment, a first
+    leg not on `target_date` in `target_tz` or a last one not at
+    `arrives_at` (so builds before 74, which read those, agree), words
+    over 40 characters or with an emoji. A config with no legs (as set
+    before this build) is read as "On the way" from the departure day
+    to "Landed" at `arrives_at`.
+  - **The words** (`CountdownJourney.swift`): before the first leg,
+    "India in 9 days", plain, while it's more than seven days off on the
+    viewer's own calendar (`LocalDay`); seven or fewer, the number in the
+    hand, larger, and the strip warms (`CountdownTone.ink`, the secondary
+    turning to terracotta #A84A24 by day and amber #E8A36B at night,
+    4.5:1 or more at every step); inside the last 24 hours, whole hours
+    ("India in 23 hours", "in under an hour"). Then the leg's own words
+    ("Leaving Bloomington", "Chicago", "In the air", "Landed"), fully
+    warm. **Never a negative number. "Landed" holds a day**
+    (`Countdown.landedHolds`), then the strip goes on its own, and the
+    masthead closes up: it isn't a `TimelineView` any more (an empty one
+    kept 6pt of the stack's spacing; measured), but a view that's empty
+    once it's over, redrawn every 30 seconds while it shows.
+  - **A tap opens the journey** (`JourneyCard`, a sheet at medium height,
+    one soft haptic, `Haptics.journeyOpened`): the trip's name, where it
+    stands, the legs down a line with the plane on it (between two legs
+    by how much of the leg has passed), each leg's moment in the
+    viewer's time, the leg it's on in the warm ink, and "Arrives Tuesday
+    24 November, 4:00 PM".
+  - **To VoiceOver** the strip is one button: the day's note, then
+    "India in 7 days" or "India. In the air", hint "Opens the journey";
+    the plane and the line are hidden. In the card each leg reads with
+    "Done", "Now" or "Ahead". Set in code and the strip's words held by
+    a test; not walked with the accessibility runtime this time.
+  - **A Debug clock**: `STANLEY_COUNTDOWN_NOW` (ISO 8601 with its offset)
+    moves the countdown's clock there at launch and lets it run
+    (`CountdownClock`); `SIMCTL_CHILD_TZ` sets the viewer's zone.
+  - **Tests**: `CountdownJourneyTests` (11; 61 phone tests): more than a
+    week plain, a week or less written and warming, days turning at the
+    viewer's midnight in Bloomington and Mumbai, the last day in hours,
+    each leg in both zones, the Dubai slot filled, landed holding a day
+    and then nil, every half hour from 6 to 28 November never negative
+    and only forward, the stops along the strip's last part, an old
+    config without legs, the spoken words. Server, `test_countdown.py`
+    (15 more): the preset's legs and moments, the slot fillable, a
+    config without legs, eleven journeys refused, the legs with their
+    own circle only.
+  - **Checked** on the iPhone 17 Pro against a local server (the preset
+    on Third Floor), the clock moved to 13, 16 and 20 November, 10 AM on
+    the 22nd, 8:30 AM on the 23rd, each leg, landing's minute, and the
+    day after (the rule 440px from the top, as with no countdown); the
+    card mid-flight in light; a viewer in Mumbai (TZ Asia/Kolkata) on
+    the Chicago leg in dark, strip and card. On the Duo's cover, 16
+    November in light and mid-flight in dark. Not seen: a real phone,
+    the widget (unchanged, still "N days for Home" with its clock). The
+    Release configuration compiles.
+
 - **The sheet's rows lead to their pages; nothing turns the screen**
   (build 73, November 16, 2026, from Ayush, "Two fixes to build 72";
   screenshots and the VoiceOver walk in `docs/omr-standalone-build73/`).
@@ -2991,7 +3068,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (73)", at the
+  production audit), and the version, "Stanley 0.2.0 (74)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3424,7 +3501,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     with a custom overlay (and losing swipe-to-dismiss, detents and
     keyboard handling); iOS already springs sheets and steps the page
     behind back. Left as the system's.
-- **One circle's countdown** (build 35, a product decision on 2026-11-06,
+- **One circle's countdown** (build 35, a product decision on 2026-11-06;
+  **in Today a flight path since build 74**, above, which wins over the
+  route, words and flip clock described here; the widget still has them;
   for Ayush's circle going home to India for Thanksgiving). A flag, not a
   feature: `circles.countdown`, a JSON column, null for every circle but the
   one it was set on, returned by `/circles/mine` with the circle on screen.
@@ -3549,6 +3628,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
+- **Build 74** (0.2.0): the India countdown as a flight path (above).
+  Phone only; v33 on Fly is its server. Not archived. **The legs are
+  not on Fly yet**: Anti mosquito's countdown is still build 38's preset,
+  so build 74 reads it as "On the way" to "Landed" until the new preset
+  is set there (`set <id> india` with this build's script, which Fly's
+  image doesn't have yet: a `fly deploy`, or the script piped in). Both
+  are waiting on a yes. The trip leaves on 23 November.
 - **Build 73** (0.2.0): the sheet's rows leading to their pages, and the
   sheet scrolling instead of turning the screen (above). Phone only; v33
   on Fly is its server. Carries builds 71 and 72. **Archived and uploaded
@@ -3969,7 +4055,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**709 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**724 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -4091,7 +4177,8 @@ eight more; since build 66 what VoiceOver says and taking a mark back,
 five more; since build 69 the title's ink on a journal's field, six more;
 since build 70 a crash report leaving with no identifier, one, and the
 policy's notice, five; since build 72 the sheet's months, four;
-since build 73 the link's words, one; fifty in all). `tests/test_moods.py` (build 65) holds
+since build 73 the link's words, one; since build 74 the countdown's
+flight path, eleven; sixty-one in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the
@@ -4164,7 +4251,9 @@ live APNs, concurrency under real load.
   prints, paper inserts; `DarkRoom`, the dark mode's colors and rules),
   `Shared/Countdown.swift` + `CountdownRoute.swift` (build 35: one circle's
   countdown, its phases and the route under Today's dateline; build 36:
-  the flip clock and the day's reminder slip), `WidgetFeed.swift` (build
+  the flip clock and the day's reminder slip; build 74: the flight path,
+  the journey card, `CountdownClock`; its rules in `CountdownJourney.swift`),
+  `WidgetFeed.swift` (build
   40: what the app leaves for its widget, and the Debug gallery),
   `MemoriesView.swift` (the Journal tab, which is `BookView`; and the Letters sheet's page), `ProfileView.swift` (You +
   milestones), `Writing.swift` (build 26: the journal entry slip and sheet,

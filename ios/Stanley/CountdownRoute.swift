@@ -1,76 +1,367 @@
 import SwiftUI
 
-/// One circle's countdown under Today's dateline (build 35): a route sketched
-/// on a paper map. A dotted path edge to edge, a dot where it starts, a ring
-/// where it ends, and a small plane along it by how much of the wait has
-/// passed; once landed, a house where the route was. Under it, in a hand,
-/// where things stand, and while the day is still ahead, a flip clock
-/// counting down to it (build 36). Thin strokes in the page's secondary ink,
-/// a nod rather than a banner, and not a control: nothing here can be tapped.
-/// No emoji anywhere: the plane and the house are drawn.
+/// One circle's countdown under Today's dateline (build 35; a flight path
+/// since build 74). A thin hairline across the page with a small drawn
+/// plane where the trip stands today: solid behind it, dotted ahead, the
+/// journey's legs marked along its last part. Under it, the words: "India
+/// in 9 days" while it's more than a week off, plain; a week or less, the
+/// number in the hand and the strip warming as it comes; the last day in
+/// hours; then the leg it's on ("Chicago", "In the air"), and "Landed",
+/// which holds a day before the strip goes on its own. Never a negative
+/// number. A tap opens the journey as a card (`JourneyCard`). The day's
+/// note a friend tucked in (build 36) sits above it on its day. No emoji
+/// anywhere: the plane is drawn.
 ///
 /// Drawn only for the circle the server flagged (`CircleInfo.countdown`);
-/// every other circle never sees it.
+/// every other circle never sees it. The journey lives in the config
+/// (`Countdown.legs`), the rules in `CountdownJourney.swift`.
 struct CountdownRoute: View {
     let countdown: Countdown
+    @State private var reading = false
+    /// Read by the body so the strip is drawn again each tick.
+    @State private var tick = Date.now
+
+    /// Twice a minute: nothing on the strip is finer than an hour, and a
+    /// page left open still crosses into the next leg, or away, on its own.
+    private static let ticks = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        // Each second while the clock is counting, each minute after (a page
-        // left open still crosses midnight into the next phase on its own).
-        // Ticks fall on whole seconds, from the start of the day, so the
-        // clock turns over with the phone's own clock.
-        let counting = countdown.phase(at: .now)?.until != nil
-        TimelineView(.periodic(from: Calendar.current.startOfDay(for: .now), by: counting ? 1 : 60)) { context in
-            if let phase = countdown.phase(at: context.date) {
-                VStack(spacing: 4) {
-                    if let reminder = phase.reminder {
-                        ReminderSlip(words: reminder)
-                            .padding(.top, 10)
-                            // Clear of the plane where the arc runs highest.
-                            .padding(.bottom, 8)
-                    }
-                    switch phase.mark {
-                    case .plane(let progress):
-                        RouteSketch(progress: progress)
-                    case .home:
-                        Image(systemName: "house")
-                            .font(.system(size: 14, weight: .light))
-                            .foregroundStyle(.secondary)
-                            .frame(height: RouteSketch.height)
-                    }
-                    Text(phase.text)
-                        .font(.system(.subheadline, design: .rounded).weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let until = phase.until {
-                        FlipClock(remaining: until.timeIntervalSince(context.date))
-                            .padding(.top, 6)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 2)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Self.spoken(phase, at: context.date))
+        // Not a TimelineView: one stays in the masthead's stack with nothing
+        // in it and keeps a spacing's worth of room once the strip has gone.
+        // With the strip gone this view is empty, and the masthead closes up.
+        let _ = tick
+        let now = CountdownClock.now()
+        if let journey = countdown.journey(at: now) {
+            let reminder = countdown.phase(at: now)?.reminder
+            Button {
+                Haptics.journeyOpened()
+                reading = true
+            } label: {
+                strip(journey, reminder: reminder)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(journey.spoken(reminder: reminder))
+            .accessibilityHint("Opens the journey")
+            .accessibilityAddTraits(.isButton)
+            .onReceive(Self.ticks) { tick = $0 }
+            .sheet(isPresented: $reading) {
+                JourneyCard(countdown: countdown)
             }
         }
     }
 
-    /// The day's note, the words, and what's left to the minute: VoiceOver
-    /// isn't read a new number every second.
-    private static func spoken(_ phase: Countdown.Phase, at now: Date) -> String {
-        let words = [phase.reminder, phase.text].compactMap { $0 }.joined(separator: ". ")
-        guard let until = phase.until else { return words }
-        let left = Countdown.clock(until.timeIntervalSince(now))
-        var parts = DateComponents()
-        parts.day = left.days
-        parts.hour = left.hours
-        parts.minute = left.minutes
-        let formatter = DateComponentsFormatter()
-        formatter.unitsStyle = .full
-        formatter.allowedUnits = [.day, .hour, .minute]
-        guard let rest = formatter.string(from: parts) else { return words }
-        return "\(words). \(rest) to go."
+    private func strip(_ journey: Countdown.Journey, reminder: String?) -> some View {
+        let ink = CountdownTone.ink(journey.warmth)
+        return VStack(spacing: 5) {
+            if let reminder {
+                ReminderSlip(words: reminder)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+            }
+            FlightPath(journey: journey, ink: ink)
+            JourneyWords(journey: journey, size: 20)
+                .font(.system(.subheadline, design: .rounded).weight(.medium))
+                .foregroundStyle(ink)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+    }
+}
+
+/// The words, with the number apart: in the hand, larger, once the trip is
+/// a week off or less; set like the rest before then.
+private struct JourneyWords: View {
+    let journey: Countdown.Journey
+    let size: CGFloat
+
+    var body: some View {
+        let parts = journey.words
+        var line = AttributedString(parts.lead)
+        if let number = parts.number {
+            var figure = AttributedString(number)
+            if journey.close { figure.font = .hand(size, bold: true, relativeTo: .title3) }
+            line += figure
+        }
+        line += AttributedString(parts.tail)
+        return Text(line)
+    }
+}
+
+// MARK: - The strip
+
+/// The flight path: a hairline from the left edge to the destination, solid
+/// where the plane has been and dotted where it's going, a small dot where
+/// it began, the journey's stops along its last part (filled once passed),
+/// a ring at the end, and the plane between, the line stopping short of it
+/// either side so it reads as flying, not crossed out. Decorative: the
+/// strip's words say it all.
+private struct FlightPath: View {
+    static let height: CGFloat = 16
+    let journey: Countdown.Journey
+    let ink: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let inset: CGFloat = 4
+            let width = max(1, geo.size.width - inset * 2)
+            let y = geo.size.height / 2
+            let x = { (t: Double) in inset + width * CGFloat(t) }
+            let plane = x(journey.progress)
+            let gap: CGFloat = 10
+            ZStack {
+                if plane - gap > x(0) {
+                    Path { path in
+                        path.move(to: CGPoint(x: x(0), y: y))
+                        path.addLine(to: CGPoint(x: plane - gap, y: y))
+                    }
+                    .stroke(ink, style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                }
+                if plane + gap < x(1) {
+                    Path { path in
+                        path.move(to: CGPoint(x: plane + gap, y: y))
+                        path.addLine(to: CGPoint(x: x(1), y: y))
+                    }
+                    .stroke(ink, style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [0.1, 4]))
+                }
+                Circle()
+                    .fill(ink)
+                    .frame(width: 3, height: 3)
+                    .position(x: x(0), y: y)
+                ForEach(Array(journey.marks.enumerated()), id: \.offset) { index, mark in
+                    let last = index == journey.marks.count - 1
+                    let passed = journey.progress >= mark
+                    // A stop under the plane is left for the plane.
+                    if abs(x(mark) - plane) > gap {
+                        Group {
+                            if passed && !last {
+                                Circle().fill(ink)
+                            } else {
+                                Circle().strokeBorder(ink, lineWidth: 1)
+                            }
+                        }
+                        .frame(width: last ? 7 : 4, height: last ? 7 : 4)
+                        .position(x: x(mark), y: y)
+                    }
+                }
+                Image(systemName: "airplane")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundStyle(ink)
+                    .position(x: plane, y: y)
+            }
+        }
+        .frame(height: Self.height)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - The card
+
+/// The journey as a small card, from a tap on the strip: the trip's name,
+/// where it stands, the legs down a line with the plane on it (solid behind,
+/// dotted ahead), each leg's moment in the viewer's own time, the one it's
+/// on named, and when it arrives.
+private struct JourneyCard: View {
+    let countdown: Countdown
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        TimelineView(.periodic(from: Calendar.current.startOfDay(for: .now), by: 30)) { context in
+            // The moment itself, not the tick's, which can be a half minute
+            // behind it.
+            let now = CountdownClock.now(max(context.date, .now))
+            ScrollView {
+                if let journey = countdown.journey(at: now) {
+                    content(journey)
+                } else {
+                    // The strip has gone while the card was open.
+                    Text(countdown.label)
+                        .font(.pageTitle)
+                        .foregroundStyle(TextTone.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(24)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Atmosphere.resolve(raw).palette.floor)
+    }
+
+    private func content(_ journey: Countdown.Journey) -> some View {
+        let ink = CountdownTone.ink(journey.warmth)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(countdown.label)
+                    .font(.pageTitle)
+                    .foregroundStyle(TextTone.primary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .font(.system(.body, design: .rounded).weight(.medium))
+                    .foregroundStyle(TextTone.primary)
+            }
+            JourneyWords(journey: journey, size: 26)
+                .font(.system(.title3, design: .rounded).weight(.medium))
+                .foregroundStyle(ink)
+                .padding(.top, 2)
+                .accessibilityLabel(journey.current == nil ? journey.text : "Now: \(journey.text)")
+            Legs(journey: journey, ink: ink)
+                .padding(.top, 22)
+            if let landing = journey.stops.last {
+                Rule(weight: 0.5)
+                    .padding(.top, 18)
+                Text(Self.arrival(landing.at, landed: journey.landed))
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(TextTone.secondary)
+                    .padding(.top, 10)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 16)
+        .frame(maxWidth: 520)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// "Arrives Tuesday 24 November, 3:00 PM", in the viewer's own time.
+    static func arrival(_ at: Date, landed: Bool) -> String {
+        let when = at.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        let time = at.formatted(.dateTime.hour().minute())
+        return "\(landed ? "Arrived" : "Arrives") \(when), \(time)"
+    }
+}
+
+/// The legs down a line, a row each at an even pitch: the line between two
+/// stops solid once flown and dotted ahead, the plane where the trip is
+/// (between the two, by how much of the leg has passed), a stop filled
+/// once reached, and the leg it's on in the warm ink.
+private struct Legs: View {
+    let journey: Countdown.Journey
+    let ink: Color
+    @ScaledMetric(relativeTo: .body) private var pitch: CGFloat = 54
+    private let rail: CGFloat = 28
+
+    var body: some View {
+        let stops = journey.stops
+        let current = journey.current
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(stops.enumerated()), id: \.offset) { index, stop in
+                HStack(alignment: .center, spacing: 12) {
+                    Color.clear.frame(width: rail)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(stop.words)
+                            .font(.system(.body, design: .rounded).weight(index == current ? .semibold : .regular))
+                            .foregroundStyle(index == current ? ink : reached(index) ? TextTone.primary : TextTone.secondary)
+                        Text(stop.at.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).hour().minute()))
+                            .font(.footnote)
+                            .foregroundStyle(TextTone.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(height: pitch)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(index == current ? "Now" : reached(index) ? "Done" : "Ahead")
+            }
+        }
+        .background(alignment: .topLeading) {
+            line(stops.count)
+        }
+    }
+
+    private func reached(_ index: Int) -> Bool {
+        guard let current = journey.current else { return false }
+        return index <= current
+    }
+
+    /// Where the plane is down the line, in rows: on the first stop before
+    /// it begins, between two while a leg is flown, on the last landed.
+    private var place: CGFloat {
+        guard let current = journey.current else { return 0 }
+        let stops = journey.stops
+        guard current < stops.count - 1, journey.marks.count == stops.count else { return CGFloat(current) }
+        let from = journey.marks[current], to = journey.marks[current + 1]
+        let within = to > from ? (journey.progress - from) / (to - from) : 0
+        return CGFloat(current) + CGFloat(min(1, max(0, within)))
+    }
+
+    private func line(_ count: Int) -> some View {
+        let x = rail / 2
+        let center = { (row: CGFloat) in self.pitch * (row + 0.5) }
+        let plane = center(place)
+        let gap: CGFloat = 12
+        return ZStack(alignment: .topLeading) {
+            if count > 1 {
+                if plane - gap > center(0) {
+                    Path { path in
+                        path.move(to: CGPoint(x: x, y: center(0)))
+                        path.addLine(to: CGPoint(x: x, y: plane - gap))
+                    }
+                    .stroke(ink, style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                }
+                if plane + gap < center(CGFloat(count - 1)) {
+                    Path { path in
+                        path.move(to: CGPoint(x: x, y: plane + gap))
+                        path.addLine(to: CGPoint(x: x, y: center(CGFloat(count - 1))))
+                    }
+                    .stroke(ink, style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [0.1, 4.5]))
+                }
+            }
+            ForEach(0..<count, id: \.self) { index in
+                let y = center(CGFloat(index))
+                if abs(y - plane) > gap {
+                    Group {
+                        if reached(index) {
+                            Circle().fill(ink)
+                        } else {
+                            Circle().strokeBorder(ink, lineWidth: 1)
+                        }
+                    }
+                    .frame(width: 7, height: 7)
+                    .position(x: x, y: y)
+                }
+            }
+            Image(systemName: "airplane")
+                .font(.system(size: 15, weight: .light))
+                .rotationEffect(.degrees(90))
+                .foregroundStyle(ink)
+                .position(x: x, y: plane)
+        }
+        .frame(width: rail, height: pitch * CGFloat(count), alignment: .topLeading)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - The clock
+
+/// The moment the countdown reads. In a Debug build,
+/// `STANLEY_COUNTDOWN_NOW` (ISO 8601 with its offset) moves it to then at
+/// launch and lets it run on from there, to see each leg on a simulator.
+enum CountdownClock {
+    #if DEBUG
+    private static let shift: TimeInterval = {
+        guard let text = ProcessInfo.processInfo.environment["STANLEY_COUNTDOWN_NOW"],
+              let then = Countdown.moment(text)
+        else { return 0 }
+        return then.timeIntervalSinceNow
+    }()
+    #endif
+
+    static func now(_ date: Date? = nil) -> Date {
+        #if DEBUG
+        // The shift first: worked out on first use, against a moment that
+        // must not come before it, or a clock set to a leg's very minute
+        // reads a hair before it.
+        let shift = shift
+        return (date ?? .now).addingTimeInterval(shift)
+        #else
+        return date ?? .now
+        #endif
     }
 }
 
@@ -142,216 +433,5 @@ private struct ReminderSlip: View {
                     .scaleEffect(0.62)
                     .offset(y: -9)
             }
-    }
-}
-
-// MARK: - The flip clock
-
-/// 16 Days : 05 Hours : 23 Min : 51 Sec, each a little card of the
-/// atmosphere's card color split by a hairline, the way a flip clock's are.
-/// The numbers are set to be read (SF Rounded, semibold, even-width digits),
-/// not written; the labels beneath are in the journal's hand. Each digit
-/// flips on its own as it changes, the old one tipping down and away while
-/// the new one comes up, about 0.3s, silent. The countdown's centerpiece
-/// (build 38): the digits are 20pt, a quarter up from build 36's 16, and the
-/// labels stay as they were.
-private struct FlipClock: View {
-    let remaining: TimeInterval
-    @ScaledMetric(relativeTo: .subheadline) private var scaled: CGFloat = 20
-
-    /// Grows with Dynamic Type, up to where four cards and their colons still
-    /// fit across a 375pt phone's page.
-    private var digit: CGFloat { min(scaled, 24) }
-
-    var body: some View {
-        let left = Countdown.clock(remaining)
-        let cardHeight = (digit * 1.6).rounded()
-        HStack(alignment: .top, spacing: 4) {
-            FlipUnit(value: left.days, label: "Days", digit: digit, height: cardHeight)
-            Colon(digit: digit, height: cardHeight)
-            FlipUnit(value: left.hours, label: "Hours", digit: digit, height: cardHeight)
-            Colon(digit: digit, height: cardHeight)
-            FlipUnit(value: left.minutes, label: "Min", digit: digit, height: cardHeight)
-            Colon(digit: digit, height: cardHeight)
-            FlipUnit(value: left.seconds, label: "Sec", digit: digit, height: cardHeight)
-        }
-        .accessibilityHidden(true)
-    }
-}
-
-private struct Colon: View {
-    let digit: CGFloat
-    let height: CGFloat
-
-    var body: some View {
-        Text(":")
-            .font(.system(size: digit * 0.9, weight: .medium, design: .rounded))
-            .foregroundStyle(.secondary)
-            .frame(height: height)
-            .offset(y: -1)
-    }
-}
-
-/// One card and its label. Its digits are told apart by place (ones, tens,
-/// hundreds), so when one turns over only that one flips.
-private struct FlipUnit: View {
-    let value: Int
-    let label: String
-    let digit: CGFloat
-    let height: CGFloat
-
-    var body: some View {
-        let digits = Array(String(format: "%02d", value))
-        VStack(spacing: 3) {
-            HStack(spacing: 0) {
-                ForEach((0..<digits.count).reversed(), id: \.self) { place in
-                    FlipDigit(digit: digits[digits.count - 1 - place], size: digit)
-                }
-            }
-            .padding(.horizontal, digit * 0.3)
-            .frame(height: height)
-            .background(FlipCard())
-            Text(label)
-                .font(.hand(10, bold: true, relativeTo: .caption2))
-                .textCase(.uppercase)
-                .tracking(0.8)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .fixedSize()
-        }
-        // Every unit as wide as the widest label, so the cards and colons
-        // are evenly spaced whatever the word under them.
-        .frame(width: digit * 3)
-    }
-}
-
-private struct FlipDigit: View {
-    let digit: Character
-    let size: CGFloat
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        ZStack {
-            Text(String(digit))
-                .font(.system(size: size, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(DarkRoom.ink)
-                .id(digit)
-                // Under Reduce Motion, the new digit only fades in.
-                .transition(reduceMotion ? .opacity : .flip)
-        }
-        .frame(width: size * 0.64)
-        .animation(.easeInOut(duration: 0.3), value: digit)
-    }
-}
-
-/// A flip clock's card: the atmosphere's card color on the page, a hairline
-/// round it and a hairline across the middle where the card would split. In
-/// the dark room, black boxed in the room's rule gray, like everything else.
-private struct FlipCard: View {
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
-        let dark = DarkRoom.isDark(colorScheme)
-        let palette = Atmosphere.resolve(raw).palette
-        let line = dark ? DarkRoom.line(1) : DarkRoom.line(0.12)
-        ZStack {
-            shape.fill(dark ? Color.clear : palette.floor)
-            shape.fill(dark ? Color.clear : palette.card)
-        }
-        .overlay(shape.strokeBorder(line, lineWidth: 0.5))
-        .overlay(Rectangle().fill(line).frame(height: 0.5))
-    }
-}
-
-/// A digit tipping over on its middle: the old one rolls down and away and
-/// fades, the new one rolls up into place, a little smaller while it turns.
-private struct FlipTurn: ViewModifier {
-    /// -1 still to come, 0 in place, 1 gone.
-    let turn: Double
-
-    func body(content: Content) -> some View {
-        content
-            .rotation3DEffect(.degrees(turn * 90), axis: (x: 1, y: 0, z: 0), anchor: .center, perspective: 0.5)
-            .scaleEffect(1 - abs(turn) * 0.15)
-            .opacity(1 - abs(turn))
-    }
-}
-
-private extension AnyTransition {
-    static var flip: AnyTransition {
-        .asymmetric(
-            insertion: .modifier(active: FlipTurn(turn: -1), identity: FlipTurn(turn: 0)),
-            removal: .modifier(active: FlipTurn(turn: 1), identity: FlipTurn(turn: 0))
-        )
-    }
-}
-
-// MARK: - The route
-
-/// The route itself: a shallow, slightly uneven arc, the way a flight path is
-/// drawn on a map by hand.
-private struct RouteSketch: View {
-    static let height: CGFloat = 24
-    let progress: Double
-
-    var body: some View {
-        GeometryReader { geo in
-            let route = Route(width: geo.size.width, height: geo.size.height)
-            let t = min(1, max(0, progress))
-            ZStack {
-                Path { path in
-                    path.move(to: route.start)
-                    path.addCurve(to: route.end, control1: route.c1, control2: route.c2)
-                }
-                .stroke(style: StrokeStyle(lineWidth: 1.1, lineCap: .round, dash: [0.1, 4.5]))
-                Circle()
-                    .frame(width: 4, height: 4)
-                    .position(route.start)
-                Circle()
-                    .stroke(lineWidth: 1)
-                    .frame(width: 7, height: 7)
-                    .position(route.end)
-                Image(systemName: "airplane")
-                    .font(.system(size: 13, weight: .light))
-                    .rotationEffect(route.heading(at: t))
-                    .position(route.point(at: t))
-            }
-            .foregroundStyle(.secondary)
-        }
-        .frame(height: Self.height)
-        .accessibilityHidden(true)
-    }
-}
-
-/// A cubic from the origin dot to the destination, rising a little and
-/// falling a little less, so it reads as drawn rather than plotted.
-private struct Route {
-    let start, c1, c2, end: CGPoint
-
-    init(width: CGFloat, height: CGFloat) {
-        start = CGPoint(x: 4, y: height - 5)
-        c1 = CGPoint(x: width * 0.32, y: 0)
-        c2 = CGPoint(x: width * 0.7, y: height * 0.12)
-        end = CGPoint(x: width - 5, y: height - 7)
-    }
-
-    func point(at t: CGFloat) -> CGPoint {
-        let u = 1 - t
-        let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
-        return CGPoint(
-            x: a * start.x + b * c1.x + c * c2.x + d * end.x,
-            y: a * start.y + b * c1.y + c * c2.y + d * end.y
-        )
-    }
-
-    /// Which way the plane faces: along the route at `t`.
-    func heading(at t: CGFloat) -> Angle {
-        let u = 1 - t
-        let dx = 3 * u * u * (c1.x - start.x) + 6 * u * t * (c2.x - c1.x) + 3 * t * t * (end.x - c2.x)
-        let dy = 3 * u * u * (c1.y - start.y) + 6 * u * t * (c2.y - c1.y) + 3 * t * t * (end.y - c2.y)
-        return .radians(atan2(dy, dx))
     }
 }

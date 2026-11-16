@@ -26,6 +26,19 @@ struct Countdown: Codable, Equatable {
     /// Let that sink in."), "0" being the day itself. A note shows on its day
     /// only; a day without one has none.
     let reminders: [String: String]?
+    /// The journey, leg by leg (build 74): where each leg begins, as an
+    /// absolute moment with its own offset, and what it's called ("Chicago",
+    /// "In the air"). A leg whose moment isn't known yet (`at` null, the
+    /// Dubai stop) is a slot kept for it and skipped, so the leg before
+    /// runs on through it. The last leg is the landing. In the config, not
+    /// the view (`scripts/set_countdown.py`), so a leg can be added or
+    /// corrected without a build; `CountdownJourney.swift` reads it.
+    let legs: [Leg]?
+
+    struct Leg: Codable, Equatable {
+        let words: String
+        let at: String?
+    }
 
     struct Messages: Codable, Equatable {
         let countdown: String?
@@ -134,7 +147,7 @@ struct Countdown: Codable, Equatable {
         return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
 
-    private static func moment(_ text: String) -> Date? {
+    static func moment(_ text: String) -> Date? {
         let reader = ISO8601DateFormatter()
         reader.formatOptions = [.withInternetDateTime]
         return reader.date(from: text)

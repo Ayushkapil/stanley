@@ -209,3 +209,75 @@ def test_the_reminders_come_with_their_own_circle_only(two, db):
     _flag(db, two.id, INDIA)
     assert _mine(two.ben)["countdown"]["reminders"]["11"] == "Shopping list ready?"
     assert _mine(two.dee)["countdown"] is None
+
+
+# The journey, leg by leg (build 74): in the config, so a leg can be added or
+# corrected without a build.
+
+LEGS = INDIA["legs"]
+
+
+def test_the_india_preset_carries_the_journey():
+    eastern, chicago = ZoneInfo("America/Indiana/Indianapolis"), ZoneInfo("America/Chicago")
+    india = ZoneInfo("Asia/Kolkata")
+    assert [leg["words"] for leg in LEGS] == [
+        "Leaving Bloomington", "Chicago", "In the air", "Dubai", "Landed"]
+    at = [datetime.fromisoformat(leg["at"]) if leg["at"] else None for leg in LEGS]
+    assert at[0] == datetime(2026, 11, 23, 9, 0, tzinfo=eastern)
+    assert at[1] == datetime(2026, 11, 23, 14, 0, tzinfo=chicago)
+    assert at[2] == datetime(2026, 11, 23, 19, 30, tzinfo=chicago)
+    # The Dubai stop isn't known yet: a slot kept for it, nothing more.
+    assert at[3] is None
+    assert at[4] == datetime(2026, 11, 25, 2, 30, tzinfo=india)
+    assert at[4] == datetime.fromisoformat(INDIA["arrives_at"])
+    script.validate(INDIA)
+
+
+def test_the_dubai_slot_can_be_filled_without_a_build():
+    legs = [dict(leg) for leg in LEGS]
+    legs[3]["at"] = "2026-11-24T08:00:00+04:00"
+    script.validate({**INDIA, "legs": legs})
+
+
+def test_a_journey_with_no_legs_is_still_a_countdown():
+    script.validate({key: value for key, value in INDIA.items() if key != "legs"})
+
+
+@pytest.mark.parametrize(
+    "legs",
+    [
+        "Chicago",
+        [{"words": "Chicago"}, {"words": "Landed", "at": INDIA["arrives_at"]}],  # one moment
+        [{"words": "Landed", "at": INDIA["arrives_at"]}],
+        [{"words": "", "at": "2026-11-23T09:00:00-05:00"}, {"words": "Landed", "at": INDIA["arrives_at"]}],
+        [{"words": "Leaving ✈", "at": "2026-11-23T09:00:00-05:00"}, {"words": "Landed", "at": INDIA["arrives_at"]}],
+        # No offset: it would mean a different moment to everyone.
+        [{"words": "Leaving", "at": "2026-11-23T09:00:00"}, {"words": "Landed", "at": INDIA["arrives_at"]}],
+        # Out of order.
+        [{"words": "Chicago", "at": "2026-11-23T14:00:00-06:00"},
+         {"words": "Leaving", "at": "2026-11-23T09:00:00-05:00"},
+         {"words": "Landed", "at": INDIA["arrives_at"]}],
+        # The landing with no moment.
+        [{"words": "Leaving", "at": "2026-11-23T09:00:00-05:00"},
+         {"words": "Chicago", "at": "2026-11-23T14:00:00-06:00"},
+         {"words": "Landed", "at": None}],
+        # Leaving on another day than the one older builds count to.
+        [{"words": "Leaving", "at": "2026-11-22T09:00:00-05:00"}, {"words": "Landed", "at": INDIA["arrives_at"]}],
+        # Landing at another moment than the one older builds land at.
+        [{"words": "Leaving", "at": "2026-11-23T09:00:00-05:00"},
+         {"words": "Landed", "at": "2026-11-25T03:30:00+05:30"}],
+        [{"words": "Leaving", "at": "2026-11-23T09:00:00-05:00", "gate": "C17"},
+         {"words": "Landed", "at": INDIA["arrives_at"]}],
+    ],
+)
+def test_validate_refuses_a_journey_it_cant_draw(legs):
+    with pytest.raises(script.Invalid):
+        script.validate({**INDIA, "legs": legs})
+
+
+def test_the_legs_come_with_their_own_circle_only(two, db):
+    _flag(db, two.id, INDIA)
+    legs = _mine(two.ben)["countdown"]["legs"]
+    assert legs[3] == {"words": "Dubai", "at": None}
+    assert legs[-1]["at"] == INDIA["arrives_at"]
+    assert _mine(two.dee)["countdown"] is None
