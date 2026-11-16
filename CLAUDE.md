@@ -3244,7 +3244,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   moment".
 - **Build 68** (0.2.0): the page's date as furniture and the covers'
   scrims (above). Phone only; v33 on Fly is its server. Build 68
-  carries everything below.
+  carries everything below. **Archived and uploaded to App Store
+  Connect on November 15, 2026** (`xcodebuild archive` into Organizer's
+  folder, "Stanley 0.2.0 (68)", then `-exportArchive` with destination
+  `upload` and `-allowProvisioningUpdates`; "Upload succeeded", then
+  processing). The only warning: no dSYM for Sentry.framework, which
+  matters only once a Sentry DSN is set. Not yet seen in TestFlight.
+  The last build uploaded before it was 40.
 - **Build 67** (0.2.0) was never archived on its own: the book to
   VoiceOver and the darker secondary (above).
 - **Build 66** (0.2.0) was never archived on its own: the answer sheet
