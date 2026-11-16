@@ -3659,7 +3659,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   5. Tell the pilot: build 70's notice does it in the app.
 - **Build 75** (0.2.0): days and hours to midnight on the 23rd (above).
   Phone only; v34 on Fly is its server, and the legs set on Anti mosquito
-  need nothing new. Not archived.
+  need nothing new. **Archived and uploaded to App Store Connect on
+  November 16, 2026**, as 74 was ("Stanley 0.2.0 (75)" in Organizer's
+  folder; "Upload succeeded", then processing; the only warning
+  Sentry.framework's missing dSYM). Ayush's friends were on build 55
+  in TestFlight then. Not yet seen in TestFlight.
 - **Build 74** (0.2.0): the India countdown as a flight path (above).
   Phone only; v34 on Fly is its server. **Archived and uploaded to App
   Store Connect on November 16, 2026**, as 73 was ("Stanley 0.2.0 (74)"
