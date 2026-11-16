@@ -34,10 +34,6 @@ struct BookActions {
     /// of them alone.
     var people: [CircleMember] = []
     var shareWithPerson: (DayPage, CircleMember) -> Void = { _, _ in }
-    /// A row of a month's dots: that day's page.
-    var openDay: (String) -> Void = { _ in }
-    /// Today's mark on the answer sheet (build 65): one of five, or none.
-    var markToday: (Int?) -> Void = { _ in }
 }
 
 /// A text view that says its words once: as its label, with no value (a
@@ -300,8 +296,6 @@ struct BookPageView: View {
             SpreadView(day: page.date, spread: nil, layout: layout, actions: actions, live: live)
         case .single(let single):
             SingleView(page: single, layout: layout, actions: actions, live: live)
-        case .moods(let month):
-            MoodSheet(month: month, layout: layout, live: live, open: actions.openDay, mark: actions.markToday)
         }
     }
 
@@ -535,7 +529,7 @@ private struct PageMenu: ViewModifier {
     private var hasMenu: Bool {
         switch page.kind {
         // A spread's two pages, and a single, have a menu of their own.
-        case .chapter, .tombstone, .spread, .oursEmpty, .single, .moods: return false
+        case .chapter, .tombstone, .spread, .oursEmpty, .single: return false
         default: return true
         }
     }
@@ -596,7 +590,7 @@ private struct PageMenu: ViewModifier {
             Button(role: .destructive) { actions.deleteReflection(reflection) } label: {
                 Label("Delete Reflection", systemImage: "trash")
             }
-        case .chapter, .tombstone, .spread, .oursEmpty, .single, .moods:
+        case .chapter, .tombstone, .spread, .oursEmpty, .single:
             EmptyView()
         }
     }

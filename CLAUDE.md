@@ -15,7 +15,8 @@ for each circle, each over a photo you kept), which nobody else ever sees
 unless they choose to share a page: since build 51 a page can be put in the circle's **shared journal**, read there as
 facing pages, two people's pages from the same day, and since build 52 shared with **one person** in the circle instead.
 Also since build 52 a person may fill one of **five unlabelled dots** for their day, kept for them alone; since
-build 65 each month is an **answer sheet** in their journal, a row a day, and only today's row takes a mark. The product's identity lives as much in what it
+build 65 each month is an **answer sheet**, a row a day, and only today's row takes a mark (since build 72 on a
+screen of its own in the Journal tab, in no journal: there are several books and one set of days). The product's identity lives as much in what it
 refuses — counts, ranking, algorithmic ordering, open audiences, re-engagement
 notifications — as in what it does. The pilot target is one real circle (a dorm
 floor); the circle ceiling is a soft 100. Codename: Stanley.
@@ -578,6 +579,72 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The answer sheet stands alone** (build 72, November 16, 2026, a
+  product brief from Ayush, "Move the OMR sheet out of the book, and give
+  it a heading"; screenshots in `docs/omr-standalone-build72/`). Phone
+  only; nothing on the server changed. **Where build 65's section below
+  says the sheet is at the end of each month's chapter, or that the
+  cover's bubbles open the book at it, this wins.**
+  - **Not in any book.** You have several books and one set of days, so
+    the month's sheet is gone from your own book (`BookPage.Kind.moods`,
+    `MoodMonth`, `BookStart.sheet`, `Book.sheetIndex`, `index(near:)` and
+    the book's `openDay`/`markToday` are deleted). It's
+    `MarkSheetScreen` (`Moods.swift`), presented as a sheet over the
+    covers (`JournalCovers`, `readingDays`), with Done; the covers turn
+    upright while it's up (`Turning.coversShowing(false)`), since thirty
+    rows need the height.
+  - **Two ways in**: a **card at the end of the deck**, after the last
+    journal (`DaysCard`; `CoverJournal.days`, id `days`, only while the
+    server keeps marks), and **your cover's five bubbles** (build 65's
+    `LastFiveDays`, which the brief calls "This week": the opened-cover
+    state it belongs to doesn't exist, and wasn't built, as asked). The
+    card is visibly not a book: the page's paper (`BookPaper.page`, the
+    night page in the dark) with the form's three registration squares,
+    no glass slab, no title page, no foot or volume line; the month's
+    name in the hand, the year in small tracked capitals, and the month
+    as a calendar of small squares (`MonthSquares`: a week to a line from
+    the calendar's own first weekday, no numbers, no weekday letters),
+    each in as much ink as its mark, today ringed, days to come barely
+    there. Under it "Your days" and "Only you see them", its pip, and the
+    arrow that opens the sheet. The room behind it is the plain floor (no
+    photo, no warm glow). A long press offers Open.
+  - **The heading**: the month and year ("November 2026", SF Rounded,
+    the screen's heading to VoiceOver) between chevrons, "How was the
+    day?" under it in the hand (`MarkSheet.question`), and the five
+    shades as small unlabelled squares (`Swatches`, hidden from
+    VoiceOver). The question is the brief's own words; it asks, and
+    labels nothing: the bubbles and shades keep no labels or numbers, as
+    the locked rule says.
+  - **Back through the months**: a swipe sideways (a paged `TabView`) or
+    the chevrons ("Previous month", "Next month" to VoiceOver; faint and
+    off at either end). From the month you joined
+    (`MarkSheet.months(joined:)`, the account's `createdAt`, or the first
+    day marked before the profile has come) to this one, and no further
+    either way. Only this month's today row takes a mark; every other
+    row and every month gone by is there to read. **A day gone by no
+    longer turns to that day's page** (it did in the book, build 65's
+    "Turns to that day"); the brief makes those rows read-only, and the
+    hint is gone.
+  - **The rules are unchanged**: today only, the phone's own day, one
+    mark, taken back the same day with a second tap, nothing filled in
+    after, nothing counted. Each bubble still reads "Sunday 15, 3 of 5".
+  - **Tests**: `MarkSheetTests` four more (49 phone tests): back to the
+    month you joined and no further, only this month's today taking a
+    mark; joining this month, no join date, or one ahead of now leaving
+    this month alone; the months on the joiner's own calendar across a
+    year; the heading's words held with the rest (no digit, count or
+    judgement).
+  - **Checked** on the iPhone 17 Pro against a local server (Maya, joined
+    July 2026), light and dark: the card at the end of the deck, the
+    sheet from the card and from Mine's bubbles, today's third bubble
+    tapped (`day_moods` 3 for 16 November) and tapped again (the row
+    gone), the chevron to October (no today row), swiping back to July
+    with the left chevron off. **On the Duo's cover**, light and dark:
+    the card, and the sheet with all thirty rows, heading and foot. Not
+    seen: VoiceOver walking the sheet (the heading, the chevrons' labels
+    and the bubbles' words are set in code, not heard), the Duo's inner
+    display, a real phone.
+
 - **The covers' room evenly veiled, no shadows behind words** (build 71,
   November 16, 2026, from Ayush on seeing build 68's patches: "This kinda
   looks bad"). Phone only; nothing on the server changed. **Where build
@@ -970,7 +1037,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     today last, each shaded by its mark or an empty ring
     (`LastFiveDays`, `MarkSheet.lastFive`, from the same `state.moods`);
     a tap opens your book at this month's sheet (`BookStart.sheet`).
-    Never on a circle's cover. The brief's "opened-cover state" was read
+    **Since build 72 neither: the sheet is its own screen** (the next
+    section above this one). Never on a circle's cover. The brief's "opened-cover state" was read
     as the cover in view (there's no separate opened or detail state);
     not asked about.
   - **Under a fresh photo** the five dots stay (build 52), marking the
@@ -2866,7 +2934,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (71)", at the
+  production audit), and the version, "Stanley 0.2.0 (72)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3424,6 +3492,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
+- **Build 72** (0.2.0): the answer sheet standing alone (above). Phone
+  only; not archived. Carries build 71.
 - **Build 71** (0.2.0): the covers' room evenly veiled, no shadows
   behind words (above). Phone only; not archived.
 - **Build 70** (0.2.0): the crash scrub and the policy's notice (above).
@@ -3955,7 +4025,8 @@ phone's calendar, four more; since build 65 the answer sheet's rules,
 eight more; since build 66 what VoiceOver says and taking a mark back,
 five more; since build 69 the title's ink on a journal's field, six more;
 since build 70 a crash report leaving with no identifier, one, and the
-policy's notice, five, forty-five in all). `tests/test_moods.py` (build 65) holds
+policy's notice, five; since build 72 the sheet's months, four,
+forty-nine in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the
@@ -4068,7 +4139,8 @@ live APNs, concurrency under real load.
   cover pager, the slab), `JournalChrome.swift` (build 54: the glass
   circles, the top bar, the "+", the band under the tab bar; build 52's
   `BookCovers.swift` is deleted), `Moods.swift` (build 52: the five
-  dots, `MoodSheet`),
+  dots, `MarkSheetScreen` with the month's form and the deck's
+  `DaysCard`),
   and in `ios/Shared/` `JournalInk.swift` (`Ink`, `BookPaper`, `BookHand`)
   and `JournalWidget.swift` (the Journal widget's snapshot and views);
   its feed is in `WidgetFeed.swift`, its widget in `StanleyWidgets.swift`

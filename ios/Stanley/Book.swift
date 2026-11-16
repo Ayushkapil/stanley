@@ -22,9 +22,6 @@ enum BookStart: Equatable {
     /// In the shared journal, the spread your own page of today is on:
     /// where a page just shared has landed.
     case own
-    /// This month's answer sheet (build 65), from the five bubbles on
-    /// your journal's cover.
-    case sheet
 }
 
 /// Whether pages are ruled (build 52): off by default, so a page is blank
@@ -188,9 +185,6 @@ struct BookPage: Identifiable {
         /// A page shared with one person (build 52), to you or by you: a
         /// page of its own, never one of a pair.
         case single(SharedPage)
-        /// A month's answer sheet (build 52; redrawn in build 65): a row a
-        /// day, five bubbles across, at the end of the month's chapter.
-        case moods(MoodMonth)
     }
 
     let id: String
@@ -221,7 +215,6 @@ struct BookPage: Identifiable {
         case .chapter: nil
         case .reflection(let reflection): BookType.weekTitle(reflection)
         case .oursEmpty: nil
-        case .moods: date.formatted(.dateTime.month(.wide))
         default: BookType.dayTitle(date)
         }
     }
@@ -253,20 +246,7 @@ struct BookPage: Identifiable {
         case .single(let single):
             if single.mine { return "\(day). Your page, shared with \(single.to?.displayName ?? "one person")" }
             return "\(day). A page from \(single.writer.displayName), for you"
-        case .moods: return "Your days in \(date.formatted(.dateTime.month(.wide).year()))"
         }
-    }
-}
-
-/// A month's answer sheet, at the end of its chapter (build 52; every day
-/// of the month since build 65, the days to come faint): each with its
-/// mark or none, and whether it's gone by, today, or still to come.
-struct MoodMonth: Hashable {
-    let rows: [MarkSheet.Row]
-
-    /// A month's sheet's place in the book: "m-2026-11".
-    static func id(_ month: DateComponents) -> String {
-        String(format: "m-%04d-%02d", month.year ?? 0, month.month ?? 0)
     }
 }
 
@@ -301,12 +281,6 @@ struct Book {
 
     func index(id: String) -> Int? { pages.firstIndex { $0.id == id } }
 
-    /// This month's answer sheet (build 65).
-    var sheetIndex: Int? {
-        let month = Calendar.current.dateComponents([.year, .month], from: .now)
-        return index(id: MoodMonth.id(month))
-    }
-
     /// A page of the shared journal by the id of what's written on it: the
     /// spread it faces on, or the page of its own for one person.
     func index(sharedPage id: String) -> Int? {
@@ -315,20 +289,6 @@ struct Book {
             case .spread(let spread, _): spread.left.id == id || spread.right?.id == id
             case .single(let single): single.id == id
             default: false
-            }
-        }
-    }
-
-    /// Where a day is (a row of a month's dots, tapped): its written page,
-    /// or the first thing from that day, or the nearest page after it.
-    func index(near day: String) -> Int? {
-        if let written = index(day: day) { return written }
-        guard let date = WeekRange.day(day) else { return nil }
-        let calendar = Calendar.current
-        return pages.firstIndex { page in
-            switch page.kind {
-            case .chapter, .moods: return false
-            default: return calendar.startOfDay(for: page.date) >= date
             }
         }
     }
@@ -529,7 +489,6 @@ enum BookBuilder {
         hasher.combine(state.threads)
         hasher.combine(state.lettersReceived.opened)
         hasher.combine(state.reflections)
-        hasher.combine(state.moods)
         let key = hasher.finalize()
         if let last, last.key == key { return last.book }
         let made = build(state, layout: layout, now: now, today: today)
@@ -645,23 +604,11 @@ enum BookBuilder {
             leaves.append(Leaf(day: sunday, order: 3, moment: reflection.createdAt, pages: pages))
         }
 
-        // A month's answer sheet, at the end of its chapter: after its last
-        // day, or (this month) after today's page. This month's is always
-        // there once the server keeps marks, since today's row is where a
-        // day is marked; a month gone by has one only if a day in it was.
+        // (The month's answer sheet was here, at the end of each month's
+        // chapter, until build 72: it's the Journal tab's own screen now,
+        // `MarkSheetScreen`, since there are several books and one set of
+        // days.)
         let todayStart = calendar.startOfDay(for: now)
-        var months = Set(state.moods.keys.compactMap { WeekRange.day($0) }.map {
-            calendar.dateComponents([.year, .month], from: $0)
-        })
-        if state.moodsAvailable { months.insert(calendar.dateComponents([.year, .month], from: now)) }
-        for month in months {
-            guard let first = calendar.date(from: month), first <= todayStart else { continue }
-            let rows = MarkSheet.rows(month: first, marks: state.moods, now: now, calendar: calendar)
-            guard let last = rows.last(where: { $0.when != .future }) else { continue }
-            let page = BookPage(id: MoodMonth.id(month), date: first, kind: .moods(MoodMonth(rows: rows)))
-            leaves.append(Leaf(day: last.date, order: 10, moment: .distantFuture, pages: [page]))
-        }
-
         leaves.sort { ($0.day, $0.order, $0.moment) < ($1.day, $1.order, $1.moment) }
 
         // Today's page is always in the book: written, or waiting.
@@ -670,7 +617,6 @@ enum BookBuilder {
             // After everything else: the book ends on the page being lived.
             leaves.append(Leaf(day: max(todayStart, leaves.last?.day ?? todayStart), order: 9, moment: now, pages: [blank]))
         }
-        // (The sheet of this month's dots comes after it, at the very end.)
         leaves.sort { ($0.day, $0.order, $0.moment) < ($1.day, $1.order, $1.moment) }
 
         var pages: [BookPage] = []

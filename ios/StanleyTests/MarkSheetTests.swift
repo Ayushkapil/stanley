@@ -179,4 +179,53 @@ final class MarkSheetTests: XCTestCase {
         XCTAssertEqual(MarkSheet.afterTap(on: 2, in: rows.first { $0.day == "2026-11-15" }!), .some(nil))
         XCTAssertNil(MarkSheet.afterTap(on: 2, in: rows.first { $0.day == "2026-11-16" }!) as Int??)
     }
+
+    // MARK: the months it turns to (build 72)
+
+    private func names(_ months: [Date], _ calendar: Calendar) -> [String] {
+        months.map { String(LocalDay.text(of: $0, calendar: calendar).prefix(7)) }
+    }
+
+    func testTheSheetTurnsBackToTheMonthYouJoinedAndNoFurther() {
+        let indy = calendar("America/Indiana/Indianapolis")
+        let now = utc(11, 16, 17)
+        let joined = utc(7, 15, 23)
+        let months = MarkSheet.months(joined: joined, now: now, calendar: indy)
+        XCTAssertEqual(names(months, indy), ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11"])
+        // Each is its month's first day, and this month is last.
+        XCTAssertTrue(months.allSatisfy { indy.component(.day, from: $0) == 1 })
+        // Only this month's today takes a mark; every month before takes none.
+        for month in months.dropLast() {
+            XCTAssertTrue(MarkSheet.rows(month: month, marks: [:], now: now, calendar: indy).allSatisfy { !$0.takesAMark })
+        }
+        XCTAssertEqual(MarkSheet.rows(month: months.last!, marks: [:], now: now, calendar: indy).filter(\.takesAMark).count, 1)
+    }
+
+    func testJoiningThisMonthOrNoJoinDateLeavesThisMonthAlone() {
+        let indy = calendar("America/Indiana/Indianapolis")
+        let now = utc(11, 16, 17)
+        XCTAssertEqual(names(MarkSheet.months(joined: utc(11, 2, 12), now: now, calendar: indy), indy), ["2026-11"])
+        XCTAssertEqual(names(MarkSheet.months(joined: nil, now: now, calendar: indy), indy), ["2026-11"])
+        // A join date somehow ahead of now reaches nothing to come.
+        XCTAssertEqual(names(MarkSheet.months(joined: utc(12, 20, 12), now: now, calendar: indy), indy), ["2026-11"])
+    }
+
+    func testTheMonthsAreTheJoinersOwnCalendarsAcrossAYear() {
+        // Joined late on 31 October in Bloomington (1 November in UTC): October
+        // is theirs to turn to.
+        let indy = calendar("America/Indiana/Indianapolis")
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC")!
+        let joined = c.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 2))!
+        let now = c.date(from: DateComponents(year: 2027, month: 1, day: 10, hour: 18))!
+        XCTAssertEqual(names(MarkSheet.months(joined: joined, now: now, calendar: indy), indy),
+                       ["2026-10", "2026-11", "2026-12", "2027-01"])
+    }
+
+    func testTheHeadingAsksAndNamesNothing() {
+        XCTAssertEqual(MarkSheet.question, "How was the day?")
+        XCTAssertTrue(MarkSheet.words.contains(MarkSheet.question))
+        XCTAssertTrue(MarkSheet.words.contains(MarkSheet.previousMonth))
+        XCTAssertTrue(MarkSheet.words.contains(MarkSheet.nextMonth))
+    }
 }

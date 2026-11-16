@@ -47,6 +47,12 @@ struct CoverJournal: Identifiable, Hashable {
     /// A circle's journal whose notices you've muted (build 57); nil for
     /// your own, or a server that has no such thing.
     var muted: Bool? = nil
+    /// Not a journal: the card at the end of the deck for your days, which
+    /// opens the month's answer sheet (build 72).
+    var days = false
+
+    /// The one card for your days.
+    static let daysID = "days"
 }
 
 struct JournalCovers: View {
@@ -59,9 +65,9 @@ struct JournalCovers: View {
     /// the cards runs on under all of it.
     let insets: EdgeInsets
     let open: (CoverJournal) -> Void
-    /// Your own book at this month's answer sheet (build 65).
-    let openSheet: () -> Void
     @Binding var page: String
+    /// The month's answer sheet, over the covers (build 72).
+    @State private var readingDays = false
     @State private var shown: String?
     @State private var renaming = false
     @State private var name = ""
@@ -90,7 +96,29 @@ struct JournalCovers: View {
                 ))
             }
         }
+        // Last, your days: in no journal, since there are several books and
+        // one set of days (build 72).
+        if state.moodsAvailable {
+            all.append(CoverJournal(
+                id: CoverJournal.daysID, circleId: nil,
+                place: "", title: Date.now.formatted(.dateTime.month(.wide)),
+                name: MarkSheet.daysName, subtitle: MarkSheet.daysLine,
+                cover: nil, since: nil, days: true
+            ))
+        }
         return all
+    }
+
+    /// The day you joined, as far back as the sheet turns: when the account
+    /// was made, or, before the profile has come, the first day marked.
+    private var joined: Date? {
+        let first = state.moods.keys.compactMap(WeekRange.day).min()
+        return [state.profile?.createdAt, first].compactMap { $0 }.min()
+    }
+
+    /// A journal opens its book; your days open the sheet.
+    private func go(_ journal: CoverJournal) {
+        if journal.days { readingDays = true } else { open(journal) }
     }
 
     private var mine: CoverJournal {
@@ -153,6 +181,12 @@ struct JournalCovers: View {
         }
         .onDisappear { Turning.coversShowing(false) }
         .onChange(of: shown) { _, now in if let now { page = now } }
+        // Upright while the sheet is up: the covers may lie on their side,
+        // the sheet's thirty-odd rows need the height.
+        .onChange(of: readingDays) { _, reading in Turning.coversShowing(!reading) }
+        .sheet(isPresented: $readingDays) {
+            MarkSheetScreen(joined: joined)
+        }
         .alert("Name your journal", isPresented: $renaming) {
             TextField(JournalName.fallback, text: $name)
             Button("Save") {
@@ -263,14 +297,20 @@ struct JournalCovers: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: gap) {
                 ForEach(journals) { journal in
-                    CoverCard(
-                        journal: journal, size: card,
-                        open: { open(journal) },
-                        rename: journal.circleId == nil ? {
-                            name = state.journalTitle ?? ""
-                            renaming = true
-                        } : nil
-                    )
+                    Group {
+                        if journal.days {
+                            DaysCard(size: card) { go(journal) }
+                        } else {
+                            CoverCard(
+                                journal: journal, size: card,
+                                open: { open(journal) },
+                                rename: journal.circleId == nil ? {
+                                    name = state.journalTitle ?? ""
+                                    renaming = true
+                                } : nil
+                            )
+                        }
+                    }
                     // The journal's own settings: its notices, muted or
                     // not (build 57).
                     .contextMenu {
@@ -283,7 +323,9 @@ struct JournalCovers: View {
                                     : Label("Mute Pages Written to You", systemImage: "bell.slash")
                             }
                         }
-                        Button { open(journal) } label: { Label("Open", systemImage: "book") }
+                        Button { go(journal) } label: {
+                            Label("Open", systemImage: journal.days ? "square.grid.3x3" : "book")
+                        }
                     }
                     .id(journal.id)
                 }
@@ -345,8 +387,8 @@ struct JournalCovers: View {
                     .minimumScaleFactor(0.8)
                 // Your own journal: your last few days as five bubbles, each
                 // in as much ink as its mark (build 65). Never on a circle's.
-                if journal.circleId == nil, state.moodsAvailable {
-                    Button(action: openSheet) {
+                if journal.circleId == nil, !journal.days, state.moodsAvailable {
+                    Button { readingDays = true } label: {
                         LastFiveDays(levels: MarkSheet.lastFive(marks: state.moods), ink: TextTone.primary, size: 11 * scale)
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
@@ -358,7 +400,7 @@ struct JournalCovers: View {
                     .padding(.top, 8 * scale)
             }
             Spacer(minLength: 8)
-            Button { open(journal) } label: {
+            Button { go(journal) } label: {
                 GlassCircle(size: 44) {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 17, weight: .medium))
@@ -710,7 +752,10 @@ private struct CoverBackdrop: View {
 
     @ViewBuilder
     private func room(_ journal: CoverJournal, floor: Color) -> some View {
-        if let cover = journal.cover {
+        if journal.days {
+            // Your days: the plain floor, no journal's photo or warmth.
+            floor
+        } else if let cover = journal.cover {
             ZStack {
                 floor
                 SignedImage(url: cover) { image in

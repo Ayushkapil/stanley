@@ -446,7 +446,6 @@ struct BookView: View {
                                     top: insets.top, leading: insets.leading, bottom: 0, trailing: insets.trailing
                                 ),
                                 open: { journal in openBook(journal, layout: layout) },
-                                openSheet: { openSheet(layout: layout) },
                                 page: $coverPage
                             )
                             .frame(width: full.width, height: full.height)
@@ -651,21 +650,6 @@ struct BookView: View {
         }
     }
 
-    /// Your own book at this month's answer sheet (build 65): the five
-    /// bubbles on your cover.
-    private func openSheet(layout: BookLayout) {
-        ours = false
-        grid = false
-        touched = false
-        start = .sheet
-        coverPage = "mine"
-        let book = BookBuilder.book(state, layout: layout)
-        go(to: book.sheetIndex ?? book.todayIndex, in: book)
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) {
-            opened = true
-        }
-    }
-
     /// A cover opened (build 53): your own book, or a circle's shared one.
     /// A circle other than the one on screen becomes the one on screen
     /// first, since the shared journal is the circle on screen's.
@@ -821,11 +805,7 @@ struct BookView: View {
                 }
             },
             people: hasOurs ? people : [],
-            shareWithPerson: { page, person in Task { _ = await state.sharePage(page, shared: true, to: person.id) } },
-            openDay: { day in
-                if let at = book.index(near: day) { jump(to: at, in: book) }
-            },
-            markToday: { level in Task { _ = await state.setMark(level) } }
+            shareWithPerson: { page, person in Task { _ = await state.sharePage(page, shared: true, to: person.id) } }
         )
         let accent = palette.accent
         let state = self.state
@@ -837,7 +817,6 @@ struct BookView: View {
         hasher.combine(state.journalTitle)
         hasher.combine(state.sharedDays)
         hasher.combine(state.circle?.name)
-        hasher.combine(state.moods)
         hasher.combine(ours)
         hasher.combine(layout)
         let version = hasher.finalize()
@@ -965,7 +944,6 @@ struct BookView: View {
         case .today: at = book.todayIndex
         case .day(let day): at = book.index(day: day) ?? book.todayIndex
         case .own: at = book.ownIndex ?? book.todayIndex
-        case .sheet: at = book.sheetIndex ?? book.todayIndex
         }
         go(to: at, in: book)
     }

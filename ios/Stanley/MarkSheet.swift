@@ -45,6 +45,25 @@ enum MarkSheet {
         }
     }
 
+    /// The months the sheet can turn to (build 72), oldest first: from the
+    /// month the person joined to this one, each as its first day. Nothing
+    /// before they joined; nothing after this month. A join date that's
+    /// missing, or somehow after now, leaves this month alone.
+    static func months(joined: Date?, now: Date = .now, calendar: Calendar = .current) -> [Date] {
+        guard let current = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else { return [] }
+        guard let joined, joined <= now,
+              var month = calendar.date(from: calendar.dateComponents([.year, .month], from: joined)) else {
+            return [current]
+        }
+        var all: [Date] = []
+        while month <= current {
+            all.append(month)
+            guard let next = calendar.date(byAdding: .month, value: 1, to: month) else { break }
+            month = next
+        }
+        return all
+    }
+
     /// The last five days, oldest first and today last, each with its mark
     /// or none: the five bubbles on your journal's cover.
     static func lastFive(marks: [String: Int], now: Date = .now, calendar: Calendar = .current) -> [Int?] {
@@ -99,20 +118,32 @@ enum MarkSheet {
     /// The one line written at the foot, in the hand.
     static let footLine = "the whole month, one mark a day"
 
+    /// Written under the month's name at the head of the sheet (build 72),
+    /// in the hand. A question, not a label: the five bubbles and the
+    /// shades under it stay unlabelled.
+    static let question = "How was the day?"
     /// The sheet, as VoiceOver names it.
-    static let sheetName = "Your days this month. Only you see them."
+    static let sheetName = "Your days. Only you see them."
     /// A bubble in today's row, after its day and place.
     static let todayHint = "Marks today. On the filled one, takes today's mark back."
-    /// A day gone by, after its date.
-    static let pastHint = "Turns to that day"
+    /// The chevrons either side of the month's name.
+    static let previousMonth = "Previous month"
+    static let nextMonth = "Next month"
+    /// The card at the end of the covers (build 72), and the words under it.
+    static let daysName = "Your days"
+    static let daysLine = "Only you see them"
+    static let daysHint = "Opens the month's sheet"
     /// The cover's five bubbles.
     static let lastFewName = "Your last few days. Only you see them."
-    static let lastFewHint = "Opens this month's sheet"
+    static let lastFewHint = "Opens the month's sheet"
 
     /// Everything the sheet and the cover's five bubbles say, on screen or
     /// to VoiceOver, but a day's date and a bubble's place ("3 of 5",
     /// `spokenBubble`), which the tests hold on their own. The unit tests
     /// read every one: no number, no count, no streak, no average, nothing
     /// about how anyone has been.
-    static let words: [String] = [footLine, sheetName, notMarked, todayHint, pastHint, lastFewName, lastFewHint]
+    static let words: [String] = [
+        footLine, question, sheetName, notMarked, todayHint, previousMonth, nextMonth,
+        daysName, daysLine, daysHint, lastFewName, lastFewHint,
+    ]
 }
