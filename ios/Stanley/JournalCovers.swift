@@ -521,18 +521,29 @@ private struct CoverCard: View {
 
     private var scale: CGFloat { size.width / 290 }
 
+    /// The words' ink (build 69): on a photo always the off-white; on the
+    /// warm field, whichever the field's light asks for (`CoverField.ink`),
+    /// near-black on a light one.
+    private var ink: CoverField.Ink {
+        journal.cover == nil ? CoverField.ink(for: journal.id, dark: colorScheme == .dark) : .light
+    }
+
     var body: some View {
         let shape = cardShape(scale)
         ZStack(alignment: .topLeading) {
             picture
-            // Dark only where words sit on the photo: under the head and
-            // under the foot.
-            VStack(spacing: 0) {
-                LinearGradient(colors: [CoverTone.scrimHead, .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: size.height * 0.42)
-                Spacer(minLength: 0)
-                LinearGradient(colors: [.clear, CoverTone.scrimFoot], startPoint: .top, endPoint: .bottom)
-                    .frame(height: size.height * 0.26)
+            // Dark only where words in the off-white sit on the picture:
+            // under the head and under the foot. Near-black words on a
+            // light field have none (it would only darken what they need
+            // light).
+            if ink == .light {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [CoverTone.scrimHead, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: size.height * CoverField.scrimHeadReach)
+                    Spacer(minLength: 0)
+                    LinearGradient(colors: [.clear, CoverTone.scrimFoot], startPoint: .top, endPoint: .bottom)
+                        .frame(height: size.height * CoverField.scrimFootReach)
+                }
             }
             // The slab: a little white, a sheen across its top left, a thin
             // white edge.
@@ -593,38 +604,42 @@ private struct CoverCard: View {
     private var words: some View {
         let inset = 26 * scale
         let label = Font.system(size: 8.5 * scale, weight: .semibold)
+        let light = ink == .light
+        // The off-white's small capitals sit on a shade of their own; the
+        // near-black's need none.
+        let shade = light
         return VStack(alignment: .leading, spacing: 0) {
             Text(journal.place)
                 .font(label)
                 .tracking(2.6 * scale)
                 .textCase(.uppercase)
-                .foregroundStyle(TextTone.onPhotoLabel)
+                .foregroundStyle(light ? TextTone.onPhotoLabel : CoverTone.fieldLabel)
                 .lineLimit(1)
-                .shadedCapitals(scale)
+                .shadedCapitals(scale, when: shade)
             Text(journal.title)
                 .font(.custom(BookHand.font(44, bold: true).fontName, fixedSize: 44 * scale).leading(.tight))
-                .foregroundStyle(TextTone.onPhoto)
+                .foregroundStyle(light ? TextTone.onPhoto : CoverTone.fieldInk)
                 .lineLimit(3)
                 .minimumScaleFactor(0.5)
                 .padding(.top, 10 * scale)
                 .onLongPressGesture(minimumDuration: 0.45) { rename?() }
             Spacer(minLength: 12)
             Rectangle()
-                .fill(CoverTone.hairline)
+                .fill(light ? CoverTone.hairline : CoverTone.fieldHairline)
                 .frame(height: max(0.5, 0.5 * scale))
             HStack {
                 // Only once there's a first entry: an empty journal says
                 // nothing about when it began.
                 Text(dates)
-                    .shadedCapitals(scale, when: !dates.isEmpty)
+                    .shadedCapitals(scale, when: shade && !dates.isEmpty)
                 Spacer()
                 Text("Vol. I")
-                    .shadedCapitals(scale)
+                    .shadedCapitals(scale, when: shade)
             }
             .font(label)
             .tracking(2.6 * scale)
             .textCase(.uppercase)
-            .foregroundStyle(TextTone.onPhotoLabel)
+            .foregroundStyle(light ? TextTone.onPhotoLabel : CoverTone.fieldLabel)
             .padding(.top, 12 * scale)
         }
         .padding(inset)

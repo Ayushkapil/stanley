@@ -578,6 +578,49 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The title's ink from its field** (build 69, November 15, 2026, from
+  Ayush, "Two fixes"). Phone only; nothing on the server changed.
+  - **A journal with no cover photo writes in whichever ink its field
+    asks for**: near-black (#1A1A1A) on a light field, the warm off-white
+    on a dark one, for the title in the hand, the small capitals (the
+    place, the dates, "Vol. I") and the foot's hairline. Always the
+    off-white until now, so "Ours" on Climbing Club's caramel field by
+    day was about 1.4:1. A card with a photo is as it was.
+  - **Worked out, not guessed** (`ios/Shared/CoverField.swift`,
+    Foundation only): the field's layers are numbers there (the ground,
+    the journal's warmth from its id, the light from the top left, the
+    deep at the foot, the slab's glass and sheen), and `CoverTone`
+    draws from them. `CoverField.ink` takes the mean luminance under the
+    title as each ink would have it drawn (the off-white over the head
+    and foot scrims, near-black without them) and picks the ink that
+    stands further from it. The mean and not the least: at night the
+    sheen leaves the very top left light, and the least picked
+    near-black for half the brown fields (tried, and the tests caught
+    it).
+  - **Near-black drops what was there for the off-white**: no scrims at
+    the head and foot, no shade behind the small capitals (each would
+    only darken what dark words need light). Small capitals are the ink
+    at 85% (`CoverField.darkLabel`: the least that keeps 4.5:1 on the
+    lightest and the darkest field), the hairline at 35%
+    (`CoverTone.fieldInk`, `.fieldLabel`, `.fieldHairline`).
+  - **What the generator makes**: every field by day is light (mean
+    luminance under the title 0.54 to 0.59) and takes near-black; every
+    field at night takes the off-white. The rule is the luminance, so a
+    change to the field's tokens moves the ink with it.
+  - **Tests** (`CoverFieldTests`, six; `CoverField.swift` is compiled
+    into `StanleyTests`): the generator's whole range at eleven steps of
+    hue, saturation and brightness, with the lightest field (amber,
+    least saturated, brightest) and the darkest: by day near-black, the
+    title over 7:1 everywhere it sits and the small capitals at 85% over
+    4.5:1; at night the off-white, the title 3:1 or more (large text)
+    even under the sheen; build 68's off-white under 2:1 on the lightest
+    field; a journal's warmth pinned to its hash; WCAG's contrast.
+  - **Measured** on the iPhone 17 Pro (Climbing Club, Rain): by day the
+    title 10.5:1, the place 7.8, "Vol. I" 5.1; at night the title 3.8
+    (large text; as it was), the place 6.7, "Vol. I" 7.9. The field is
+    the same in every palette (only the room differs), so plain light
+    wasn't measured apart.
+
 - **The page's date as furniture; the covers' words on their own
   shadow** (build 68, November 15, 2026, from Ayush, "Two fixes from the
   audit"). Phone only; nothing on the server changed.
@@ -627,7 +670,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     date or the line now and then, against the measurements (above).
   - **Left**: the title in the hand on a journal with no photo ("Ours"
     on Climbing Club's warm caramel field, by day) fails the audit and
-    is light on that field; it wasn't in the brief. Also as asked: the
+    is light on that field; it wasn't in the brief (fixed in build 69,
+    above). Also as asked: the
     small hit areas that aren't tapped, the answer sheet's days to come,
     Letters' badge, and Today's contrast items.
 
@@ -2710,7 +2754,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (68)", at the
+  production audit), and the version, "Stanley 0.2.0 (69)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3242,6 +3286,19 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
+- **Build 69** (0.2.0): the title's ink from its field (above). Phone
+  only; not archived. Carries build 68.
+- **Crash reporting, looked at for a decision** (November 15, build 69's
+  brief; nothing turned on). Found in Sentry 8.58.4's source: with no
+  user set, every event gets `user.id` = a random installation id the
+  SDK keeps in a file (`SentryClient.setUserIdIfNoUserSet`), and the
+  event's context carries the phone's time zone and locale. Neither is
+  in the Privacy Policy ("anonymous") or `PRIVACY_LABEL.md`; a
+  `beforeSend` that clears both, or words for both, before any DSN
+  ships. The archive's `Sentry.framework` is dynamic, which is why App
+  Store Connect wants its dSYM. What else it would take is in
+  `PRODUCTION_CHECKLIST.md` item 3, plus a dSYM upload step that
+  `sentry-cli` (not installed here) would run after the archive.
 - **Build 68** (0.2.0): the page's date as furniture and the covers'
   scrims (above). Phone only; v33 on Fly is its server. Build 68
   carries everything below. **Archived and uploaded to App Store
@@ -3760,7 +3817,8 @@ page, six more; since build 64 the capture's daily prompt turning at
 local midnight, four more; and a day written out and read back on the
 phone's calendar, four more; since build 65 the answer sheet's rules,
 eight more; since build 66 what VoiceOver says and taking a mark back,
-five more, thirty-three in all). `tests/test_moods.py` (build 65) holds
+five more; since build 69 the title's ink on a journal's field, six more,
+thirty-nine in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

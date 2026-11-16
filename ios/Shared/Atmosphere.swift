@@ -56,16 +56,23 @@ enum TextTone {
 enum CoverTone {
     /// The slab's glass: a little white by day, less at night, where
     /// material over black goes muddy and the edge carries it.
-    static func slab(_ scheme: ColorScheme) -> Color { .white.opacity(scheme == .dark ? 0.08 : 0.2) }
+    static func slab(_ scheme: ColorScheme) -> Color { .white.opacity(CoverField.slab(dark: scheme == .dark)) }
     /// The slab's edge: a thin line of the words' off-white.
     static let edge = TextTone.onPhoto.opacity(0.55)
     /// The sheen across the slab's top left.
-    static let sheen = TextTone.onPhoto.opacity(0.4)
+    static let sheen = TextTone.onPhoto.opacity(CoverField.sheen)
     /// The hairline at the slab's foot.
     static let hairline = TextTone.onPhoto.opacity(0.45)
     /// Under the words on a photo: dark at the head and the foot.
-    static let scrimHead = Color.black.opacity(0.38)
-    static let scrimFoot = Color.black.opacity(0.5)
+    static let scrimHead = Color.black.opacity(CoverField.scrimHead)
+    static let scrimFoot = Color.black.opacity(CoverField.scrimFoot)
+    /// The words on a light field with no photo (build 69,
+    /// `CoverField.ink`): the near-black, its small capitals and foot line
+    /// at 85%, its hairline at 35%. Fixed, not the room's: it's the
+    /// field's light that decides, not the screen's.
+    static let fieldInk = Color(TextTone.rgb(0x1A1A1A))
+    static let fieldLabel = fieldInk.opacity(CoverField.darkLabel)
+    static let fieldHairline = fieldInk.opacity(0.35)
     /// Close behind the slab's small capitals (build 68): a soft darkening
     /// only there, so the label reads whatever the photo is doing under it.
     static let capitalsShade = Color.black.opacity(0.75)
@@ -80,18 +87,19 @@ enum CoverTone {
         scheme == .dark ? .black.opacity(0.6) : card
     }
     /// A journal with no photo yet: a warm ground, light from the top left,
-    /// a little deeper at the foot.
+    /// a little deeper at the foot (the numbers are `CoverField`'s, which
+    /// the ink is worked out from).
     static func ground(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(TextTone.rgb(0x402B1F)) : Color(TextTone.rgb(0xCC946B))
+        Color(TextTone.rgb(CoverField.ground(dark: scheme == .dark)))
     }
     static func light(_ scheme: ColorScheme) -> Color {
-        Color(TextTone.rgb(0xFFD199)).opacity(scheme == .dark ? 0.22 : 0.55)
+        Color(TextTone.rgb(CoverField.lightTone)).opacity(CoverField.lightAlpha(dark: scheme == .dark))
     }
     static func deep(_ scheme: ColorScheme) -> Color {
-        Color(TextTone.rgb(0x593324)).opacity(scheme == .dark ? 0.35 : 0.3)
+        Color(TextTone.rgb(CoverField.deepTone)).opacity(CoverField.deepAlpha(dark: scheme == .dark))
     }
-    /// How much of the palette's accent is laid over that ground.
-    static func accentWash(_ scheme: ColorScheme) -> Double { scheme == .dark ? 0.22 : 0.18 }
+    /// How much of the journal's warmth is laid over that ground.
+    static func accentWash(_ scheme: ColorScheme) -> Double { CoverField.wash(dark: scheme == .dark) }
     /// The card's shadow.
     static func shadow(_ scheme: ColorScheme) -> Color { .black.opacity(scheme == .dark ? 0.5 : 0.22) }
 
@@ -110,18 +118,11 @@ enum CoverTone {
     static let glowNear = 0.30
     static let glowFar = 0.18
     /// A journal's own warm colour, the same every time for the same
-    /// journal: a stable hash of its id (FNV-1a, never Swift's `hashValue`,
-    /// which changes each launch), kept to reds, oranges and ambers.
+    /// journal (`CoverField.warmth`: a stable hash of its id, kept to reds,
+    /// oranges and ambers).
     static func warmth(_ id: String) -> Color {
-        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
-        for byte in id.utf8 {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x0000_0100_0000_01b3
-        }
-        let hue = 0.03 + Double(hash % 1000) / 1000 * 0.09
-        let saturation = 0.5 + Double((hash >> 16) % 100) / 100 * 0.18
-        let brightness = 0.78 + Double((hash >> 32) % 100) / 100 * 0.12
-        return Color(hue: hue, saturation: saturation, brightness: brightness)
+        let c = CoverField.warmth(id)
+        return Color(.sRGB, red: c.r, green: c.g, blue: c.b)
     }
 }
 
