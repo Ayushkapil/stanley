@@ -3550,8 +3550,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   5. Tell the pilot: build 70's notice does it in the app.
 - **Build 73** (0.2.0): the sheet's rows leading to their pages, and the
   sheet scrolling instead of turning the screen (above). Phone only; v33
-  on Fly is its server. Carries builds 69 to 72 (the last uploaded was
-  70).
+  on Fly is its server. Carries builds 71 and 72. **Archived and uploaded
+  to App Store Connect on November 16, 2026**, as 68 and 70 were
+  ("Stanley 0.2.0 (73)" in Organizer's folder, `-exportArchive` to
+  `upload` with `-allowProvisioningUpdates`; "Upload succeeded", then
+  processing). No Sentry DSN; the only warning was Sentry.framework's
+  missing dSYM again. Not yet seen in TestFlight.
 - **Build 72** (0.2.0) was never archived on its own: the answer sheet
   standing alone (above). Carries build 71.
 - **Build 71** (0.2.0) was never archived on its own: the covers' room
