@@ -40,13 +40,22 @@ struct BookActions {
     var markToday: (Int?) -> Void = { _ in }
 }
 
+/// A text view that says its words once: as its label, with no value (a
+/// text view's value is its text, which VoiceOver would read again).
+private final class InkTextView: UITextView {
+    override var accessibilityValue: String? {
+        get { nil }
+        set {}
+    }
+}
+
 /// Words set by `BookType`, drawn exactly as `Paginator` measured them: the
 /// same TextKit, the same fixed line, so they sit on the page's rules.
 struct InkText: UIViewRepresentable {
     let text: NSAttributedString
 
     func makeUIView(context: Context) -> UITextView {
-        let view = UITextView(usingTextLayoutManager: false)
+        let view = InkTextView(usingTextLayoutManager: false)
         view.isEditable = false
         view.isSelectable = false
         view.isScrollEnabled = false
@@ -58,13 +67,24 @@ struct InkText: UIViewRepresentable {
         view.clipsToBounds = false
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        // The page speaks for itself (`BookPage.name` and its words below).
+        view.showsVerticalScrollIndicator = false
+        view.showsHorizontalScrollIndicator = false
+        // Read as the words and nothing else (build 67). A text view is a
+        // scroll view, and left to itself it put its two scroll bars in
+        // the tree ("Vertical scroll bar, 1 page") under every written
+        // page and each half of a spread. As one element of its own,
+        // static text with the words as its label, it has no children.
+        view.isAccessibilityElement = true
         view.accessibilityTraits = .staticText
+        view.accessibilityLabel = text.string
         return view
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        if view.attributedText != text { view.attributedText = text }
+        if view.attributedText != text {
+            view.attributedText = text
+            view.accessibilityLabel = text.string
+        }
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
@@ -206,19 +226,26 @@ struct BookPageView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             BookSheet(layout: layout, lined: page.lined)
+            // Read in the page's order (build 67): its date, where it's
+            // shared, what's on it, its number. Left to the stack, the
+            // date came after the words.
             if let heading = page.heading {
                 PageHeading(text: heading, color: headInk, layout: layout)
+                    .accessibilitySortPriority(3)
             }
             // A page of your own that's in a circle's shared journal says so.
             if case .written(let written) = page.kind, let with = written.sharedWith, page.part == 0 {
                 PageTag(text: "Shared with \(with)", layout: layout)
+                    .accessibilitySortPriority(2)
             }
             // A page for one person says so, whichever side of it you're on.
             if case .single(let single) = page.kind {
                 PageTag(text: single.mine ? "Shared with \(single.to?.displayName ?? "one person")" : "For you", layout: layout)
+                    .accessibilitySortPriority(2)
             }
             content
             foot
+                .accessibilitySortPriority(-1)
         }
         .frame(width: layout.width, height: layout.height)
         .contentShape(Rectangle())
@@ -228,13 +255,16 @@ struct BookPageView: View {
         .accessibilityLabel(page.name)
     }
 
-    /// The date is in the page's own ink where the page is written, a
-    /// little let down so it's the smaller thing; plain ink elsewhere.
+    /// The date is in the page's own ink where the page is written; plain
+    /// ink elsewhere. Its size makes it the smaller thing. (Until build 67
+    /// it was let down to 70%, 62% on other pages, and the accessibility
+    /// audit failed the date on every page: thin strokes of a hand at
+    /// that strength. At full strength it passes.)
     private var headInk: Color {
         switch page.kind {
-        case .written(let written): Ink.named(written.ink).color.opacity(0.7)
-        case .today: Ink.named(inkRaw).color.opacity(0.7)
-        default: Ink.black.color.opacity(0.62)
+        case .written(let written): Ink.named(written.ink).color
+        case .today: Ink.named(inkRaw).color
+        default: Ink.black.color
         }
     }
 
@@ -324,6 +354,8 @@ struct BookPageView: View {
                 InkText(text: text)
                     .frame(width: layout.textWidth, height: layout.textHeight, alignment: .topLeading)
                     .accessibilityLabel(text.string)
+                    // The words, then the week's photos under them.
+                    .accessibilitySortPriority(1)
             }
             // The week's photos that are still there, under a reflection's
             // last lines when there's room on the page for them.
@@ -463,7 +495,7 @@ struct BookPageView: View {
                     .frame(width: layout.letterTextWidth, height: page.textHeight, alignment: .topLeading)
                     .padding(inset)
                     .creamPaper(corner: 3, tilt: number.isMultiple(of: 2) ? 0.5 : -0.5)
-                    .accessibilityLabel(text.string)
+                // (The words say themselves, once: `InkText`.)
             }
         }
         .padding(.top, 10)

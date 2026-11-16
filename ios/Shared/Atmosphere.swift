@@ -26,15 +26,23 @@ enum TextTone {
 
     /// The words: #1A1A1A by day, #F2EADC at night.
     static let primary = tone(0x1A1A1A, 0xF2EADC)
-    /// The quieter words: #8A8580 by day, #ABA294 at night.
-    static let secondary = tone(0x8A8580, 0xABA294)
+    /// The quieter words: #6F6A65 by day, #ABA294 at night. (By day it was
+    /// the brief's #8A8580 until build 67, about 3.5:1 on the page; the
+    /// accessibility audit failed every dateline on it. #6F6A65 is the same
+    /// warm gray at 4.5:1 or more on every daylight paper: 5.0 on the
+    /// book's page, 5.1 on the floor, 5.4 on a card, 4.5 on Rain's floor.
+    /// At night #ABA294 is 8.3:1 on black and was never short.)
+    static let secondaryDay: UInt32 = 0x6F6A65
+    static let secondaryNight: UInt32 = 0xABA294
+    static let secondaryUI = UIColor { $0.userInterfaceStyle == .dark ? rgb(secondaryNight) : rgb(secondaryDay) }
+    static let secondary = Color(secondaryUI)
     /// Quieter still, a placeholder or a hint: #B5B1AC by day, #6E675D at
     /// night.
     static let tertiary = tone(0xB5B1AC, 0x6E675D)
     /// Small capitals and labels set over the room: the words at 70% at
     /// night, the quieter words by day.
     static let label = Color(UIColor {
-        $0.userInterfaceStyle == .dark ? rgb(0xF2EADC, alpha: 0.7) : rgb(0x8A8580)
+        $0.userInterfaceStyle == .dark ? rgb(0xF2EADC, alpha: 0.7) : rgb(secondaryDay)
     })
     /// Words laid on a photograph, in either room (the cover's title, a
     /// held photo's caption): the warm off-white, never pure white.

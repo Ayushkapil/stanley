@@ -61,12 +61,9 @@ enum BookPaper {
     static let rule = Color(ruleUI)
 
     /// What's printed on the page and isn't the writer's ink: a page
-    /// number, a week's dates.
-    static let quietUI = UIColor {
-        $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.42, green: 0.40, blue: 0.376, alpha: 1)    // #6B6560
-            : UIColor(red: 0.541, green: 0.522, blue: 0.502, alpha: 1)  // #8A8580
-    }
+    /// number, a week's dates. The app's own secondary (build 67; it was a
+    /// copy of the old one, #8A8580 and, at night, #6B6560 at 3.2:1).
+    static let quietUI = TextTone.secondaryUI
     static let quiet = Color(quietUI)
 
     /// The page under this one, where its edge shows at the right: a

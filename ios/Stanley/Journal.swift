@@ -328,6 +328,10 @@ private struct CreamPaper: ViewModifier {
                 }
                 .overlay(shape.strokeBorder(.black.opacity(0.07), lineWidth: 0.5))
                 .shadow(color: .black.opacity(colorScheme == .dark ? 0 : 0.08), radius: 5, y: 2)
+                // The paper is only paper. Left in the tree, its grain was
+                // an image that took a label meant for the words on it, so a
+                // letter in the book was read twice (build 67).
+                .accessibilityHidden(true)
             }
             .rotationEffect(.degrees(tilt))
     }

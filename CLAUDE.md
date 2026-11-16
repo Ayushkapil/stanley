@@ -404,8 +404,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     on the black), photos with no border, frame or shadow, words
     `#F0EBE3`, secondary `#6B6560`, accent warm white. The inks are set at
     the root (`darkRoomInk()`, from `DarkRoom.ink`/`.quiet`/`.quietest` in
-    `Shared/JournalColors.swift`). **The two secondaries are the brief's
-    and measure about 3.5:1 and 3.7:1**, under the 4.5:1 the HCI audit of
+    `Shared/JournalColors.swift`). (Build 57 made the night's `#ABA294`,
+    and build 67 the day's `#6F6A65`, 4.5:1 or more on every paper; see
+    build 67.) **The two secondaries were the brief's
+    and measured about 3.5:1 and 3.7:1**, under the 4.5:1 the HCI audit of
     build 32 had set; the brief's numbers were followed and this was said
     to Ayush.
   - **Three surfaces** (`Journal.swift`): `card(h:v:corner:)` (the white
@@ -576,6 +578,84 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The book to VoiceOver, and a darker secondary** (build 67, November
+  15, 2026, from Ayush, after an audit of the book). Phone only; nothing
+  on the server changed, so nothing to deploy.
+  - **What the audit found first** (Xcode's accessibility audit,
+    `performAccessibilityAudit`, run from a temporary UI test, since
+    Accessibility Inspector's device menu couldn't be reached from here,
+    and an in-app walk of the containers as VoiceOver goes through them):
+    **the page is not one opaque element.** Each page is a container
+    named for itself, its date, words, photos with their captions,
+    letters and a shared page's writer each their own element. No
+    `children: .ignore` on a page; the swipe, scrub and pinch are UIKit
+    recognizers, not views, and add nothing to the tree. What was wrong
+    was around the content, and it's fixed:
+    - **Turning a page needed the swipe** or the ribbon, an 18pt strip at
+      the screen's edge. Every page now takes VoiceOver's three-finger
+      swipe (`accessibilityScrollAction`: left is on toward today, right
+      is back, as any paged view) and has **Next Page** and **Previous
+      Page** actions where there's a page to turn to (`PageTurnActions`);
+      each says where it landed ("Saturday, 14 November 2026. Page 64 of
+      65", `.pageScrolled`). Checked by sending the scroll up the
+      container chain from the page's date, as VoiceOver does, and by
+      running the two actions: each turned the right way. The actions sit
+      on the page's container, not on the date or the words; whether
+      VoiceOver offers a container's actions while a child is focused is
+      **not proven** here (the three-finger swipe is, since a scroll goes
+      up the chain).
+    - **The written words carried two scroll bars** ("Vertical scroll
+      bar, 1 page") under every page and each half of a spread: the text
+      view that draws them is a scroll view. `InkText` is now one
+      element of its own, static text with the words as its label and no
+      value, its indicators off.
+    - **A letter was read twice**: cream paper's grain was an image that
+      took the label meant for the words. The paper is hidden now
+      (`CreamPaper`, so for every cream page), and the words say
+      themselves once.
+    - **The "+" was a button inside a button.** The menu's label is
+      hidden; the menu's own button, "Write today's page", is read.
+    - **Reading order**: the date came after the page's words, and the
+      "+" and the ribbon before the page. Now each page reads its date,
+      where it's shared, what's on it (a reflection's words before its
+      week's photos), then its number; then the "+", then the ribbon
+      (`accessibilitySortPriority`; the ribbon's is on the ribbon
+      itself, since on `BookEdge`'s whole stack it made the ribbon's
+      element as big as the screen).
+  - **The secondary is darker** (`TextTone.secondary` in
+    `Shared/Atmosphere.swift`, by day **#6F6A65**, from the brief's
+    #8A8580; Ayush: "raise it once there rather than patching this
+    screen"). 5.0:1 on the book's page, 5.1 on the floor, 5.4 on a card,
+    4.5 on Rain's floor; at night #ABA294 was never short and is
+    unchanged. `TextTone.label` by day, and `BookPaper.quiet` (a copy of
+    the old one, #6B6560 at night, 3.2:1), are this token now. Every
+    masthead's dateline passes the audit; it failed before.
+  - **The page's date at full strength.** It isn't the token: it's the
+    page's own ink, let down to 70% (62% on other pages), in the hand,
+    and the audit failed it on every page. At full strength it passes
+    (the writing layer's date too, so nothing changes shade as writing
+    begins). The audit still flips on a page's date now and then (the
+    same page passing in one run and failing in the next); its pixels
+    are #1A1A1A on #FAF8F1, about 16:1.
+  - **Left as they were**: the handwriting's size (Dynamic Type for the
+    hand is its own pass, as asked); **Today** (its audit flags a
+    "Love" image, the flip clock's digits one by one, nested buttons on
+    the letter card and "Leave a note" four deep, likely hidden
+    elements the UI test lists anyway: for a real VoiceOver pass);
+    **the covers' small capitals and date**, which sit on the blurred
+    cover photo under a 60% veil (`CoverTone`), so the photo's darks
+    fail them whatever the secondary is; **days to come on the answer
+    sheet**, faint by design and hidden from VoiceOver; hit areas the
+    audit calls small (the ribbon, the page number, the cover's pips,
+    none meant to be tapped but the ribbon); Letters' "•" badge.
+  - **Checked** on the iPhone 17 Pro simulator against a local server
+    (Maya's seeded book): the audit on Today, the covers, today's page,
+    written, letter, reflection and photo pages and a spread in Ours,
+    before and after; the walk on each page; the turns; the 33 unit
+    tests; the Release configuration compiles. The probe, the hook and
+    the UI-test target were removed after. **Not heard with VoiceOver
+    itself**, and not seen on a real phone.
+
 - **The answer sheet to VoiceOver, taking a mark back, two paths seen**
   (build 66, November 15, 2026, from Ayush, "Accessibility pass on the
   OMR sheet, plus two unseen paths"; the reading order in
@@ -610,7 +690,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     UI-test session, on the iPhone 17 Pro against the local server; the
     hook and the UI-test target were removed after. Not heard with
     VoiceOver itself.
-  - **Seen there, and fixed after it** (the same day, in build 66):
+  - **Seen there, and fixed after it** (the same day, in build 67, by a
+    second session, whose commit was taken into build 67's branch):
     two silent stops on every page of the book, the ribbon's bead on
     the fore-edge (9 by 9) and a page-sized node with no label. Both
     came from `.accessibilityHidden(grid)` on the page turner, the
@@ -2575,7 +2656,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (66)", at the
+  production audit), and the version, "Stanley 0.2.0 (67)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3107,9 +3188,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 66** (0.2.0) is the number to archive next: the answer sheet
-  read by VoiceOver (above). Phone only; v33 on Fly is its server, so
-  it can go out. Build 66 carries everything below.
+- **Build 67** (0.2.0) is the number to archive next: the book to
+  VoiceOver and the darker secondary (above). Phone only; v33 on Fly is
+  its server, so it can go out. Build 67 carries everything below.
+- **Build 66** (0.2.0) was never archived on its own: the answer sheet
+  read by VoiceOver (above).
 - **Build 65** (0.2.0) was never archived on its own: the answer sheet
   (above).
 - **Build 64** (0.2.0) was never archived on its own: the capture's

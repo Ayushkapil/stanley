@@ -56,10 +56,10 @@ struct StanleyApp: App {
 
 /// Stanley's three inks, set once at the root for everything that doesn't
 /// name its own color (Quiet Warmth, build 44): the words (#1A1A1A; warm
-/// white #F0EBE3 in the dark), the quieter `.secondary` (warm gray #8A8580;
-/// #6B6560 in the dark) and the `.tertiary`. The secondary is the brief's:
-/// it measures about 3.5:1 on the page, lighter than the 4.6:1 the HCI
-/// audit of build 32 had set. Colors that answer to the appearance
+/// white in the dark), the quieter `.secondary` and the `.tertiary`, all
+/// `TextTone`. The secondary was the brief's #8A8580, about 3.5:1 on the
+/// page; since build 67 it's #6F6A65, 4.5:1 or more on every daylight
+/// paper, as the HCI audit of build 32 had set. Colors that answer to the appearance
 /// themselves, so flipping it doesn't rebuild the app.
 private struct DarkRoomInk: ViewModifier {
     static let words = DarkRoom.ink

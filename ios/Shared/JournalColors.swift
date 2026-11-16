@@ -13,8 +13,8 @@ enum DarkRoom {
     /// (Since build 57 the words' colors are `TextTone`, in Atmosphere.swift.)
     static let ink = TextTone.primary
 
-    /// The quieter words: warm gray in daylight (#8A8580), dim warm in the
-    /// dark (#6B6560).
+    /// The quieter words: `TextTone.secondary` (#6F6A65 by day, #ABA294 at
+    /// night).
     static let quiet = TextTone.secondary
 
     /// Quieter still: a placeholder, a hint.

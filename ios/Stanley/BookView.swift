@@ -851,6 +851,23 @@ struct BookView: View {
                 page: { at in
                     AnyView(
                         BookPageView(page: book.pages[at], number: at + 1, layout: layout, actions: actions)
+                            // Turning without the swipe (build 67): VoiceOver's
+                            // three-finger swipe, as in any paged view, and two
+                            // actions for the rotor. Until now the only way was
+                            // the ribbon, an 18pt strip at the screen's edge.
+                            // Pages are oldest first: on is toward today.
+                            .accessibilityScrollAction { edge in
+                                switch edge {
+                                case .leading: turnForVoiceOver(from: at, by: 1, in: book)
+                                case .trailing: turnForVoiceOver(from: at, by: -1, in: book)
+                                default: break
+                                }
+                            }
+                            .modifier(PageTurnActions(
+                                hasNext: at + 1 < count, hasPrevious: at > 0,
+                                next: { turnForVoiceOver(from: at, by: 1, in: book) },
+                                previous: { turnForVoiceOver(from: at, by: -1, in: book) }
+                            ))
                             .environment(state)
                             .tint(accent)
                             .darkRoomInk()
@@ -907,6 +924,11 @@ struct BookView: View {
                 writeTo: { wants(.person($0)) }
             )
             .opacity(grid ? 0 : 1)
+            // The page is read first, then the "+", then the ribbon (build
+            // 67; they came before the page). The ribbon's own priority is
+            // on it, in `BookEdge`: put on the edge's whole stack, it made
+            // the ribbon's element as big as the screen.
+            .accessibilitySortPriority(-1)
 
             if grid {
                 BookGrid(book: book, layout: layout, current: index, floor: palette.floor, accent: accent) { picked in
@@ -993,12 +1015,39 @@ struct BookView: View {
         currentID = book.pages[target].id
     }
 
+    /// A page turned by VoiceOver: turned, and said where it landed, as a
+    /// paged view says it ("Saturday, 14 November 2026. Page 64 of 65").
+    private func turnForVoiceOver(from at: Int, by: Int, in book: Book) {
+        let target = at + by
+        guard book.pages.indices.contains(target) else { return }
+        jump(to: target, in: book)
+        let said = "\(book.pages[target].name). Page \(target + 1) of \(book.pages.count)"
+        UIAccessibility.post(notification: .pageScrolled, argument: said)
+    }
+
     /// Turn to a page by its name, from somewhere the book isn't in hand
     /// (the Letters sheet).
     private func turn(to id: String) {
         guard let shown else { return }
         let book = BookBuilder.book(state, layout: shown)
         if let at = book.index(id: id) { jump(to: at, in: book) }
+    }
+}
+
+/// "Next Page" and "Previous Page" in VoiceOver's actions, where there's a
+/// page to turn to.
+private struct PageTurnActions: ViewModifier {
+    let hasNext: Bool
+    let hasPrevious: Bool
+    let next: () -> Void
+    let previous: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityActions {
+                if hasNext { Button("Next Page", action: next) }
+                if hasPrevious { Button("Previous Page", action: previous) }
+            }
     }
 }
 
@@ -1158,6 +1207,7 @@ private struct BookEdge: View {
                 .allowsHitTesting(false)
                 .accessibilityElement()
                 .accessibilityLabel("Place in the journal")
+                .accessibilitySortPriority(-2)
                 .accessibilityValue(book.pages.indices.contains(index) ? "Page \(index + 1). \(book.pages[index].name)" : "")
                 .accessibilityHint("Swipe up for a newer page, down for an older one")
                 .accessibilityAdjustableAction { direction in
@@ -1242,7 +1292,11 @@ private struct PlusMenu: View {
                             }
                         }
                     } label: {
+                        // The menu's own button is what's read; its label
+                        // drawn inside it was a second, unnamed button in
+                        // the tree (build 67).
                         PlusGlass(tint: accent)
+                            .accessibilityHidden(true)
                     }
                     .accessibilityLabel("Write today's page")
                 } else {

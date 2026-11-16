@@ -456,7 +456,7 @@ struct PageWriting: View {
         .frame(width: layout.width)
         .overlay(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
-                PageHeading(text: BookType.dayTitle(date), color: headInk.color.opacity(0.7), layout: layout)
+                PageHeading(text: BookType.dayTitle(date), color: headInk.color, layout: layout)
                 // Where this page will land, so there's never any doubt; and
                 // where there's somewhere else to put it, a tap chooses.
                 if canShare {
