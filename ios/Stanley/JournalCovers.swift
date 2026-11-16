@@ -137,7 +137,6 @@ struct JournalCovers: View {
                         .smallCaps()
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .onItsOwnShadow(spread: 20)
                         .padding(.horizontal, Self.margin)
                         .padding(.top, 8)
                     arranged(journals: journals, current: current, at: at, room: room.size.width)
@@ -358,7 +357,6 @@ struct JournalCovers: View {
                 Pips(at: at, of: of, ink: TextTone.primary)
                     .padding(.top, 8 * scale)
             }
-            .onItsOwnShadow(spread: 24 * scale)
             Spacer(minLength: 8)
             Button { open(journal) } label: {
                 GlassCircle(size: 44) {
@@ -605,15 +603,16 @@ private struct CoverCard: View {
         let inset = 26 * scale
         let label = Font.system(size: 8.5 * scale, weight: .semibold)
         let light = ink == .light
-        // The off-white's small capitals sit on a shade of their own; the
-        // near-black's need none.
+        // The off-white's small capitals are at full strength (build 71; they
+        // were at 70% on a shade of their own) and edged in a shadow round
+        // each letter; the near-black's need neither.
         let shade = light
         return VStack(alignment: .leading, spacing: 0) {
             Text(journal.place)
                 .font(label)
                 .tracking(2.6 * scale)
                 .textCase(.uppercase)
-                .foregroundStyle(light ? TextTone.onPhotoLabel : CoverTone.fieldLabel)
+                .foregroundStyle(light ? TextTone.onPhoto : CoverTone.fieldLabel)
                 .lineLimit(1)
                 .shadedCapitals(scale, when: shade)
             Text(journal.title)
@@ -639,7 +638,7 @@ private struct CoverCard: View {
             .font(label)
             .tracking(2.6 * scale)
             .textCase(.uppercase)
-            .foregroundStyle(light ? TextTone.onPhotoLabel : CoverTone.fieldLabel)
+            .foregroundStyle(light ? TextTone.onPhoto : CoverTone.fieldLabel)
             .padding(.top, 12 * scale)
         }
         .padding(inset)
@@ -656,49 +655,17 @@ private struct CoverCard: View {
 }
 
 extension View {
-    /// Words in the room sitting on their own shadow (build 68): a soft
-    /// shadow of the floor behind them, full behind the words and fading
-    /// to nothing round them, and nothing anywhere else. The contrast audit failed
-    /// the date, the name's line and the pips' neighbours wherever the
-    /// blurred photo under the veil was dark.
-    func onItsOwnShadow(spread: CGFloat) -> some View {
-        modifier(RoomShadow(spread: spread))
-    }
-
-    /// A soft darkening inside the slab behind its small capitals (build
-    /// 68), so the photo stays bright everywhere else.
+    /// The slab's small capitals, each letter edged in a tight shadow
+    /// (build 71), so they read over a bright photo with no box behind
+    /// them. Two passes: one close for the edge, one a little wider.
+    @ViewBuilder
     func shadedCapitals(_ scale: CGFloat, when shown: Bool = true) -> some View {
-        background {
-            if shown {
-                Capsule()
-                    .fill(CoverTone.capitalsShade)
-                    .padding(.horizontal, -14 * scale)
-                    .padding(.vertical, -8 * scale)
-                    .blur(radius: 8 * scale)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-        }
-    }
-}
-
-private struct RoomShadow: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
-    let spread: CGFloat
-
-    func body(content: Content) -> some View {
-        let tone = CoverTone.textGround(colorScheme, card: Atmosphere.resolve(raw).palette.card)
-        // A rounded field of the tone, blurred by as much as it reaches
-        // past the words: full behind them, nothing at its edges.
-        content.background {
-            RoundedRectangle(cornerRadius: spread, style: .continuous)
-                .fill(tone)
-                .padding(.vertical, -spread * 0.9)
-                .padding(.horizontal, -spread * 1.3)
-                .blur(radius: spread * 0.75)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+        if shown {
+            self
+                .shadow(color: CoverTone.capitalsShadow, radius: 1.5 * scale)
+                .shadow(color: CoverTone.capitalsShadow.opacity(0.75), radius: 4 * scale)
+        } else {
+            self
         }
     }
 }
@@ -706,11 +673,11 @@ private struct RoomShadow: ViewModifier {
 /// The room behind the cards (build 58, from the brief of 2026-11-14,
 /// "Three fixes to the Journal cover screen"): the glass needs something
 /// behind it. A journal with a cover photo lays it under everything, filling
-/// the room, blurred heavily and veiled (at night to about 35% of its
-/// brightness; by day under the floor, so the room stays light), and the
-/// slab sits over a bloom of its own photo's colour. A journal with no photo
-/// glows with its own warm colour, top left and bottom right, over the
-/// floor: never flat black or gray. Paging cross-fades from one journal's
+/// the room, blurred heavily and veiled evenly (build 71: at night to 22% of
+/// its brightness, by day to a tint under the card; `CoverTone.backdropVeil`),
+/// so the words in the room need no shadow of their own. A journal with no
+/// photo glows with its own warm colour, top left and bottom right, over the
+/// floor at night and the card by day: never flat black or gray. Paging cross-fades from one journal's
 /// room to the next's as the deck moves.
 private struct CoverBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -754,7 +721,7 @@ private struct CoverBackdrop: View {
                 .frame(width: size.width, height: size.height)
                 .clipped()
                 .blur(radius: CoverTone.backdropBlur, opaque: true)
-                CoverTone.backdropVeil(colorScheme, floor: floor)
+                CoverTone.backdropVeil(colorScheme, card: Atmosphere.resolve(raw).palette.card)
             }
         } else {
             glow(journal, floor: floor)
@@ -765,13 +732,14 @@ private struct CoverBackdrop: View {
         let warmth = CoverTone.warmth(journal.id)
         let reach = max(size.width, size.height)
         return ZStack {
-            floor
+            // By day the card's light under it, so the words keep 4.5:1.
+            colorScheme == .dark ? floor : Atmosphere.resolve(raw).palette.card
             RadialGradient(
-                colors: [warmth.opacity(CoverTone.glowNear), warmth.opacity(0)],
+                colors: [warmth.opacity(CoverTone.glowNear(colorScheme)), warmth.opacity(0)],
                 center: .topLeading, startRadius: 0, endRadius: reach * 0.85
             )
             RadialGradient(
-                colors: [warmth.opacity(CoverTone.glowFar), warmth.opacity(0)],
+                colors: [warmth.opacity(CoverTone.glowFar(colorScheme)), warmth.opacity(0)],
                 center: .bottomTrailing, startRadius: 0, endRadius: reach * 0.75
             )
         }

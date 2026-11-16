@@ -47,8 +47,6 @@ enum TextTone {
     /// Words laid on a photograph, in either room (the cover's title, a
     /// held photo's caption): the warm off-white, never pure white.
     static let onPhoto = Color(rgb(0xF2EADC))
-    /// Small capitals on a photograph: that at 70%.
-    static let onPhotoLabel = Color(rgb(0xF2EADC, alpha: 0.7))
 }
 
 /// The journal's covers (build 57: their colors are here, not in the
@@ -73,19 +71,11 @@ enum CoverTone {
     static let fieldInk = Color(TextTone.rgb(0x1A1A1A))
     static let fieldLabel = fieldInk.opacity(CoverField.darkLabel)
     static let fieldHairline = fieldInk.opacity(0.35)
-    /// Close behind the slab's small capitals (build 68): a soft darkening
-    /// only there, so the label reads whatever the photo is doing under it.
-    static let capitalsShade = Color.black.opacity(0.75)
-    /// Behind the words in the room (the date over the deck; the name,
-    /// its line and the pips under it) (build 68): a soft shadow, so they
-    /// sit on their own. By day the palette's card (white, or Rain's
-    /// lighter gray), since the secondary is exactly 4.5:1 on Rain's
-    /// floor and a shadow of the floor could only ever reach that; at
-    /// night black. The veil and the photo's bloom elsewhere are left as
-    /// they are.
-    static func textGround(_ scheme: ColorScheme, card: Color) -> Color {
-        scheme == .dark ? .black.opacity(0.6) : card
-    }
+    /// Round each letter of the slab's small capitals (build 71): a tight
+    /// shadow that follows the glyphs, so the label reads over a bright
+    /// photo with no box behind it. Build 68's blurred lozenge read as a
+    /// label stuck on the photo.
+    static let capitalsShadow = Color.black.opacity(0.95)
     /// A journal with no photo yet: a warm ground, light from the top left,
     /// a little deeper at the foot (the numbers are `CoverField`'s, which
     /// the ink is worked out from).
@@ -108,15 +98,24 @@ enum CoverTone {
 
     /// How far the photo is blurred.
     static let backdropBlur: CGFloat = 60
-    /// What's laid over the blurred photo: at night black, leaving it at
-    /// about 35% of its brightness; by day the floor, so the room stays
-    /// light and the words under the cards keep their dark ink.
-    static func backdropVeil(_ scheme: ColorScheme, floor: Color) -> Color {
-        scheme == .dark ? .black.opacity(0.65) : floor.opacity(0.6)
+    /// What's laid over the blurred photo, evenly, so the words in the room
+    /// read with nothing behind them of their own (build 71; build 68 gave
+    /// each a soft shadow, which at night showed as a dark smudge). Set so
+    /// the secondary keeps 4.5:1 whatever the photo is. At night black at
+    /// 78%, leaving the photo at 22% of its brightness (4.6:1 over a white
+    /// one). By day the palette's card at 95%, leaving a tint of the photo
+    /// (4.8:1 over a black one in plain, 4.55 in Rain, whose floor alone
+    /// is only just 4.5).
+    static func backdropVeil(_ scheme: ColorScheme, card: Color) -> Color {
+        scheme == .dark ? .black.opacity(0.78) : card.opacity(0.95)
     }
     /// The two glows of a journal with no photo yet: top left, bottom right.
-    static let glowNear = 0.30
-    static let glowFar = 0.18
+    /// By day under a third as strong, over the card (build 71): at full
+    /// strength over the floor the top left, where the date sits, took the
+    /// secondary to 3.6:1 in Rain. Now 4.5:1 or more for every warmth the
+    /// generator makes, even at the glow's very centre.
+    static func glowNear(_ scheme: ColorScheme) -> Double { scheme == .dark ? 0.30 : 0.09 }
+    static func glowFar(_ scheme: ColorScheme) -> Double { scheme == .dark ? 0.18 : 0.06 }
     /// A journal's own warm colour, the same every time for the same
     /// journal (`CoverField.warmth`: a stable hash of its id, kept to reds,
     /// oranges and ambers).

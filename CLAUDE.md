@@ -578,6 +578,43 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The covers' room evenly veiled, no shadows behind words** (build 71,
+  November 16, 2026, from Ayush on seeing build 68's patches: "This kinda
+  looks bad"). Phone only; nothing on the server changed. **Where build
+  68's section below says the covers' words sit on their own shadow,
+  this wins.**
+  - **No patch behind any word.** Build 68's soft shadows behind the
+    date, the name, its line and the pips (`onItsOwnShadow`, a white
+    glow by day and a dark smudge at night) and the blurred lozenges
+    behind the slab's small capitals are gone. The words read on the
+    room itself.
+  - **The room is veiled evenly instead** (`CoverTone.backdropVeil`): at
+    night black at 78% (the photo at 22% of its brightness; it was 35%),
+    by day the palette's card at 95% (white, or Rain's paler gray), so
+    only a tint of the photo shows by day where it used to wash the room.
+    Set so the secondary keeps 4.5:1 whatever the photo: 4.6 over a white
+    photo at night, 4.8 over a black one by day in plain and 4.55 in
+    Rain (worked out, not only measured).
+  - **A journal with no photo glows less by day** (`CoverTone.glowNear`
+    and `glowFar` take the scheme: 0.09 and 0.06 over the card by day,
+    0.30 and 0.18 over the floor at night as before). At full strength
+    the top left, where the date sits, took the secondary to 3.6:1 in
+    Rain; now 4.5 or more for every warmth the generator makes.
+  - **The slab's small capitals** are the off-white at full strength
+    (they were 70%; `TextTone.onPhotoLabel` is gone) with a tight
+    shadow round each letter (`shadedCapitals`, two passes, black at
+    95%: 1.5 and 4 points times the card's scale). On a field with no
+    photo, near-black capitals take none, as in build 69.
+  - **Measured** (screenshots on the iPhone 17 Pro, the three journals,
+    plain and Rain by day, Rain at night, build 68's method): by day the
+    date and the line under the name 4.7 to 5.1, the capitals 4.5 to
+    9.1; at night the date and line 7.2 to 8.2, the capitals 4.8 to
+    12.7. Plain at night is the same black as Rain's, not measured
+    apart. The capitals' 4.5 is over the sunset's lilac sky on Mine,
+    the least of them. Both seeded photos are the same sunset, so a
+    gray photo like Ayush's own wasn't seen. Not seen: the Duo, a real
+    phone.
+
 - **Crash reports with no identifier; the policy's notice** (build 70,
   November 15, 2026, from Ayush, "Turn on crash reporting, in this
   order", stopped before step 4: no Sentry account, DSN or token yet).
@@ -716,7 +753,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     a screenshot, the glyphs' 2nd-percentile pixel against the median of
     the box. As small capitals, the page's date passes the audit in
     Rain, plain and dark on every page tried.
-  - **The covers' words sit on their own shadow** (`JournalCovers.swift`;
+  - **The covers' words sit on their own shadow** (undone in build 71,
+    above: the room is veiled evenly instead) (`JournalCovers.swift`;
     the tokens in `CoverTone`). The 60% veil and the photo's bloom are
     as they were. Behind the words in the room (the date over the deck,
     and the name, its line, your last five days and the pips under it):
@@ -2828,7 +2866,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (70)", at the
+  production audit), and the version, "Stanley 0.2.0 (71)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3386,6 +3424,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
+- **Build 71** (0.2.0): the covers' room evenly veiled, no shadows
+  behind words (above). Phone only; not archived.
 - **Build 70** (0.2.0): the crash scrub and the policy's notice (above).
   Phone only; v33 on Fly is its server. Carries builds 69 and 68.
   **Archived and uploaded to App Store Connect on November 15, 2026**,
