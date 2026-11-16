@@ -60,6 +60,43 @@ enum CoverField {
 
     /// The ground: a caramel by day, a brown at night.
     static func ground(dark: Bool) -> UInt32 { dark ? 0x402B1F : 0xCC946B }
+
+    /// The warm fields a journal with no photo can be given instead of its
+    /// own (build 76): a few, not a colour picker, each a ground by day and
+    /// by night. The ink on each is still the field's to decide (`ink`).
+    enum Swatch: String, CaseIterable, Identifiable {
+        case caramel, terracotta, ochre, rose, olive, sand
+
+        var id: String { rawValue }
+
+        var name: String {
+            switch self {
+            case .caramel: return "Caramel"
+            case .terracotta: return "Terracotta"
+            case .ochre: return "Ochre"
+            case .rose: return "Rose"
+            case .olive: return "Olive"
+            case .sand: return "Sand"
+            }
+        }
+
+        func ground(dark: Bool) -> UInt32 {
+            switch self {
+            case .caramel: return CoverField.ground(dark: dark)
+            case .terracotta: return dark ? 0x47241A : 0xC98466
+            case .ochre: return dark ? 0x382812 : 0xD1A35C
+            case .rose: return dark ? 0x45282A : 0xC88E86
+            case .olive: return dark ? 0x33311F : 0xA39A6B
+            case .sand: return dark ? 0x3A2E22 : 0xD9BC9A
+            }
+        }
+    }
+
+    /// The ground a journal's field is drawn on: its swatch's, or the
+    /// caramel every journal starts with.
+    static func ground(dark: Bool, swatch: Swatch?) -> UInt32 {
+        swatch?.ground(dark: dark) ?? ground(dark: dark)
+    }
     /// The journal's own warmth over it, at this much.
     static func wash(dark: Bool) -> Double { dark ? 0.22 : 0.18 }
     /// Light from the top left, fading to nothing at the bottom right.
@@ -134,9 +171,9 @@ enum CoverField {
     /// What the card shows at a point (in the card's own 0-to-1 space):
     /// the field, with the scrims for the off-white or without them, and
     /// the slab's glass and sheen over it.
-    static func colour(warmth: RGB, dark: Bool, x: Double, y: Double, scrims: Bool) -> RGB {
+    static func colour(warmth: RGB, dark: Bool, x: Double, y: Double, scrims: Bool, swatch: Swatch? = nil) -> RGB {
         let (w, h) = (aspect.width, aspect.height)
-        var c = RGB(ground(dark: dark)).under(warmth, wash(dark: dark))
+        var c = RGB(ground(dark: dark, swatch: swatch)).under(warmth, wash(dark: dark))
         // Light from the top left to the bottom right, along the card's
         // diagonal.
         let along = (x * w * w + y * h * h) / (w * w + h * h)
@@ -169,13 +206,15 @@ enum CoverField {
     /// them), and whichever ink stands further from that. The mean, not the
     /// least: the sheen leaves the very top left light at night, and a
     /// brown field isn't a light one for that corner.
-    static func ink(for id: String, dark: Bool) -> Ink {
-        ink(warmth: warmth(id), dark: dark)
+    static func ink(for id: String, dark: Bool, swatch: Swatch? = nil) -> Ink {
+        ink(warmth: warmth(id), dark: dark, swatch: swatch)
     }
 
-    static func ink(warmth: RGB, dark: Bool) -> Ink {
+    static func ink(warmth: RGB, dark: Bool, swatch: Swatch? = nil) -> Ink {
         func mean(scrims: Bool) -> Double {
-            let all = titleArea.map { colour(warmth: warmth, dark: dark, x: $0.x, y: $0.y, scrims: scrims).luminance }
+            let all = titleArea.map {
+                colour(warmth: warmth, dark: dark, x: $0.x, y: $0.y, scrims: scrims, swatch: swatch).luminance
+            }
             return all.reduce(0, +) / Double(all.count)
         }
         let underOffWhite = mean(scrims: true), underNearBlack = mean(scrims: false)

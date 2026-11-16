@@ -50,6 +50,16 @@ struct CoverJournal: Identifiable, Hashable {
     /// Not a journal: the card at the end of the deck for your days, which
     /// opens the month's answer sheet (build 72).
     var days = false
+    /// The warm field chosen for it when it has no photo (build 76); nil is
+    /// the caramel every journal starts on.
+    var swatch: CoverField.Swatch? = nil
+    /// Whoever's looking can rename it (build 76): your own always; a
+    /// circle's only by its organizer, since its name is the circle's.
+    var canRename = false
+    /// The newest day written in it that you can read: "Last written".
+    var lastDay: Date? = nil
+    /// Your own journal's cover is a photo you chose (build 76).
+    var chosen = false
 
     /// The one card for your days.
     static let daysID = "days"
@@ -68,6 +78,21 @@ struct JournalCovers: View {
     /// Your own book at a day's page (build 73): a row of the answer sheet.
     let openDay: (String) -> Void
     @Binding var page: String
+    /// The opened cover (build 76): the journal whose cover is grown, with
+    /// what's under it; nil is the deck.
+    @Binding var opened: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// One card growing from the deck into the opened cover and back.
+    @Namespace private var cards
+    /// Where each card sits in the deck, in the covers' own space: where the
+    /// opened cover shrinks back to as it's dragged down.
+    @State private var slots: [String: CGRect] = [:]
+    /// The deck's card VoiceOver lands on once a cover is put back.
+    @AccessibilityFocusState private var deckFocus: String?
+    /// The colour chosen for each journal's field, per account (build 76):
+    /// kept on the phone, the reader's own.
+    @AppStorage("stanley.coverColours") private var coloursRaw = ""
+    @State private var renamingCircle: CoverJournal?
     /// The month's answer sheet, over the covers (build 72).
     @State private var readingDays = false
     /// The day a row of the sheet asked for, opened once the sheet's gone.
@@ -94,12 +119,18 @@ struct JournalCovers: View {
             for circle in state.circles {
                 all.append(CoverJournal(
                     id: circle.id, circleId: circle.id,
-                    place: circle.name, title: "Ours",
+                    // The circle's name is the title (build 76; it was
+                    // "Ours", which now says whose it is, as your own name
+                    // does on yours).
+                    place: "Ours", title: circle.name,
                     name: circle.name,
                     subtitle: circle.journalMuted == true ? "Shared with your circle · muted" : "Shared with your circle",
                     cover: circle.coverUrl.flatMap { state.api.absoluteURL($0) } ?? state.coverURL(circle.coverPhotoId),
                     since: circle.firstDay.flatMap(WeekRange.day),
-                    muted: circle.journalMuted
+                    muted: circle.journalMuted,
+                    swatch: swatch(for: circle.id),
+                    canRename: circle.isCreator,
+                    lastDay: circle.lastDay.flatMap(WeekRange.day)
                 ))
             }
         }
@@ -140,8 +171,47 @@ struct JournalCovers: View {
             title: JournalName.shown(state.journalTitle),
             name: "Mine", subtitle: "Only you read it",
             cover: state.journalCoverLink.flatMap { state.api.absoluteURL($0) } ?? state.coverURL(state.journalCover),
-            since: firsts.min()
+            since: firsts.min(),
+            swatch: swatch(for: "mine"),
+            canRename: true,
+            lastDay: state.journalPages.compactMap { WeekRange.day($0.day) }.max(),
+            chosen: state.journalCoverChosen
         )
+    }
+
+    // MARK: cover colours (build 76)
+
+    private var colourKey: String { state.myId ?? "signed-out" }
+
+    private var colours: [String: [String: String]] {
+        (try? JSONDecoder().decode([String: [String: String]].self, from: Data(coloursRaw.utf8))) ?? [:]
+    }
+
+    private func swatch(for journal: String) -> CoverField.Swatch? {
+        colours[colourKey]?[journal].flatMap(CoverField.Swatch.init(rawValue:))
+    }
+
+    private func setSwatch(_ swatch: CoverField.Swatch, for journal: String) {
+        var all = colours
+        all[colourKey, default: [:]][journal] = swatch.rawValue
+        if let data = try? JSONEncoder().encode(all) { coloursRaw = String(decoding: data, as: UTF8.self) }
+    }
+
+    // MARK: opening a cover (build 76)
+
+    private var grow: Animation {
+        reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 0.82)
+    }
+
+    /// A cover tapped in the deck: it grows into the opened cover.
+    private func openCover(_ journal: CoverJournal) {
+        if shown != journal.id { shown = journal.id }
+        withAnimation(grow) { opened = journal.id }
+    }
+
+    /// Back to the deck, the card shrinking into its place.
+    private func closeCover() {
+        withAnimation(grow) { opened = nil }
     }
 
     /// The page's side margin, as every other page has it.
@@ -180,7 +250,33 @@ struct JournalCovers: View {
                 .padding(.leading, insets.leading)
                 .padding(.trailing, insets.trailing)
                 .frame(width: room.size.width, height: room.size.height, alignment: .topLeading)
+                // The deck steps back while a cover is open: only the card
+                // that grew is moving (it's drawn over everything).
+                .opacity(opened == nil ? 1 : 0)
+                .allowsHitTesting(opened == nil)
+                .accessibilityHidden(opened != nil)
+                if let id = opened, let journal = journals.first(where: { $0.id == id }), !journal.days {
+                    OpenedCover(
+                        journal: journal,
+                        namespace: cards,
+                        hero: !reduceMotion,
+                        slot: slots[id],
+                        room: room.size,
+                        insets: insets,
+                        open: { open(journal) },
+                        close: closeCover,
+                        rename: { beginRename(journal) },
+                        setSwatch: { setSwatch($0, for: journal.id) },
+                        openDays: { readingDays = true }
+                    )
+                    // One card moving, never a cross-fade: the card is
+                    // matched to its place in the deck; only under Reduce
+                    // Motion does the opened cover fade.
+                    .transition(reduceMotion ? .opacity : .identity)
+                    .zIndex(1)
+                }
             }
+            .coordinateSpace(name: CoverSpace.name)
         }
         .onAppear {
             shown = page
@@ -196,6 +292,14 @@ struct JournalCovers: View {
         }
         .onDisappear { Turning.coversShowing(false) }
         .onChange(of: shown) { _, now in if let now { page = now } }
+        // Put back: VoiceOver lands on the card in the deck, and says so.
+        .onChange(of: opened) { was, now in
+            guard now == nil, let was else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                deckFocus = was
+                UIAccessibility.post(notification: .screenChanged, argument: OpenedCoverWords.closedAnnouncement)
+            }
+        }
         // Whichever way the phone is held: the sheet's rows scroll where
         // the room can't hold them (build 73; build 72 turned the screen
         // upright, which nobody asked for).
@@ -209,15 +313,47 @@ struct JournalCovers: View {
                 readingDays = false
             }
         }
+        // A name is trimmed, kept short enough for the cover, and never
+        // blank (build 76): Save waits for something to save.
         .alert("Name your journal", isPresented: $renaming) {
             TextField(JournalName.fallback, text: $name)
             Button("Save") {
-                let wanted = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(JournalName.limit))
-                Task { await state.renameJournal(wanted) }
+                Task { await state.renameJournal(trimmed(name)) }
             }
+            .disabled(trimmed(name).isEmpty)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("It's on the cover, and at the head of each month. Leave it empty for \u{201C}\(JournalName.fallback)\u{201D}.")
+            Text("It's on the cover, and at the head of each month.")
+        }
+        .alert("Rename the circle", isPresented: present($renamingCircle), presenting: renamingCircle) { journal in
+            TextField(journal.title, text: $name)
+            Button("Save") {
+                guard let id = journal.circleId else { return }
+                let wanted = trimmed(name)
+                Task { _ = await state.renameCircle(id: id, to: wanted) }
+            }
+            .disabled(trimmed(name).isEmpty)
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Its journal takes the circle's name. Everyone in the circle sees the new one.")
+        }
+    }
+
+    private func present<Item>(_ item: Binding<Item?>) -> Binding<Bool> {
+        Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } })
+    }
+
+    private func trimmed(_ text: String) -> String {
+        String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(JournalName.limit))
+    }
+
+    private func beginRename(_ journal: CoverJournal) {
+        if journal.circleId == nil {
+            name = state.journalTitle ?? ""
+            renaming = true
+        } else if journal.canRename {
+            name = journal.title
+            renamingCircle = journal
         }
     }
 
@@ -322,16 +458,24 @@ struct JournalCovers: View {
                     Group {
                         if journal.days {
                             DaysCard(size: card) { go(journal) }
+                        } else if opened == journal.id {
+                            // Grown into the opened cover: its place in the
+                            // deck, kept, for it to shrink back into.
+                            Color.clear.frame(width: card.width, height: card.height)
                         } else {
                             CoverCard(
-                                journal: journal, size: card,
-                                open: { open(journal) },
-                                rename: journal.circleId == nil ? {
-                                    name = state.journalTitle ?? ""
-                                    renaming = true
-                                } : nil
+                                journal: journal,
+                                open: { openCover(journal) },
+                                rename: journal.canRename ? { beginRename(journal) } : nil
                             )
+                            .matchedGeometryEffect(id: journal.id, in: cards, isSource: true)
+                            .frame(width: card.width, height: card.height)
+                            .transition(.identity)
+                            .accessibilityFocused($deckFocus, equals: journal.id)
                         }
+                    }
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(CoverSpace.name)) } action: { frame in
+                        slots[journal.id] = frame
                     }
                     // The journal's own settings: its notices, muted or
                     // not (build 57).
@@ -407,22 +551,14 @@ struct JournalCovers: View {
                     .foregroundStyle(TextTone.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                // Your own journal: your last few days as five bubbles, each
-                // in as much ink as its mark (build 65). Never on a circle's.
-                if journal.circleId == nil, !journal.days, state.moodsAvailable {
-                    Button { readingDays = true } label: {
-                        LastFiveDays(levels: MarkSheet.lastFive(marks: state.moods), ink: TextTone.primary, size: 11 * scale)
-                            .padding(.vertical, 6)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 2 * scale)
-                }
+                // (Your last five days moved to the opened cover, build 76:
+                // the deck is the cover, its name and line, the pips and the
+                // arrow, and nothing else.)
                 Pips(at: at, of: of, ink: TextTone.primary)
                     .padding(.top, 8 * scale)
             }
             Spacer(minLength: 8)
-            Button { go(journal) } label: {
+            Button { journal.days ? go(journal) : openCover(journal) } label: {
                 GlassCircle(size: 44) {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 17, weight: .medium))
@@ -430,7 +566,7 @@ struct JournalCovers: View {
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open \(journal.name)")
+            .accessibilityLabel(journal.days ? "Open \(journal.name)" : "Show \(journal.name)'s cover")
         }
         .frame(width: max(120, min(max(cardWidth, 220), clear.width - 2 * Self.margin)))
         // In the middle of its own room, beside the deck or under it.
@@ -567,33 +703,53 @@ private struct Pips: View {
 }
 
 /// The card's outline: corners of 30 (scaled with the card).
-private func cardShape(_ scale: CGFloat) -> RoundedRectangle {
+func cardShape(_ scale: CGFloat) -> RoundedRectangle {
     RoundedRectangle(cornerRadius: 30 * scale, style: .continuous)
 }
 
 /// One journal's card: its photo (or the warm field), the slab of glass
-/// over it, and what's written on the slab.
-private struct CoverCard: View {
+/// over it, and what's written on the slab. It fills whatever frame it's
+/// given and lays itself out for it, so it can grow from the deck into the
+/// opened cover (build 76) as one card changing shape, never a cross-fade.
+struct CoverCard: View {
     @Environment(\.colorScheme) private var colorScheme
-    @AppStorage("stanley.atmosphere") private var raw = "auto"
     let journal: CoverJournal
-    let size: CGSize
     let open: () -> Void
     let rename: (() -> Void)?
-
-    private var scale: CGFloat { size.width / 290 }
+    var hint = "Shows its cover"
 
     /// The words' ink (build 69): on a photo always the off-white; on the
     /// warm field, whichever the field's light asks for (`CoverField.ink`),
-    /// near-black on a light one.
+    /// near-black on a light one, with the journal's chosen colour if any.
     private var ink: CoverField.Ink {
-        journal.cover == nil ? CoverField.ink(for: journal.id, dark: colorScheme == .dark) : .light
+        journal.cover == nil
+            ? CoverField.ink(for: journal.id, dark: colorScheme == .dark, swatch: journal.swatch)
+            : .light
     }
 
+    /// The card's scale from its frame: by its width in the deck, by its
+    /// height once it's grown wider than it's tall.
+    static func scale(_ size: CGSize) -> CGFloat { max(0.4, min(size.width / 290, size.height / 360)) }
+
     var body: some View {
+        GeometryReader { geo in
+            card(geo.size)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(journal.title), \(journal.place)" + (dates.isEmpty ? "" : ". \(dates)") + ", volume one")
+        .accessibilityHint(hint)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { open() }
+        .accessibilityActions {
+            if let rename { Button("Rename", action: rename) }
+        }
+    }
+
+    private func card(_ size: CGSize) -> some View {
+        let scale = Self.scale(size)
         let shape = cardShape(scale)
-        ZStack(alignment: .topLeading) {
-            picture
+        return ZStack(alignment: .topLeading) {
+            picture(size)
             // Dark only where words in the off-white sit on the picture:
             // under the head and under the foot. Near-black words on a
             // light field have none (it would only darken what they need
@@ -614,7 +770,7 @@ private struct CoverCard: View {
                 colors: [CoverTone.sheen, .clear],
                 startPoint: .topLeading, endPoint: UnitPoint(x: 0.45, y: 0.35)
             ))
-            words
+            words(size, scale: scale)
         }
         .frame(width: size.width, height: size.height)
         .clipShape(shape)
@@ -622,40 +778,32 @@ private struct CoverCard: View {
         .shadow(color: CoverTone.shadow(colorScheme), radius: 18 * scale, x: 8 * scale, y: 12 * scale)
         .contentShape(shape)
         .onTapGesture(perform: open)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(journal.title), \(journal.place)" + (dates.isEmpty ? "" : ". \(dates)") + ", volume one")
-        .accessibilityHint("Opens it")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { open() }
-        .accessibilityActions {
-            if let rename { Button("Rename", action: rename) }
-        }
     }
 
-    /// The cover photo filling the card; with none, the palette's warm
-    /// field.
+    /// The cover photo filling the card; with none, the warm field.
     @ViewBuilder
-    private var picture: some View {
+    private func picture(_ size: CGSize) -> some View {
         if let cover = journal.cover {
             SignedImage(url: cover) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
-                field
+                field(size)
             }
             .frame(width: size.width, height: size.height)
             .clipped()
         } else {
-            field
+            field(size)
         }
     }
 
     /// The journal's warmth, graded: a field, never flat gray.
-    private var field: some View {
-        return ZStack {
-            // A warm ground, the journal's own warmth laid lightly over it
-            // (the same the room glows with, build 58), and light coming in
-            // from the top left (`CoverTone`).
-            CoverTone.ground(colorScheme)
+    private func field(_ size: CGSize) -> some View {
+        ZStack {
+            // A warm ground (the journal's chosen colour, build 76, or the
+            // caramel every journal starts on), the journal's own warmth
+            // laid lightly over it (the same the room glows with, build 58),
+            // and light coming in from the top left (`CoverTone`).
+            CoverTone.ground(colorScheme, swatch: journal.swatch)
             CoverTone.warmth(journal.id).opacity(CoverTone.accentWash(colorScheme))
             LinearGradient(colors: [CoverTone.light(colorScheme), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
             LinearGradient(colors: [.clear, CoverTone.deep(colorScheme)], startPoint: .center, endPoint: .bottom)
@@ -663,7 +811,7 @@ private struct CoverCard: View {
         .frame(width: size.width, height: size.height)
     }
 
-    private var words: some View {
+    private func words(_ size: CGSize, scale: CGFloat) -> some View {
         let inset = 26 * scale
         let label = Font.system(size: 8.5 * scale, weight: .semibold)
         let light = ink == .light
@@ -679,6 +827,8 @@ private struct CoverCard: View {
                 .foregroundStyle(light ? TextTone.onPhoto : CoverTone.fieldLabel)
                 .lineLimit(1)
                 .shadedCapitals(scale, when: shade)
+                // Room at the right for the opened cover's edit button.
+                .padding(.trailing, 36 * scale)
             Text(journal.title)
                 .font(.custom(BookHand.font(44, bold: true).fontName, fixedSize: 44 * scale).leading(.tight))
                 .foregroundStyle(light ? TextTone.onPhoto : CoverTone.fieldInk)
@@ -743,7 +893,7 @@ extension View {
 /// photo glows with its own warm colour, top left and bottom right, over the
 /// floor at night and the card by day: never flat black or gray. Paging cross-fades from one journal's
 /// room to the next's as the deck moves.
-private struct CoverBackdrop: View {
+struct CoverBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("stanley.atmosphere") private var raw = "auto"
     let journals: [CoverJournal]
@@ -796,7 +946,9 @@ private struct CoverBackdrop: View {
     }
 
     private func glow(_ journal: CoverJournal, floor: Color) -> some View {
-        let warmth = CoverTone.warmth(journal.id)
+        // The journal's own warmth, or the colour chosen for its field
+        // (build 76), so the card and the room agree.
+        let warmth = journal.swatch.map { CoverTone.ground(.light, swatch: $0) } ?? CoverTone.warmth(journal.id)
         let reach = max(size.width, size.height)
         return ZStack {
             // By day the card's light under it, so the words keep 4.5:1.
@@ -886,4 +1038,10 @@ enum Turning {
             }
         }
     }
+}
+
+/// The covers' own coordinate space (build 76): where the deck's cards and
+/// the opened cover are measured, so one can grow from the other.
+enum CoverSpace {
+    static let name = "covers"
 }

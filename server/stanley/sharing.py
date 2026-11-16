@@ -108,29 +108,30 @@ def readable_page(db: Session, user: User, page_id: str) -> JournalPage | None:
 
 
 def cover_photo(db: Session, user: User, circle_id: str | None = None) -> Photo | None:
-    """The photo on a journal's cover (builds 54 and 56): the newest one
-    this person kept themselves in that journal (anywhere, for their own
-    book); else, so a cover isn't bare while there are photos, the
-    journal's newest photo still in its public life (in the circle's, by
-    someone no block stands between; in their own, their own). Worked out
-    for each reader. The brief asked for the most-kept photo; that ranks
-    by keeps and would let a circle see which was kept most, so it isn't
-    (a product decision of 2026-11-14, asked and answered twice). Nothing
-    here reads anyone else's keeps, and a faded photo never comes back as
-    a cover. None: no photo yet."""
+    """The photo on a journal's cover, worked out when nobody has chosen
+    one. Your own book (builds 54 and 56): the newest photo you kept
+    yourself, anywhere; else your own newest photo still in its public
+    life. A circle's journal (build 76): the circle's newest photo still in
+    its public life, the same for everyone in it but across a block, so a
+    shared journal looks the same to all who read it. It no longer reads
+    the reader's own keeps there: those differ from one reader to the next.
+    The brief asked three times for the most-kept photo; that ranks by
+    keeps and would let a circle see which was kept most, so it isn't (a
+    product decision, 2026-11-14, kept again on 2026-11-16). Nothing here
+    reads anyone else's keeps, and a faded photo never comes back as a
+    cover. None: no photo yet."""
     blocked = blocked_ids(db, user.id)
     usable = (Photo.deleted_at.is_(None), Photo.blob_key.is_not(None))
-    kept = (
-        select(Photo)
-        .join(Anchor, Anchor.photo_id == Photo.id)
-        .where(Anchor.user_id == user.id, *usable)
-        .order_by(Anchor.created_at.desc(), Photo.id.desc())
-    )
-    if circle_id is not None:
-        kept = kept.where(Photo.circle_id == circle_id)
-    for photo in db.scalars(kept.limit(50)):
-        if photo.owner_id is None or photo.owner_id not in blocked:
-            return photo
+    if circle_id is None:
+        kept = (
+            select(Photo)
+            .join(Anchor, Anchor.photo_id == Photo.id)
+            .where(Anchor.user_id == user.id, *usable)
+            .order_by(Anchor.created_at.desc(), Photo.id.desc())
+        )
+        for photo in db.scalars(kept.limit(50)):
+            if photo.owner_id is None or photo.owner_id not in blocked:
+                return photo
     newest = (
         select(Photo)
         .where(*usable, Photo.state.in_(physics.PUBLIC_STATES))
@@ -156,24 +157,37 @@ def cover(db: Session, user: User, settings, now, circle_id: str | None = None) 
     return {"cover_photo_id": photo.id, "cover_url": read_url(settings, key, now)}
 
 
-def first_day(db: Session, user: User, membership: Membership) -> date | None:
-    """The first day in a circle's shared journal this person can read: a
-    page shared with the circle from the day they joined, or a page for
-    one person to them or by them. None while there's nothing: a journal
-    with nothing in it doesn't say when it began (build 56)."""
+def _readable_days(db: Session, user: User, membership: Membership, newest_first: bool):
+    """The days of a circle's shared journal this person can read, in
+    order: a page shared with the circle from the day they joined, or a
+    page for one person to them or by them, by nobody a block stands
+    between."""
     blocked = blocked_ids(db, user.id)
     since = joined_day(membership, user)
     rows = db.execute(
         select(JournalPage.day, JournalPage.owner_id, JournalPage.recipient_id)
         .where(JournalPage.circle_id == membership.circle_id, JournalPage.shared.is_(True))
-        .order_by(JournalPage.day)
+        .order_by(JournalPage.day.desc() if newest_first else JournalPage.day)
     )
     for day, owner_id, recipient_id in rows:
         if owner_id in blocked or (recipient_id is not None and recipient_id in blocked):
             continue
         if recipient_id is None:
             if day >= since:
-                return day
+                yield day
         elif user.id in (owner_id, recipient_id):
-            return day
-    return None
+            yield day
+
+
+def last_day(db: Session, user: User, membership: Membership) -> date | None:
+    """The newest day in a circle's shared journal this person can read
+    (build 76): what the opened cover says as "Last written", a date and
+    never a number. None while there's nothing."""
+    return next(_readable_days(db, user, membership, newest_first=True), None)
+
+
+def first_day(db: Session, user: User, membership: Membership) -> date | None:
+    """The first day in a circle's shared journal this person can read.
+    None while there's nothing: a journal with nothing in it doesn't say
+    when it began (build 56)."""
+    return next(_readable_days(db, user, membership, newest_first=False), None)

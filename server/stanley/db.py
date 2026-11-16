@@ -103,6 +103,8 @@ _LATER_COLUMNS = {
         "photo_reminder_hour": "INTEGER DEFAULT 18",
         # Build 45: what the person calls their journal; null is the default.
         "journal_title": "VARCHAR(60)",
+        # Build 76: a cover photo chosen by hand; null is the automatic one.
+        "journal_cover_key": "VARCHAR(255)",
         # Build 57: the shared-journal notice, off for everyone already here.
         "journal_posts_enabled": "BOOLEAN DEFAULT 0",
         # Build 60: Written to You, never chosen (on) for everyone already here.

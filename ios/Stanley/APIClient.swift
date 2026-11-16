@@ -270,8 +270,17 @@ final class APIClient: Sendable {
 
     /// Avatar upload (Part 6): identity, not content. Multipart, like capture.
     func uploadAvatar(jpeg: Data) async throws -> AvatarResponse {
+        try await upload("/me/avatar", filename: "avatar.jpg", jpeg: jpeg)
+    }
+
+    /// A photo from the library for your journal's cover (build 76).
+    func uploadJournalCover(jpeg: Data) async throws -> JournalCoverChange {
+        try await upload("/me/journal/cover", filename: "cover.jpg", jpeg: jpeg)
+    }
+
+    private func upload<T: Decodable>(_ path: String, filename: String, jpeg: Data) async throws -> T {
         let boundary = "stanley-\(UUID().uuidString)"
-        var request = URLRequest(url: baseURL.appending(path: "/me/avatar"))
+        var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "POST"
         request.setValue(
             "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type"
@@ -279,7 +288,7 @@ final class APIClient: Sendable {
         authorize(&request)
         var body = Data()
         body.append(Data("--\(boundary)\r\n".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.jpg\"\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".utf8))
         body.append(Data("Content-Type: image/jpeg\r\n\r\n".utf8))
         body.append(jpeg)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))

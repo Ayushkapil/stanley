@@ -338,6 +338,9 @@ struct BookView: View {
     @State private var opened = false
     /// Which journal's cover is showing (build 53): "mine", or a circle's id.
     @State private var coverPage = "mine"
+    /// The cover grown out of the deck (build 76), between it and the
+    /// pages; a book shut comes back to it.
+    @State private var coverOpen: String?
     /// Where the page being written will land: as it was, with you alone,
     /// or in the shared journal.
     @State private var landing = PageLanding.asIs
@@ -447,7 +450,8 @@ struct BookView: View {
                                 ),
                                 open: { journal in openBook(journal, layout: layout) },
                                 openDay: { day in openDay(day, layout: layout) },
-                                page: $coverPage
+                                page: $coverPage,
+                                opened: $coverOpen
                             )
                             .frame(width: full.width, height: full.height)
                             TabBarGlass(height: 160, base: palette.floor)
@@ -504,9 +508,10 @@ struct BookView: View {
                         opened = true
                         place(BookBuilder.book(state, layout: layout))
                     } else {
-                        // The tab, come to: the two books on the table.
+                        // The tab, come to: the journals on the table.
                         start = .today
                         opened = false
+                        coverOpen = nil
                     }
                 }
                 // A tap on the Journal tab while it's showing: back to
@@ -562,7 +567,14 @@ struct BookView: View {
         // screen has room. Out of the way while a page is written or the
         // pages are laid out small.
         .modifier(JournalToolbar(
-            opened: opened, ours: ours && hasOurs, hasOurs: hasOurs,
+            opened: opened,
+            coverOpen: coverOpen != nil,
+            closeCover: {
+                withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 0.82)) {
+                    coverOpen = nil
+                }
+            },
+            ours: ours && hasOurs, hasOurs: hasOurs,
             sealed: !state.lettersReceived.sealed.isEmpty,
             ready: state.lettersReceived.sealed.contains { $0.deliverable == true },
             week: state.thisWeek,

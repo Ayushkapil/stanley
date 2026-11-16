@@ -42,7 +42,9 @@ PAGE_MAX = 50_000
 # changes pens in a day, and a bound on the request.
 RUNS_MAX = 2_000
 INKS = ("black", "blue", "red")
-TITLE_MAX = 60
+# What a journal may be called: short enough to stay on its cover in the
+# hand (build 76; it was 60).
+TITLE_MAX = 40
 
 # A reflection is written on Sunday evening (the app asks from 6pm until
 # midnight). One sent in the small hours of Monday still belongs to the week

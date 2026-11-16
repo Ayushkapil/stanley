@@ -216,7 +216,15 @@ guarded by tests; treat a change to any of them as a spec change.
   yours), never a faded one. Nothing reads or ranks anyone else's keeps,
   and no keep is counted. A photo its poster deleted, or one across a
   block, isn't a cover. **Asked for again in build 56's brief and kept
-  this way**, said to Ayush.
+  this way**, said to Ayush. **Asked a third time in build 76's brief
+  ("Use most kept photo") and kept again, by Ayush's own answer
+  (2026-11-16)**, which also changed whose a circle's cover is: since
+  build 76 **a circle's journal's cover is the circle's newest photo still
+  in its public life, the same for everyone in it** (but across a block),
+  and no longer the reader's own keep; your own book's is still your own
+  newest keep, **or a photo you chose from your library** (build 76, yours
+  alone; shared journals have no chosen photo, also Ayush's answer). The
+  opened cover's menu says "Use Automatic Photo", not "most kept".
 - **The mark on your day is yours alone and never counts anything**
   (build 52, a product decision, the same brief, part 4; **reshaped in
   build 65**, the answer-sheet brief of 2026-11-15). Five bubbles, no
@@ -578,6 +586,104 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Stale because of this:** every App Store screenshot in
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
+
+- **The opened cover** (build 76, November 16, 2026, a product brief
+  from Ayush, "Build the opened-cover state, with the journal editable in
+  it"). Phone and server both; **the server is on Fly with it** (open
+  items). **Where builds 54 to 72 say a tap on a cover opens its book, or
+  that your cover's five bubbles sit under the deck, this wins.** Three
+  states now: the deck, the opened cover, the pages.
+  - **Answered by Ayush before it was built** (the brief ran into three
+    rules): the automatic cover stays keep-free ("Use most kept photo" is
+    **Use Automatic Photo**; see the cover rule above, kept a third time),
+    and a circle's automatic cover is now the circle's newest photo,
+    the same for everyone; **Change Photo is your own journal's only**
+    (no uploaded picture the whole circle sees); **a circle's journal
+    takes the circle's name as its title** ("Ours" moves to the small
+    capitals, where your own name sits on yours) and Rename renames the
+    circle, organizer only (the old `PATCH /circles/{id}`, 403
+    `creator_only` otherwise); **the week's bubbles only under Mine**.
+  - **The transition** (`OpenedCover.swift`; `JournalCovers`): a tap on
+    a cover, or the arrow, grows it with `matchedGeometryEffect` (spring,
+    response 0.45, damping 0.82), the deck's card swapped for a clear
+    placeholder and the grown one drawn over everything, `.identity`
+    transitions so it's one card, never a cross-fade (only a fade under
+    Reduce Motion). The room behind stays as it was. `CoverCard` now
+    fills whatever frame it's given and lays itself out for it (scale
+    `min(w/290, h/360)`), so it changes shape as it grows. **Dragging
+    down** puts it back following the finger: the card's frame is
+    interpolated toward its slot in the deck (each card's frame kept in
+    the covers' coordinate space, `CoverSpace`), and past 110 points or a
+    fast flick it goes the rest of the way. Also the bar's **Journals**
+    back button (`JournalToolbar.coverOpen`) and VoiceOver's escape. A
+    book opened from it shuts back to it (`BookView.coverOpen`); coming to
+    the tab lands on the deck.
+  - **What's on it**: the grown cover, the page's width and about 348
+    points tall (less where the room is short; on its side the cover at
+    the left and the details beside it, at least 300 points across); an
+    edit button (pencil in glass) at its top right; a glass panel with
+    **Last written** and a date (`OpenedCoverWords.lastWritten`: Today,
+    Yesterday, "Saturday, 14 November", the year when it's another's,
+    "Not yet"; never a number), a hairline, and on Mine **This week**: the
+    last five local days from the mood store, oldest first, a bubble in as
+    much ink as its mark over its day's letter, any of them opening the
+    month's sheet; then **Open** (a tap on the cover opens it too; no
+    double tap). Mine's "Last written" is your newest written page; a
+    circle's is the newest day of its journal you can read
+    (`sharing.last_day`, `last_day` on `GET /circles`).
+  - **The deck is the cover, name, line, pips and arrow** and nothing
+    else: build 65's five bubbles under Mine's name are gone from it.
+  - **The edit menu** (shown only when something's in it): **Change
+    Photo** (Mine, a `PhotosPicker`; the picture read upright at 2048px
+    with no metadata, `LibraryPhoto`, and uploaded), **Rename** (Mine
+    always; a circle's for its organizer), **Cover Colour** (only while
+    the journal has no photo: Caramel, Terracotta, Ochre, Rose, Olive,
+    Sand, `CoverField.Swatch`, each a ground by day and night under the
+    journal's own warmth; the ink still worked out from the field, build
+    69's rule, and a unit test holds every swatch at 4.5:1 for near-black
+    or 3:1 for the off-white title; kept on the phone per account and
+    journal, `stanley.coverColours`, so a circle's colour is the
+    reader's own), and **Use Automatic Photo** (only once one's chosen).
+    A chosen photo is never replaced by the automatic one.
+  - **Names**: trimmed, never blank (Save waits; the server's `PATCH
+    /me/journal` answers 400 `empty_title`), at most 40 characters so
+    they stay on the cover (`journal.TITLE_MAX` and `JournalName.limit`,
+    both 60 before; the old `PUT /me/journal/title` keeps blank as "My
+    Journal" for older builds).
+  - **The server**: `users.journal_cover_key` (added on startup); `POST
+    /me/journal/cover` (multipart, the avatar's rate limit; `images.
+    process_cover`: upright, 1600px, every bit of EXIF dropped; a new name
+    each time, the old file deleted); `PATCH /me/journal` `{title?,
+    cover: null}`; `GET /me/journal` carries `cover_chosen`; `sharing.
+    cover_photo` reads no keeps for a circle; account deletion deletes the
+    file; the export carries it as `journal-cover.jpg`. Tests:
+    `test_journal_cover_choice.py` (13) and the cover tests updated (736
+    in all).
+  - **The Privacy Policy** is November 16, 2026 (the chosen cover: kept
+    for you alone, without location or details, until replaced, put back
+    or the account deleted; in the export), with a `PolicyNotice.
+    Revision`; `PRIVACY_LABEL.md` likewise. Fixed on the way: the policy's
+    first section still said "effective November 14".
+  - **Accessibility**: the grown cover, the edit button ("Edit Cover")
+    and its items, "Last written", each bubble ("Sunday 15, 3 of 5", or
+    "not marked"), and Open are each their own element; opening focuses
+    the grown cover and posts a screen change; putting it back focuses
+    the deck's card and says "Journals". Set in code, **not walked with
+    VoiceOver**.
+  - **Checked** on the iPhone 17 Pro against a local server on this code:
+    the deck on its side and upright (no bubbles), Mine opened on its
+    side (dark), the edit menu, a library photo chosen (stored with no
+    EXIF) and the automatic cover put back (file deleted), a drag down to
+    the deck, the bar's back, Third Floor opened ("Last written" only),
+    Open into Ours and back to the opened cover upright, light mode with
+    Climbing Club (no photo, near-black ink, "Not yet") and Olive chosen.
+    **On the Duo's cover** (light, on its side): the deck's arrangement
+    as in build 62, and the opened cover, where the details first wrapped
+    "This week" a letter a line and now keep 300 points. The bar's back
+    button goes into the rail's "…" there with Letters (one slot; a drag
+    down and escape still put it back). **Not seen**: the Duo in dark,
+    the transition frame by frame, Rename typed through, VoiceOver, a
+    real phone.
 
 - **Days and hours, to midnight on the 23rd** (build 75, November 16,
   2026, from Ayush on seeing build 74: "we can at least have hours right,
@@ -3097,7 +3203,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (75)", at the
+  production audit), and the version, "Stanley 0.2.0 (76)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3657,6 +3763,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
+- **Build 76** (0.2.0): the opened cover (above). Phone and server; the
+  server deployed to Fly the same day (below). Not archived.
 - **Build 75** (0.2.0): days and hours to midnight on the 23rd (above).
   Phone only; v34 on Fly is its server, and the legs set on Anti mosquito
   need nothing new. **Archived and uploaded to App Store Connect on
@@ -4106,7 +4214,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**724 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**736 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -4229,7 +4337,8 @@ five more; since build 69 the title's ink on a journal's field, six more;
 since build 70 a crash report leaving with no identifier, one, and the
 policy's notice, five; since build 72 the sheet's months, four;
 since build 73 the link's words, one; since build 74 the countdown's
-flight path, eleven; sixty-one in all). `tests/test_moods.py` (build 65) holds
+flight path, eleven; since build 76 the opened cover's words, four, and the
+cover colours' inks, one; sixty-six in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

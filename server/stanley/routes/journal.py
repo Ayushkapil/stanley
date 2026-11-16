@@ -11,7 +11,7 @@ import binascii
 import json
 from datetime import date, datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -20,9 +20,10 @@ from sqlalchemy.orm import Session
 from .. import journal, physics, sharing
 from ..decay import forget_journal
 from ..deps import (
-    active_circle_id, event, get_clock, get_current_user, get_db, get_notifier, get_settings, membership_in,
-    refuse_objectionable, require_membership,
+    active_circle_id, event, get_clock, get_current_user, get_db, get_notifier, get_settings, get_storage,
+    membership_in, refuse_objectionable, require_membership,
 )
+from ..images import BadImage, process_cover
 from ..notifications import send_journal_page_notices
 from ..models import (
     Anchor, CirclePrompt, JournalEntry, JournalPage, Membership, PageHeart, Photo, PromptResponse, Report,
@@ -92,6 +93,15 @@ class ShareBody(BaseModel):
 class JournalTitleBody(BaseModel):
     # Blank puts the app's own title back.
     title: str = Field(max_length=200)
+
+
+class JournalPatch(BaseModel):
+    """Build 76: what the journal is called, and whether its cover is the
+    automatic one. Each is changed only when it's sent. A title may not be
+    blank here (the opened cover refuses an empty name); `cover` takes only
+    null, which puts the automatic cover back."""
+    title: str | None = Field(default=None, max_length=200)
+    cover: None = None
 
 
 class AnswerBody(BaseModel):
@@ -521,8 +531,9 @@ def my_journal(
     now = clock.now()
     return {
         "title": user.journal_title,
-        # Build 53: the photo on your book's cover, your own newest keep.
-        **sharing.cover(db, user, settings, now),
+        # Build 53: the photo on your book's cover, your own newest keep;
+        # build 76, or the one you chose.
+        **_my_cover(db, user, settings, now),
         "pages": [_page_payload(db, r, settings, now) for r in stretch],
         "next_after": stretch[-1].day.isoformat() if more else None,
     }
@@ -858,6 +869,74 @@ def page_hearts(
     if row is None or row.owner_id != user.id or not row.shared:
         raise HTTPException(404, "not found")
     return {"hearts": _heart_faces(db, settings, clock.now(), row, blocked_ids(db, user.id))}
+
+
+def _my_cover(db: Session, user: User, settings, now) -> dict:
+    """Your journal's cover: a photo you chose (build 76), which nothing
+    automatic ever replaces, or else the automatic one."""
+    if user.journal_cover_key:
+        return {
+            "cover_photo_id": None,
+            "cover_url": read_url(settings, user.journal_cover_key, now),
+            "cover_chosen": True,
+        }
+    return {**sharing.cover(db, user, settings, now), "cover_chosen": False}
+
+
+@router.post("/me/journal/cover", dependencies=[per_person("avatar")])
+def choose_journal_cover(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+    storage=Depends(get_storage),
+):
+    """A photo from your phone's library for your journal's cover (build
+    76): upright, small, with no EXIF at all. Yours alone, as the title is;
+    shared journals have no chosen photo. It stays until you choose another
+    or put the automatic one back."""
+    data = file.file.read(settings.max_upload_bytes + 1)
+    if len(data) > settings.max_upload_bytes:
+        raise HTTPException(413, {"code": "too_large"})
+    try:
+        jpeg = process_cover(data)
+    except BadImage:
+        raise HTTPException(400, {"code": "bad_image"})
+    # A new name each time, so a link to the old picture never shows the
+    # new one, and the old one is deleted.
+    old = user.journal_cover_key
+    key = f"journal-covers/{user.id}-{new_id()}.jpg"
+    storage.put(key, jpeg)
+    user.journal_cover_key = key
+    if old:
+        storage.delete(old)
+    return _my_cover(db, user, settings, clock.now())
+
+
+@router.patch("/me/journal")
+def change_journal(
+    body: JournalPatch,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    settings=Depends(get_settings),
+    storage=Depends(get_storage),
+):
+    """Rename your journal, or put its automatic cover back (build 76).
+    A name is trimmed, must say something (400 `empty_title`) and fit the
+    cover (400 `title_too_long`)."""
+    if "title" in body.model_fields_set:
+        title = clean(body.title or "")
+        if not title:
+            raise HTTPException(400, {"code": "empty_title"})
+        if len(title) > journal.TITLE_MAX:
+            raise HTTPException(400, {"code": "title_too_long"})
+        user.journal_title = title
+    if "cover" in body.model_fields_set and user.journal_cover_key:
+        storage.delete(user.journal_cover_key)
+        user.journal_cover_key = None
+    return {"title": user.journal_title, **_my_cover(db, user, settings, clock.now())}
 
 
 @router.put("/me/journal/title")

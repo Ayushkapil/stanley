@@ -238,6 +238,9 @@ struct CircleSummary: Codable, Identifiable, Hashable {
     var firstDay: String? = nil
     /// Build 57: whether you've muted this journal's notices.
     var journalMuted: Bool? = nil
+    /// Build 76: the newest day of its journal you can read, for the
+    /// opened cover's "Last written" (a date, never a number).
+    var lastDay: String? = nil
 }
 
 struct CirclesResponse: Codable {
@@ -574,8 +577,18 @@ struct JournalStretch: Codable {
     let coverPhotoId: String?
     /// Build 56: a signed link to its picture.
     let coverUrl: String?
+    /// Build 76: the cover is a photo you chose (nil from an older server).
+    var coverChosen: Bool? = nil
     let pages: [DayPage]
     let nextAfter: String?
+}
+
+/// Your journal's cover as the server has it after a change (build 76).
+struct JournalCoverChange: Codable {
+    var title: String? = nil
+    let coverPhotoId: String?
+    let coverUrl: String?
+    let coverChosen: Bool?
 }
 
 struct JournalTitle: Codable {

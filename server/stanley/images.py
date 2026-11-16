@@ -20,6 +20,9 @@ EXIF_KEEP = {306}  # 306 = DateTime
 DERIVATIVE_EDGE = 1080
 THUMB_EDGE = 320
 AVATAR_EDGE = 512
+# A journal's cover photo (build 76): large enough for the opened cover on
+# the widest screen, small enough to stay a cover.
+COVER_EDGE = 1600
 JPEG_QUALITY = 90
 
 # A 48-megapixel photo fits (8064 x 6048 is 48.8M); a "decompression bomb", a
@@ -158,4 +161,18 @@ def process_avatar(data: bytes) -> bytes:
     square.thumbnail((AVATAR_EDGE, AVATAR_EDGE))
     buf = BytesIO()
     square.save(buf, format="JPEG", quality=JPEG_QUALITY)
+    return buf.getvalue()
+
+
+def process_cover(data: bytes) -> bytes:
+    """A journal's cover photo, chosen from the phone's library (build 76):
+    turned upright, downscaled, every bit of EXIF dropped (GPS above all;
+    no timestamp kept either, since a cover isn't a moment). Not cropped:
+    the cover changes shape as it opens, and fills itself from the middle."""
+    img = _open(data, "cover")
+    img = ImageOps.exif_transpose(img)
+    rgb = img.convert("RGB")
+    rgb.thumbnail((COVER_EDGE, COVER_EDGE))
+    buf = BytesIO()
+    rgb.save(buf, format="JPEG", quality=JPEG_QUALITY)
     return buf.getvalue()

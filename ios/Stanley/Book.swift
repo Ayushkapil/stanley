@@ -37,7 +37,8 @@ enum RuledPaper {
 /// written on a cover) and shows at the head of each month's opening page.
 enum JournalName {
     static let fallback = "My Journal"
-    static let limit = 60
+    /// Short enough to stay on the cover in the hand (build 76; it was 60).
+    static let limit = 40
 
     static func shown(_ title: String?) -> String {
         let given = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

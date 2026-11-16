@@ -105,8 +105,8 @@ enum CoverTone {
     /// A journal with no photo yet: a warm ground, light from the top left,
     /// a little deeper at the foot (the numbers are `CoverField`'s, which
     /// the ink is worked out from).
-    static func ground(_ scheme: ColorScheme) -> Color {
-        Color(TextTone.rgb(CoverField.ground(dark: scheme == .dark)))
+    static func ground(_ scheme: ColorScheme, swatch: CoverField.Swatch? = nil) -> Color {
+        Color(TextTone.rgb(CoverField.ground(dark: scheme == .dark, swatch: swatch)))
     }
     static func light(_ scheme: ColorScheme) -> Color {
         Color(TextTone.rgb(CoverField.lightTone)).opacity(CoverField.lightAlpha(dark: scheme == .dark))

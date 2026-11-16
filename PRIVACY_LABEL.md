@@ -85,6 +85,12 @@ Personalization, never Other.
   writer, unless the writer shares a page with a circle (build 51), and
   then by that circle. Since build 51 also the hearts left on shared
   pages (who, shown only to the page's writer; never a count). Since
+  build 76, a photo the person may choose from their phone's library for
+  their own journal's cover (`users.journal_cover_key`, its own blob):
+  upright, downscaled, every bit of EXIF dropped, read by no one but
+  them, kept until they choose another, put the automatic cover back or
+  delete the account, and in the export. User content (Photos), not
+  linked to anyone else; shared journals have no chosen photo. Since
   build 52 a page can also be shared with one person in a circle
   (`journal_pages.recipient_id`), and then it's read by that person and
   its writer only. Since build 52 too, the mark a person may leave on

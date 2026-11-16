@@ -48,6 +48,9 @@ enum PolicyNotice {
         Revision(day: "2026-11-15", title: "November 15, 2026", changes: [
             "The mark you may leave on your day can be set only on that day, is seen by no one but you, and stays when a photo from that day is deleted.",
         ]),
+        Revision(day: "2026-11-16", title: "November 16, 2026", changes: [
+            "You can choose a photo from your phone for your own journal's cover. It's kept on our server for you alone, without its location or any other details, until you choose another, put the automatic cover back, or delete your account.",
+        ]),
     ]
 
     static var current: Revision { revisions[revisions.count - 1] }

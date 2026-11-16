@@ -2,9 +2,10 @@
 
 The brief asked for each journal's most-kept photo. That ranks photos by
 keeps and would let a circle see which one was kept most, so (a product
-decision, 2026-11-14) a cover is the reader's own newest keep: in that
-circle for its journal, anywhere for their own. Nothing about anyone
-else's keeps is in it, and no keep is counted."""
+decision, 2026-11-14, kept again on 2026-11-16) it isn't. Your own book's
+cover is your own newest keep; since build 76 a circle's is the circle's
+newest photo still in the light, the same for everyone in it. Nothing
+about anyone else's keeps is in it, and no keep is counted."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -71,28 +72,36 @@ def test_the_first_day_is_the_first_page_you_can_read(circle, clock):
     assert circles(circle.ben)["floor 3"]["first_day"] is None
 
 
-def test_the_cover_is_your_own_newest_keep(circle, clock):
+def test_your_own_cover_is_your_own_newest_keep(circle, clock):
     first = circle.ana.post_photo().json()["id"]
+    clock.advance(timedelta(minutes=1))
     second = circle.cam.post_photo().json()["id"]
     assert circle.ben.anchor(second).status_code in (200, 201)
     clock.advance(timedelta(minutes=5))
     assert circle.ben.anchor(first).status_code in (200, 201)
-    # Kept last, so it's the cover, though it was posted first.
-    assert circles(circle.ben)["floor 3"]["cover_photo_id"] == first
+    # Kept last, so it's your book's cover, though it was posted first;
+    # the circle's is its newest photo, whatever anyone kept (build 76).
     assert my_cover(circle.ben) == first
+    assert circles(circle.ben)["floor 3"]["cover_photo_id"] == second
 
 
-def test_someone_elses_keeps_never_make_your_cover(circle, clock):
-    """However many keep a photo, it's on your cover only if you kept it."""
+def test_keeps_never_make_a_cover(circle, clock):
+    """However many keep a photo, a circle's cover is its newest photo, the
+    same for everyone; your own book's is your own newest keep, never
+    anyone else's."""
     popular = circle.ana.post_photo().json()["id"]
-    mine = circle.cam.post_photo().json()["id"]
-    for api in (circle.ana, circle.cam):
+    clock.advance(timedelta(minutes=1))
+    newest = circle.cam.post_photo().json()["id"]
+    for api in (circle.ana, circle.ben):
         api.anchor(popular)
     clock.advance(timedelta(minutes=1))
-    circle.ben.anchor(mine)
-    assert circles(circle.ben)["floor 3"]["cover_photo_id"] == mine
-    # And Ben, who kept nothing of Ana's, is never shown hers.
-    assert circles(circle.ana)["floor 3"]["cover_photo_id"] == popular
+    circle.ben.anchor(newest)
+    clock.advance(timedelta(minutes=1))
+    circle.cam.anchor(popular)
+    for api in (circle.ana, circle.ben, circle.cam):
+        assert circles(api)["floor 3"]["cover_photo_id"] == newest
+    assert my_cover(circle.ben) == newest
+    assert my_cover(circle.cam) == popular
 
 
 def test_each_circle_has_its_own_cover_and_yours_spans_them(circle, client, clock):

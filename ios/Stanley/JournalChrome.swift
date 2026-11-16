@@ -72,6 +72,10 @@ struct PlusGlass: View {
 struct JournalToolbar: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     let opened: Bool
+    /// A cover is open, between the deck and its pages (build 76): back
+    /// puts it into the deck.
+    var coverOpen = false
+    var closeCover: () -> Void = {}
     let ours: Bool
     let hasOurs: Bool
     let sealed: Bool
@@ -126,6 +130,16 @@ struct JournalToolbar: ViewModifier {
 
     @ToolbarContentBuilder
     private var bookItems: some ToolbarContent {
+        if !opened && coverOpen {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: closeCover) {
+                    Label("Journals", systemImage: "chevron.left")
+                        .foregroundStyle(ink)
+                }
+                .tint(ink)
+                .accessibilityHint("Back to the journals")
+            }
+        }
         if opened {
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: back) {

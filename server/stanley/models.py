@@ -39,6 +39,11 @@ class User(Base):
     # What they call their journal (build 45), written on its cover. Null is
     # the app's own "My Journal". Theirs alone: only `/me/journal` carries it.
     journal_title: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # A photo they chose for their journal's cover from their phone's
+    # library (build 76), stored as its own blob: null is the automatic
+    # cover (their own newest keep). Theirs alone, like the title; a chosen
+    # photo is never overridden by the automatic one.
+    journal_cover_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # §10 N2: the last-light notice is off by default, offerable in settings.
     last_light_notice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     # §10 N1: the evening digest, off by default too (build 18). Before it was

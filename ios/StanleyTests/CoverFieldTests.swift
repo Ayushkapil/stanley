@@ -72,6 +72,39 @@ final class CoverFieldTests: XCTestCase {
         XCTAssertEqual(CoverField.ink(for: "climbing-club", dark: true), .light)
     }
 
+    /// The cover colours a journal with no photo can be given (build 76):
+    /// whichever ink each field asks for, by day and by night and whatever
+    /// the journal's own warmth over it, the words read.
+    func testEveryCoverColourTakesAnInkThatReads() {
+        let warmths = [lightest, darkest, CoverField.rgb(hue: 0.075, saturation: 0.59, brightness: 0.84)]
+        for swatch in CoverField.Swatch.allCases {
+            for dark in [false, true] {
+                for warmth in warmths {
+                    let ink = CoverField.ink(warmth: warmth, dark: dark, swatch: swatch)
+                    func worst(_ colour: CoverField.RGB, alpha: Double = 1, area: [(x: Double, y: Double)]) -> Double {
+                        area.map { point in
+                            let under = CoverField.colour(warmth: warmth, dark: dark, x: point.x, y: point.y,
+                                                          scrims: ink == .light, swatch: swatch)
+                            return under.contrast(with: under.under(colour, alpha))
+                        }.min() ?? 0
+                    }
+                    let label = "\(swatch.name), \(dark ? "night" : "day")"
+                    if ink == .dark {
+                        XCTAssertGreaterThanOrEqual(worst(CoverField.nearBlack, area: CoverField.titleArea), 4.5, label)
+                        XCTAssertGreaterThanOrEqual(worst(CoverField.nearBlack, alpha: CoverField.darkLabel,
+                                                          area: CoverField.labelArea), 4.5, label)
+                    } else {
+                        // Large text in the hand: 3:1, under the sheen too.
+                        XCTAssertGreaterThanOrEqual(worst(CoverField.offWhite, area: CoverField.titleArea), 3, label)
+                    }
+                }
+            }
+        }
+        // Caramel is the field every journal starts with.
+        XCTAssertEqual(CoverField.ground(dark: false, swatch: .caramel), CoverField.ground(dark: false))
+        XCTAssertEqual(CoverField.ground(dark: true, swatch: nil), CoverField.ground(dark: true))
+    }
+
     func testContrastIsWCAGs() {
         XCTAssertEqual(CoverField.RGB(0xFFFFFF).contrast(with: CoverField.RGB(0x000000)), 21, accuracy: 0.01)
         XCTAssertEqual(CoverField.RGB(0x767676).contrast(with: CoverField.RGB(0xFFFFFF)), 4.54, accuracy: 0.01)

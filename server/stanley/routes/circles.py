@@ -215,6 +215,9 @@ def my_circles(
                 **sharing.cover(db, user, settings, now, c.id),
                 "since": sharing.joined_day(m, user).isoformat(),
                 "first_day": (lambda d: d and d.isoformat())(sharing.first_day(db, user, m)),
+                # Build 76: the newest day in it they can read, for the
+                # opened cover's "Last written" (a date, never a number).
+                "last_day": (lambda d: d and d.isoformat())(sharing.last_day(db, user, m)),
                 "journal_muted": bool(m.journal_muted),
             }
             for m, c in rows

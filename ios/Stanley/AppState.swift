@@ -76,6 +76,11 @@ final class AppState {
     var journalCover: String?
     /// And a signed link to its picture (build 56).
     var journalCoverLink: String?
+    /// The cover is a photo you chose yourself (build 76): nothing
+    /// automatic replaces it until you put the automatic one back.
+    var journalCoverChosen = false
+    /// The server keeps a chosen cover and refuses a blank name (build 76).
+    var journalCoverAvailable = false
     /// The server has the journal, so a page can be written. False against
     /// a server from before build 45: the pages are what's kept, and
     /// there's no page for today.
@@ -434,6 +439,7 @@ final class AppState {
         journalPages = []
         journalTitle = nil
         journalCover = nil
+        journalCoverChosen = false
         journalWritable = false
         journalDay = nil
         sharedDays = []
@@ -1431,6 +1437,7 @@ final class AppState {
             var title: String?
             var cover: String?
             var coverLink: String?
+            var chosen: Bool?
             // A page a day for fifty years is under two hundred stretches.
             for _ in 0..<200 {
                 let stretch: JournalStretch = try await api.send(
@@ -1440,6 +1447,7 @@ final class AppState {
                 if after == nil {
                     cover = stretch.coverPhotoId
                     coverLink = stretch.coverUrl
+                    chosen = stretch.coverChosen
                 }
                 gathered += stretch.pages
                 guard let next = stretch.nextAfter else { break }
@@ -1449,6 +1457,8 @@ final class AppState {
             journalTitle = title
             journalCover = cover
             journalCoverLink = coverLink
+            journalCoverChosen = chosen ?? false
+            journalCoverAvailable = chosen != nil
             journalWritable = true
         } catch APIError.status(404) {
             journalPages = []
@@ -1608,13 +1618,61 @@ final class AppState {
         }
     }
 
-    /// What the journal is called. Blank puts "My Journal" back.
+    /// What the journal is called. Blank puts "My Journal" back (from
+    /// Settings, against an older server); the opened cover never sends one
+    /// (build 76).
     func renameJournal(_ title: String) async {
         do {
-            let named: JournalTitle = try await api.send("PUT", "/me/journal/title", json: ["title": title])
-            journalTitle = named.title
+            if journalCoverAvailable, !title.isEmpty {
+                let changed: JournalCoverChange = try await api.send("PATCH", "/me/journal", json: ["title": title])
+                journalTitle = changed.title
+            } else {
+                let named: JournalTitle = try await api.send("PUT", "/me/journal/title", json: ["title": title])
+                journalTitle = named.title
+            }
         } catch {
             surface(error)
+        }
+    }
+
+    /// A photo from the library on your journal's cover (build 76). Once
+    /// chosen, it stays until you choose another or put the automatic one
+    /// back.
+    func chooseJournalCover(jpeg: Data) async {
+        do {
+            took(try await api.uploadJournalCover(jpeg: jpeg))
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// The automatic cover again: your own newest keep.
+    func useAutomaticCover() async {
+        do {
+            // A null that reaches the server (`send` drops nil values).
+            let body: [String: Any?] = ["cover": NSNull()]
+            took(try await api.send("PATCH", "/me/journal", json: body) as JournalCoverChange)
+        } catch {
+            surface(error)
+        }
+    }
+
+    private func took(_ change: JournalCoverChange) {
+        journalCover = change.coverPhotoId
+        journalCoverLink = change.coverUrl
+        journalCoverChosen = change.coverChosen ?? false
+    }
+
+    /// The organizer renames one of their circles (build 76: from its
+    /// journal's opened cover, where the circle's name is the title).
+    func renameCircle(id: String, to name: String) async -> Bool {
+        do {
+            let _: Empty = try await api.send("PATCH", "/circles/\(id)", json: ["name": name])
+            await loadCircle()
+            return true
+        } catch {
+            surface(error)
+            return false
         }
     }
 

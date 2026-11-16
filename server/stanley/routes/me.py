@@ -406,6 +406,11 @@ def export_memories(
         ]
         # Build 45: the journal's own pages, a day each, and what it's called.
         manifest["journal_title"] = user.journal_title
+        # Build 76: the photo you chose for its cover, if you chose one.
+        manifest["journal_cover"] = None
+        if user.journal_cover_key and storage.exists(user.journal_cover_key):
+            zf.writestr("journal-cover.jpg", storage.get(user.journal_cover_key))
+            manifest["journal_cover"] = "journal-cover.jpg"
         manifest["journal"] = [
             # (`inks`, build 50: a page in more than one ink, each ink and
             # how many characters of the page are in it.)
@@ -542,6 +547,10 @@ def delete_account(
 
     if user.avatar_key:
         storage.delete(user.avatar_key)
+    # Build 76: a cover photo chosen for the journal.
+    if user.journal_cover_key:
+        storage.delete(user.journal_cover_key)
+    user.journal_cover_key = None
     # What's left is a bare row for tombstones and reports to point at:
     # nothing that says who it was (the Privacy Policy, build 18).
     user.display_name = None
