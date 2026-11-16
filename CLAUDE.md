@@ -578,6 +578,59 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The page's date as furniture; the covers' words on their own
+  shadow** (build 68, November 15, 2026, from Ayush, "Two fixes from the
+  audit"). Phone only; nothing on the server changed.
+  - **The page's date is furniture, not writing.** It's set in the
+    small tracked capitals labels have elsewhere (`smallCaps()`), in the
+    secondary (`BookPaper.quiet`, which is `TextTone.secondary`), on
+    every page, the writing layer, a month's opening page (the journal's
+    name) and the answer sheet's month. It no longer competes with the
+    entry under it; the hand is for what the person wrote. Build 67's
+    full-strength hand is undone (`PageHeading` lost its `color`; the
+    page's `headInk` is gone).
+  - **Not a bug to chase: the audit's verdict on text in a hand or
+    over a picture.** Xcode's contrast audit (`performAccessibilityAudit`)
+    failed the page's date in the hand even at #1A1A1A on #FAF8F1 (about
+    16:1, measured from a screenshot), and it flipped between runs on
+    the same page. It does the same to the covers' slab capitals
+    (measured 5.2 to 8.2:1 in every look) and the night's "Shared with
+    your circle" (7.7:1). Where it disagrees with the pixels, measure:
+    a screenshot, the glyphs' 2nd-percentile pixel against the median of
+    the box. As small capitals, the page's date passes the audit in
+    Rain, plain and dark on every page tried.
+  - **The covers' words sit on their own shadow** (`JournalCovers.swift`;
+    the tokens in `CoverTone`). The 60% veil and the photo's bloom are
+    as they were. Behind the words in the room (the date over the deck,
+    and the name, its line, your last five days and the pips under it):
+    a soft shadow (`onItsOwnShadow`, a rounded field blurred by as much
+    as it reaches past the words), by day the palette's card (white, or
+    Rain's lighter gray, since the secondary is exactly 4.5:1 on Rain's
+    floor and a shadow of the floor could reach no further), at night
+    black at 60% (`CoverTone.textGround`). Inside the slab, behind each
+    small capital line (the place, the dates, "Vol. I"): a soft
+    darkening, black at 75% blurred (`shadedCapitals`,
+    `CoverTone.capitalsShade`). The photo is untouched wherever no words
+    are over it.
+  - **Fixed on the way**: the covers' date was dimmer than the secondary.
+    Its colour was set outside `smallCaps()`, whose `.secondary` is
+    hierarchical, so the date was the secondary of the secondary. The
+    colour is set on the text now, inside. (`smallCaps()` with an outer
+    colour does this anywhere; the masthead's dateline sets none, so it
+    gets the token.)
+  - **Measured** (screenshots on the iPhone 17 Pro, plain, Rain and
+    dark, each of the three journals' covers): the date 4.7 to 8.2:1,
+    the line under the name 5.0 to 8.0, the slab's capitals 5.2 to 8.2,
+    the dates and "Vol. I" 6.4 to 8.2. Before, the date in Rain was
+    3.6 and the line under the name 4.2. The audit now passes the room's
+    words by day; it still fails the slab's capitals and, at night, the
+    date or the line now and then, against the measurements (above).
+  - **Left**: the title in the hand on a journal with no photo ("Ours"
+    on Climbing Club's warm caramel field, by day) fails the audit and
+    is light on that field; it wasn't in the brief. Also as asked: the
+    small hit areas that aren't tapped, the answer sheet's days to come,
+    Letters' badge, and Today's contrast items.
+
 - **The book to VoiceOver, and a darker secondary** (build 67, November
   15, 2026, from Ayush, after an audit of the book). Phone only; nothing
   on the server changed, so nothing to deploy.
@@ -630,7 +683,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     unchanged. `TextTone.label` by day, and `BookPaper.quiet` (a copy of
     the old one, #6B6560 at night, 3.2:1), are this token now. Every
     masthead's dateline passes the audit; it failed before.
-  - **The page's date at full strength.** It isn't the token: it's the
+  - **The page's date at full strength** (undone in build 68, next
+    section: the date is small capitals now). It isn't the token: it's the
     page's own ink, let down to 70% (62% on other pages), in the hand,
     and the audit failed it on every page. At full strength it passes
     (the writing layer's date too, so nothing changes shade as writing
@@ -2656,7 +2710,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (67)", at the
+  production audit), and the version, "Stanley 0.2.0 (68)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3188,9 +3242,11 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   promise to say in the app when it changes still has no in-app notice
   behind it. Not yet seen end to end: a real phone receiving "… shared a
   moment".
-- **Build 67** (0.2.0) is the number to archive next: the book to
-  VoiceOver and the darker secondary (above). Phone only; v33 on Fly is
-  its server, so it can go out. Build 67 carries everything below.
+- **Build 68** (0.2.0): the page's date as furniture and the covers'
+  scrims (above). Phone only; v33 on Fly is its server. Build 68
+  carries everything below.
+- **Build 67** (0.2.0) was never archived on its own: the book to
+  VoiceOver and the darker secondary (above).
 - **Build 66** (0.2.0) was never archived on its own: the answer sheet
   read by VoiceOver (above).
 - **Build 65** (0.2.0) was never archived on its own: the answer sheet

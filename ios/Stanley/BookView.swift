@@ -904,7 +904,7 @@ struct BookView: View {
                 // Nothing fetched yet (or nothing can be): a page all the same.
                 BookSheet(layout: layout, lined: true)
                 if state.offline {
-                    PageHeading(text: "Not here yet.", color: BookPaper.quiet, layout: layout)
+                    PageHeading(text: "Not here yet.", layout: layout)
                 }
             }
 

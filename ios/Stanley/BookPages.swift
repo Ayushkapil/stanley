@@ -146,16 +146,20 @@ struct BookSheet: View {
     }
 }
 
-/// What's written small at the head of a page, top left: its date.
+/// What's printed small at the head of a page, top left: its date. It's
+/// the page's furniture, not its writing (build 68): the small tracked
+/// capitals labels have everywhere, in the secondary, so it doesn't
+/// compete with what's written under it. The hand is for the writing.
+/// (Build 67 had it in the hand at full strength; before that, in the
+/// hand at 70% of the page's ink, which the accessibility audit failed.)
 struct PageHeading: View {
     let text: String
-    let color: Color
     let layout: BookLayout
 
     var body: some View {
         Text(text)
-            .font(.custom(layout.font.fontName, fixedSize: layout.headSize))
-            .foregroundStyle(color)
+            .foregroundStyle(BookPaper.quiet)
+            .smallCaps()
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             // Short of the head's right, where "Mine", "Ours" and "+" are.
@@ -230,7 +234,7 @@ struct BookPageView: View {
             // shared, what's on it, its number. Left to the stack, the
             // date came after the words.
             if let heading = page.heading {
-                PageHeading(text: heading, color: headInk, layout: layout)
+                PageHeading(text: heading, layout: layout)
                     .accessibilitySortPriority(3)
             }
             // A page of your own that's in a circle's shared journal says so.
@@ -253,19 +257,6 @@ struct BookPageView: View {
         .modifier(PageMenu(page: page, actions: actions, live: live))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(page.name)
-    }
-
-    /// The date is in the page's own ink where the page is written; plain
-    /// ink elsewhere. Its size makes it the smaller thing. (Until build 67
-    /// it was let down to 70%, 62% on other pages, and the accessibility
-    /// audit failed the date on every page: thin strokes of a hand at
-    /// that strength. At full strength it passes.)
-    private var headInk: Color {
-        switch page.kind {
-        case .written(let written): Ink.named(written.ink).color
-        case .today: Ink.named(inkRaw).color
-        default: Ink.black.color
-        }
     }
 
     /// The middle of the foot: the page's number when it's read. Today's
@@ -320,7 +311,7 @@ struct BookPageView: View {
         ZStack(alignment: .topLeading) {
             // What the journal is called, small, where a day's page has
             // its date (it had a cover to be written on until build 46).
-            PageHeading(text: JournalName.shown(state.journalTitle), color: BookPaper.quiet, layout: layout)
+            PageHeading(text: JournalName.shown(state.journalTitle), layout: layout)
             month
         }
         .frame(width: layout.width, height: layout.height)

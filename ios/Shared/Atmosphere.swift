@@ -66,6 +66,19 @@ enum CoverTone {
     /// Under the words on a photo: dark at the head and the foot.
     static let scrimHead = Color.black.opacity(0.38)
     static let scrimFoot = Color.black.opacity(0.5)
+    /// Close behind the slab's small capitals (build 68): a soft darkening
+    /// only there, so the label reads whatever the photo is doing under it.
+    static let capitalsShade = Color.black.opacity(0.75)
+    /// Behind the words in the room (the date over the deck; the name,
+    /// its line and the pips under it) (build 68): a soft shadow, so they
+    /// sit on their own. By day the palette's card (white, or Rain's
+    /// lighter gray), since the secondary is exactly 4.5:1 on Rain's
+    /// floor and a shadow of the floor could only ever reach that; at
+    /// night black. The veil and the photo's bloom elsewhere are left as
+    /// they are.
+    static func textGround(_ scheme: ColorScheme, card: Color) -> Color {
+        scheme == .dark ? .black.opacity(0.6) : card
+    }
     /// A journal with no photo yet: a warm ground, light from the top left,
     /// a little deeper at the foot.
     static func ground(_ scheme: ColorScheme) -> Color {

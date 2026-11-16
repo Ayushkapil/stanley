@@ -426,9 +426,6 @@ struct PageWriting: View {
         }
     }
 
-    /// The date is in the ink the page begins in, as it is when the page
-    /// is read: the pen in hand on a page with nothing on it yet.
-    private var headInk: Ink { written.first.map { Ink.named($0.ink) } ?? ink }
     /// Whether that's anything other than what was there.
     private var changed: Bool { written != (existing?.stretches ?? []) }
 
@@ -456,7 +453,7 @@ struct PageWriting: View {
         .frame(width: layout.width)
         .overlay(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
-                PageHeading(text: BookType.dayTitle(date), color: headInk.color, layout: layout)
+                PageHeading(text: BookType.dayTitle(date), layout: layout)
                 // Where this page will land, so there's never any doubt; and
                 // where there's somewhere else to put it, a tap chooses.
                 if canShare {

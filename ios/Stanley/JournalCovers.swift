@@ -129,11 +129,15 @@ struct JournalCovers: View {
                 VStack(alignment: .leading, spacing: 0) {
                     // The day, as content: the toolbar holds Letters and
                     // the week, never this.
+                    // (The ink on the text itself: set outside the small
+                    // capitals, it was their `.secondary` of it, dimmer
+                    // than the secondary, which the audit failed.)
                     Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                        .smallCaps()
                         .foregroundStyle(TextTone.label)
+                        .smallCaps()
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
+                        .onItsOwnShadow(spread: 20)
                         .padding(.horizontal, Self.margin)
                         .padding(.top, 8)
                     arranged(journals: journals, current: current, at: at, room: room.size.width)
@@ -354,6 +358,7 @@ struct JournalCovers: View {
                 Pips(at: at, of: of, ink: TextTone.primary)
                     .padding(.top, 8 * scale)
             }
+            .onItsOwnShadow(spread: 24 * scale)
             Spacer(minLength: 8)
             Button { open(journal) } label: {
                 GlassCircle(size: 44) {
@@ -595,6 +600,7 @@ private struct CoverCard: View {
                 .textCase(.uppercase)
                 .foregroundStyle(TextTone.onPhotoLabel)
                 .lineLimit(1)
+                .shadedCapitals(scale)
             Text(journal.title)
                 .font(.custom(BookHand.font(44, bold: true).fontName, fixedSize: 44 * scale).leading(.tight))
                 .foregroundStyle(TextTone.onPhoto)
@@ -610,8 +616,10 @@ private struct CoverCard: View {
                 // Only once there's a first entry: an empty journal says
                 // nothing about when it began.
                 Text(dates)
+                    .shadedCapitals(scale, when: !dates.isEmpty)
                 Spacer()
                 Text("Vol. I")
+                    .shadedCapitals(scale)
             }
             .font(label)
             .tracking(2.6 * scale)
@@ -629,6 +637,54 @@ private struct CoverCard: View {
         let start = since.formatted(.dateTime.month(.abbreviated).year())
         if Calendar.current.isDate(since, equalTo: .now, toGranularity: .month) { return start }
         return start + " – now"
+    }
+}
+
+extension View {
+    /// Words in the room sitting on their own shadow (build 68): a soft
+    /// shadow of the floor behind them, full behind the words and fading
+    /// to nothing round them, and nothing anywhere else. The contrast audit failed
+    /// the date, the name's line and the pips' neighbours wherever the
+    /// blurred photo under the veil was dark.
+    func onItsOwnShadow(spread: CGFloat) -> some View {
+        modifier(RoomShadow(spread: spread))
+    }
+
+    /// A soft darkening inside the slab behind its small capitals (build
+    /// 68), so the photo stays bright everywhere else.
+    func shadedCapitals(_ scale: CGFloat, when shown: Bool = true) -> some View {
+        background {
+            if shown {
+                Capsule()
+                    .fill(CoverTone.capitalsShade)
+                    .padding(.horizontal, -14 * scale)
+                    .padding(.vertical, -8 * scale)
+                    .blur(radius: 8 * scale)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
+private struct RoomShadow: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("stanley.atmosphere") private var raw = "auto"
+    let spread: CGFloat
+
+    func body(content: Content) -> some View {
+        let tone = CoverTone.textGround(colorScheme, card: Atmosphere.resolve(raw).palette.card)
+        // A rounded field of the tone, blurred by as much as it reaches
+        // past the words: full behind them, nothing at its edges.
+        content.background {
+            RoundedRectangle(cornerRadius: spread, style: .continuous)
+                .fill(tone)
+                .padding(.vertical, -spread * 0.9)
+                .padding(.horizontal, -spread * 1.3)
+                .blur(radius: spread * 0.75)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 }
 
