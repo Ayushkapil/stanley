@@ -633,7 +633,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     Duo's cover (on its side) against a local server, light: a tap on
     Thursday 12 opening its page, a tap on Wednesday 11 (no page) doing
     nothing, the scrolling sheet with its one-line heading on its side on
-    both. Not seen: dark on its side, a real phone, the inner display.
+    both, and the same in dark on both (after the upload, November 16).
+    Not seen: a real phone, the inner display.
 
 - **The answer sheet stands alone** (build 72, November 16, 2026, a
   product brief from Ayush, "Move the OMR sheet out of the book, and give
