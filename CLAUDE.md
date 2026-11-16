@@ -3629,12 +3629,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
 - **Build 74** (0.2.0): the India countdown as a flight path (above).
-  Phone only; v33 on Fly is its server. Not archived. **The legs are
-  not on Fly yet**: Anti mosquito's countdown is still build 38's preset,
-  so build 74 reads it as "On the way" to "Landed" until the new preset
-  is set there (`set <id> india` with this build's script, which Fly's
-  image doesn't have yet: a `fly deploy`, or the script piped in). Both
-  are waiting on a yes. The trip leaves on 23 November.
+  Phone only; v34 on Fly is its server. **Archived and uploaded to App
+  Store Connect on November 16, 2026**, as 73 was ("Stanley 0.2.0 (74)"
+  in Organizer's folder, `-exportArchive` to `upload` with
+  `-allowProvisioningUpdates`; "Upload succeeded", then processing; the
+  only warning Sentry.framework's missing dSYM again). Not yet seen in
+  TestFlight. **The legs are on Anti mosquito** (asked for by Ayush,
+  November 16): after `fly deploy` (release **v34**, `main` as of
+  `eb1077d`, the full suite passing on it, 724; `/health` ok), `set
+  8fa3cca67bba40ec8157dca4fd8193ce india` with this build's script, read
+  back with the five legs, Dubai's `at` null. Builds before 74 ignore
+  `legs` and read the rest as before. The trip leaves on 23 November.
 - **Build 73** (0.2.0): the sheet's rows leading to their pages, and the
   sheet scrolling instead of turning the screen (above). Phone only; v33
   on Fly is its server. Carries builds 71 and 72. **Archived and uploaded
