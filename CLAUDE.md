@@ -3763,8 +3763,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
-- **Build 76** (0.2.0): the opened cover (above). Phone and server. Not
-  archived. **Its server is on Fly as release v35** (November 16, `main`
+- **Build 76** (0.2.0): the opened cover (above). Phone and server.
+  **Archived and uploaded on November 16, 2026**, and added to Friends the
+  same evening (straight to Testing, no compliance question: the plist
+  answers it now), with a What to Test note. **Its server is on Fly as release v35** (November 16, `main`
   as of `74de31e`, after the full suite passed, 736): `/health` ok;
   `POST /me/journal/cover` and `PATCH /me/journal` answer 401 without a
   sign-in; `/privacy` says November 16, 2026 with the cover's words;
