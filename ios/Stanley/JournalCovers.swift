@@ -65,9 +65,16 @@ struct JournalCovers: View {
     /// the cards runs on under all of it.
     let insets: EdgeInsets
     let open: (CoverJournal) -> Void
+    /// Your own book at a day's page (build 73): a row of the answer sheet.
+    let openDay: (String) -> Void
     @Binding var page: String
     /// The month's answer sheet, over the covers (build 72).
     @State private var readingDays = false
+    /// The day a row of the sheet asked for, opened once the sheet's gone.
+    @State private var dayAsked: String?
+    #if DEBUG
+    private static var daysOpenedOnce = false
+    #endif
     @State private var shown: String?
     @State private var renaming = false
     @State private var name = ""
@@ -178,14 +185,29 @@ struct JournalCovers: View {
         .onAppear {
             shown = page
             Turning.coversShowing(true)
+            #if DEBUG
+            // STANLEY_OPEN_DAYS=1: the answer sheet at once, for a
+            // simulator with nothing to tap (the accessibility walk).
+            if ProcessInfo.processInfo.environment["STANLEY_OPEN_DAYS"] == "1", state.moodsAvailable, !Self.daysOpenedOnce {
+                Self.daysOpenedOnce = true
+                readingDays = true
+            }
+            #endif
         }
         .onDisappear { Turning.coversShowing(false) }
         .onChange(of: shown) { _, now in if let now { page = now } }
-        // Upright while the sheet is up: the covers may lie on their side,
-        // the sheet's thirty-odd rows need the height.
-        .onChange(of: readingDays) { _, reading in Turning.coversShowing(!reading) }
-        .sheet(isPresented: $readingDays) {
-            MarkSheetScreen(joined: joined)
+        // Whichever way the phone is held: the sheet's rows scroll where
+        // the room can't hold them (build 73; build 72 turned the screen
+        // upright, which nobody asked for).
+        .sheet(isPresented: $readingDays, onDismiss: {
+            guard let day = dayAsked else { return }
+            dayAsked = nil
+            openDay(day)
+        }) {
+            MarkSheetScreen(joined: joined) { day in
+                dayAsked = day
+                readingDays = false
+            }
         }
         .alert("Name your journal", isPresented: $renaming) {
             TextField(JournalName.fallback, text: $name)

@@ -82,32 +82,47 @@ struct MoodDot: View {
 /// five shades unlabelled; under that the month's form. A swipe or the
 /// chevrons go back through the months, as far as the one you joined in and
 /// no further. Only this month's today row takes a mark; every other row,
-/// and every month gone by, is there to read.
+/// and every month gone by, can't be marked (build 73: read-only is the
+/// bubbles, not the row: a day gone by that has a written page is a link to
+/// it, in your own book, and the sheet closes on the way). The rows scroll
+/// when the room can't hold them (the Duo's cover, any phone on its side),
+/// under a heading that stays put; nothing turns the screen.
 struct MarkSheetScreen: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
+    /// Compact on a phone on its side: the heading goes onto one line, so
+    /// the rows keep what height there is.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     /// The months it can turn to, oldest first, this month last.
     private let months: [Date]
+    /// A day's page asked for: the covers open your book there once the
+    /// sheet has gone.
+    private let open: (String) -> Void
     @State private var at: Int
 
-    init(joined: Date?) {
+    init(joined: Date?, open: @escaping (String) -> Void) {
         let months = MarkSheet.months(joined: joined)
         self.months = months
+        self.open = open
         _at = State(initialValue: max(0, months.count - 1))
     }
 
     var body: some View {
         let ink = Ink.black.color
+        // The days with a page written: the only rows that lead anywhere.
+        let written = Set(state.journalPages.map(\.day))
         NavigationStack {
             VStack(spacing: 0) {
                 header(ink: ink)
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
+                    .padding(.bottom, verticalSizeClass == .compact ? 6 : 14)
                 TabView(selection: $at) {
                     ForEach(months.indices, id: \.self) { index in
                         MarkSheetMonth(
                             rows: MarkSheet.rows(month: months[index], marks: state.moods),
-                            mark: { level in Task { _ = await state.setMark(level) } }
+                            written: written,
+                            mark: { level in Task { _ = await state.setMark(level) } },
+                            open: open
                         )
                         .padding(.horizontal, 24)
                         .padding(.bottom, 8)
@@ -116,7 +131,7 @@ struct MarkSheetScreen: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .frame(maxWidth: 560)
+            .frame(maxWidth: verticalSizeClass == .compact ? 720 : 560)
             .frame(maxWidth: .infinity)
             .background(BookPaper.page.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
@@ -131,26 +146,43 @@ struct MarkSheetScreen: View {
 
     /// "November 2026" between its chevrons, the question under it in the
     /// hand, and the five shades as the scale, with no words on them.
+    @ViewBuilder
     private func header(ink: Color) -> some View {
         let month = months.indices.contains(at) ? months[at] : .now
-        return VStack(spacing: 8) {
+        let title = Text(month.formatted(.dateTime.month(.wide).year()))
+            .font(.system(verticalSizeClass == .compact ? .title2 : .title, design: .rounded).weight(.medium))
+            .foregroundStyle(ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .accessibilityAddTraits(.isHeader)
+        let question = Text(MarkSheet.question)
+            .font(Font(BookHand.font(verticalSizeClass == .compact ? 17 : 19)))
+            .foregroundStyle(BookPaper.quiet)
+        if verticalSizeClass == .compact {
+            // One line: the month between its chevrons, then the question
+            // and the scale.
             HStack(spacing: 0) {
                 chevron("chevron.left", label: MarkSheet.previousMonth, enabled: at > 0) { at -= 1 }
-                Spacer(minLength: 4)
-                Text(month.formatted(.dateTime.month(.wide).year()))
-                    .font(.system(.title, design: .rounded).weight(.medium))
-                    .foregroundStyle(ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 4)
+                title
                 chevron("chevron.right", label: MarkSheet.nextMonth, enabled: at < months.count - 1) { at += 1 }
+                Spacer(minLength: 12)
+                question
+                Swatches(ink: ink)
+                    .padding(.leading, 12)
             }
-            Text(MarkSheet.question)
-                .font(Font(BookHand.font(19)))
-                .foregroundStyle(BookPaper.quiet)
-            Swatches(ink: ink)
-                .padding(.top, 2)
+        } else {
+            VStack(spacing: 8) {
+                HStack(spacing: 0) {
+                    chevron("chevron.left", label: MarkSheet.previousMonth, enabled: at > 0) { at -= 1 }
+                    Spacer(minLength: 4)
+                    title
+                    Spacer(minLength: 4)
+                    chevron("chevron.right", label: MarkSheet.nextMonth, enabled: at < months.count - 1) { at += 1 }
+                }
+                question
+                Swatches(ink: ink)
+                    .padding(.top, 2)
+            }
         }
     }
 
@@ -195,16 +227,25 @@ private struct Swatches: View {
 /// One month's form: a row a day, five bubbles across, faint registration
 /// squares in three corners, and at the foot the month small, a square a
 /// day. Sized by the room it's given: the rows share the height, today's a
-/// little taller for a thumb.
+/// little taller for a thumb; where that would make them too small to read
+/// or tap, they keep a comfortable height and scroll instead, today's row
+/// in view to begin with.
 struct MarkSheetMonth: View {
     let rows: [MarkSheet.Row]
+    /// The days with a page written: a day gone by among them is a link.
+    var written: Set<String> = []
     let mark: (Int?) -> Void
+    var open: (String) -> Void = { _ in }
 
     /// The registration squares' side, and the room the foot takes.
     private static let registration: CGFloat = 7
     private static let footHeight: CGFloat = 58
     /// How much taller today's row is than the rest: room for a thumb.
     private static let todayExtra: CGFloat = 12
+    /// The shortest a row is let be before the form scrolls, and the height
+    /// rows keep when it does.
+    private static let fewest: CGFloat = 14
+    private static let scrolled: CGFloat = 22
 
     var body: some View {
         let ink = Ink.black.color
@@ -213,29 +254,49 @@ struct MarkSheetMonth: View {
             let top = Self.registration + 12
             let hasToday = rows.contains { $0.when == .today }
             let room = proxy.size.height - top - Self.footHeight - (hasToday ? Self.todayExtra : 0)
-            let rowHeight = min(24, max(10, (room / CGFloat(max(rows.count, 1))).rounded(.down)))
-            let bubble = min(15, max(8, rowHeight - 6))
-            // The five spread across as a form's are, a little in from the
-            // right edge.
-            let column = min(56, (width - 60) / 5)
-            VStack(alignment: .leading, spacing: 0) {
-                Color.clear.frame(height: top)
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows, id: \.day) { row in
-                        self.row(row, height: row.when == .today ? rowHeight + Self.todayExtra : rowHeight,
-                                 bubble: row.when == .today ? min(18, bubble + 3) : bubble, column: column, ink: ink)
+            let fitted = (room / CGFloat(max(rows.count, 1))).rounded(.down)
+            if fitted >= Self.fewest {
+                form(rowHeight: min(24, fitted), width: width, ink: ink)
+            } else {
+                ScrollViewReader { reader in
+                    ScrollView(.vertical) {
+                        form(rowHeight: Self.scrolled, width: width, ink: ink)
+                    }
+                    .scrollIndicators(.automatic)
+                    .onAppear {
+                        if let today = rows.first(where: { $0.when == .today }) {
+                            reader.scrollTo(today.day, anchor: .center)
+                        }
                     }
                 }
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel(MarkSheet.sheetName)
-                foot(width: width, ink: ink)
-                    .frame(width: width, height: Self.footHeight, alignment: .bottom)
             }
-            .frame(width: width, alignment: .topLeading)
-            .overlay(alignment: .topLeading) { square(ink) }
-            .overlay(alignment: .topTrailing) { square(ink) }
-            .overlay(alignment: .bottomLeading) { square(ink) }
         }
+    }
+
+    private func form(rowHeight: CGFloat, width: CGFloat, ink: Color) -> some View {
+        let top = Self.registration + 12
+        let bubble = min(15, max(8, rowHeight - 6))
+        // The five spread across as a form's are, a little in from the
+        // right edge.
+        let column = min(84, (width - 60) / 5)
+        return VStack(alignment: .leading, spacing: 0) {
+            Color.clear.frame(height: top)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(rows, id: \.day) { row in
+                    self.row(row, height: row.when == .today ? rowHeight + Self.todayExtra : rowHeight,
+                             bubble: row.when == .today ? min(18, bubble + 3) : bubble, column: column, ink: ink)
+                        .id(row.day)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(MarkSheet.sheetName)
+            foot(width: width, ink: ink)
+                .frame(width: width, height: Self.footHeight, alignment: .bottom)
+        }
+        .frame(width: width, alignment: .topLeading)
+        .overlay(alignment: .topLeading) { square(ink) }
+        .overlay(alignment: .topTrailing) { square(ink) }
+        .overlay(alignment: .bottomLeading) { square(ink) }
     }
 
     // MARK: a row
@@ -245,13 +306,16 @@ struct MarkSheetMonth: View {
     /// place along the five ("Sunday 15, 3 of 5"), the filled one selected.
     /// Today's five are buttons. A day gone by reads as its date, then its
     /// filled bubble, or "not marked"; its empty bubbles, which say
-    /// nothing, are left out, and it takes no tap (build 72: it turned to
-    /// that day's page while the sheet was in the book). Days to come
-    /// aren't read at all. Nothing visible is added for any of it.
+    /// nothing, are left out. A day gone by with a page written is a link
+    /// to that page (build 73): the whole row is the target, its bubbles
+    /// still can't be marked, a small chevron at its end says so, and its
+    /// date reads "Thursday 12, go to this day" as a button. Days to come
+    /// aren't read at all.
     @ViewBuilder
     private func row(_ row: MarkSheet.Row, height: CGFloat, bubble: CGFloat, column: CGFloat, ink: Color) -> some View {
         let day = MarkSheet.spokenDay(row.date)
         let past = row.when == .past
+        let leads = past && written.contains(row.day)
         // (Each piece is spoken or hidden on its own: hiding a row from
         // above leaves anything inside that's its own element still read,
         // which a dump of the tree showed.)
@@ -264,6 +328,12 @@ struct MarkSheetMonth: View {
             switch row.when {
             case .today:
                 date.accessibilityLabel(day)
+            case .past where leads:
+                date
+                    .accessibilityLabel(MarkSheet.spokenGoTo(row.date))
+                    .accessibilityValue(row.level == nil ? MarkSheet.notMarked : "")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { open(row.day) }
             case .past:
                 date
                     .accessibilityLabel(day)
@@ -302,6 +372,12 @@ struct MarkSheetMonth: View {
                 }
             }
             Spacer(minLength: 0)
+            if leads {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: min(10, max(8, height * 0.45)), weight: .medium))
+                    .foregroundStyle(BookPaper.quiet.opacity(0.7))
+                    .accessibilityHidden(true)
+            }
         }
         .frame(height: height)
         .background(alignment: .leading) {
@@ -314,7 +390,23 @@ struct MarkSheetMonth: View {
             }
         }
         switch row.when {
-        case .today, .past:
+        case .past where leads:
+            // The whole row turns to the day's page.
+            line
+                .contentShape(Rectangle())
+                .onTapGesture { open(row.day) }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(day)
+        case .past:
+            // Nowhere to go: the row still takes the tap, so a touch on it
+            // isn't handed to a neighbour that leads somewhere (seen: a tap
+            // on a row with no page opened the day above it).
+            line
+                .contentShape(Rectangle())
+                .onTapGesture {}
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(day)
+        case .today:
             line
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(day)

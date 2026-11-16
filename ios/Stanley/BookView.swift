@@ -446,6 +446,7 @@ struct BookView: View {
                                     top: insets.top, leading: insets.leading, bottom: 0, trailing: insets.trailing
                                 ),
                                 open: { journal in openBook(journal, layout: layout) },
+                                openDay: { day in openDay(day, layout: layout) },
                                 page: $coverPage
                             )
                             .frame(width: full.width, height: full.height)
@@ -645,6 +646,24 @@ struct BookView: View {
         start = .today
         let book = ours ? BookBuilder.shared(state, layout: layout) : BookBuilder.book(state, layout: layout)
         go(to: ours ? max(book.pages.count - 1, 0) : book.todayIndex, in: book)
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) {
+            opened = true
+        }
+    }
+
+    /// Your own book at a day's page (build 73): a row of the answer sheet,
+    /// a day gone by with a page written.
+    private func openDay(_ day: String, layout given: BookLayout) {
+        // The page as it's laid out now: the sheet's dismissal can hand back
+        // a closure from before the page was first measured.
+        let layout = shown ?? given
+        ours = false
+        grid = false
+        touched = false
+        start = .day(day)
+        coverPage = "mine"
+        let book = BookBuilder.book(state, layout: layout)
+        go(to: book.index(day: day) ?? book.todayIndex, in: book)
         withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)) {
             opened = true
         }

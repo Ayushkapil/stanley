@@ -579,6 +579,62 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **The sheet's rows lead to their pages; nothing turns the screen**
+  (build 73, November 16, 2026, from Ayush, "Two fixes to build 72";
+  screenshots and the VoiceOver walk in `docs/omr-standalone-build73/`).
+  Phone only. **Where build 72's section below says a day gone by takes
+  no tap, or that the covers turn upright while the sheet is up, this
+  wins.**
+  - **Read-only is the bubbles, not the row.** A day gone by with a page
+    written (`state.journalPages`) is a link: a tap anywhere on its row
+    closes the sheet and opens your own book at that day's page
+    (`JournalCovers.openDay` → `BookView.openDay`, `BookStart.day`). A
+    small chevron at the row's end marks it. Its bubbles still can't be
+    marked. A day with nothing written takes no tap, and holds the tap
+    itself (`onTapGesture {}`): seen on the simulator, a tap on such a
+    row, 16 points tall, was handed to the linked row above it. To
+    VoiceOver the row's date reads "Thursday 12, go to this day", a
+    button (`MarkSheet.spokenGoTo`).
+  - **Seen and fixed on the way**: the sheet's dismissal handed back a
+    closure from before the book's page was first measured (-18 by 0), so
+    the day was looked for in a nine-page book and the book opened at
+    today; `openDay` lays the book out with the page as it is now
+    (`shown`).
+  - **Nothing turns the screen.** Build 72's `Turning.coversShowing(false)`
+    while the sheet was up is gone; the covers stay as the phone is held.
+    The sheet adapts instead: where the rows would be under 14 points
+    (`MarkSheetMonth.fewest`) they keep 22 and scroll, today's row in view
+    to begin with, under a heading that stays put. In a compact height
+    (a phone on its side) the heading is one line, the month between its
+    chevrons, then the question and the five shades, and the sheet's
+    column widens to 720 points with the bubbles' columns (up to 84). The
+    Duo's cover upright scrolls too now (its rows were 10 points).
+    Opening a book still turns the app upright, as since build 58.
+  - **VoiceOver, walked** (not heard: the simulator has no VoiceOver).
+    As in build 66: a temporary UI-test target turned the accessibility
+    runtime on and a Debug probe in the app walked the sheet's containers
+    as VoiceOver does, then activated elements as a double tap would;
+    both removed after. The order: "Previous month" (button), "November
+    2026" (heading), "Next month" (button, dimmed this month), "How was
+    the day?", then each day's date and its filled bubble ("Sunday 1, 3 of
+    5", selected), a day with a page as "Thursday 12, go to this day"
+    (button), a day with no mark as "not marked", today's five buttons
+    ("Monday 16, 1 of 5" … with the hint), and Done. The shades, the foot
+    and the days to come aren't read. Activating "Previous month" turned
+    the heading to October 2026 and "Next month" back; activating
+    "Thursday 12, go to this day" closed the sheet and opened the book at
+    "Thursday, 12 November".
+  - **A Debug hook, kept**: `STANLEY_OPEN_DAYS=1` (with
+    `STANLEY_OPEN_URL=stanley://journal`) opens the sheet once, as the
+    covers first appear, for a simulator with nothing to tap.
+  - **Tests**: `MarkSheetTests` one more (50 phone tests): the link's
+    words, the day and nothing more.
+  - **Checked** on the iPhone 17 Pro (portrait and on its side) and the
+    Duo's cover (on its side) against a local server, light: a tap on
+    Thursday 12 opening its page, a tap on Wednesday 11 (no page) doing
+    nothing, the scrolling sheet with its one-line heading on its side on
+    both. Not seen: dark on its side, a real phone, the inner display.
+
 - **The answer sheet stands alone** (build 72, November 16, 2026, a
   product brief from Ayush, "Move the OMR sheet out of the book, and give
   it a heading"; screenshots in `docs/omr-standalone-build72/`). Phone
@@ -590,9 +646,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `MoodMonth`, `BookStart.sheet`, `Book.sheetIndex`, `index(near:)` and
     the book's `openDay`/`markToday` are deleted). It's
     `MarkSheetScreen` (`Moods.swift`), presented as a sheet over the
-    covers (`JournalCovers`, `readingDays`), with Done; the covers turn
-    upright while it's up (`Turning.coversShowing(false)`), since thirty
-    rows need the height.
+    covers (`JournalCovers`, `readingDays`), with Done; the covers turned
+    upright while it was up (gone in build 73: the rows scroll instead).
   - **Two ways in**: a **card at the end of the deck**, after the last
     journal (`DaysCard`; `CoverJournal.days`, id `days`, only while the
     server keeps marks), and **your cover's five bubbles** (build 65's
@@ -624,7 +679,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     row and every month gone by is there to read. **A day gone by no
     longer turns to that day's page** (it did in the book, build 65's
     "Turns to that day"); the brief makes those rows read-only, and the
-    hint is gone.
+    hint is gone. (Restored in build 73 for days with a page written,
+    above.)
   - **The rules are unchanged**: today only, the phone's own day, one
     mark, taken back the same day with a second tap, nothing filled in
     after, nothing counted. Each bubble still reads "Sunday 15, 3 of 5".
@@ -2934,7 +2990,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (72)", at the
+  production audit), and the version, "Stanley 0.2.0 (73)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3492,10 +3548,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
-- **Build 72** (0.2.0): the answer sheet standing alone (above). Phone
-  only; not archived. Carries build 71.
-- **Build 71** (0.2.0): the covers' room evenly veiled, no shadows
-  behind words (above). Phone only; not archived.
+- **Build 73** (0.2.0): the sheet's rows leading to their pages, and the
+  sheet scrolling instead of turning the screen (above). Phone only; v33
+  on Fly is its server. Carries builds 69 to 72 (the last uploaded was
+  70).
+- **Build 72** (0.2.0) was never archived on its own: the answer sheet
+  standing alone (above). Carries build 71.
+- **Build 71** (0.2.0) was never archived on its own: the covers' room
+  evenly veiled, no shadows behind words (above).
 - **Build 70** (0.2.0): the crash scrub and the policy's notice (above).
   Phone only; v33 on Fly is its server. Carries builds 69 and 68.
   **Archived and uploaded to App Store Connect on November 15, 2026**,
@@ -4025,8 +4085,8 @@ phone's calendar, four more; since build 65 the answer sheet's rules,
 eight more; since build 66 what VoiceOver says and taking a mark back,
 five more; since build 69 the title's ink on a journal's field, six more;
 since build 70 a crash report leaving with no identifier, one, and the
-policy's notice, five; since build 72 the sheet's months, four,
-forty-nine in all). `tests/test_moods.py` (build 65) holds
+policy's notice, five; since build 72 the sheet's months, four;
+since build 73 the link's words, one; fifty in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

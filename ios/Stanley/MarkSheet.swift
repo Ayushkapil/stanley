@@ -104,6 +104,13 @@ enum MarkSheet {
         "\(spokenDay(date, calendar: calendar)), \(at) of 5"
     }
 
+    /// A day gone by with a page written (build 73): "Thursday 12, go to
+    /// this day", a link to that day's page in your book.
+    static func spokenGoTo(_ date: Date, calendar: Calendar = .current) -> String {
+        "\(spokenDay(date, calendar: calendar)), \(goToDay)"
+    }
+    static let goToDay = "go to this day"
+
     /// What a day gone by with no mark reads as.
     static let notMarked = "not marked"
 
@@ -143,7 +150,7 @@ enum MarkSheet {
     /// read every one: no number, no count, no streak, no average, nothing
     /// about how anyone has been.
     static let words: [String] = [
-        footLine, question, sheetName, notMarked, todayHint, previousMonth, nextMonth,
+        footLine, question, sheetName, notMarked, goToDay, todayHint, previousMonth, nextMonth,
         daysName, daysLine, daysHint, lastFewName, lastFewHint,
     ]
 }

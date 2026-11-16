@@ -222,6 +222,15 @@ final class MarkSheetTests: XCTestCase {
                        ["2026-10", "2026-11", "2026-12", "2027-01"])
     }
 
+    func testADayWithAPageReadsAsALinkToIt() {
+        // Build 73: "Thursday 12, go to this day", the day as VoiceOver reads
+        // it and nothing more: no count, no number but the date.
+        let indy = english("America/Indiana/Indianapolis")
+        let thursday = utc(11, 12, 17)
+        XCTAssertEqual(MarkSheet.spokenGoTo(thursday, calendar: indy), "Thursday 12, go to this day")
+        XCTAssertTrue(MarkSheet.words.contains(MarkSheet.goToDay))
+    }
+
     func testTheHeadingAsksAndNamesNothing() {
         XCTAssertEqual(MarkSheet.question, "How was the day?")
         XCTAssertTrue(MarkSheet.words.contains(MarkSheet.question))
