@@ -3387,7 +3387,14 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
 - **Build 70** (0.2.0): the crash scrub and the policy's notice (above).
-  Phone only; not archived. Carries build 69.
+  Phone only; v33 on Fly is its server. Carries builds 69 and 68.
+  **Archived and uploaded to App Store Connect on November 15, 2026**,
+  the same way as 68 ("Stanley 0.2.0 (70)" in Organizer's folder,
+  `-exportArchive` to `upload` with `-allowProvisioningUpdates`; "Upload
+  succeeded", then processing). No Sentry DSN, so the scrub is inert
+  until one is set; the only warning was again Sentry.framework's
+  missing dSYM. The pilot sees the policy's notice (November 13 to 15)
+  on first opening it. Not yet seen in TestFlight.
 - **Build 68** (0.2.0): the page's date as furniture and the covers'
   scrims (above). Phone only; v33 on Fly is its server. Build 68
   carries everything below. **Archived and uploaded to App Store
