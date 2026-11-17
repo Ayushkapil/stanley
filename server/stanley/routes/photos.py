@@ -58,6 +58,11 @@ def _store_original_blob(
         return
     try:
         storage.put(blob_key, prepared.encode_original())
+        # Deleted while the original was encoding: the scrub found no
+        # original to delete, so it's deleted here instead of stranded (on
+        # R2 a stranded object would stay for good).
+        if not storage.exists(deriv_key):
+            storage.delete(blob_key)
     except Exception:
         # Deriv + thumb already exist and serve every surface (feed, Held,
         # export). A missing original degrades nothing user-visible.

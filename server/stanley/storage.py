@@ -56,15 +56,23 @@ class R2BlobStore:
 
     backend = "r2"
 
-    def __init__(self, *, endpoint: str, bucket: str, access_key: str, secret_key: str):
-        import boto3  # lazy: only required when BLOB_BACKEND=r2
-
+    def __init__(self, *, endpoint: str, bucket: str, access_key: str, secret_key: str, client=None):
         self.bucket = bucket
+        if client is not None:  # a test's stand-in for S3
+            self._s3 = client
+            return
+        import boto3
+        from botocore.config import Config
+
+        # R2 takes the region "auto" and v4 signatures; presigned links made
+        # without them can be refused.
         self._s3 = boto3.client(
             "s3",
             endpoint_url=endpoint,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
+            region_name="auto",
+            config=Config(signature_version="s3v4", retries={"max_attempts": 5, "mode": "standard"}),
         )
 
     def put(self, key: str, data: bytes) -> None:
@@ -76,18 +84,32 @@ class R2BlobStore:
         return self._s3.get_object(Bucket=self.bucket, Key=key)["Body"].read()
 
     def exists(self, key: str) -> bool:
+        return self.size(key) is not None
+
+    def size(self, key: str) -> int | None:
+        """The object's size in bytes, or None when there's no such object.
+        Any other failure (credentials, the network) is raised, never taken
+        for "not there": the migration's verification leans on this."""
         _check_key(key)
         from botocore.exceptions import ClientError
 
         try:
-            self._s3.head_object(Bucket=self.bucket, Key=key)
-            return True
-        except ClientError:
-            return False
+            return int(self._s3.head_object(Bucket=self.bucket, Key=key)["ContentLength"])
+        except ClientError as error:
+            code = str(error.response.get("Error", {}).get("Code", ""))
+            status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if code in ("404", "NoSuchKey", "NotFound") or status == 404:
+                return None
+            raise
 
     def delete(self, key: str) -> None:
         _check_key(key)
         self._s3.delete_object(Bucket=self.bucket, Key=key)
+
+    def keys(self) -> list[str]:
+        """Every key in the bucket (the migration's reconcile)."""
+        paginator = self._s3.get_paginator("list_objects_v2")
+        return [obj["Key"] for page in paginator.paginate(Bucket=self.bucket) for obj in page.get("Contents", [])]
 
     def presigned_url(self, key: str, ttl_seconds: int) -> str:
         return self._s3.generate_presigned_url(

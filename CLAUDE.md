@@ -675,6 +675,56 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       `little_to_reclaim`, `too_big_to_lock` or `disk_too_full`. The live
       database (115 pages, 1 free) would be skipped. Three tests beside the
       old one. 745 server tests.
+  - **Step 4 prepared, not switched (D1, photos to Cloudflare R2)**:
+    - `boto3` is a server dependency now (it was an extra the image never
+      installed). `R2BlobStore` sets region `auto` and v4 signatures, and
+      `size()` tells "no such object" (404) from a refusal or a network
+      failure, which it raises; `exists` was True/False on any error.
+      `keys()` lists the bucket. A test's stand-in client can be passed in.
+    - **The original-photo race closed**: the full-size original is written
+      after the response; if the photo was deleted meanwhile, the scrub found
+      nothing to delete and the original was stranded. It's deleted right
+      after writing if the derivative is already gone (on R2 a stranded
+      object would stay for good).
+    - **Every delete path removes the object from R2**
+      (`test_r2_deletes.py`, eleven, the real `R2BlobStore` over an
+      in-memory S3): the decay purge, the poster's delete and the day's
+      redo, account deletion (photos, avatar, chosen cover), the operator's
+      takedown (evidence copied aside first), a cover replaced or reset, a
+      rolled-back delete leaving the object, nothing of a deleted account
+      left in the bucket; and with botocore's Stubber, the wire call
+      (`DeleteObject` to the bucket and key; a 404 is "not there", a 403 is
+      raised) and v4 presigned links for region `auto`.
+    - **The move** (`server/scripts/move_photos_to_r2.py`, in the image,
+      run on the machine): `plan`, `copy` (put, then the size from R2 and a
+      SHA-256 of what R2 hands back against the file's; a manifest at
+      `/data/var/r2-migration.json`), `verify` (every file and every key
+      the database names), `reconcile` (R2 objects the database no longer
+      names, deleted only with `--confirm`), `delete-local` (`--confirm`
+      only; a file goes only if the manifest has it verified as it is now
+      AND R2 has it, checked again right then, with the same size and
+      SHA-256; anything else is kept and named). `test_move_photos_to_r2.py`
+      (eight): a corrupted copy, a wrong size, a missing object, a file
+      changed after its copy, never-copied files, reconcile, all kept or
+      handled. 764 server tests.
+    - **The runbook, once Ayush has made the bucket and set the keys**:
+      (1) deploy this code with the keys staged, `BLOB_BACKEND` still
+      local; (2) `plan`, `copy`, `verify`; (3) **the switch, on Ayush's
+      yes**: `BLOB_BACKEND=r2`, `BLOB_R2_ENDPOINT`, `BLOB_R2_BUCKET`, with
+      the Privacy Policy change in the same release; (4) `copy` and
+      `verify` again for anything written before the restart, and
+      `reconcile --confirm` for anything deleted between the copy and the
+      switch; (5) photos seen loading on a real phone; (6) `delete-local
+      --confirm`. Fly's volume snapshots (five days) hold the old copies
+      until they expire, inside the policy's seven days.
+    - **The Privacy Policy change, on its own (Sentry's later)**, drafted,
+      not applied, since it must take effect at the switch: section 6's
+      list, "Fly.io, which hosts our server and database" and "Cloudflare,
+      which stores photos and the pictures on profiles and journal covers";
+      section 7, the server and database in Chicago with Fly.io, photos
+      stored by Cloudflare in the bucket's location; "Our database is stored
+      on an encrypted disk, and Cloudflare encrypts photos at rest". With it
+      a new date, a `PolicyNotice.Revision`, and `PRIVACY_LABEL.md`.
 
 - **The opened cover** (build 76, November 16, 2026, a product brief
   from Ayush, "Build the opened-cover state, with the journal editable in
@@ -4343,7 +4393,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**745 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**764 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
