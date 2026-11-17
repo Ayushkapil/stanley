@@ -3961,12 +3961,15 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   February 2027 at the earliest (17; the logging is in build 77); faster
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
-- **Build 78** (0.2.0): the phone's words for `busy` (item 13). Not
-  archived. Item 13's server change is not deployed.
+- **Build 78** (0.2.0): the phone's words for `busy` (item 13), and
+  everything in 77. **Uploaded November 17, 2026** (after an App Store
+  Connect outage turned the first six tries away with a 500) and **added
+  to Friends** the same evening (Testing, eight invitations), with a What
+  to Test note. Item 13's server change is on Fly as **v38** (healthy;
+  it carries the R2 groundwork too, with photos still on the volume).
 - **Build 77** (0.2.0): sign-out and the queue, the build logging, step
   2's optimistic updates and their rollback tests (above). **Archived and
-  uploaded November 17, 2026**; not yet added to Friends (the browser
-  pane was signed out of App Store Connect). Its server parts: the build
+  uploaded November 17, 2026**; never added to Friends (78 went instead). Its server parts: the build
   logging on Fly as v36, D3 and D2 as v37 (both November 17, healthy).
 - **Build 76** (0.2.0): the opened cover (above). Phone and server.
   **Archived and uploaded on November 16, 2026**, and added to Friends the
