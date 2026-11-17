@@ -99,7 +99,7 @@ targets:
   StanleyTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [StanleyTests, Shared/CoverField.swift, Stanley/OpenedCoverWords.swift, Stanley/OfflineQueue.swift, Stanley/AskToNotify.swift, Stanley/WritingPrompts.swift, Stanley/Prompts.swift, Stanley/LocalDay.swift, Stanley/MarkSheet.swift, Stanley/PolicyNotice.swift, Stanley/Legal.swift, Stanley/CrashReporting.swift, Shared/Countdown.swift, Stanley/CountdownJourney.swift]
+    sources: [StanleyTests, Shared/CoverField.swift, Stanley/OpenedCoverWords.swift, Stanley/OfflineQueue.swift, Stanley/Taps.swift, Stanley/AskToNotify.swift, Stanley/WritingPrompts.swift, Stanley/Prompts.swift, Stanley/LocalDay.swift, Stanley/MarkSheet.swift, Stanley/PolicyNotice.swift, Stanley/Legal.swift, Stanley/CrashReporting.swift, Shared/Countdown.swift, Stanley/CountdownJourney.swift]
     # Sentry itself, so a report the real SDK builds is checked (build 70).
     dependencies:
       - package: Sentry

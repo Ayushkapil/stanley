@@ -41,6 +41,7 @@
 		4417A0D50E18CC231F775453 /* LibraryPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA2B6537E9B17BD17EB16A5 /* LibraryPhoto.swift */; };
 		44A14010F7A701664493B74A /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D985F23D96D5CE5746525A /* Hand.swift */; };
 		451A2E520D5A085B8408F5A3 /* Legal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E5AD82A467F941E84D908A /* Legal.swift */; };
+		4786B8B9E95F2A8247AB355F /* Taps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 924DD71625F787D9FC556AD2 /* Taps.swift */; };
 		4C9E2C1E8CE33030EB655695 /* Atmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636C83C3D3D660B14E60D9BC /* Atmosphere.swift */; };
 		4CA7123C43874EFFE3CE051C /* MarkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2BC067E379618D0AC42575D /* MarkSheet.swift */; };
 		4D7B10A56B450756E7CB89E3 /* Acknowledgements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4885E2268DC6C00B5529E694 /* Acknowledgements.swift */; };
@@ -74,6 +75,7 @@
 		785FAFD68215F38893B3A3DB /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D713EC95A1BA95F6043E0E8 /* Book.swift */; };
 		7A2D78BC943A96DABFC19590 /* WritingPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF7A68ED1AC7127D70AC8A75 /* WritingPrompts.swift */; };
 		7B4118C0F30DD43060178953 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D927F2B4D7F02207747D21 /* SettingsView.swift */; };
+		7B7B16A3CC145B590C8901D1 /* TapsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDE7A1712D69F695B296523 /* TapsTests.swift */; };
 		7D568C853EDBC51A865B7B7D /* NotePaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4C10AAB5D65F385106D774 /* NotePaper.swift */; };
 		7E8ECE93946E5F9D7EBE4D02 /* NoteBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C87A0573C9ECAE1BB64BB331 /* NoteBoard.swift */; };
 		850ABF3A9ACC467D0092DF78 /* CoverFieldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2700684C4D8B78EA4E7DF125 /* CoverFieldTests.swift */; };
@@ -123,6 +125,7 @@
 		F2BFA4BEB3EC28AEFC7A8888 /* JournalInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD47418CFF8A076A7B864619 /* JournalInk.swift */; };
 		F484520CD4C2C67FA59DB092 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1401F690E1241EB4B8D190DC /* AppState.swift */; };
 		F7209C28237DF8A2588F6C12 /* Writing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6651E84FAC14531BCD5F1A6F /* Writing.swift */; };
+		FCACD7DE45F7B1ED76E13094 /* Taps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 924DD71625F787D9FC556AD2 /* Taps.swift */; };
 		FCC537D2E099C14871723492 /* Legal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E5AD82A467F941E84D908A /* Legal.swift */; };
 /* End PBXBuildFile section */
 
@@ -180,6 +183,7 @@
 		54B7A0448179C1D07FE2922B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		59A4482F0EEC4500194DB4B1 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		5B1D3FB5817DCFD3D6F364E6 /* DailyPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPromptTests.swift; sourceTree = "<group>"; };
+		5FDE7A1712D69F695B296523 /* TapsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapsTests.swift; sourceTree = "<group>"; };
 		636C83C3D3D660B14E60D9BC /* Atmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atmosphere.swift; sourceTree = "<group>"; };
 		65E5AD82A467F941E84D908A /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
 		6651E84FAC14531BCD5F1A6F /* Writing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Writing.swift; sourceTree = "<group>"; };
@@ -200,6 +204,7 @@
 		8B9C29C3CAA06BA510C076FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8F9A56ECBB9ED8B3640C58BA /* MemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriesView.swift; sourceTree = "<group>"; };
 		906A47A1C543C9474F12092E /* PolicyNoticeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyNoticeSheet.swift; sourceTree = "<group>"; };
+		924DD71625F787D9FC556AD2 /* Taps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Taps.swift; sourceTree = "<group>"; };
 		951D8C3FFFAD3B327B3C5F72 /* Framing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Framing.swift; sourceTree = "<group>"; };
 		9564E665D2B5D8EF218192E3 /* CountdownRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownRoute.swift; sourceTree = "<group>"; };
 		9710447F6809769AD3ABD29B /* CoverField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverField.swift; sourceTree = "<group>"; };
@@ -341,6 +346,7 @@
 				830E153D6B3273810AD97B6E /* Stanley.entitlements */,
 				B371E63EBC11AC20695ED507 /* StanleyApp.swift */,
 				7996693C098F3CB199D03DB5 /* TabTaps.swift */,
+				924DD71625F787D9FC556AD2 /* Taps.swift */,
 				894A38DFE90CC901B1B2F0E1 /* TodayFeedView.swift */,
 				E5CDD4A42801C110D1E00C6C /* Trail.swift */,
 				C38170E6EF5384B93F19F643 /* UIComponents.swift */,
@@ -386,6 +392,7 @@
 				384004DBB10B127109375EA4 /* OfflineQueueTests.swift */,
 				37C6DB481E0C03C71E44B66A /* OpenedCoverTests.swift */,
 				CA48E2212AC5A61D1B56D45F /* PolicyNoticeTests.swift */,
+				5FDE7A1712D69F695B296523 /* TapsTests.swift */,
 				16F3A3DFA9DF42339340605F /* WritingPromptTests.swift */,
 			);
 			path = StanleyTests;
@@ -574,6 +581,8 @@
 				2F92CB913DFE979E19CA22E0 /* PolicyNotice.swift in Sources */,
 				C05571C229144E2B1147F863 /* PolicyNoticeTests.swift in Sources */,
 				6E530ED3C9A38E025BAC6A20 /* Prompts.swift in Sources */,
+				FCACD7DE45F7B1ED76E13094 /* Taps.swift in Sources */,
+				7B7B16A3CC145B590C8901D1 /* TapsTests.swift in Sources */,
 				5A73A9D8057141BD5BB22CA3 /* WritingPromptTests.swift in Sources */,
 				7A2D78BC943A96DABFC19590 /* WritingPrompts.swift in Sources */,
 			);
@@ -648,6 +657,7 @@
 				8887611E81BD4BC25E98C7CC /* SignedImage.swift in Sources */,
 				1776004475DCD2155D12DADE /* StanleyApp.swift in Sources */,
 				42274D43662E15B9CDBC11AD /* TabTaps.swift in Sources */,
+				4786B8B9E95F2A8247AB355F /* Taps.swift in Sources */,
 				69BDAA10D1C75A3E6E272CE9 /* TodayFeedView.swift in Sources */,
 				39084CE0DE7BDA43AC6A77AA /* Trail.swift in Sources */,
 				A218937F0265E72919AAE872 /* UIComponents.swift in Sources */,

@@ -468,6 +468,8 @@ final class AppState {
         // this account's pages, and the photos it was shown.
         BookBuilder.forget()
         PhotoMemory.forget()
+        liked.forgetAll()
+        held.forgetAll()
         profile = nil
         myId = nil
     }
@@ -1727,56 +1729,44 @@ final class AppState {
 
     func toggleAnchor(_ photo: Photo) async {
         let was = isHeld(photo)
-        heldNow[photo.id] = (!was, Date())
-        do {
+        await held.set(photo.id, to: !was, from: was, send: { [api] in
             if was {
                 let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/anchor")
                 Trail.note(.letGo)
             } else {
-                let _: Empty = try await api.send(
-                    "POST", "/photos/\(photo.id)/anchor", json: ["note": nil]
-                )
+                let _: Empty = try await api.send("POST", "/photos/\(photo.id)/anchor", json: ["note": nil])
                 Trail.note(.held)
             }
-        } catch {
-            heldNow[photo.id] = (was, Date())
-            surface(error)
-        }
+        }, surface: surface)
     }
 
     /// Press-and-hold commit: hold a photo into Held. Idempotent — holding an
     /// already-held photo keeps it held (the icon-tap path does the un-hold).
     func hold(_ photo: Photo) async {
         if isHeld(photo) { return }
-        heldNow[photo.id] = (true, Date())
-        do {
-            let _: Empty = try await api.send(
-                "POST", "/photos/\(photo.id)/anchor", json: ["note": nil]
-            )
+        await held.set(photo.id, to: true, from: false, send: { [api] in
+            let _: Empty = try await api.send("POST", "/photos/\(photo.id)/anchor", json: ["note": nil])
             Trail.note(.held)
-        } catch {
-            heldNow[photo.id] = (false, Date())
-            surface(error)
-        }
+        }, surface: surface)
     }
 
     // MARK: what you just tapped (build 77)
 
     /// Your own heart and bookmark as you've just set them, shown at once
     /// wherever the photo is (Today, a moment, its stories) while the server
-    /// is told, and put back if it says no. A photo's own `likedByMe` and
-    /// `anchoredByMe` are what the server last said; these sit over them
-    /// until a fresh Today has caught up. Never a count: only your own state.
-    private var likedNow: [String: (on: Bool, at: Date)] = [:]
-    private var heldNow: [String: (on: Bool, at: Date)] = [:]
+    /// is told, and put back if it says no (`Taps`). A photo's own
+    /// `likedByMe` and `anchoredByMe` are what the server last said; these
+    /// sit over them until a fresh Today has caught up.
+    let liked = Taps()
+    let held = Taps()
 
-    func isLiked(_ photo: Photo) -> Bool { likedNow[photo.id]?.on ?? photo.likedByMe }
-    func isHeld(_ photo: Photo) -> Bool { heldNow[photo.id]?.on ?? photo.anchoredByMe }
+    func isLiked(_ photo: Photo) -> Bool { liked.value(photo.id, server: photo.likedByMe) }
+    func isHeld(_ photo: Photo) -> Bool { held.value(photo.id, server: photo.anchoredByMe) }
 
     /// A fresh Today asked for at `since` knows everything tapped before it.
     private func forgetTapsBefore(_ since: Date) {
-        likedNow = likedNow.filter { $0.value.at >= since }
-        heldNow = heldNow.filter { $0.value.at >= since }
+        liked.forget(before: since)
+        held.forget(before: since)
     }
 
     /// The like — double-tap toggles (Part 1). Ephemeral, owner-private, no
@@ -1784,8 +1774,7 @@ final class AppState {
     /// then a reload of all of Today.
     func toggleLike(_ photo: Photo) async {
         let was = isLiked(photo)
-        likedNow[photo.id] = (!was, Date())
-        do {
+        await liked.set(photo.id, to: !was, from: was, send: { [api] in
             if was {
                 let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/like")
                 Trail.note(.unliked)
@@ -1793,10 +1782,7 @@ final class AppState {
                 let _: Empty = try await api.send("POST", "/photos/\(photo.id)/like")
                 Trail.note(.liked)
             }
-        } catch {
-            likedNow[photo.id] = (was, Date())
-            surface(error)
-        }
+        }, surface: surface)
     }
 
     /// Owner-only: who liked this photo, as faces. Never a count.
