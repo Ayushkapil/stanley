@@ -647,6 +647,34 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       capture sheet (Maya had posted that day), a journal page saved, a
       refusal putting the heart back, the bookmark (the same path as the
       heart).
+    - **Rollback tests**: the tapped-state layer is `Taps.swift`
+      (Foundation only), one for likes and one for holds in `AppState`,
+      so `TapsTests` (five) drive it with a stubbed server: a refused like,
+      unlike, hold and let go each flip back and report the refusal, an
+      accepted one sticks, the new state shows while the server is asked,
+      an older Today never undoes a newer tap, sign-out forgets them. With
+      the rollback taken out on purpose they fail on every one. A journal
+      save isn't optimistic (it waits for the server, and on a refusal the
+      page stays open with its words and the error is said), so it has
+      nothing to put back. 74 phone tests.
+  - **Step 3, on the server** (the same build):
+    - **D3, a photo's files go only once the database has let them go**
+      (`storage.delete_after_commit`, run from the session's `after_commit`
+      and dropped on `after_rollback`): `decay.scrub` (purges, owner
+      deletes, account deletion, the operator's takedowns), the avatar and
+      chosen cover on account deletion, and a replaced or reset cover.
+      Before, files were deleted inside the transaction, and a rollback left
+      rows pointing at files that were gone. A half-written upload's
+      clean-up is outside any transaction and unchanged.
+      `test_blobs_after_commit.py` (four).
+    - **D2, the weekly VACUUM only when it's worth it and quick**
+      (`backup.vacuum_verdict`): at least 20% of the file empty pages, the
+      file at most 64 MB (a rewrite well inside the 5-second
+      `busy_timeout` a waiting write allows), and three times its size free
+      on the disk; otherwise skipped with `event=vacuum_skipped reason=`
+      `little_to_reclaim`, `too_big_to_lock` or `disk_too_full`. The live
+      database (115 pages, 1 free) would be skipped. Three tests beside the
+      old one. 745 server tests.
 
 - **The opened cover** (build 76, November 16, 2026, a product brief
   from Ayush, "Build the opened-cover state, with the journal editable in
@@ -4315,7 +4343,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**738 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**745 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -4439,8 +4467,8 @@ since build 70 a crash report leaving with no identifier, one, and the
 policy's notice, five; since build 72 the sheet's months, four;
 since build 73 the link's words, one; since build 74 the countdown's
 flight path, eleven; since build 76 the opened cover's words, four, and the
-cover colours' inks, one; since build 77 the offline queue's owner, three;
-sixty-nine in all). `tests/test_moods.py` (build 65) holds
+cover colours' inks, one; since build 77 the offline queue's owner, three, and the heart and
+bookmark's rollback, five; seventy-four in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

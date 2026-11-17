@@ -24,6 +24,7 @@ from ..models import (
     NotificationLog, PersonLetter, Photo, PhotoTag, PromptResponse, PushToken, Report, Rest,
     JournalPage, ReturnedLog, User, WeeklyReflection,
 )
+from ..storage import delete_after_commit
 from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
 from .journal import delete_answers
 
@@ -545,11 +546,10 @@ def delete_account(
         db.execute(update(Report).where(Report.letter_id == letter.id).values(letter_id=None))
         db.delete(letter)
 
-    if user.avatar_key:
-        storage.delete(user.avatar_key)
+    # The files go once this commits (D3).
+    delete_after_commit(db, storage, user.avatar_key)
     # Build 76: a cover photo chosen for the journal.
-    if user.journal_cover_key:
-        storage.delete(user.journal_cover_key)
+    delete_after_commit(db, storage, user.journal_cover_key)
     user.journal_cover_key = None
     # What's left is a bare row for tombstones and reports to point at:
     # nothing that says who it was (the Privacy Policy, build 18).

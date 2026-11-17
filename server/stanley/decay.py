@@ -19,7 +19,7 @@ from .models import (
     PhotoTag, PurgeQueueItem, Report, User,
 )
 from .notifications import Notifier, maybe_send_last_light_notice
-from .storage import BlobStore
+from .storage import BlobStore, delete_after_commit
 
 TOMBSTONE = timedelta(days=physics.TOMBSTONE_DAYS)
 
@@ -135,9 +135,10 @@ def scrub(
     row becomes an anonymous tombstone, owner retained only as a hash for
     abuse audit (§13).
     """
+    # The files go once the transaction commits (D3): if it rolls back, the
+    # row still names them and they're still there.
     for key in (photo.blob_key, photo.deriv_key, photo.thumb_key):
-        if key:
-            storage.delete(key)
+        delete_after_commit(session, storage, key)
     photo.blob_key = photo.deriv_key = photo.thumb_key = None
     photo.caption = None
     photo.location = None

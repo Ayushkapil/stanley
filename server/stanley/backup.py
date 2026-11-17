@@ -90,22 +90,54 @@ def warn_if_disk_low(path: str, floor: float = 0.25) -> float | None:
     return free
 
 
+# The weekly VACUUM (D2, build 77) runs only when it's worth it and quick:
+# enough of the file is empty pages to be worth rewriting, the file is small
+# enough that the rewrite takes well under the 5 seconds a waiting write
+# allows (busy_timeout), and the disk has room for the copy VACUUM makes.
+# Past those, it's skipped and said so in the log: a VACUUM that holds the
+# write lock for longer than a write will wait makes posts, pages and likes
+# fail, and one that runs out of disk half way stops everything.
+VACUUM_MIN_FREE = 0.2
+VACUUM_MAX_BYTES = 64 * 2**20
+VACUUM_DISK_FACTOR = 3
+
+
+def vacuum_verdict(con: sqlite3.Connection, path: Path) -> str | None:
+    """Why the weekly VACUUM shouldn't run now, or None when it should."""
+    pages = con.execute("PRAGMA page_count").fetchone()[0] or 0
+    free = con.execute("PRAGMA freelist_count").fetchone()[0] or 0
+    size = path.stat().st_size
+    if pages == 0 or free / pages < VACUUM_MIN_FREE:
+        return "little_to_reclaim"
+    if size > VACUUM_MAX_BYTES:
+        return "too_big_to_lock"
+    if shutil.disk_usage(path.parent).free < VACUUM_DISK_FACTOR * size:
+        return "disk_too_full"
+    return None
+
+
 def maintain_database(database_url: str, *, vacuum: bool) -> None:
     """Daily upkeep, after the backup: `PRAGMA optimize` (refreshes the query
     planner's statistics where they've drifted), and on the weekly pass a
     `VACUUM`, which rewrites the file without the pages deletions and purges
-    left empty, then a WAL checkpoint so the -wal file shrinks too. VACUUM
-    holds the write lock while it runs: milliseconds at Stanley's size, and a
-    request that meets it waits (busy_timeout), it doesn't fail."""
+    left empty, then a WAL checkpoint so the -wal file shrinks too, but only
+    when `vacuum_verdict` finds it worth doing and quick (D2): VACUUM holds
+    the write lock for the whole rewrite."""
     path = _sqlite_path(database_url)
     if path is None or not path.exists():
         return
     con = sqlite3.connect(str(path), timeout=30)
+    vacuumed = False
     try:
         con.execute("PRAGMA optimize")
         if vacuum:
-            con.execute("VACUUM")
-            con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            why_not = vacuum_verdict(con, path)
+            if why_not is None:
+                con.execute("VACUUM")
+                con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                vacuumed = True
+            else:
+                log.info("event=vacuum_skipped reason=%s", why_not)
     finally:
         con.close()
-    log.info("maintenance: optimize%s", " + vacuum" if vacuum else "")
+    log.info("maintenance: optimize%s", " + vacuum" if vacuumed else "")

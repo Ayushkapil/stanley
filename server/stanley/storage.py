@@ -142,3 +142,42 @@ def read_url(settings, key: str, now: datetime) -> str:
             _r2_singleton = make_blob_store(settings)
         return _r2_singleton.presigned_url(key, ttl)
     return signed_url(settings.secret_key, key, now, ttl)
+
+
+# --- Deleting a blob once the database has let it go (D3, build 77) ---------
+#
+# A file deleted inside a request or a sweep pass was gone at once, while the
+# row that stopped pointing at it was only gone if the transaction committed.
+# A rollback after that left rows pointing at files that no longer existed:
+# broken photos. Now a deletion is queued on the session and done only after
+# it commits; if it rolls back, the files stay with the rows that still name
+# them. Like the notifier's pushes, which also wait for the commit.
+
+import logging as _logging
+
+from sqlalchemy import event as _event
+from sqlalchemy.orm import Session as _Session
+
+_DOOMED = "stanley.blobs_after_commit"
+_log = _logging.getLogger("stanley.storage")
+
+
+def delete_after_commit(session: _Session, storage, key: str | None) -> None:
+    """Delete `key` from `storage` once `session` commits; never if it
+    rolls back."""
+    if key:
+        session.info.setdefault(_DOOMED, []).append((storage, key))
+
+
+@_event.listens_for(_Session, "after_commit")
+def _delete_committed(session: _Session) -> None:
+    for storage, key in session.info.pop(_DOOMED, []):
+        try:
+            storage.delete(key)
+        except Exception:  # a file left behind is tidied by nothing worse than disk
+            _log.exception("event=blob_delete_failed key=%s", key)
+
+
+@_event.listens_for(_Session, "after_rollback")
+def _keep_on_rollback(session: _Session) -> None:
+    session.info.pop(_DOOMED, None)

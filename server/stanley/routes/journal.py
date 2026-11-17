@@ -31,7 +31,7 @@ from ..models import (
 )
 from ..ratelimit import per_person
 from ..serialize import blocked_ids, circle_name, iso, user_brief
-from ..storage import read_url
+from ..storage import delete_after_commit, read_url
 from ..text import clean, clean_optional
 from .photos import valid_timezone
 
@@ -909,8 +909,7 @@ def choose_journal_cover(
     key = f"journal-covers/{user.id}-{new_id()}.jpg"
     storage.put(key, jpeg)
     user.journal_cover_key = key
-    if old:
-        storage.delete(old)
+    delete_after_commit(db, storage, old)
     return _my_cover(db, user, settings, clock.now())
 
 
@@ -934,7 +933,7 @@ def change_journal(
             raise HTTPException(400, {"code": "title_too_long"})
         user.journal_title = title
     if "cover" in body.model_fields_set and user.journal_cover_key:
-        storage.delete(user.journal_cover_key)
+        delete_after_commit(db, storage, user.journal_cover_key)
         user.journal_cover_key = None
     return {"title": user.journal_title, **_my_cover(db, user, settings, clock.now())}
 

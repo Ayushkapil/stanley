@@ -431,6 +431,67 @@ def test_maintenance_optimizes_and_vacuums(tmp_path):
     assert path.stat().st_size < before / 10
 
 
+def _db_with(tmp_path, keep: int, drop: int):
+    import sqlite3
+
+    path = tmp_path / "y.db"
+    con = sqlite3.connect(str(path))
+    con.execute("CREATE TABLE t (x TEXT)")
+    con.executemany("INSERT INTO t VALUES (?)", [("x" * 1000,)] * (keep + drop))
+    con.commit()
+    con.execute("DELETE FROM t WHERE rowid > ?", (keep,))
+    con.commit()
+    con.close()
+    return path
+
+
+def test_vacuum_skips_when_theres_little_to_reclaim(tmp_path, caplog):
+    """D2: a rewrite that holds the write lock is only worth it when much
+    of the file is empty pages."""
+    import logging
+
+    from stanley.backup import maintain_database
+
+    path = _db_with(tmp_path, keep=2000, drop=50)
+    before = path.stat().st_size
+    with caplog.at_level(logging.INFO, logger="stanley"):
+        maintain_database(f"sqlite:///{path}", vacuum=True)
+    assert path.stat().st_size == before
+    assert any("event=vacuum_skipped reason=little_to_reclaim" in r.getMessage() for r in caplog.records)
+
+
+def test_vacuum_skips_a_file_too_big_to_lock(tmp_path, caplog, monkeypatch):
+    """D2: past the size a rewrite finishes well inside busy_timeout, the
+    weekly VACUUM is skipped rather than fail every write that meets it."""
+    import logging
+
+    from stanley import backup
+
+    path = _db_with(tmp_path, keep=10, drop=2000)
+    before = path.stat().st_size
+    monkeypatch.setattr(backup, "VACUUM_MAX_BYTES", before - 1)
+    with caplog.at_level(logging.INFO, logger="stanley"):
+        backup.maintain_database(f"sqlite:///{path}", vacuum=True)
+    assert path.stat().st_size == before
+    assert any("reason=too_big_to_lock" in r.getMessage() for r in caplog.records)
+
+
+def test_vacuum_skips_without_room_for_its_copy(tmp_path, caplog, monkeypatch):
+    import logging
+    import shutil
+
+    from stanley import backup
+
+    path = _db_with(tmp_path, keep=10, drop=2000)
+    before = path.stat().st_size
+    real = shutil.disk_usage
+    monkeypatch.setattr(backup.shutil, "disk_usage", lambda p: real(p)._replace(free=before))
+    with caplog.at_level(logging.INFO, logger="stanley"):
+        backup.maintain_database(f"sqlite:///{path}", vacuum=True)
+    assert path.stat().st_size == before
+    assert any("reason=disk_too_full" in r.getMessage() for r in caplog.records)
+
+
 def test_held_shows_each_friends_face(circle):
     """Held heads each friend's page with their face; the link was never
     signed, so the album only ever showed initials."""
