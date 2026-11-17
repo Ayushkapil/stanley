@@ -111,7 +111,10 @@ final class AppState {
     var lettersSent: [Letter] = []
     var lettersLoaded = false
     var profile: MyProfile?
-    var myId: String?
+    var myId: String? {
+        // The offline queue shows and sends only this account's captures.
+        didSet { queue.owner = myId }
+    }
     var errorMessage: String?
     var flash: String?  // gentle, transient confirmation (e.g. after resting)
     var checkedCircle = false
@@ -439,7 +442,9 @@ final class AppState {
         journalPages = []
         journalTitle = nil
         journalCover = nil
+        journalCoverLink = nil
         journalCoverChosen = false
+        journalCoverAvailable = false
         journalWritable = false
         journalDay = nil
         sharedDays = []
@@ -449,6 +454,20 @@ final class AppState {
         nearbyTown = nil
         threads = []
         memoriesLoaded = false
+        // Letters to and from this account (build 77: they outlived a
+        // sign-out, and the next account's book took the opened ones as
+        // its own pages).
+        lettersReceived = ReceivedLetters(sealed: [], opened: [])
+        lettersSent = []
+        lettersLoaded = false
+        journalBanner = nil
+        journalPageAsked = nil
+        errorMessage = nil
+        flash = nil
+        // What's kept in memory beside the state: the book laid out from
+        // this account's pages, and the photos it was shown.
+        BookBuilder.forget()
+        PhotoMemory.forget()
         profile = nil
         myId = nil
     }
@@ -986,7 +1005,7 @@ final class AppState {
         flushing = true
         defer { flushing = false }
         var sent = false
-        for item in queue.items where item.rejection == nil {
+        for item in queue.mine where item.rejection == nil {
             guard let jpeg = queue.jpeg(item) else { continue }
             do {
                 _ = try await api.uploadPhoto(

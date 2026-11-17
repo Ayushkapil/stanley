@@ -104,6 +104,11 @@ enum PhotoMemory {
         url.path.contains("/avatars/") ? nil : url.path as NSString
     }
 
+    /// Signed out: the photos one account was shown go with it.
+    static func forget() {
+        cache.removeAllObjects()
+    }
+
     static func image(for url: URL) -> UIImage? {
         key(url).flatMap { cache.object(forKey: $0) }
     }

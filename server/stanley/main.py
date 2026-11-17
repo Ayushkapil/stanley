@@ -14,6 +14,7 @@ from starlette.datastructures import MutableHeaders
 
 from . import __version__, decay, legal, news, notifications
 from .apple import AppleVerifier
+from .builds import BuildSeen
 from .backup import backup_database, maintain_database, warn_if_disk_low
 from .clock import Clock, SystemClock
 from .config import Settings, resolve_secret
@@ -240,6 +241,7 @@ def create_app(
         openapi_url="/openapi.json" if docs else None,
     )
     app.add_middleware(SecurityHeaders)
+    app.add_middleware(BuildSeen)
     app.state.settings = settings
     app.state.rate_limiter = RateLimiter()
     app.state.clock = clock

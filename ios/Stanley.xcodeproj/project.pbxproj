@@ -87,6 +87,7 @@
 		952CA06C49A38B22440CA705 /* CrashReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC79465A15EDB31157A01572 /* CrashReporting.swift */; };
 		991139DA2DB52E9FCFB439C3 /* WritingPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF7A68ED1AC7127D70AC8A75 /* WritingPrompts.swift */; };
 		998F9CACD2847967CC41FAA0 /* MarkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2BC067E379618D0AC42575D /* MarkSheet.swift */; };
+		9A990E6FC9FE657B7E011C2D /* OfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E7040D2B215FD0445DA2A /* OfflineQueue.swift */; };
 		9AB762C97C8CB46FC76BF94C /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4482F0EEC4500194DB4B1 /* AppLock.swift */; };
 		9B875E138E72B8C9EB4B13A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B9C29C3CAA06BA510C076FD /* Assets.xcassets */; };
 		9EB3A977E4A0701B7EDC97FC /* CountdownJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E4E26AC43F1B823C59634F /* CountdownJourney.swift */; };
@@ -100,6 +101,7 @@
 		B2F6DB4DA1B7888FFCE2FA1C /* StanleyWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB37B70B453BD197952E7525 /* StanleyWidgets.swift */; };
 		B2FFCE0288160A4824F692D3 /* LocalDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FDE374EF58AFB604A3324F9 /* LocalDay.swift */; };
 		B70470B18621E67B9CC8343F /* Countdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D8A5CF25BBCE7C3BF926A /* Countdown.swift */; };
+		B95F7B8FDC3246E67DE51F59 /* OfflineQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384004DBB10B127109375EA4 /* OfflineQueueTests.swift */; };
 		BC9C1411083A913FC1BC3205 /* PhotoRender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93BF6722B6EDBA5272660E6 /* PhotoRender.swift */; };
 		BDC9EE6C3B9C785A5ECA5E38 /* AtmospherePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2296FB39842563CF1F4E2B2 /* AtmospherePalette.swift */; };
 		BEA0FC11A01234EE4A91B060 /* Journal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1276CA9EF7DFA94B5A25EC74 /* Journal.swift */; };
@@ -167,6 +169,7 @@
 		31A5DB513E078FEDB3DA3EF7 /* Polish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polish.swift; sourceTree = "<group>"; };
 		34A59156504EC84352ECC6F1 /* LocalDayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDayTests.swift; sourceTree = "<group>"; };
 		37C6DB481E0C03C71E44B66A /* OpenedCoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenedCoverTests.swift; sourceTree = "<group>"; };
+		384004DBB10B127109375EA4 /* OfflineQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueueTests.swift; sourceTree = "<group>"; };
 		39FC79B48BB2EA062F8B6E65 /* BookPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookPages.swift; sourceTree = "<group>"; };
 		3CEDA2AA0A147B66AE4278E1 /* JournalWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalWidget.swift; sourceTree = "<group>"; };
 		42928D20C8D54343922865C3 /* PolicyNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyNotice.swift; sourceTree = "<group>"; };
@@ -380,6 +383,7 @@
 				5B1D3FB5817DCFD3D6F364E6 /* DailyPromptTests.swift */,
 				34A59156504EC84352ECC6F1 /* LocalDayTests.swift */,
 				735C876EF30838280951579E /* MarkSheetTests.swift */,
+				384004DBB10B127109375EA4 /* OfflineQueueTests.swift */,
 				37C6DB481E0C03C71E44B66A /* OpenedCoverTests.swift */,
 				CA48E2212AC5A61D1B56D45F /* PolicyNoticeTests.swift */,
 				16F3A3DFA9DF42339340605F /* WritingPromptTests.swift */,
@@ -563,6 +567,8 @@
 				403FBAB20F7C5A4CD65E08D2 /* LocalDayTests.swift in Sources */,
 				998F9CACD2847967CC41FAA0 /* MarkSheet.swift in Sources */,
 				6D6CE2AEB50AFBC19FCD61D6 /* MarkSheetTests.swift in Sources */,
+				9A990E6FC9FE657B7E011C2D /* OfflineQueue.swift in Sources */,
+				B95F7B8FDC3246E67DE51F59 /* OfflineQueueTests.swift in Sources */,
 				D4C70ACFA4D9FEA8798C923C /* OpenedCoverTests.swift in Sources */,
 				55129F9DF67D73067D807E3E /* OpenedCoverWords.swift in Sources */,
 				2F92CB913DFE979E19CA22E0 /* PolicyNotice.swift in Sources */,

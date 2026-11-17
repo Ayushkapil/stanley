@@ -587,6 +587,39 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Sign-out leaves nothing behind; which builds connect** (build 77,
+  November 17, 2026, step 1 of Ayush's list after an engineering review;
+  the list and what's deferred are under open items, "The engineering
+  review"). Phone, and a small server change.
+  - **Sign-out** (`AppState.signOut`) now also clears letters to and
+    from the account (`lettersReceived`, `lettersSent`, `lettersLoaded`),
+    the cover's signed link and its server flag, a pending notice
+    (`journalBanner`, `journalPageAsked`), any error or flash, the book
+    laid out from the account's pages (`BookBuilder.forget()`: the book
+    hashed opened letters into its pages, so the next account's book would
+    have shown the last account's letters) and the photos kept in memory
+    (`PhotoMemory.forget()`). Not a refactor: the missing resets added.
+  - **A photo waiting to upload is its taker's alone**
+    (`PendingCapture.ownerId`, `OfflineQueue.owner` set from `AppState.myId`,
+    `mine`): before, a capture left waiting when someone signed out would
+    go up under the next person to sign in on the phone in the same
+    circle. It's kept on the phone and comes back when its owner signs in
+    again; signed out, nothing is anyone's to send. One queued by a build
+    before 77 goes to the first account to sign in afterwards.
+    `OfflineQueueTests` (three; 69 phone tests).
+  - **Which builds connect** (`server/stanley/builds.py`, the `BuildSeen`
+    middleware): the app's User-Agent already says its build ("Stanley/76
+    CFNetwork/..."), from every build ever shipped, so no app change. One
+    row per build number in `client_builds` (first and last seen), nothing
+    about who, at most one write an hour per build, off the event loop;
+    an `event=build_seen build=N` line the first time a process sees one.
+    Read it with `sqlite3 /data/var/stanley.db "SELECT * FROM
+    client_builds ORDER BY build"`. `test_client_builds.py` (two; 738
+    server tests). Seen on the local server: build 77 recorded.
+  - **Not seen on the simulator**: signing out of one account and into
+    another (the simulator kept turning on its side under the taps); the
+    resets and the queue are held by the code and the queue's tests.
+
 - **The opened cover** (build 76, November 16, 2026, a product brief
   from Ayush, "Build the opened-cover state, with the journal editable in
   it"). Phone and server both; **the server is on Fly with it** (open
@@ -3203,7 +3236,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (76)", at the
+  production audit), and the version, "Stanley 0.2.0 (77)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3763,6 +3796,29 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   4. Prove it: a Release build crashed on purpose, the report read in
      Sentry for a readable stack and nothing identifying.
   5. Tell the pilot: build 70's notice does it in the app.
+- **The engineering review** (November 17, 2026): three read-only reviews
+  (the phone's speed, its code health, the server), ranked with severity
+  and effort, and Ayush's order: (1) the sign-out leak, done in build 77;
+  (2) optimistic updates: the heart and bookmark at once, the capture sheet
+  closing on upload, a journal page closing on save, cached photos without
+  a placeholder flash; (3) photo files deleted only after the database
+  commits (D3), then the weekly VACUUM's lock (D2); (4) blobs to R2 (D1),
+  its Privacy Policy wording batched with Sentry's; (5) bounding upload
+  memory on the 1 GB machine, before November 23. **Not to be done: the
+  AppState split (item 15) or any refactor.** **Deferred, known work**:
+  independent loads run concurrently and the Journal tab not refetching
+  what launch fetched (5); the book's pagination off launch and the main
+  thread (6); renewing expired links in parallel and ahead of time, and
+  keeping avatars (7); batching the server's per-photo queries in Today,
+  Held, the circle list and the shared journal's hearts, and Held's write
+  on every read (9); pruning `notification_log` (14); the four orphaned
+  views, duplicate date and upload helpers and timing hacks (16); retiring
+  code for old builds once `client_builds` shows them gone, after mid
+  February 2027 at the earliest (17; the logging is in build 77); faster
+  server tests and more phone unit tests (18). Also found: the news fetch
+  inside requests, signed links that change every second.
+- **Build 77** (0.2.0): sign-out and the queue (above), and the build
+  logging. Not archived; its server part not deployed.
 - **Build 76** (0.2.0): the opened cover (above). Phone and server.
   **Archived and uploaded on November 16, 2026**, and added to Friends the
   same evening (straight to Testing, no compliance question: the plist
@@ -4230,7 +4286,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**736 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**738 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board
@@ -4354,7 +4410,8 @@ since build 70 a crash report leaving with no identifier, one, and the
 policy's notice, five; since build 72 the sheet's months, four;
 since build 73 the link's words, one; since build 74 the countdown's
 flight path, eleven; since build 76 the opened cover's words, four, and the
-cover colours' inks, one; sixty-six in all). `tests/test_moods.py` (build 65) holds
+cover colours' inks, one; since build 77 the offline queue's owner, three;
+sixty-nine in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

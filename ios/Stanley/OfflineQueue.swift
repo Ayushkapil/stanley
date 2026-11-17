@@ -20,6 +20,11 @@ struct PendingCapture: Codable, Equatable, Identifiable {
     /// a build before multiple circles; `AppState` gives it the first circle,
     /// the only one that build knew.
     var circleId: String?
+    /// Whose it is (build 77): only the account that took it sees it or
+    /// sends it, so a photo left waiting when someone signs out never goes
+    /// up under the next person to sign in on the phone. Nil for one queued
+    /// by a build before 77; the first account to sign in afterwards takes it.
+    var ownerId: String? = nil
     /// Set only when the server refused the slot. The photo is then stranded:
     /// it will never upload, and the one honest thing left is to let its owner
     /// keep a copy.
@@ -56,6 +61,18 @@ final class OfflineQueue {
     /// relaunches.
     private(set) var items: [PendingCapture] = []
 
+    /// The account signed in now (`AppState.myId`); nil while signed out,
+    /// when nothing is anyone's to see or send.
+    var owner: String? {
+        didSet { adoptUnowned() }
+    }
+
+    /// The captures that are the signed-in account's own.
+    var mine: [PendingCapture] {
+        guard let owner else { return [] }
+        return items.filter { $0.ownerId == owner }
+    }
+
     init() {
         guard let data = try? Data(contentsOf: Self.indexURL) else { return }
         // Builds before 17 kept a single capture; a list since.
@@ -67,7 +84,7 @@ final class OfflineQueue {
 
     /// The capture waiting for this circle, if any.
     func pending(in circleId: String?) -> PendingCapture? {
-        items.first { $0.circleId == circleId }
+        mine.first { $0.circleId == circleId }
     }
 
     /// True while a capture is waiting for this circle: its day is spoken for.
@@ -76,9 +93,19 @@ final class OfflineQueue {
     /// A capture queued by a build before multiple circles belongs to the
     /// circle that build showed, the first one joined.
     func adopt(into circleId: String) {
-        guard items.contains(where: { $0.circleId == nil }) else { return }
-        for index in items.indices where items[index].circleId == nil {
+        guard mine.contains(where: { $0.circleId == nil }) else { return }
+        for index in items.indices where items[index].circleId == nil && items[index].ownerId == owner {
             items[index].circleId = circleId
+        }
+        persist()
+    }
+
+    /// A capture queued by a build before 77 has no owner: the first
+    /// account to sign in afterwards is the one who was using the phone.
+    private func adoptUnowned() {
+        guard let owner, items.contains(where: { $0.ownerId == nil }) else { return }
+        for index in items.indices where items[index].ownerId == nil {
+            items[index].ownerId = owner
         }
         persist()
     }
@@ -97,6 +124,7 @@ final class OfflineQueue {
             capturedAt: Date(),
             timeZone: TimeZone.current.identifier,
             circleId: circleId,
+            ownerId: owner,
             rejection: nil
         )
         try? jpeg.write(to: item.jpegURL, options: .atomic)

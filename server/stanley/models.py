@@ -608,3 +608,15 @@ class PersonLetter(Base):
     deliver_at: Mapped[date] = mapped_column(Date)
     opened_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class ClientBuild(Base):
+    """A build of the app that has connected (build 77): its number, from
+    the User-Agent, and when it was first and last seen. Nothing about who
+    (`builds.py`). Evidence for retiring code kept for old builds."""
+
+    __tablename__ = "client_builds"
+
+    build: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime)
+    last_seen: Mapped[datetime] = mapped_column(UTCDateTime)

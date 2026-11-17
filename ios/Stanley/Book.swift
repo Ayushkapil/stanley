@@ -499,6 +499,12 @@ enum BookBuilder {
 
     private static var lastShared: (key: Int, book: Book)?
 
+    /// Signed out: nothing laid out from one account is kept for the next.
+    static func forget() {
+        last = nil
+        lastShared = nil
+    }
+
     /// The circle's shared journal as a book (build 51): a page for each
     /// spread, oldest first, so the newest is the last and turning back
     /// goes back. With nothing in it, one page that says so.
