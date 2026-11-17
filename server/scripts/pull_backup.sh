@@ -42,7 +42,8 @@ if [ ! -f "$DEST/$name" ]; then
   tmp="$DEST/.$name.part"
   rm -f "$tmp"
   "$FLY" ssh sftp get --app "$APP" "$newest" "$tmp" >/dev/null
-  check=$(sqlite3 "file:$tmp?mode=ro" "PRAGMA integrity_check" 2>&1 || true)
+  check=$(sqlite3 "file:$tmp?mode=ro&immutable=1" "PRAGMA integrity_check" 2>&1 || true)
+  rm -f "$tmp-shm" "$tmp-wal"
   if [ "$check" != "ok" ]; then
     rm -f "$tmp"
     echo "pull_backup: $name failed its integrity check: $check" >&2

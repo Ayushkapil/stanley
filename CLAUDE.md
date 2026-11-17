@@ -4025,7 +4025,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   hidden docs, refresh, reflections all answer). **Not deployed: the board**
   (`/circles/{id}/notes` is a 404) and the November 4 Terms and Privacy
   wording (`/privacy` says November 3). The volume is **3 GB**, with 32 MB
-  used. `/data/pre-build18.db` is still there (due by November 8). The
+  used. `/data/pre-build18.db` was still there then (deleted November 16). The
   paragraph below about v15 is history.
 - **Fly before** (checked read-only on 2026-11-03): release **v15**
   (2026-11-02 04:54 UTC) runs the server as of `de71bc9`, the last server
@@ -4062,9 +4062,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   and scope, the ntfy alert), and build 19's member profile fields and
   `moments_shared`; against v11 the Blocked list fails quietly, Delete's
   alert leaves out the day, member profiles show only name and words, and
-  the You tab has no moments line. Mentions need no server change. Delete the pre-build-18
-  snapshot (both copies) by 2026-11-08, or the policy's "gone from our
-  backups within seven days" stops being true.
+  the You tab has no moments line. Mentions need no server change. The pre-build-18
+  snapshot (both copies) was due by 2026-11-08 and **was deleted on
+  2026-11-16**, late: `/data/pre-build18.db` on the volume and
+  `server/var/fly-backups/pre-build18-20261101.db` here.
 - **Report alerts need the topic on Fly.** Each report is a WARNING line in
   `fly logs` and, with `REPORT_WEBHOOK_URL` set, one POST of "A report is
   waiting for review" to an ntfy.sh topic the operator's phone subscribes to
@@ -4087,10 +4088,17 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   sandbox**, so the key is accepted for TestFlight and for Xcode builds
   alike (a bad key would get `403 InvalidProviderToken`). Not yet delivered
   to a real phone.
-- **Off-box backups.** Written, not yet scheduled: `server/scripts/
-  pull_backup.sh` copies the newest snapshot to this Mac and keeps six days
-  (DEPLOY.md, "Backups", for the launchd install). Fly's own daily volume
-  snapshots (five days) are a second layer already running.
+- **Off-box backups, running since November 16, 2026.** `server/scripts/
+  pull_backup.sh` is installed as the launch agent `com.stanley.pull-backup`
+  (DEPLOY.md, "Backups"): daily at 10:00, into `~/Library/Application
+  Support/Stanley/backups` (not iCloud-synced; FileVault on), six days
+  kept, output in `~/Library/Logs/stanley-pull-backup.log`. Run once by hand
+  that day and it fetched `20261117T000717Z.db`, integrity ok. Fixed on the
+  way: the integrity check opened the copy in a way that left `-shm` and
+  `-wal` files the cleanup never removed; it opens it `immutable` now. The
+  installed copy is outside the repo, so after changing the script copy it
+  there again. Fly's own daily volume snapshots (five days) are a second
+  layer.
 - **From the production audit, by hand** (`PRODUCTION_CHECKLIST.md`):
   extend the volume, `fly deploy`, a Sentry DSN (no build has ever reported a
   crash), an uptime monitor on `/health`, the App Store Connect privacy and
