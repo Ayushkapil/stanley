@@ -48,6 +48,9 @@ enum APIError: LocalizedError {
             // The production audit (November 2026).
             case "words_not_allowed": return Self.wordsNotAllowed
             case "slow_down": return "That's a lot at once. Give it a minute, then try again."
+            // Item 13 (build 77): the server is already working on two
+            // photos. Nothing was posted, so the day is still open.
+            case "busy": return "Lots of photos are going up right now. Try again in a moment; today's is still yours to post."
             case "empty_story": return "A story needs a few words."
             case "bad_timezone": return "Your phone's time zone didn't come through. Try again in a moment."
             case "server_error": return Self.words(forStatus: 500)

@@ -32,7 +32,7 @@ from ..deps import (
     refuse_objectionable,
     require_membership,
 )
-from ..images import BadImage, PreparedUpload, prepare_upload
+from ..images import BadImage, Busy, PreparedUpload, prepare_upload
 from ..notifications import send_circle_post_notices
 from ..ratelimit import per_person
 from ..text import clean_optional
@@ -57,12 +57,16 @@ def _store_original_blob(
     if not storage.exists(deriv_key):
         return
     try:
-        storage.put(blob_key, prepared.encode_original())
+        # A slot for the encode, waiting longer than a request would: no one
+        # is waiting on this. Still busy after that, the original is let go.
+        storage.put(blob_key, prepared.encode_original(wait=120))
         # Deleted while the original was encoding: the scrub found no
         # original to delete, so it's deleted here instead of stranded (on
         # R2 a stranded object would stay for good).
         if not storage.exists(deriv_key):
             storage.delete(blob_key)
+    except Busy:
+        log.warning("event=original_skipped reason=busy key=%s", blob_key)
     except Exception:
         # Deriv + thumb already exist and serve every surface (feed, Held,
         # export). A missing original degrades nothing user-visible.
@@ -188,6 +192,10 @@ def capture(
         prepared = prepare_upload(data)
     except BadImage:
         raise HTTPException(400, {"code": "bad_image"})
+    except Busy:
+        # Item 13: two photos are already being worked on. Nothing is
+        # claimed yet, so the day is untouched and the phone can send again.
+        raise HTTPException(503, {"code": "busy"})
 
     # I2: claim the slot (flush the row) FIRST. If a concurrent request already
     # took today, the UNIQUE constraint fires here — return 409 with ZERO blobs

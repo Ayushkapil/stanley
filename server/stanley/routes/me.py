@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from .. import notifications, physics, sharing, wordfilter
 from ..decay import TOMBSTONE, delete_comments, enqueue_purge, owner_hash_for, scrub
 from ..deps import event, get_clock, get_current_user, get_db, get_settings, get_storage, refuse_objectionable
-from ..images import BadImage, process_avatar
+from ..images import BadImage, Busy, process_avatar
 from ..ratelimit import per_person
 from ..text import clean
 from ..milestones import milestone_payload, surface_due
@@ -140,6 +140,8 @@ def upload_avatar(
         jpeg = process_avatar(data)
     except BadImage:
         raise HTTPException(400, {"code": "bad_image"})
+    except Busy:
+        raise HTTPException(503, {"code": "busy"})
     key = f"avatars/{user.id}.jpg"
     storage.put(key, jpeg)
     user.avatar_key = key

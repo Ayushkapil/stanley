@@ -675,7 +675,16 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       `little_to_reclaim`, `too_big_to_lock` or `disk_too_full`. The live
       database (115 pages, 1 free) would be skipped. Three tests beside the
       old one. 745 server tests.
-  - **Step 4 prepared, not switched (D1, photos to Cloudflare R2)**:
+  - **Step 4 prepared, then parked (D1, photos to Cloudflare R2)**.
+    Ayush asked whether R2 was needed and, on the answer (for a
+    one-circle pilot the volume, Fly's daily snapshots and the daily
+    database copy are enough; R2 adds a new processor, a policy change
+    and a migration), parked it (November 17, 2026) before the R2
+    subscription was started. Nothing in Cloudflare was created and
+    nothing switched. **Known work for before a wider release, or once
+    held photos near a gigabyte**: R2, or Fly's own object storage
+    (Tigris, the same S3 code, billed by Fly). What was built stays and
+    is tested either way:
     - `boto3` is a server dependency now (it was an extra the image never
       installed). `R2BlobStore` sets region `auto` and v4 signatures, and
       `size()` tells "no such object" (404) from a refusal or a network
@@ -725,6 +734,35 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       stored by Cloudflare in the bucket's location; "Our database is stored
       on an encrypted disk, and Cloudflare encrypts photos at rest". With it
       a new date, a `PolicyNotice.Revision`, and `PRIVACY_LABEL.md`.
+  - **Item 13, a photo can't take the 1 GB machine down** (build 78's
+    server; `images.py`). Measured in a process of its own: a 12 MP
+    photo took 169 MB to process, a 48 MP one 597 MB (two at once, or
+    five or six ordinary ones, would have run the machine out). Now:
+    - **Two images at a time** (`IMAGE_JOBS`, `image_slot`): a post,
+      an avatar, a cover and the background original all take a slot; a
+      third waits up to 20 seconds and is then answered 503 `busy` with
+      nothing claimed, so the day is untouched (the phone says "Lots of
+      photos are going up right now. Try again in a moment; today's is
+      still yours to post."; a queued capture waits for its next try).
+      The background original waits up to two minutes, then is let go
+      (`event=original_skipped`): nothing reads it.
+    - **A large JPEG decodes at a half, quarter or eighth of its size**
+      (`_open(longest=)`, JPEG's draft decode), rotated in place, the
+      derivative and thumbnail made by resizing rather than from full
+      copies, and **the original kept at most 4096 on its longest side**
+      (`ORIGINAL_EDGE`). The app sends at most 4096 from the library and
+      4032 from an untouched camera shot, so only a larger upload (a 24 or
+      48 MP camera photo) keeps a smaller original; the derivative and the
+      thumbnail are unchanged. Not asked about separately: it's the
+      original nothing reads, made smaller only past 4096.
+    - **Measured after**: 12 MP 76 MB, 24 MP 224 MB (at half it would be
+      under 4096, so it decodes in full), 48 MP 74 MB. Two at once is at
+      most about 450 MB over the app.
+    - `test_image_memory.py` (six): never more than two at once; a third
+      answered `busy` with no row and the day still free; slots given
+      back on a refused image; the original's sizes; a small photo never
+      enlarged; a 48 MP photo under 200 MB in a process of its own. 770
+      server tests.
 
 - **The opened cover** (build 76, November 16, 2026, a product brief
   from Ayush, "Build the opened-cover state, with the journal editable in
@@ -3923,9 +3961,13 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   February 2027 at the earliest (17; the logging is in build 77); faster
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
-- **Build 77** (0.2.0): sign-out and the queue, the build logging, and
-  step 2's optimistic updates (above). Not archived. **Its server part
-  (the build logging alone) is on Fly as release v36** (November 17).
+- **Build 78** (0.2.0): the phone's words for `busy` (item 13). Not
+  archived. Item 13's server change is not deployed.
+- **Build 77** (0.2.0): sign-out and the queue, the build logging, step
+  2's optimistic updates and their rollback tests (above). **Archived and
+  uploaded November 17, 2026**; not yet added to Friends (the browser
+  pane was signed out of App Store Connect). Its server parts: the build
+  logging on Fly as v36, D3 and D2 as v37 (both November 17, healthy).
 - **Build 76** (0.2.0): the opened cover (above). Phone and server.
   **Archived and uploaded on November 16, 2026**, and added to Friends the
   same evening (straight to Testing, no compliance question: the plist
@@ -4393,7 +4435,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**764 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**770 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

@@ -23,7 +23,7 @@ from ..deps import (
     active_circle_id, event, get_clock, get_current_user, get_db, get_notifier, get_settings, get_storage,
     membership_in, refuse_objectionable, require_membership,
 )
-from ..images import BadImage, process_cover
+from ..images import BadImage, Busy, process_cover
 from ..notifications import send_journal_page_notices
 from ..models import (
     Anchor, CirclePrompt, JournalEntry, JournalPage, Membership, PageHeart, Photo, PromptResponse, Report,
@@ -903,6 +903,8 @@ def choose_journal_cover(
         jpeg = process_cover(data)
     except BadImage:
         raise HTTPException(400, {"code": "bad_image"})
+    except Busy:
+        raise HTTPException(503, {"code": "busy"})
     # A new name each time, so a link to the old picture never shows the
     # new one, and the old one is deleted.
     old = user.journal_cover_key
