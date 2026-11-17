@@ -619,6 +619,34 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   - **Not seen on the simulator**: signing out of one account and into
     another (the simulator kept turning on its side under the taps); the
     resets and the queue are held by the code and the queue's tests.
+  - **Step 2, the optimistic updates** (the same build, the next step):
+    - **The heart and the bookmark change at once.** `AppState.likedNow`
+      and `heldNow` hold what you just tapped, with when, over the photo's
+      own `likedByMe`/`anchoredByMe`; `isLiked(_:)` and `isHeld(_:)` are
+      what `PhotoImageView` reads, so Today, a moment and the stories sheet
+      all agree. A refusal puts it back; a fresh Today drops what was tapped
+      before it was asked for (`forgetTapsBefore`). `toggleLike`,
+      `toggleAnchor` and `hold` no longer reload Today (they did: the
+      request, then up to 200 photos, then Returned, before the icon moved).
+    - **The capture sheet closes once the upload is done**: the posted
+      photo (the server returns it whole) goes to the top of Today at once,
+      and a fresh Today, which groups it into a moment if it belongs in
+      one, follows unwaited.
+    - **A journal page closes once it's kept**: `writeToday`, `editPage`,
+      `deletePage` and `sharePage` reload the shared journal behind the
+      save, not before returning. A book opened at the page still lands on
+      it: until a page is turned the book re-places itself as the shared
+      days arrive (`BookView.follow`).
+    - **A photo already in memory shows in the first frame**
+      (`SignedImage.current` reads `PhotoMemory` in the view's body, not
+      only once its task has run), so prints scrolled back to and pages
+      turned again no longer flash their placeholder and fade in.
+    - **Seen** on the iPhone 17 Pro against a local server: a heart tapped
+      in Today filled with one request (`POST /photos/{id}/like`) and no
+      Today reload, and tapped again with one `DELETE`. **Not seen**: the
+      capture sheet (Maya had posted that day), a journal page saved, a
+      refusal putting the heart back, the bookmark (the same path as the
+      heart).
 
 - **The opened cover** (build 76, November 16, 2026, a product brief
   from Ayush, "Build the opened-cover state, with the journal editable in
@@ -3817,8 +3845,9 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   February 2027 at the earliest (17; the logging is in build 77); faster
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
-- **Build 77** (0.2.0): sign-out and the queue (above), and the build
-  logging. Not archived; its server part not deployed.
+- **Build 77** (0.2.0): sign-out and the queue, the build logging, and
+  step 2's optimistic updates (above). Not archived. **Its server part
+  (the build logging alone) is on Fly as release v36** (November 17).
 - **Build 76** (0.2.0): the opened cover (above). Phone and server.
   **Archived and uploaded on November 16, 2026**, and added to Friends the
   same evening (straight to Testing, no compliance question: the plist

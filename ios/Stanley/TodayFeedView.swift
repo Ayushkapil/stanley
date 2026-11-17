@@ -747,10 +747,10 @@ struct PhotoImageView: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(spoken)
                 .accessibilityAddTraits(.isImage)
-                .accessibilityAction(named: photo.likedByMe ? "Unlike" : "Like") {
+                .accessibilityAction(named: state.isLiked(photo) ? "Unlike" : "Like") {
                     Task { await state.toggleLike(photo) }
                 }
-                .accessibilityAction(named: photo.anchoredByMe ? "Let go" : "Hold") { toggleHold() }
+                .accessibilityAction(named: state.isHeld(photo) ? "Let go" : "Hold") { toggleHold() }
                 .saturation(1.0 - 0.85 * fade)
                 .opacity(1.0 - opacityDrop * fade)
                 .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))
@@ -774,17 +774,17 @@ struct PhotoImageView: View {
                     hold()
                 } onPressingChanged: { pressing in
                     withAnimation(.easeOut(duration: pressing ? 0.45 : 0.25)) {
-                        holdProgress = pressing && !photo.anchoredByMe ? 1 : 0
+                        holdProgress = pressing && !state.isHeld(photo) ? 1 : 0
                     }
                 }
                 .contextMenu {
                     Button { Task { await state.toggleLike(photo) } } label: {
-                        Label(photo.likedByMe ? "Unlike" : "Like", systemImage: "heart")
+                        Label(state.isLiked(photo) ? "Unlike" : "Like", systemImage: "heart")
                     }
                     // A long press lands here: the menu takes the press before
                     // the hold gesture can, so this is how most holds happen.
                     Button { toggleHold() } label: {
-                        Label(photo.anchoredByMe ? "Let go" : "Hold", systemImage: "bookmark")
+                        Label(state.isHeld(photo) ? "Let go" : "Hold", systemImage: "bookmark")
                     }
                     Divider()
                     PhotoMenuItems(photo: photo, action: $action)
@@ -825,18 +825,18 @@ struct PhotoImageView: View {
     private var gestures: some View {
         HStack(spacing: 0) {
             Button { toggleHold() } label: {
-                marker(photo.anchoredByMe ? "bookmark.fill" : "bookmark",
-                       photo.anchoredByMe ? Color.accentColor : DarkRoom.ink)
+                marker(state.isHeld(photo) ? "bookmark.fill" : "bookmark",
+                       state.isHeld(photo) ? Color.accentColor : DarkRoom.ink)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(photo.anchoredByMe ? "Let go of this memory" : "Hold this memory")
+            .accessibilityLabel(state.isHeld(photo) ? "Let go of this memory" : "Hold this memory")
             Button { like() } label: {
-                marker(photo.likedByMe ? "heart.fill" : "heart",
-                       photo.likedByMe ? Color.pink : DarkRoom.ink)
+                marker(state.isLiked(photo) ? "heart.fill" : "heart",
+                       state.isLiked(photo) ? Color.pink : DarkRoom.ink)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(photo.likedByMe ? "Unlike" : "Like")
-            .accessibilityValue(photo.likedByMe ? "You liked this" : "")
+            .accessibilityLabel(state.isLiked(photo) ? "Unlike" : "Like")
+            .accessibilityValue(state.isLiked(photo) ? "You liked this" : "")
         }
         .padding(.horizontal, 3)
         // One small glass pill for the two (build 44; a material disc each
@@ -859,7 +859,7 @@ struct PhotoImageView: View {
     }
 
     private func hold() {
-        guard !photo.anchoredByMe else { return }
+        guard !state.isHeld(photo) else { return }
         // Felt as the bookmark fills, with the settle: a memory kept.
         Haptics.held()
         withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
@@ -871,14 +871,14 @@ struct PhotoImageView: View {
     /// Hold or let go, from the bookmark or the menu. Holding is felt as the
     /// bookmark fills; letting go is quiet.
     private func toggleHold() {
-        if !photo.anchoredByMe { Haptics.held() }
+        if !state.isHeld(photo) { Haptics.held() }
         Task { await state.toggleAnchor(photo) }
     }
 
     /// A double-tap that likes plays the heart. On a photo already liked it
     /// unlikes, as the corner heart does, and only the corner heart says so.
     private func doubleTap() {
-        if !photo.likedByMe {
+        if !state.isLiked(photo) {
             heartPops += 1
             Haptics.liked()
         }

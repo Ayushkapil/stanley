@@ -39,10 +39,19 @@ struct SignedImage<Content: View, Placeholder: View>: View {
         self.placeholder = placeholder
     }
 
+    /// The picture to show now: the one loaded for this link, or one already
+    /// in memory for its path (build 77: read here, in the first frame,
+    /// rather than once the task has run, so a print scrolled back to or a
+    /// page turned again doesn't flash its placeholder and fade back in).
+    private var current: UIImage? {
+        if let shown, shown.path == url?.path { return shown.image }
+        return url.flatMap(PhotoMemory.image(for:))
+    }
+
     var body: some View {
         Group {
-            if let shown, shown.path == url?.path {
-                content(Image(uiImage: shown.image))
+            if let current {
+                content(Image(uiImage: current))
                     .transition(.opacity)
             } else {
                 placeholder()

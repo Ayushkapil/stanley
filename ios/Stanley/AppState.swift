@@ -626,6 +626,7 @@ final class AppState {
     /// instead of folding Today back to its first twenty.
     func refreshToday() async {
         let asked = api.circleId
+        let since = Date()
         let wanted = min(max(Self.todayPage, feedItems.count), 200)
         do {
             let response: TodayResponse = try await api.send(
@@ -634,6 +635,7 @@ final class AppState {
             // Switched circles while this was on its way: it's the old one's.
             guard api.circleId == asked else { return }
             feedItems = response.items
+            forgetTapsBefore(since)
             todayCursor = response.nextCursor
             todayLoaded = true
             notes = response.notes ?? response.note.map { [$0] } ?? []
@@ -972,7 +974,13 @@ final class AppState {
             // by then the moment to ask has passed.
             journalOffer = posted.id
             moodOffer = posted.id
-            await refreshToday()
+            // In Today at once (build 77), so the sheet can close as soon as
+            // the upload's done; a fresh Today, grouping it into a moment if
+            // it belongs in one, follows without anyone waiting on it.
+            if circle?.id == circleId, !feedItems.contains(where: { $0.photo?.id == posted.id }) {
+                feedItems.insert(FeedItem(kind: "photo", photo: posted, location: nil, members: nil, photos: nil), at: 0)
+            }
+            Task { await refreshToday() }
             return true
         } catch APIError.server(code: "not_in_circle", status: let status) {
             await lostCircle()
@@ -1527,7 +1535,10 @@ final class AppState {
             let page: DayPage = try await api.send("PUT", "/me/journal/today", json: fields)
             place(page)
             Trail.note(.wroteJournal)
-            if page.isShared || was?.isShared == true { await loadShared() }
+            // The shared journal catches up behind the save (build 77): the page
+            // closes as soon as it's kept, and a book opened at it re-places itself
+            // as the shared days arrive.
+            if page.isShared || was?.isShared == true { Task { await loadShared() } }
             if shared == true, recipient != nil { sentToSomeone() }
             return true
         } catch {
@@ -1544,7 +1555,7 @@ final class AppState {
         do {
             let changed: DayPage = try await api.send("PATCH", "/me/journal/pages/\(page.id)", json: fields)
             place(changed)
-            if changed.isShared { await loadShared() }
+            if changed.isShared { Task { await loadShared() } }
             return true
         } catch {
             surface(error)
@@ -1556,7 +1567,7 @@ final class AppState {
         do {
             let _: Empty = try await api.send("DELETE", "/me/journal/pages/\(page.id)")
             journalPages.removeAll { $0.id == page.id }
-            if page.isShared { await loadShared() }
+            if page.isShared { Task { await loadShared() } }
         } catch {
             surface(error)
         }
@@ -1604,7 +1615,7 @@ final class AppState {
             if shared, let recipient { fields["recipient_id"] = recipient }
             let changed: DayPage = try await api.send("PATCH", "/journal/\(page.id)", json: fields)
             place(changed)
-            await loadShared()
+            Task { await loadShared() }
             if shared, recipient != nil { sentToSomeone() }
             return true
         } catch {
@@ -1715,8 +1726,10 @@ final class AppState {
     }
 
     func toggleAnchor(_ photo: Photo) async {
+        let was = isHeld(photo)
+        heldNow[photo.id] = (!was, Date())
         do {
-            if photo.anchoredByMe {
+            if was {
                 let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/anchor")
                 Trail.note(.letGo)
             } else {
@@ -1725,8 +1738,8 @@ final class AppState {
                 )
                 Trail.note(.held)
             }
-            await refreshToday()
         } catch {
+            heldNow[photo.id] = (was, Date())
             surface(error)
         }
     }
@@ -1734,30 +1747,54 @@ final class AppState {
     /// Press-and-hold commit: hold a photo into Held. Idempotent — holding an
     /// already-held photo keeps it held (the icon-tap path does the un-hold).
     func hold(_ photo: Photo) async {
-        if photo.anchoredByMe { return }
+        if isHeld(photo) { return }
+        heldNow[photo.id] = (true, Date())
         do {
             let _: Empty = try await api.send(
                 "POST", "/photos/\(photo.id)/anchor", json: ["note": nil]
             )
             Trail.note(.held)
-            await refreshToday()
         } catch {
+            heldNow[photo.id] = (false, Date())
             surface(error)
         }
     }
 
-    /// The like — double-tap toggles (Part 1). Ephemeral, owner-private, no count.
+    // MARK: what you just tapped (build 77)
+
+    /// Your own heart and bookmark as you've just set them, shown at once
+    /// wherever the photo is (Today, a moment, its stories) while the server
+    /// is told, and put back if it says no. A photo's own `likedByMe` and
+    /// `anchoredByMe` are what the server last said; these sit over them
+    /// until a fresh Today has caught up. Never a count: only your own state.
+    private var likedNow: [String: (on: Bool, at: Date)] = [:]
+    private var heldNow: [String: (on: Bool, at: Date)] = [:]
+
+    func isLiked(_ photo: Photo) -> Bool { likedNow[photo.id]?.on ?? photo.likedByMe }
+    func isHeld(_ photo: Photo) -> Bool { heldNow[photo.id]?.on ?? photo.anchoredByMe }
+
+    /// A fresh Today asked for at `since` knows everything tapped before it.
+    private func forgetTapsBefore(_ since: Date) {
+        likedNow = likedNow.filter { $0.value.at >= since }
+        heldNow = heldNow.filter { $0.value.at >= since }
+    }
+
+    /// The like — double-tap toggles (Part 1). Ephemeral, owner-private, no
+    /// count. Shown at once (build 77); it used to wait for the request and
+    /// then a reload of all of Today.
     func toggleLike(_ photo: Photo) async {
+        let was = isLiked(photo)
+        likedNow[photo.id] = (!was, Date())
         do {
-            if photo.likedByMe {
+            if was {
                 let _: Empty = try await api.send("DELETE", "/photos/\(photo.id)/like")
                 Trail.note(.unliked)
             } else {
                 let _: Empty = try await api.send("POST", "/photos/\(photo.id)/like")
                 Trail.note(.liked)
             }
-            await refreshToday()
         } catch {
+            likedNow[photo.id] = (was, Date())
             surface(error)
         }
     }
