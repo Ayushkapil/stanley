@@ -511,7 +511,14 @@ final class AppState {
     /// Which circles this person is in, and the one on screen in full. The
     /// one on screen is the one they last chose, while they're still in it,
     /// else the first they joined.
-    func loadCircle() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func loadCircle(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("circle", unlessWithin: fresh) { await self.fetchLoadCircle() }
+    }
+
+    private func fetchLoadCircle() async {
         // Unanswered isn't answered: without a connection, nobody has been
         // told they have no circle, and the gate is for people who don't.
         // Launched offline, the app waits for Stanley instead (`RootView`).
@@ -536,6 +543,9 @@ final class AppState {
                 return
             }
             queue.adopt(into: first.id)
+            // Whose saved choice it is: at launch the profile is fetched
+            // beside the circles (build 79), so wait for it if it's out.
+            if myId == nil, let profile = profileLoading { await profile.value }
             let chosen = myId.flatMap { UserDefaults.standard.string(forKey: Self.circleKey($0)) }
             api.circleId = (circles.first { $0.id == chosen } ?? first).id
             circle = try await api.send("GET", "/circles/mine") as CircleInfo
@@ -665,20 +675,22 @@ final class AppState {
         let since = Date()
         let wanted = min(max(Self.todayPage, feedItems.count), 200)
         do {
+            // Returned beside Today, not after it (build 79).
+            async let returnedAsk: ReturnedResponse = api.send(
+                "GET", "/feed/returned", query: ["tz": TimeZone.current.identifier]
+            )
             let response: TodayResponse = try await api.send(
                 "GET", "/feed/today", query: ["limit": String(wanted)]
             )
             // Switched circles while this was on its way: it's the old one's.
-            guard api.circleId == asked else { return }
+            guard api.circleId == asked else { _ = try? await returnedAsk; return }
             feedItems = response.items
             forgetTapsBefore(since)
             todayCursor = response.nextCursor
             todayLoaded = true
             notes = response.notes ?? response.note.map { [$0] } ?? []
             mosaic = response.mosaic
-            let returnedResponse: ReturnedResponse = try await api.send(
-                "GET", "/feed/returned", query: ["tz": TimeZone.current.identifier]
-            )
+            let returnedResponse = try await returnedAsk
             returned = returnedResponse.item
         } catch APIError.server(code: "not_in_circle", status: _) {
             await lostCircle()
@@ -817,7 +829,16 @@ final class AppState {
         }
     }
 
-    func refreshMemories() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func refreshMemories(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("memories", unlessWithin: fresh) { await self.fetchRefreshMemories() }
+    }
+
+    private func fetchRefreshMemories() async {
+        // Held and the letters at once (build 79; the letters waited).
+        async let letters: Void = refreshLetters()
         do {
             let response: MemoriesResponse = try await api.send("GET", "/me/anchored")
             threads = response.threads
@@ -825,7 +846,7 @@ final class AppState {
         } catch {
             missed(error)
         }
-        await refreshLetters()
+        await letters
     }
 
     // MARK: letters (build 42)
@@ -889,7 +910,16 @@ final class AppState {
 
     // MARK: profile
 
+    @ObservationIgnored private var profileLoading: Task<Void, Never>?
+
     func loadProfile() async {
+        let task = Task { @MainActor in await self.fetchProfile() }
+        profileLoading = task
+        await task.value
+        if profileLoading == task { profileLoading = nil }
+    }
+
+    private func fetchProfile() async {
         do {
             profile = try await api.send("GET", "/me") as MyProfile
             myId = profile?.id
@@ -1269,7 +1299,14 @@ final class AppState {
 
     /// The week a reflection would be about, asked for only while the
     /// evening for writing one is open (`ReflectionWindow`).
-    func loadThisWeek() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func loadThisWeek(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("week", unlessWithin: fresh) { await self.fetchLoadThisWeek() }
+    }
+
+    private func fetchLoadThisWeek() async {
         guard ReflectionWindow.isOpen() else {
             thisWeek = nil
             return
@@ -1348,12 +1385,32 @@ final class AppState {
 
     /// Everything the book is made of: its written pages, every reflection,
     /// what's held, and the letters opened.
-    func loadBook() async {
-        async let pages: Void = loadJournal()
-        async let kept: Void = refreshMemories()
-        async let weeks: Void = loadAllReflections()
-        async let dots: Void = loadMoods()
+    func loadBook(unlessWithin fresh: TimeInterval? = nil) async {
+        async let pages: Void = loadJournal(unlessWithin: fresh)
+        async let kept: Void = refreshMemories(unlessWithin: fresh)
+        async let weeks: Void = loadAllReflections(unlessWithin: fresh)
+        async let dots: Void = loadMoods(unlessWithin: fresh)
         _ = await (pages, kept, weeks, dots)
+    }
+
+    // MARK: loads that needn't be repeated (build 79)
+
+    @ObservationIgnored private var loading: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var loadedAt: [String: Date] = [:]
+
+    /// Runs `work`, unless `fresh` is given and the same load is on its way
+    /// (then waits for that one) or finished within `fresh` seconds. A load
+    /// that ended offline doesn't count as finished.
+    private func once(_ key: String, unlessWithin fresh: TimeInterval?, _ work: @escaping @MainActor () async -> Void) async {
+        if let fresh {
+            if let running = loading[key] { await running.value; return }
+            if let done = loadedAt[key], Date.now.timeIntervalSince(done) < fresh { return }
+        }
+        let task = Task { @MainActor in await work() }
+        loading[key] = task
+        await task.value
+        if loading[key] == task { loading[key] = nil }
+        if !offline { loadedAt[key] = .now }
     }
 
     /// A journal's notice, showing as Stanley's own banner (build 57).
@@ -1459,7 +1516,14 @@ final class AppState {
 
     /// The marks on your days, all of them (build 52; from `GET /moods`
     /// since build 65).
-    func loadMoods() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func loadMoods(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("moods", unlessWithin: fresh) { await self.fetchLoadMoods() }
+    }
+
+    private func fetchLoadMoods() async {
         do {
             let got: DayMarks = try await api.send("GET", "/moods")
             moods = Dictionary(got.moods.map { ($0.day, $0.level) }, uniquingKeysWith: { _, last in last })
@@ -1493,7 +1557,14 @@ final class AppState {
     }
 
     /// The journal's written pages, all of them, a stretch at a time.
-    func loadJournal() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func loadJournal(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("journal", unlessWithin: fresh) { await self.fetchLoadJournal() }
+    }
+
+    private func fetchLoadJournal() async {
         do {
             var gathered: [DayPage] = []
             var after: String?
@@ -1533,7 +1604,14 @@ final class AppState {
 
     /// Every reflection, not only the newest page of them: the book has a
     /// page for each.
-    func loadAllReflections() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func loadAllReflections(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("reflections", unlessWithin: fresh) { await self.fetchLoadAllReflections() }
+    }
+
+    private func fetchLoadAllReflections() async {
         await loadReflections()
         for _ in 0..<40 where reflectionsCursor != nil {
             await loadMoreReflections()
@@ -1613,7 +1691,14 @@ final class AppState {
 
     /// The shared journal of the circle on screen, all of it, a stretch of
     /// days at a time.
-    func loadShared() async {
+    /// `unlessWithin`: a load that only might be needed (a view appearing,
+    /// a renewal's ripple) joins one on its way, or does nothing if one
+    /// finished that recently (build 79). Left out, it always loads.
+    func loadShared(unlessWithin fresh: TimeInterval? = nil) async {
+        await once("shared", unlessWithin: fresh) { await self.fetchLoadShared() }
+    }
+
+    private func fetchLoadShared() async {
         guard let circle else {
             sharedDays = []
             return

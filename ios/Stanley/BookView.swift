@@ -635,16 +635,25 @@ struct BookView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
             typing = false
         }
-        .task { await load() }
-        .onChange(of: state.reloads) { Task { await load() } }
+        // Arriving, or links renewed: only what isn't already fresh (build
+        // 79). Launch has just fetched the book, and a renewal the circle,
+        // the journal and Held; fetching them again was a second round trip
+        // each. A tap on the tab fetches everything.
+        .task { await load(unlessWithin: 20) }
+        .onChange(of: state.reloads) { Task { await load(unlessWithin: 20) } }
     }
 
-    private func load() async {
+    /// All at once (build 79; they were one after another), the shared
+    /// journal once the circle is known, since it's the circle on screen's.
+    private func load(unlessWithin fresh: TimeInterval? = nil) async {
         // The circles again, for each journal's cover photo (build 53).
-        await state.loadCircle()
-        await state.loadBook()
-        await state.loadShared()
-        await state.loadThisWeek()
+        async let circleThenShared: Void = {
+            await state.loadCircle(unlessWithin: fresh)
+            await state.loadShared(unlessWithin: fresh)
+        }()
+        async let book: Void = state.loadBook(unlessWithin: fresh)
+        async let week: Void = state.loadThisWeek(unlessWithin: fresh)
+        _ = await (circleThenShared, book, week)
     }
 
     // MARK: two books

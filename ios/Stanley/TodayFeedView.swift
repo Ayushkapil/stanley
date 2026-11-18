@@ -164,10 +164,13 @@ struct TodayFeedView: View {
             // A tap on the Today tab: back to the top, or at the top the
             // pull's own refresh (`TabTaps`).
             .onTabTap(state.tabTaps.today, scroll: proxy, to: "masthead", position: $anchor) {
-                await state.loadCircle()
-                await state.refreshToday()
-                await state.loadQuestion()
-                await state.loadCircleLetters()
+                // All at once (build 79); the queued photo after, since
+                // sending it refreshes Today again.
+                async let circle: Void = state.loadCircle()
+                async let today: Void = state.refreshToday()
+                async let question: Void = state.loadQuestion()
+                async let letters: Void = state.loadCircleLetters()
+                _ = await (circle, today, question, letters)
                 await state.flushPendingCapture()
             }
             .background(SideDockReader(dock: $sideDock))
@@ -199,17 +202,21 @@ struct TodayFeedView: View {
                     // The circle too: who's in it (Members, mention tones)
                     // and which circles you're in had no other way to catch
                     // up until a relaunch (the QA audit, build 30).
-                    await state.loadCircle()
-                    await state.refreshToday()
-                    await state.loadQuestion()
-                    await state.loadCircleLetters()
+                    // All at once (build 79); the queued photo after, since
+                    // sending it refreshes Today again.
+                    async let circle: Void = state.loadCircle()
+                    async let today: Void = state.refreshToday()
+                    async let question: Void = state.loadQuestion()
+                    async let letters: Void = state.loadCircleLetters()
+                    _ = await (circle, today, question, letters)
                     await state.flushPendingCapture()
                 }.value
             }
             .task {
-                await state.refreshToday()
-                await state.loadQuestion()
-                await state.loadCircleLetters()
+                async let today: Void = state.refreshToday()
+                async let question: Void = state.loadQuestion()
+                async let letters: Void = state.loadCircleLetters()
+                _ = await (today, question, letters)
                 await state.flushPendingCapture()
             }
           }

@@ -647,7 +647,40 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       life, the renewal ran on return with no photo downloaded. **Seen
       and left for step 4**: the renewal's `reloads` makes the Journal
       tab load its circle, book and letters again, so a return fetches
-      those twice.
+      those twice. (Fixed in step 4, below.)
+  - **Step 3, the mosaic, not done**: the review had called its photos
+    tiny tiles; they're a carousel one photo at a time, 440pt tall (640
+    on the inner display), so the 1080px derivative is the right size and
+    a 320px thumb would blur. Faces were step 2.
+  - **Step 4, loads that don't wait on each other** (the same build):
+    - **Launch**: the profile and the circles at once (the circles wait
+      for the profile, `profileLoading`, only to know whose saved circle
+      to open). **Today**: Today, Returned, the question and the letters
+      at once (Returned waited for Today; the others waited in turn), the
+      queued photo after; the same on a pull and a tap on the tab.
+      **Held**: its letters beside it. **The Journal tab**: the circle
+      then the shared journal, beside the book and the week.
+    - **Not fetched twice** (`AppState.once`): a load can be asked for
+      `unlessWithin:` seconds, joining one on its way or doing nothing
+      if one finished that recently (a load that ended offline doesn't
+      count). The Journal tab appearing, and a renewal's `reloads`, ask
+      that way (20 seconds), so launch's book and a renewal's circle,
+      journal and Held aren't fetched again. Every other caller, the
+      tab's own tap and anything after a change, still always loads.
+    - **Measured** against the local server with 350 ms added to every
+      request (`scratchpad/slow/slow_server.py`, not in the repo; about a
+      round trip from India on a mobile network): Today fully loaded
+      (photos, Returned, question, letters) at 1.46s after launch's first
+      request, from 2.84s; the Journal tab after a cold launch 15
+      requests by 2.67s, from 23 by 4.07s; coming back after the links
+      ran out, 14 requests in 1.20s and no photo downloaded (before step
+      2, about eight rounds one after another and every photo again).
+      The few still queued were behind HTTP/1.1's six connections to the
+      local server; Fly serves HTTP/2. **Left**: `/circles` then
+      `/circles/mine` is still two round trips (the second needs the
+      first's answer; one route would need a server change).
+    - Checked on the way, not a bug: a launch that loaded the profile and
+      circles twice was the test killing the previous instance mid-launch.
   - **The public repo, audited** (report only): no key, token, DSN,
     ntfy topic, invite code or database in the files or in git history;
     `.gitignore` covers `.p8`, `.env`, `*.db` and `var/`. Public by
@@ -4033,7 +4066,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
 - **Build 79** (0.2.0): photos and faces kept on the phone, the renewal
-  at once and ahead of time (above). Phone and server; not archived.
+  at once and ahead of time, loads run together (above). Phone and server; not archived.
   **Order to ship: deploy its server (versioned faces, the November 17
   policy), then upload 79.**
 - **Build 78** (0.2.0): the phone's words for `busy` (item 13), and

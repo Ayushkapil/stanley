@@ -121,8 +121,12 @@ struct RootView: View {
                             .task {
                                 // The profile first: whether we know this
                                 // person's name decides whether setup comes next.
-                                await state.loadProfile()
-                                await state.loadCircle()
+                                // Both at once (build 79); the circle waits for
+                                // the profile only to know whose choice of
+                                // circle to open.
+                                async let profile: Void = state.loadProfile()
+                                async let circle: Void = state.loadCircle()
+                                _ = await (profile, circle)
                                 // A fresh thirty days, at most once a day.
                                 await state.refreshSignInIfDue()
                             }
