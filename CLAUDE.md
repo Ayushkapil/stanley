@@ -4066,9 +4066,12 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
 - **Build 79** (0.2.0): photos and faces kept on the phone, the renewal
-  at once and ahead of time, loads run together (above). Phone and server; not archived.
-  **Order to ship: deploy its server (versioned faces, the November 17
-  policy), then upload 79.**
+  at once and ahead of time, loads run together (above). **Its server is
+  on Fly as v39** (November 17, `main` as of `1e86d5a`, 774 passing:
+  versioned faces at 256px, the November 17 Privacy Policy; `/health` ok,
+  `/privacy` with the new words, integrity ok), deployed before the app.
+  **Archived and uploaded the same evening**; to be added to Friends once
+  the browser pane is signed in to App Store Connect again.
 - **Build 78** (0.2.0): the phone's words for `busy` (item 13), and
   everything in 77. **Uploaded November 17, 2026** (after an App Store
   Connect outage turned the first six tries away with a 500) and **added
