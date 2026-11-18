@@ -91,6 +91,10 @@ Personalization, never Other.
   them, kept until they choose another, put the automatic cover back or
   delete the account, and in the export. User content (Photos), not
   linked to anyone else; shared journals have no chosen photo. Since
+  build 79, photos and profile photos a person has seen are kept on their
+  own phone (`PhotoDisk`, the app's Caches folder, not backed up), each
+  erased a day after last seen and all on sign-out; nothing is sent
+  anywhere. Since
   build 52 a page can also be shared with one person in a circle
   (`journal_pages.recipient_id`), and then it's read by that person and
   its writer only. Since build 52 too, the mark a person may leave on

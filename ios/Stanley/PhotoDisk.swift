@@ -11,8 +11,8 @@ import Foundation
 ///   kept fresh only by being shown, and a photo its poster deleted is never
 ///   shown again (no page names it), so it's gone within a day, as the
 ///   widget's copies are.
-/// - **Faces** aren't kept: an avatar's path stays the same when someone
-///   changes their photo.
+/// - **Faces** are kept too since build 79, when the server began giving a
+///   changed face a new name; before that a face's path stayed the same.
 /// - **Nothing once signed out** (`forget`).
 /// - **At most `maxBytes`**, the least recently shown going first.
 ///
@@ -32,7 +32,7 @@ struct PhotoDisk: Sendable {
 
     /// Whether a photo at this path may be kept at all.
     static func keeps(_ path: String) -> Bool {
-        !path.isEmpty && !path.contains("/avatars/")
+        !path.isEmpty
     }
 
     private func file(_ path: String) -> URL {

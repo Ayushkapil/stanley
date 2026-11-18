@@ -612,11 +612,42 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     faces never kept, gone a day after last shown and kept fresh by
     being shown, pruning by age, the room kept least recently shown
     first, nothing after sign-out.
-  - **The Privacy Policy doesn't yet say so**: it mentions copies on the
-    phone only for the widget. Wording drafted for Ayush (photos seen are
-    kept on the phone a day after last seen, faces never, all erased on
-    sign-out; a deleted photo can take up to a day to leave the phone, as
-    with the widget). Build 79 shouldn't reach testers before it does.
+  - **The Privacy Policy says so now** (November 17, 2026, Ayush's yes,
+    shipped on its own, not with Sentry's): photos and profile photos
+    you've seen are kept on your phone, each erased a day after last seen
+    and all on sign-out; a deleted photo can stay on the phone, unshown,
+    up to a day; the deletion sentence names a phone's copy beside the
+    widget. Both copies, a `PolicyNotice.Revision`, `PRIVACY_LABEL.md`.
+    **Not deployed: it goes to Fly with build 79's server, just before
+    79 is uploaded.**
+  - **Step 2, expired links and faces** (the same build):
+    - **Faces kept too** (`PhotoMemory` and `PhotoDisk` take every path):
+      the server gives a changed face a new name each time
+      (`avatars/<user>-<id>.jpg`, the old file deleted after the commit),
+      so a face kept by its path is never an old one. **Faces are 256px**
+      (`AVATAR_EDGE`, it was 512; the brief said 192, but a member's page
+      draws one at 84pt, 252px on a 3x screen, where 192 would be soft).
+      Faces already uploaded stay 512 at their old name until changed.
+      **The server must be on Fly before 79 reaches anyone**: against the
+      old server a changed face keeps its name, and a kept copy would be
+      the old face for up to a day. `test_avatar_versions.py` (four; 774
+      server tests).
+    - **The renewal runs everything at once** (`reloadEverything`,
+      `async let` over the circle, Today, the question, letters, Held,
+      the profile and the journal; they were eight round trips one after
+      another).
+    - **Renewed ahead of time** (`wentToBackground`, `cameBack`): back
+      to the front after longer than a link lasts (`linkLife`, 14
+      minutes), everything is renewed at once before any photo is
+      refused; photos on the phone need no link. `STANLEY_LINK_LIFE`
+      shortens it in a Debug build.
+    - **Seen** against the local server: the Journal tab's launch 3
+      downloads, then 0; the You tab's faces 6 downloads on the first
+      visit, 0 after a relaunch, shown; away 30 seconds with a 20-second
+      life, the renewal ran on return with no photo downloaded. **Seen
+      and left for step 4**: the renewal's `reloads` makes the Journal
+      tab load its circle, book and letters again, so a return fetches
+      those twice.
   - **The public repo, audited** (report only): no key, token, DSN,
     ntfy topic, invite code or database in the files or in git history;
     `.gitignore` covers `.p8`, `.env`, `*.db` and `var/`. Public by
@@ -4001,8 +4032,10 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   February 2027 at the earliest (17; the logging is in build 77); faster
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
-- **Build 79** (0.2.0): photos kept on the phone (above). Phone only;
-  not archived, and not to go to testers until the Privacy Policy says so.
+- **Build 79** (0.2.0): photos and faces kept on the phone, the renewal
+  at once and ahead of time (above). Phone and server; not archived.
+  **Order to ship: deploy its server (versioned faces, the November 17
+  policy), then upload 79.**
 - **Build 78** (0.2.0): the phone's words for `busy` (item 13), and
   everything in 77. **Uploaded November 17, 2026** (after an App Store
   Connect outage turned the first six tries away with a 500) and **added
@@ -4480,7 +4513,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
 
 ## Tests
 
-**770 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
+**774 passing** (`cd server && .venv/bin/python -m pytest`). Strong coverage of the
 hard logic: physics (Hypothesis property tests across DST/timezones), full decay
 lifecycle at exact boundaries, A1/A2, deletion cascades, block bidirectionality,
 likes-no-count, Returned priority/dismiss/rest/tombstone, the circle's board

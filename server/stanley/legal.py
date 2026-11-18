@@ -18,7 +18,9 @@ from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
 # The Terms' date, and the Privacy Policy's own. The Privacy Policy last
-# changed on November 16, 2026 (build 76): a photo you may choose from your
+# changed on November 17, 2026 (build 79): photos and profile photos you've
+# seen kept on your phone, erased a day after you last saw them. Before that,
+# on November 16, 2026 (build 76): a photo you may choose from your
 # phone for your own journal's cover, kept for you alone. Before that, on
 # November 15, 2026 (build 65): the mark on a day is set on that
 # day only, from the answer sheet, and stays when a photo from the day is
@@ -42,7 +44,7 @@ CONTACT = "ayushkapileshwar@gmail.com"
 # their circle who turned it on (build 37); and November 4: the board's own notes (build 27) and Face ID or
 # Touch ID (build 29).
 EFFECTIVE = "November 14, 2026"
-PRIVACY_EFFECTIVE = "November 16, 2026"
+PRIVACY_EFFECTIVE = "November 17, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
     (
@@ -50,7 +52,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 16, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 17, 2026.",
         ],
     ),
     (
@@ -122,7 +124,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- A photo is seen for about six days, fading as it goes",
             "- If no one held it, it then becomes a tombstone, and within seven days the photo, its caption, place, likes, tags and stories are permanently deleted from our servers",
             "- A photo someone held stays with them until they let go of it or delete their account, or until the person who posted it deletes it",
-            "- When someone deletes a photo they posted, its image is removed everywhere at once, including from the collections of people who held it (a Home Screen widget can take up to a day to catch up, as described below). They keep a note that a memory was there, and the stories they wrote themselves. The person who posted a photo always has the last word",
+            "- When someone deletes a photo they posted, its image is removed everywhere at once, including from the collections of people who held it (a copy kept on someone's phone, or a Home Screen widget, can take up to a day to let go of it, as described below). They keep a note that a memory was there, and the stories they wrote themselves. The person who posted a photo always has the last word",
             "- A journal entry on your photo lasts as long as the photo does for you: while it's in Today, and after that only while you hold it. It's deleted when the photo fades without your hold, when you let go of it, when the photo is deleted, or when you delete the entry",
             "- Reflections don't fade. Each is kept until you delete it or your account",
             "- The pages of your journal don't fade either. Each is kept until you delete it or your account. A photo you choose for your journal's cover is kept until you choose another, put the automatic cover back, or delete your account. A page you've shared with a circle stays in that circle's shared journal until you make it private again, delete it, leave the circle or delete your account. A page you've shared with one person stays shared with them on the same terms, and also goes back to being yours alone if they leave the circle or delete their account. If someone reports a shared page, the report keeps the start of its words so it can be reviewed",
@@ -134,6 +136,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "- Our database is backed up once a day and each backup is kept for seven days, so anything deleted is gone from our backups within seven days",
             "- A notification token is deleted when you sign out on that phone, when you delete your account, or when Apple tells us it no longer works",
             "- Places you've used recently or starred are saved only on your phone, never on our servers, and are erased from your phone when you delete your account there",
+            "- Photos you've seen in Stanley are kept on your phone so they open without downloading again, and so are the profile photos of people in your circles. Each is erased from your phone a day after you last saw it, and all of them when you sign out. They never leave your phone. So a photo that someone deletes can stay on your phone, though Stanley no longer shows it, for up to a day after you last saw it",
             "- If you put Stanley's widget on your Home Screen, your phone keeps small copies of a few of your circle's newest photos, and the newest note on its board, so the widget can show them without going online. They never leave your phone, and they're replaced each time you open Stanley. The widget shows a note only on the day it was written, and stops showing a photo and erases its copy about a day after you last opened Stanley, or when the photo's six days are up, whichever comes first. So a photo that someone deletes can stay in your widget until you next open Stanley, for about a day at most. Nothing is kept for a widget while Face ID or Touch ID is required or after you sign out, and if you remove the widget, what was kept for it is erased the next time you open Stanley",
             "- If you put Stanley's Journal widget on your Home Screen, your phone keeps the opening lines of your last few days' pages so the widget can show them without going online. They are only what you wrote yourself, they never leave your phone, and they are erased when you sign out. Nothing is kept for it while Face ID or Touch ID is required",
             "- Headlines aren't about you. We keep each edition for about half an hour before fetching it fresh, and forget a town's headlines once no one has asked for them in a day",

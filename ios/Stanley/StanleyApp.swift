@@ -202,12 +202,16 @@ struct RootView: View {
             // Photos kept on the phone: a day after last shown, and no
             // more than their room (build 79).
             if phase == .background {
+                state.wentToBackground()
                 Task.detached(priority: .background) { PhotoDisk.shared.prune() }
             }
             if phase == .active {
                 Task {
                     await state.checkConnection()
                     await state.refreshSignInIfDue()
+                    // Away past the links' life: everything renewed at once,
+                    // the circle with it (build 79).
+                    if await state.cameBack() { return }
                     // Back to the front: who's in the circle may have changed.
                     if state.signedIn, state.checkedCircle, !state.offline { await state.loadCircle() }
                 }

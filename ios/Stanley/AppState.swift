@@ -269,17 +269,51 @@ final class AppState {
 
     /// Today, the circle's faces, Held and the profile, fetched again; then
     /// everything that keeps its own copy is told to.
+    ///
+    /// All at once (build 79): they were one after another, about eight
+    /// round trips, three or four seconds from India. The circle on screen
+    /// is already known by now, so nothing here waits on another.
     private func reloadEverything() async {
-        await loadCircle()
-        await refreshToday()
-        await loadQuestion()
-        await loadCircleLetters()
-        await refreshMemories()
-        await loadProfile()
+        lastRenewal = .now
+        async let circle: Void = loadCircle()
+        async let today: Void = refreshToday()
+        async let question: Void = loadQuestion()
+        async let letters: Void = loadCircleLetters()
+        async let kept: Void = refreshMemories()
+        async let profile: Void = loadProfile()
         // The journal's cover link runs out with the rest (build 56).
-        if journalWritable { await loadJournal() }
+        async let journal: Void = journalWritable ? loadJournal() : ()
+        _ = await (circle, today, question, letters, kept, profile, journal)
         reloads += 1
     }
+
+    /// When the app went to the background, for renewing links ahead of time.
+    @ObservationIgnored private var leftAt: Date?
+
+    func wentToBackground() { leftAt = .now }
+
+    /// Back to the front (build 79). Away longer than the links last, every
+    /// photo on screen would be refused on its first try and then wait for a
+    /// renewal; renew now instead, before anything asks. Photos already on
+    /// the phone (`PhotoDisk`) need no link at all. Returns whether it did.
+    func cameBack() async -> Bool {
+        defer { leftAt = nil }
+        guard let leftAt, Date.now.timeIntervalSince(leftAt) > Self.linkLife,
+              signedIn, checkedCircle, !offline else { return false }
+        Trail.note(.renewedLinks)
+        await reloadEverything()
+        return true
+    }
+
+    /// How long a signed link lasts on the server (§9), less a minute.
+    /// `STANLEY_LINK_LIFE` (seconds) shortens it in a Debug build, to see a
+    /// return renew without waiting a quarter of an hour.
+    static let linkLife: TimeInterval = {
+        #if DEBUG
+        if let s = ProcessInfo.processInfo.environment["STANLEY_LINK_LIFE"], let t = TimeInterval(s) { return t }
+        #endif
+        return 14 * 60
+    }()
 
     /// Every error in Stanley's voice. The system's own descriptions ("The
     /// Internet connection appears to be offline.", "The data couldn't be

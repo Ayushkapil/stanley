@@ -21,7 +21,9 @@ EXIF_KEEP = {306}  # 306 = DateTime
 
 DERIVATIVE_EDGE = 1080
 THUMB_EDGE = 320
-AVATAR_EDGE = 512
+# A face is drawn at most 84pt across (a member's page; 132 once, in setup),
+# 252px on a 3x screen (build 79; it was 512).
+AVATAR_EDGE = 256
 # A journal's cover photo (build 76): large enough for the opened cover on
 # the widest screen, small enough to stay a cover.
 COVER_EDGE = 1600

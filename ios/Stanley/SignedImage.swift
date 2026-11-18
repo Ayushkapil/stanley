@@ -121,8 +121,10 @@ enum PhotoMemory {
         return cache
     }()
 
+    /// Faces too since build 79: the server gives a changed face a new
+    /// name, so a face kept by its path is never an old one.
     private static func key(_ url: URL) -> NSString? {
-        url.path.contains("/avatars/") ? nil : url.path as NSString
+        url.path.isEmpty ? nil : url.path as NSString
     }
 
     /// Signed out: the photos one account was shown go with it, from memory

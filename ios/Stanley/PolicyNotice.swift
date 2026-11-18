@@ -51,6 +51,9 @@ enum PolicyNotice {
         Revision(day: "2026-11-16", title: "November 16, 2026", changes: [
             "You can choose a photo from your phone for your own journal's cover. It's kept on our server for you alone, without its location or any other details, until you choose another, put the automatic cover back, or delete your account.",
         ]),
+        Revision(day: "2026-11-17", title: "November 17, 2026", changes: [
+            "Photos you've seen, and profile photos, are kept on your phone so they open without downloading again. Each is erased a day after you last saw it, and all of them when you sign out.",
+        ]),
     ]
 
     static var current: Revision { revisions[revisions.count - 1] }

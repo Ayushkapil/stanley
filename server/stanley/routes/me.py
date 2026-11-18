@@ -22,7 +22,7 @@ from ..milestones import milestone_payload, surface_due
 from ..models import (
     Anchor, Block, CircleLetter, CircleNote, CirclePrompt, Comment, DayMood, JournalEntry, Like, Membership, Milestone,
     NotificationLog, PersonLetter, Photo, PhotoTag, PromptResponse, PushToken, Report, Rest,
-    JournalPage, ReturnedLog, User, WeeklyReflection,
+    JournalPage, ReturnedLog, User, WeeklyReflection, new_id,
 )
 from ..storage import delete_after_commit
 from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
@@ -142,9 +142,15 @@ def upload_avatar(
         raise HTTPException(400, {"code": "bad_image"})
     except Busy:
         raise HTTPException(503, {"code": "busy"})
-    key = f"avatars/{user.id}.jpg"
+    # A new name each time (build 79), so the phone can keep a face by its
+    # name and never show an old one: a changed face is a new path. The old
+    # file goes once this commits.
+    old = user.avatar_key
+    key = f"avatars/{user.id}-{new_id()}.jpg"
     storage.put(key, jpeg)
     user.avatar_key = key
+    if old and old != key:
+        delete_after_commit(db, storage, old)
     return {"avatar_url": avatar_url(settings, key, clock.now())}
 
 

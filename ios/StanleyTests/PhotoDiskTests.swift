@@ -28,11 +28,15 @@ final class PhotoDiskTests: XCTestCase {
         XCTAssertNil(disk.read("/blobs/other/deriv.jpg"))
     }
 
-    func testFacesAreNeverKept() {
-        disk.write(Data("face".utf8), for: "/blobs/avatars/u1.jpg")
-        XCTAssertNil(disk.read("/blobs/avatars/u1.jpg"))
-        XCTAssertFalse(PhotoDisk.keeps("/blobs/avatars/u1.jpg"))
-        XCTAssertTrue(PhotoDisk.keeps(photo))
+    /// Faces are kept since build 79: a changed face is a new path, so the
+    /// old one is simply never shown again and goes within the day.
+    func testAChangedFaceIsANewPathAndTheOldOneAgesOut() {
+        disk.write(Data("old face".utf8), for: "/blobs/avatars/u1-aaa.jpg")
+        XCTAssertNil(disk.read("/blobs/avatars/u1-bbb.jpg"), "the new face is never the old one")
+        clock.at += 24 * 60 * 60 + 1
+        disk.prune()
+        XCTAssertNil(disk.read("/blobs/avatars/u1-aaa.jpg"))
+        XCTAssertFalse(PhotoDisk.keeps(""))
     }
 
     /// A deleted photo is never shown again, so it isn't kept fresh, and is
