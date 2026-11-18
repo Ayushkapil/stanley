@@ -587,6 +587,46 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
     `ios/AppStoreScreenshots/` and the plan in `APP_STORE_METADATA.md`
     (whose description lost its filters sentence).
 
+- **Photos kept on the phone between launches** (build 79, November 17,
+  2026; the first of Ayush's order for the trip to India on the 23rd:
+  the cache, then expired links and faces, then the mosaic and small
+  faces, then loads run together). Phone only.
+  - **`PhotoDisk`** (`PhotoDisk.swift`, Foundation and CryptoKit): a
+    photo's bytes in `Library/Caches/Photos`, named by a SHA-256 of its
+    blob's path, never its link, so neither a new launch nor a renewed
+    fifteen-minute link downloads it again. `SignedImage` asks memory,
+    then the disk (off the main thread), then the network, and writes
+    what it downloads. **A day after it was last shown, it's gone**
+    (`maxAge`; reading it starts its day over): a photo its poster
+    deleted is never shown again, so it leaves the phone within a day,
+    as the widget's copies do. **Faces aren't kept** (an avatar's path
+    stays the same when it changes; step 2's business). At most 150 MB,
+    least recently shown first; pruned at launch and on going to the
+    background; **emptied on sign-out** (`PhotoMemory.forget`). Caches:
+    never backed up, and iOS may empty it.
+  - **Measured** against the local server, the same four swipes down
+    Today after a cold launch: 11 photo downloads with the cache empty,
+    3 the next launch (the three faces, nothing else); a launch alone, 2
+    then 0. The photos showed from the cache, faded as their age says.
+  - `PhotoDiskTests` (six; 80 phone tests): kept by path and read back,
+    faces never kept, gone a day after last shown and kept fresh by
+    being shown, pruning by age, the room kept least recently shown
+    first, nothing after sign-out.
+  - **The Privacy Policy doesn't yet say so**: it mentions copies on the
+    phone only for the widget. Wording drafted for Ayush (photos seen are
+    kept on the phone a day after last seen, faces never, all erased on
+    sign-out; a deleted photo can take up to a day to leave the phone, as
+    with the widget). Build 79 shouldn't reach testers before it does.
+  - **The public repo, audited** (report only): no key, token, DSN,
+    ntfy topic, invite code or database in the files or in git history;
+    `.gitignore` covers `.p8`, `.env`, `*.db` and `var/`. Public by
+    design or harmless: the contact address, the production circle's id
+    (useless without membership), the Fly app's name (in the app
+    anyway), the APNs key ID and team ID (useless without the `.p8`,
+    which is outside the repo and not in iCloud), and the word filter's
+    salt (the list is hashes of slurs). Live: `/auth/dev` and `/docs`
+    answer 404. The QA screenshots are of the seeded circle.
+
 - **Sign-out leaves nothing behind; which builds connect** (build 77,
   November 17, 2026, step 1 of Ayush's list after an engineering review;
   the list and what's deferred are under open items, "The engineering
@@ -3380,7 +3420,7 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   Your Account, a page with name, username and join date, then Sign Out,
   Blocked and Delete Account, one level down), and **About** (About Stanley,
   Terms of Use, Privacy Policy, Acknowledgements (Sentry's MIT notice, the
-  production audit), and the version, "Stanley 0.2.0 (77)", at the
+  production audit), and the version, "Stanley 0.2.0 (79)", at the
   foot). Build 26 put **Circle Journal** in Circle, under Members.
   Build 46 added a sixth group, **Journal**, under Appearance: Journal
   Title (shown only when the server keeps one).
@@ -3961,6 +4001,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   February 2027 at the earliest (17; the logging is in build 77); faster
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
+- **Build 79** (0.2.0): photos kept on the phone (above). Phone only;
+  not archived, and not to go to testers until the Privacy Policy says so.
 - **Build 78** (0.2.0): the phone's words for `busy` (item 13), and
   everything in 77. **Uploaded November 17, 2026** (after an App Store
   Connect outage turned the first six tries away with a 500) and **added
@@ -4563,7 +4605,8 @@ policy's notice, five; since build 72 the sheet's months, four;
 since build 73 the link's words, one; since build 74 the countdown's
 flight path, eleven; since build 76 the opened cover's words, four, and the
 cover colours' inks, one; since build 77 the offline queue's owner, three, and the heart and
-bookmark's rollback, five; seventy-four in all). `tests/test_moods.py` (build 65) holds
+bookmark's rollback, five; since build 79 the photos kept on the phone,
+six; eighty in all). `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

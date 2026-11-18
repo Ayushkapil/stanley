@@ -11,6 +11,8 @@ struct StanleyApp: App {
         // Where a sketched sun turns for pull to refresh, the system's
         // spinner is drawn in no color (build 39, `Polish.swift`).
         SunRefresh.prepare()
+        // Photos kept on the phone past their day go at launch too (build 79).
+        Task.detached(priority: .background) { PhotoDisk.shared.prune() }
         // Crash visibility for TestFlight. DSN-gated: empty DSN (every dev
         // build) means Sentry never starts. Crash capture only, with no
         // identifier of any kind (`CrashReporting`, `CrashScrub`), so crash
@@ -197,6 +199,11 @@ struct RootView: View {
         // Back to the front: if Stanley was out of reach, see whether it
         // answers now rather than wait for the next try.
         .onChange(of: scenePhase) { _, phase in
+            // Photos kept on the phone: a day after last shown, and no
+            // more than their room (build 79).
+            if phase == .background {
+                Task.detached(priority: .background) { PhotoDisk.shared.prune() }
+            }
             if phase == .active {
                 Task {
                     await state.checkConnection()

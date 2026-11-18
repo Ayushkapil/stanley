@@ -76,6 +76,17 @@ struct SignedImage<Content: View, Placeholder: View>: View {
             shown = (url.path, kept)
             return
         }
+        // Kept on the phone from an earlier launch or an older link (build
+        // 79): no download, whatever the link says.
+        let path = url.path
+        if let image = await Task.detached(priority: .userInitiated, operation: { () -> UIImage? in
+            guard let data = PhotoDisk.shared.read(path) else { return nil }
+            return await UIImage(data: data)?.byPreparingForDisplay()
+        }).value {
+            PhotoMemory.keep(image, for: url)
+            shown = (path, image)
+            return
+        }
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -93,6 +104,7 @@ struct SignedImage<Content: View, Placeholder: View>: View {
             else { return }
             PhotoMemory.keep(image, for: url)
             shown = (url.path, image)
+            Task.detached(priority: .utility) { PhotoDisk.shared.write(data, for: path) }
         } catch {
             if isOffline(error) { state.lostConnection() }
         }
@@ -113,9 +125,11 @@ enum PhotoMemory {
         url.path.contains("/avatars/") ? nil : url.path as NSString
     }
 
-    /// Signed out: the photos one account was shown go with it.
+    /// Signed out: the photos one account was shown go with it, from memory
+    /// and from the phone's storage.
     static func forget() {
         cache.removeAllObjects()
+        PhotoDisk.shared.forget()
     }
 
     static func image(for url: URL) -> UIImage? {
