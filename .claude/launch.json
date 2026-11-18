@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stanley-server",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd server && STANLEY_DEV_AUTH=1 STANLEY_SECRET_KEY=dev exec .venv/bin/python -m uvicorn --factory stanley.main:create_app --host 127.0.0.1 --port 8000"],
+      "port": 8000
+    }
+  ]
+}

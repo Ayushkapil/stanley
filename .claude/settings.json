@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -m pytest*)",
+      "Bash(.venv/bin/python scripts/*)",
+      "Bash(server/.venv/bin/python -m pytest*)",
+      "Bash(STANLEY_DEV_AUTH=1 STANLEY_SECRET_KEY=dev .venv/bin/python scripts/*)",
+      "Bash(xcodebuild -project ios/Stanley.xcodeproj *)",
+      "Bash(xcodebuild -list *)",
+      "Bash(curl -s * http://127.0.0.1:8000/*)",
+      "Bash(lsof -nP -iTCP:8000 *)"
+    ]
+  }
+}

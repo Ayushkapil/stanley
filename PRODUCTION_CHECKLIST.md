@@ -90,7 +90,7 @@ themselves (description, keywords, age rating, screenshots) are in
 3. ⚠️ **Not done** (`STANLEY_SENTRY_DSN` is still empty in `ios/project.yml`).
    **Build 70 did the app's half**: every report is scrubbed of the
    installation id, time zone, locale and device hash before it leaves
-   (`CrashScrub`, held by `CrashScrubTests`). What's left is in CLAUDE.md,
+   (`CrashScrub`, held by `CrashScrubTests`). What's left is in docs/reference/OPEN_ITEMS.md,
    "Crash reporting is ready to switch on once the Sentry account exists";
    note the free plan keeps errors 30 days, not 90.
    **Turn on crash reporting** (Sentry; no build has had a DSN yet, so no
