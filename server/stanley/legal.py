@@ -18,7 +18,9 @@ from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
 # The Terms' date, and the Privacy Policy's own. The Privacy Policy last
-# changed on November 17, 2026 (build 79): photos and profile photos you've
+# changed on November 19, 2026 (the move to R2): photos, profile photos and
+# chosen covers stored by Cloudflare, no longer on Fly's disk. Before that, on
+# November 17, 2026 (build 79): photos and profile photos you've
 # seen kept on your phone, erased a day after you last saw them. Before that,
 # on November 16, 2026 (build 76): a photo you may choose from your
 # phone for your own journal's cover, kept for you alone. Before that, on
@@ -44,7 +46,7 @@ CONTACT = "ayushkapileshwar@gmail.com"
 # their circle who turned it on (build 37); and November 4: the board's own notes (build 27) and Face ID or
 # Touch ID (build 29).
 EFFECTIVE = "November 14, 2026"
-PRIVACY_EFFECTIVE = "November 17, 2026"
+PRIVACY_EFFECTIVE = "November 19, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
     (
@@ -52,7 +54,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 17, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 19, 2026.",
         ],
     ),
     (
@@ -155,7 +157,8 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "## Services that run Stanley",
             "Beyond your circle, we share data only with the services Stanley needs to work:",
             "- Apple, to sign you in, and to deliver the notifications you've turned on (Apple carries the words of each notice to your phone). Place-name suggestions also come from Apple, on your phone",
-            "- Fly.io, which hosts our server, database and photos",
+            "- Fly.io, which hosts our server and database",
+            "- Cloudflare, which stores photos, profile photos and the photos you choose for your journal's cover",
             "- Sentry, which receives anonymous crash reports",
             "- PBS, the BBC and Google News, the sources of The World Today. Our server fetches their headlines; for local news it asks Google News for your town's headlines without saying who asked. Nothing else about you reaches them",
             "When you open a full news article, it loads from the publisher's own website, where their privacy policy applies.",
@@ -167,10 +170,10 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
     (
         "6. Where it's stored and how it's protected",
         [
-            "Stanley's server, database and photos are in the United States, hosted by Fly.io in Chicago.",
+            "Stanley's server and database are in the United States, hosted by Fly.io in Chicago. Photos are stored in the eastern United States by Cloudflare.",
             "- Every connection between the app and our server is encrypted with HTTPS (TLS)",
             "- Photos are never public. Each one is shown through a signed link that stops working after 15 minutes",
-            "- Our database and photos are stored on an encrypted disk",
+            "- Our database is stored on an encrypted disk, and Cloudflare encrypts photos where it stores them",
             "- Your sign-in is kept in your iPhone's Keychain, and you can lock Stanley with Face ID or Touch ID",
             "We take reasonable care to protect your data, but no system is perfectly secure. If something happens that affects your data, we'll tell you.",
         ],

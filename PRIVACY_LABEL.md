@@ -54,8 +54,9 @@ Personalization, never Other.
 ### User Content
 
 - [ ] **Photos or Videos — COLLECTED · Linked to identity · Not used for tracking.**
-  The daily photo and the optional avatar, uploaded to and stored on Stanley's
-  server, tied to the account. The daily photo is taken with the in-app
+  The daily photo and the optional avatar, uploaded to Stanley's server and,
+  since November 19, 2026, stored in Cloudflare R2 (a processor, private
+  bucket, no versioning, objects deleted with the photo), tied to the account. The daily photo is taken with the in-app
   camera or, since build 16, chosen with the system photo picker, which
   needs no Photos permission: Stanley sees only the one photo chosen. A
   chosen photo is re-encoded on the phone from its pixels, so its metadata

@@ -54,6 +54,9 @@ enum PolicyNotice {
         Revision(day: "2026-11-17", title: "November 17, 2026", changes: [
             "Photos you've seen, and profile photos, are kept on your phone so they open without downloading again. Each is erased a day after you last saw it, and all of them when you sign out.",
         ]),
+        Revision(day: "2026-11-19", title: "November 19, 2026", changes: [
+            "Photos, profile photos and the photos chosen for journal covers are now stored by Cloudflare, in the eastern United States, instead of on our server's own disk. They're still never public, and a deleted photo is deleted there too.",
+        ]),
     ]
 
     static var current: Revision { revisions[revisions.count - 1] }

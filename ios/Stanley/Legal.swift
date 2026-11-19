@@ -20,7 +20,7 @@ enum Legal {
     /// before that November 13, letters to the circle, unsigned to the
     /// circle and not to the server; November 12, the Home Screen widget, and
     /// November 11, the two reminders). `legal.py` keeps the same two.
-    static let privacyEffective = "November 17, 2026"
+    static let privacyEffective = "November 19, 2026"
 
     static let terms: [Section] = [
         Section(heading: "1. Introduction and acceptance", lines: [
@@ -156,7 +156,7 @@ enum Legal {
         Section(heading: "1. Introduction", lines: [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
             "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
-            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 17, 2026.",
+            "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 19, 2026.",
         ]),
         Section(heading: "2. What we collect", lines: [
             "## Account data",
@@ -247,7 +247,8 @@ enum Legal {
             "## Services that run Stanley",
             "Beyond your circle, we share data only with the services Stanley needs to work:",
             "- Apple, to sign you in, and to deliver the notifications you've turned on (Apple carries the words of each notice to your phone). Place-name suggestions also come from Apple, on your phone",
-            "- Fly.io, which hosts our server, database and photos",
+            "- Fly.io, which hosts our server and database",
+            "- Cloudflare, which stores photos, profile photos and the photos you choose for your journal's cover",
             "- Sentry, which receives anonymous crash reports",
             "- PBS, the BBC and Google News, the sources of The World Today. Our server fetches their headlines; for local news it asks Google News for your town's headlines without saying who asked. Nothing else about you reaches them",
             "When you open a full news article, it loads from the publisher's own website, where their privacy policy applies.",
@@ -256,10 +257,10 @@ enum Legal {
             "We may disclose information if the law requires it, or if we believe in good faith that it's needed to prevent harm to someone, to deal with fraud or abuse, or to protect Stanley and the people who use it.",
         ]),
         Section(heading: "6. Where it's stored and how it's protected", lines: [
-            "Stanley's server, database and photos are in the United States, hosted by Fly.io in Chicago.",
+            "Stanley's server and database are in the United States, hosted by Fly.io in Chicago. Photos are stored in the eastern United States by Cloudflare.",
             "- Every connection between the app and our server is encrypted with HTTPS (TLS)",
             "- Photos are never public. Each one is shown through a signed link that stops working after 15 minutes",
-            "- Our database and photos are stored on an encrypted disk",
+            "- Our database is stored on an encrypted disk, and Cloudflare encrypts photos where it stores them",
             "- Your sign-in is kept in your iPhone's Keychain, and you can lock Stanley with Face ID or Touch ID",
             "We take reasonable care to protect your data, but no system is perfectly secure. If something happens that affects your data, we'll tell you.",
         ]),
