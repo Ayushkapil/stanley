@@ -14,6 +14,10 @@ primary_region = 'ord'
   # own disk and is destroyed on every deploy. The app creates the tree
   # — database, blobs, backups — on startup.
   STANLEY_DATA_DIR = "/data/var"
+  # Photos, avatars and chosen covers live in Cloudflare R2 since November
+  # 19, 2026 (step 4). The endpoint, bucket and keys are Fly secrets
+  # (BLOB_R2_ENDPOINT, BLOB_R2_BUCKET, BLOB_R2_ACCESS_KEY, BLOB_R2_SECRET_KEY).
+  BLOB_BACKEND = "r2"
 
 [processes]
   # Stanley has no module-level `app` — create_app() is a factory that takes
