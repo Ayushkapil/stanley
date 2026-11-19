@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from . import physics
 from .config import Settings
 from .decay import owner_hash_for
-from .models import Anchor, Block, Circle, CircleNote, Comment, JournalEntry, Like, Photo, PhotoTag, User
+from .models import Anchor, Block, Circle, CircleNote, Comment, JournalEntry, Like, Photo, PhotoImage, PhotoTag, User
 from .storage import read_url
 
 DEPARTED = "departed"
@@ -227,7 +227,14 @@ def photo_payload(
         "decay_progress": physics.decay_progress(photo.taken_at, now),
         # §13: clients interpolate the fade between syncs from this deadline.
         "state_deadline": iso(photo.state_deadline),
+        # The entry's first photo, in the shape every build has read since
+        # the start (build 81 keeps it so builds back to 17 still work).
         "urls": urls,
+        # Build 81: the day's entry is up to three photos, in order, the
+        # first being `urls` again (its id is the entry's). Never a count of
+        # anything: the list is the photos, nothing says how many.
+        "images": entry_images(session, settings, now, photo) if urls else None,
+        "editable_today": editable_today(session, photo, viewer, now),
         "comments": visible_comments(session, photo.id, viewer.id, settings, now, hidden),
         "anchored_by_me": my_anchor is not None,
         "my_anchor_note": my_anchor.note if my_anchor else None,
@@ -244,6 +251,49 @@ def photo_payload(
         # included (build 65): a photo goes to a circle, and the mark is in
         # `day_moods` alone, read by `GET /moods`.
     }
+
+
+def entry_extras(session: Session, photo_id: str) -> list[PhotoImage]:
+    """The entry's further photos (build 81), in their order."""
+    return list(
+        session.scalars(
+            select(PhotoImage).where(PhotoImage.photo_id == photo_id).order_by(PhotoImage.position)
+        ).all()
+    )
+
+
+def entry_images(session: Session, settings: Settings, now: datetime, photo: Photo) -> list[dict]:
+    """Every photo in the day's entry, first the entry's own, then the
+    further ones; each a signed image and thumb with an id to remove it by."""
+    out = [{
+        "id": photo.id,
+        "image": read_url(settings, photo.deriv_key, now),
+        "thumb": read_url(settings, photo.thumb_key, now),
+    }]
+    for extra in entry_extras(session, photo.id):
+        if extra.deriv_key and extra.thumb_key:
+            out.append({
+                "id": extra.id,
+                "image": read_url(settings, extra.deriv_key, now),
+                "thumb": read_url(settings, extra.thumb_key, now),
+            })
+    return out
+
+
+def editable_today(session: Session, photo: Photo, viewer: User, now: datetime) -> bool | None:
+    """For the owner only (build 81): whether the entry is still their
+    today's, so a photo may be added to it or taken out. The day is the one
+    their phone last told us (`tz_last_seen`), falling back to the zone it
+    was taken in. None for everyone else."""
+    if photo.owner_id is None or photo.owner_id != viewer.id:
+        return None
+    if photo.deleted_at is not None or not photo.deriv_key:
+        return False
+    tz = viewer.tz_last_seen or photo.taken_tz
+    try:
+        return photo.local_date == physics.local_capture_date(now, tz)
+    except Exception:
+        return photo.local_date == physics.local_capture_date(now, photo.taken_tz)
 
 
 def journal_body(session: Session, photo: Photo, viewer: User) -> str | None:

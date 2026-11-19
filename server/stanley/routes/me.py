@@ -25,7 +25,7 @@ from ..models import (
     JournalPage, ReturnedLog, User, WeeklyReflection, new_id,
 )
 from ..storage import delete_after_commit
-from ..serialize import avatar_url, blocked_ids, circle_name, iso, journal_body, memory_payload, user_brief
+from ..serialize import avatar_url, blocked_ids, circle_name, entry_extras, iso, journal_body, memory_payload, user_brief
 from .journal import delete_answers
 
 router = APIRouter(tags=["me"])
@@ -399,6 +399,15 @@ def export_memories(
                 name = f"held/{i:03d}_{photo.local_date.isoformat()}.jpg"
                 zf.writestr(name, storage.get(photo.deriv_key))
                 entry["image"] = name
+                # The day's further photos (build 81), beside the first.
+                more = []
+                for n, extra in enumerate(entry_extras(db, photo.id), start=2):
+                    if extra.deriv_key and storage.exists(extra.deriv_key):
+                        extra_name = f"held/{i:03d}_{photo.local_date.isoformat()}_{n}.jpg"
+                        zf.writestr(extra_name, storage.get(extra.deriv_key))
+                        more.append(extra_name)
+                if more:
+                    entry["more_images"] = more
             else:
                 entry["image"] = None
                 entry["tombstone"] = True

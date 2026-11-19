@@ -4,7 +4,7 @@ import SwiftUI
 /// top to bottom, no links out.
 struct AboutStanleyView: View {
     private static let paragraphs = [
-        "Stanley is a photo app for small circles. You post one photo a day. It fades in six days unless someone in your circle keeps it.",
+        "Stanley is a photo app for small circles. You post once a day: a photo, or up to three from the same day. It fades in six days unless someone in your circle keeps it.",
         "There are no followers, no like counts, no algorithm deciding what you see. Your feed is small because your circle is small. Your photos fade because not everything needs to last forever — but the ones someone reaches out to save become more meaningful because of everything that was allowed to go.",
         "What you post here belongs to you. What your friends keep lives in their memory of you. If you ever delete something, it's gone everywhere. Stanley doesn't sell your data, doesn't show you ads, and doesn't use your photos to train anything.",
     ]
@@ -13,7 +13,7 @@ struct AboutStanleyView: View {
     /// gestures and the corners of the journal were explained nowhere but
     /// the empty Held page.
     private static let howItWorks = [
-        "Today is your circle's journal. The + at the top takes today's photo: one a day in each circle you're in.",
+        "Today is your circle's journal. The + at the top takes today's photo: one post a day in each circle you're in, and until your day ends you can add a photo or two to it.",
         "Tap the bookmark on a photo, or press and hold it and choose Hold, to keep it in Held. Double-tap a photo to like it; only the person who posted it sees who did.",
         "Under a photo, write what you remember. Type @ to mention someone.",
         "The board at the top of Today holds a sticky note from each of you, for the day. Swipe to read them.",

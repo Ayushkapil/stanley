@@ -29,8 +29,8 @@ struct OnboardingView: View {
 
     private let pages = [
         Page(
-            headline: "One photo a day.",
-            body: "No feed to scroll. No album to curate. Just one moment — the one that mattered today.",
+            headline: "One day at a time.",
+            body: "No feed to scroll. No album to curate. Just your day, once — a photo, or a few from it.",
             artifact: .print
         ),
         Page(

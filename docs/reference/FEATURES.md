@@ -3598,3 +3598,47 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
   (`CircleInfo.init(from:)`), and one written before build 36 (with
   `emoji`, without `reminders`) still reads.
 
+
+- **The day's entry, up to three photos (build 81)**, a deliberate reversal
+  of "one photo per person per circle per day" (CLAUDE.md, the first locked
+  rule, with the reasoning). The entry is the existing `photos` row: its
+  three keys are the first photo, and `photo_images` (`PhotoImage`, a
+  position 1 or 2) holds the others, keyed `{photo_id}/{image_id}/orig.jpg`,
+  `deriv.jpg`, `thumb.jpg`, the original encoded after the response as a
+  capture's is. So the slot, the 12-hour gap, the redo, decay, keeps,
+  hearts, stories, reports and the Circle Posts notice are the entry's with
+  no change. `POST /photos/{id}/images` (multipart `file`, `tz`; the upload
+  rate limit) adds one while the entry's `local_date` is the owner's day by
+  the zone sent (409 `day_over` after, `entry_full` at three); nothing
+  notifies and there are no words to filter. `DELETE
+  /photos/{id}/images/{image_id}?tz=` takes one out (409 `last_photo` for
+  the only one: deleting the entry is `DELETE /photos/{id}`, with its
+  redo); taking out the first moves the next one's keys onto the entry's
+  row, so the entry keeps its id and everything on it. The photo payload
+  keeps `urls` (the first photo, the shape every build from 17 reads) and
+  adds `images` (`{id, image, thumb}` in order, the first id the entry's)
+  and `editable_today` (owner only: still their today by `tz_last_seen`).
+  `scrub` takes every photo of the entry, so a delete and an unkept purge
+  do; a kept entry keeps all of them. The R2 script's `referenced_keys`
+  (so `reconcile` never deletes a further photo), `integrity_check.py`,
+  the moderation tool's `preserve_photo` (each photo in a folder of its
+  own) and the export (`more_images` beside `image`) name the further
+  photos. Covers, the mosaic, milestones and the journal's pages use the
+  first photo, unchanged (the cover rule was asked a fourth time and kept).
+  On the phone: `Photo.images`/`editableToday`, `pictures` falling back to
+  `urls`; `Scrapbook.swift` lays two or three photos out as placed prints
+  (the first largest to one side, the second over its lower corner, the
+  third tucked at the other edge; a lean of 3° to 5° with a degree of
+  jitter from each photo's id; the whole page mirrored by the entry's id;
+  later prints on top), never a grid; one photo draws as before. Double-tap,
+  the heart, Hold and the bookmark act on the whole entry. The photo menu
+  has "Add a Photo" (gone when the entry is full, never a number) and, on a
+  pressed print while the day lasts, "Remove This Photo"; Add opens the
+  camera in an add mode ("Add to today's.", no place or caption steps).
+  Copy says "one post a day" (Welcome, Onboarding's "One day at a time.",
+  About, the circle gate, Settings), and the Terms' rule line and the
+  policy's paraphrase say the same; the Terms are dated November 19, 2026.
+  **The Journal tab is the one the app opens to** (`StanleyApp`: `tab =
+  .held`), a product decision in the same brief. Left as they were: the
+  Held viewer, the mosaic, the returned card, the widget and the book's
+  pages show an entry's first photo; the brand line "One Day, One Photo".

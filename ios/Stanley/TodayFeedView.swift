@@ -746,7 +746,9 @@ struct PhotoImageView: View {
 
     var body: some View {
         Group {
-            if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
+            if photo.pictures.count > 1 {
+                scrapbook
+            } else if let urls = photo.urls, let url = state.api.absoluteURL(urls.image) {
                 bed(url)
                 // What the fade shows, said (the HCI audit, build 32): a
                 // VoiceOver user heard nothing of whose photo it was or how
@@ -799,6 +801,75 @@ struct PhotoImageView: View {
                 .photoActions(photo, $action)
             }
         }
+    }
+
+    /// An entry of several photos: prints laid on the page (`Scrapbook`).
+    /// The gestures, the fade and the heart belong to the entry, so they are
+    /// on the whole page; a long press on one print opens the menu scoped to
+    /// that print, which is where Remove lives.
+    private var scrapbook: some View {
+        Scrapbook(pictures: photo.pictures, seed: photo.id) { picture in
+            printCell(picture)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+        .accessibilityAddTraits(.isImage)
+        .accessibilityAction(named: state.isLiked(photo) ? "Unlike" : "Like") {
+            Task { await state.toggleLike(photo) }
+        }
+        .accessibilityAction(named: state.isHeld(photo) ? "Let go" : "Hold") { toggleHold() }
+        .saturation(1.0 - 0.85 * fade)
+        .opacity(1.0 - opacityDrop * fade)
+        .overlay { likeHeart }
+        .overlay(alignment: .bottomTrailing) { gestures }
+        .scaleEffect(settleScale)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { doubleTap() }
+        .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 30) {
+            hold()
+        } onPressingChanged: { pressing in
+            withAnimation(.easeOut(duration: pressing ? 0.45 : 0.25)) {
+                holdProgress = pressing && !state.isHeld(photo) ? 1 : 0
+            }
+        }
+        .photoActions(photo, $action)
+    }
+
+    /// One print of the scrapbook: its photo filling the 3:4 frame, under the
+    /// same hold tint and last-light edge as a single photo has.
+    private func printCell(_ picture: PhotoImage) -> some View {
+        Color.clear
+            .overlay {
+                if let url = state.api.absoluteURL(picture.image) {
+                    SignedImage(url: url) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Shimmer()
+                    }
+                }
+            }
+            .clipped()
+            .overlay(shape.fill(Color.accentColor.opacity(0.38 * holdProgress)))
+            .clipShape(shape)
+            .overlay {
+                if photo.state == "LAST_LIGHT" {
+                    shape
+                        .strokeBorder(Color.orange.opacity(0.45), lineWidth: 1.5)
+                        .allowsHitTesting(false)
+                }
+            }
+            .asPrint()
+            .contentShape(Rectangle())
+            .contextMenu {
+                Button { Task { await state.toggleLike(photo) } } label: {
+                    Label(state.isLiked(photo) ? "Unlike" : "Like", systemImage: "heart")
+                }
+                Button { toggleHold() } label: {
+                    Label(state.isHeld(photo) ? "Let go" : "Hold", systemImage: "bookmark")
+                }
+                Divider()
+                PhotoMenuItems(photo: photo, action: $action, imageId: picture.id)
+            }
     }
 
     /// The photo, cropped into exactly the shape of a print.
@@ -1010,7 +1081,7 @@ struct PhotoCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             PhotoImageView(photo: photo, drifts: true)
-                .asPrint()
+                .printed(photo)
             words
             comments
             commentField
@@ -1197,7 +1268,7 @@ struct MomentCard: View {
                     ForEach(item.photos ?? []) { photo in
                         VStack(alignment: .leading, spacing: 10) {
                             PhotoImageView(photo: photo)
-                                .asPrint()
+                                .printed(photo)
                             PrintByline(
                                 owner: photo.owner, time: photo.takenAt,
                                 plane: state.circle?.countdown?.marks(photo.takenAt) ?? false
@@ -1454,7 +1525,7 @@ struct PhotoStoriesView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     PhotoImageView(photo: photo)
-                        .asPrint()
+                        .printed(photo)
                     if let caption = photo.caption, !caption.isEmpty {
                         Text(caption)
                             .font(photo.owner.id == state.myId ? .hand(18, relativeTo: .body) : .body)

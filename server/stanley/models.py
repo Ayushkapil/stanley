@@ -153,6 +153,27 @@ class Photo(Base):
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class PhotoImage(Base):
+    """A further photo in a day's entry (build 81). The entry is the `Photo`
+    row: its own three keys are the entry's first photo, and everything that
+    attaches to a photo (likes, holds, stories, decay, the day's slot)
+    attaches to the entry, never to one of these. Up to two of these hang off
+    an entry (`physics.PHOTOS_PER_ENTRY`), in `position` order after the
+    first. Their blobs live under the entry's own prefix and go wherever the
+    entry's go: kept while it's held, deleted when it's scrubbed."""
+
+    __tablename__ = "photo_images"
+    __table_args__ = (Index("ix_photo_images_photo", "photo_id", "position"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    photo_id: Mapped[str] = mapped_column(ForeignKey("photos.id"))
+    position: Mapped[int] = mapped_column(Integer)
+    blob_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    deriv_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    thumb_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
 class Anchor(Base):
     """A durable per-person reference (§8.2). Not a state of the photo."""
 

@@ -35,6 +35,12 @@ CIRCLE_CAP = 100
 # its own day: one photo a day in each, never one photo shared across them.
 CIRCLES_PER_PERSON = 5
 
+# --- The day's entry (build 81) -----------------------------------------------
+# The unit is the day, not the photo: a person's day in a circle is one entry,
+# and it may hold up to this many photos, added (or one taken out) only while
+# that day is still the person's own. Never shown as a number anywhere.
+PHOTOS_PER_ENTRY = 3
+
 # --- Redo (§8.4 amendment) ----------------------------------------------------
 # Capture is still a commitment, but the first minutes are allowed to be a
 # mistake: deleting the day's photo refunds the slot exactly once. A second

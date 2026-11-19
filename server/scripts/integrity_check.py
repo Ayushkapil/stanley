@@ -100,6 +100,10 @@ def _blob_checks(con: sqlite3.Connection, blob_dir: str) -> list[tuple[str, int]
     named: set[str] = set()
     for row in con.execute("SELECT blob_key, deriv_key, thumb_key FROM photos"):
         named.update(k for k in row if k)
+    # An entry's further photos (build 81), where the table exists yet.
+    if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='photo_images'").fetchone():
+        for row in con.execute("SELECT blob_key, deriv_key, thumb_key FROM photo_images"):
+            named.update(k for k in row if k)
     named.update(k for (k,) in con.execute("SELECT avatar_key FROM users WHERE avatar_key IS NOT NULL"))
     photo_files = {f for f in on_disk if not f.startswith("avatars/")}
     # A full-size original is written after the response (photos.py), so a

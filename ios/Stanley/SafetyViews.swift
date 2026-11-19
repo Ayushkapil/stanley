@@ -12,8 +12,12 @@ import SwiftUI
 /// alert that says plainly what happens.
 
 /// What someone asked to do to a photo from one of its menus.
-enum PhotoAction: Identifiable {
+enum PhotoAction: Identifiable, Hashable {
     case report, delete, untag
+    /// Add a photo to today's entry (the capture sheet).
+    case addPhoto
+    /// Take one picture off today's entry, by its own id.
+    case removeImage(String)
     /// Your own journal entry on it (build 26).
     case journal
     var id: Self { self }
@@ -25,6 +29,8 @@ struct PhotoMenuItems: View {
     @Environment(AppState.self) private var state
     let photo: Photo
     @Binding var action: PhotoAction?
+    /// The picture the menu was opened on, when the entry has several.
+    var imageId: String? = nil
 
     private var isMine: Bool { state.myId != nil && state.myId == photo.owner.id }
     private var isTagged: Bool { photo.tagged.contains { $0.id != nil && $0.id == state.myId } }
@@ -40,6 +46,20 @@ struct PhotoMenuItems: View {
             if let written = photo.hasJournal {
                 Button { action = .journal } label: {
                     Label(written ? "Your Journal Entry" : "Write in Your Journal", systemImage: "book.closed")
+                }
+            }
+            // Only while the day lasts and there's room: its absence when
+            // full is the only signal.
+            if photo.editableToday == true {
+                if photo.pictures.count < 3 {
+                    Button { action = .addPhoto } label: {
+                        Label("Add a Photo", systemImage: "plus.square.on.square")
+                    }
+                }
+                if photo.pictures.count > 1, let imageId {
+                    Button(role: .destructive) { action = .removeImage(imageId) } label: {
+                        Label("Remove This Photo", systemImage: "minus.circle")
+                    }
                 }
             }
             Button(role: .destructive) { action = .delete } label: {
@@ -95,6 +115,13 @@ private struct PhotoActions: ViewModifier {
         Binding(get: { action == which }, set: { if !$0 { action = nil } })
     }
 
+    private var removing: Binding<Bool> {
+        Binding(
+            get: { if case .removeImage? = action { return true } else { return false } },
+            set: { if !$0 { action = nil } }
+        )
+    }
+
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: showing(.report)) {
@@ -102,6 +129,20 @@ private struct PhotoActions: ViewModifier {
             }
             .sheet(isPresented: showing(.journal)) {
                 JournalEntrySheet(photoId: photo.id, thumb: photo.urls?.thumb, takenAt: photo.takenAt)
+            }
+            .sheet(isPresented: showing(.addPhoto)) {
+                CaptureView(adding: photo)
+            }
+            .alert("Remove this photo from today?", isPresented: removing) {
+                Button("Remove", role: .destructive) {
+                    if case .removeImage(let id)? = action {
+                        Task { await state.removeImage(id, from: photo) }
+                    }
+                    action = nil
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("It comes off today's entry for everyone.")
             }
             .alert("Delete this photo?", isPresented: showing(.delete)) {
                 Button("Delete", role: .destructive) { Task { await state.deletePhoto(photo) } }

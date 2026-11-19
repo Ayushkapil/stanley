@@ -59,13 +59,22 @@ def local_files(root: Path) -> dict[str, Path]:
 
 
 def referenced_keys(database: Path) -> set[str]:
-    """Every blob key the database names: photos' three files, avatars, and
-    chosen journal covers. Read-only."""
+    """Every blob key the database names: photos' three files (and those of
+    an entry's further photos, build 81), avatars, and chosen journal covers.
+    Read-only."""
     con = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
     try:
         keys: set[str] = set()
         for (a, b, c) in con.execute("SELECT blob_key, deriv_key, thumb_key FROM photos"):
             keys.update(k for k in (a, b, c) if k)
+        # An entry's further photos (build 81). Without them, reconcile
+        # would delete every second and third photo of a day from R2.
+        has_extras = con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='photo_images'"
+        ).fetchone()
+        if has_extras:
+            for (a, b, c) in con.execute("SELECT blob_key, deriv_key, thumb_key FROM photo_images"):
+                keys.update(k for k in (a, b, c) if k)
         for (avatar, cover) in con.execute("SELECT avatar_key, journal_cover_key FROM users"):
             keys.update(k for k in (avatar, cover) if k)
         return keys
@@ -169,6 +178,13 @@ def cmd_verify(settings, files, referenced, manifest, store, args) -> int:
 
 def cmd_reconcile(settings, files, referenced, manifest, store, args) -> int:
     in_r2 = store.keys()
+    # What the database names is read again AFTER R2 is listed: a photo
+    # posted (or one added to a day's entry) between `main` reading the
+    # database and the listing is in R2 but wasn't named then, and would
+    # otherwise be deleted as a stray.
+    database = Path(settings.database_url.removeprefix("sqlite:///"))
+    if database.exists():
+        referenced = referenced | referenced_keys(database)
     stray = sorted(k for k in in_r2 if k not in referenced)
     for key in stray:
         print(f"{'deleting' if args.confirm else 'would delete'} {key}")

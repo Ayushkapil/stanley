@@ -50,7 +50,7 @@ targets:
         # Kept in step with the git tag and server __version__ so the About
         # page, the API and the repo never disagree about which Stanley this is.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "80"
+        CFBundleVersion: "81"
         # Export compliance, answered once here so TestFlight stops holding
         # each build at "Missing Compliance": Stanley uses only HTTPS and the
         # Keychain, the operating system's own encryption, which is exempt.
@@ -99,7 +99,7 @@ targets:
   StanleyTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [StanleyTests, Shared/CoverField.swift, Stanley/OpenedCoverWords.swift, Stanley/OfflineQueue.swift, Stanley/Taps.swift, Stanley/PhotoDisk.swift, Stanley/AskToNotify.swift, Stanley/WritingPrompts.swift, Stanley/Prompts.swift, Stanley/LocalDay.swift, Stanley/MarkSheet.swift, Stanley/PolicyNotice.swift, Stanley/Legal.swift, Stanley/CrashReporting.swift, Shared/Countdown.swift, Stanley/CountdownJourney.swift]
+    sources: [StanleyTests, Shared/CoverField.swift, Stanley/OpenedCoverWords.swift, Stanley/OfflineQueue.swift, Stanley/Taps.swift, Stanley/PhotoDisk.swift, Stanley/AskToNotify.swift, Stanley/WritingPrompts.swift, Stanley/Prompts.swift, Stanley/LocalDay.swift, Stanley/MarkSheet.swift, Stanley/PolicyNotice.swift, Stanley/Legal.swift, Stanley/Models.swift, Stanley/CrashReporting.swift, Shared/Countdown.swift, Stanley/CountdownJourney.swift]
     # Sentry itself, so a report the real SDK builds is checked (build 70).
     dependencies:
       - package: Sentry
@@ -130,7 +130,7 @@ targets:
         # The same two as the app's: the store refuses an extension whose
         # version differs from the app that carries it.
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "80"
+        CFBundleVersion: "81"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

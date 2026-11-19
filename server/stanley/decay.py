@@ -16,7 +16,7 @@ from . import circle_letters, physics
 from .clock import Clock
 from .models import (
     Anchor, CircleLetter, CircleNote, Comment, DecayAudit, JournalEntry, Like, Membership, Photo,
-    PhotoTag, PurgeQueueItem, Report, User,
+    PhotoImage, PhotoTag, PurgeQueueItem, Report, User,
 )
 from .notifications import Notifier, maybe_send_last_light_notice
 from .storage import BlobStore, delete_after_commit
@@ -140,6 +140,11 @@ def scrub(
     for key in (photo.blob_key, photo.deriv_key, photo.thumb_key):
         delete_after_commit(session, storage, key)
     photo.blob_key = photo.deriv_key = photo.thumb_key = None
+    # The entry's further photos (build 81) go with it, every one.
+    for extra in session.scalars(select(PhotoImage).where(PhotoImage.photo_id == photo.id)).all():
+        for key in (extra.blob_key, extra.deriv_key, extra.thumb_key):
+            delete_after_commit(session, storage, key)
+        session.delete(extra)
     photo.caption = None
     photo.location = None
     photo.filter = None

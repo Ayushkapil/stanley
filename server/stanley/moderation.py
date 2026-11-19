@@ -41,8 +41,8 @@ from sqlalchemy.orm import Session
 from . import physics, sharing
 from .decay import delete_comments, scrub
 from .models import (
-    CircleLetter, CircleNote, CirclePrompt, Comment, JournalPage, PersonLetter, Photo, PromptResponse, Report,
-    User,
+    CircleLetter, CircleNote, CirclePrompt, Comment, JournalPage, PersonLetter, Photo, PhotoImage, PromptResponse,
+    Report, User,
 )
 
 log = logging.getLogger("stanley")
@@ -92,9 +92,18 @@ def preserve_photo(session: Session, storage, photo: Photo, folder: str) -> Path
     folder should be on the encrypted volume, readable only by the operator."""
     dest = Path(folder) / photo.id
     dest.mkdir(parents=True, exist_ok=True)
-    for key in (photo.blob_key, photo.deriv_key, photo.thumb_key):
+    keys = [photo.blob_key, photo.deriv_key, photo.thumb_key]
+    # An entry's further photos (build 81), each in a folder of its own.
+    for extra in session.scalars(
+        select(PhotoImage).where(PhotoImage.photo_id == photo.id).order_by(PhotoImage.position)
+    ).all():
+        keys += [extra.blob_key, extra.deriv_key, extra.thumb_key]
+    for key in keys:
         if key and storage.exists(key):
-            (dest / key.split("/")[-1]).write_bytes(storage.get(key))
+            name = key.split("/", 1)[-1] if key.startswith(f"{photo.id}/") else key.split("/")[-1]
+            target = dest / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(storage.get(key))
     owner = session.get(User, photo.owner_id) if photo.owner_id else None
     facts = {
         "photo_id": photo.id,

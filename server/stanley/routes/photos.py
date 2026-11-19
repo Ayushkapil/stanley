@@ -36,8 +36,9 @@ from ..images import BadImage, Busy, PreparedUpload, prepare_upload
 from ..notifications import send_circle_post_notices
 from ..ratelimit import per_person
 from ..text import clean_optional
-from ..models import Anchor, Comment, Like, Membership, Photo, PhotoTag, User, new_id
-from ..serialize import photo_payload, user_brief
+from ..models import Anchor, Comment, Like, Membership, Photo, PhotoImage, PhotoTag, User, new_id
+from ..serialize import entry_extras, photo_payload, user_brief
+from ..storage import delete_after_commit
 
 log = logging.getLogger("stanley")
 
@@ -316,6 +317,159 @@ def delete_photo(
             # purge leaves behind.
             photo.owner_hash = owner_hash
             photo.owner_id = None
+
+
+# --- The day's entry (build 81) ----------------------------------------------
+# A person's day in a circle is one entry of up to three photos. The first is
+# the entry's own row (`Photo`), so everything about the entry (its decay,
+# its keeps, its hearts, its stories, the day's slot and redo, the Circle
+# Posts notice) stays on that row. The others are `PhotoImage` rows, added or
+# taken out only while the entry's day is still the owner's own.
+
+
+def _own_editable_entry(db: Session, user: User, photo_id: str, tz: str, now: datetime) -> Photo:
+    """The caller's own entry, still standing, on their today; or the refusal."""
+    photo = db.get(Photo, photo_id)
+    if (
+        photo is None
+        or photo.owner_id is None
+        or photo.owner_id != user.id
+        or photo.deleted_at is not None
+        or photo.state == physics.PURGED
+        or not photo.deriv_key
+    ):
+        raise HTTPException(404, "not found")
+    if not valid_timezone(tz):
+        raise HTTPException(400, {"code": "bad_timezone"})
+    # The person's own day, by the zone the phone sends now: after it ends
+    # the entry is fixed for good.
+    if physics.local_capture_date(now, tz) != photo.local_date:
+        raise HTTPException(409, {"code": "day_over"})
+    return photo
+
+
+@router.post("/photos/{photo_id}/images", status_code=201, dependencies=[per_person("upload")])
+def add_image(
+    photo_id: str,
+    background: BackgroundTasks,
+    file: UploadFile = File(...),
+    tz: str = Form(...),
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    storage=Depends(get_storage),
+    settings=Depends(get_settings),
+):
+    """Another photo in today's entry (build 81), up to three in all. No
+    notice goes to anyone (the entry already told the circle, if it asked),
+    and there are no words to filter."""
+    now = clock.now()
+    photo = _own_editable_entry(db, user, photo_id, tz, now)
+    extras = entry_extras(db, photo.id)
+    if 1 + len(extras) >= physics.PHOTOS_PER_ENTRY:
+        raise HTTPException(409, {"code": "entry_full"})
+
+    data = file.file.read(settings.max_upload_bytes + 1)
+    if len(data) > settings.max_upload_bytes:
+        raise HTTPException(413, {"code": "too_large"})
+    try:
+        prepared = prepare_upload(data)
+    except BadImage:
+        raise HTTPException(400, {"code": "bad_image"})
+    except Busy:
+        raise HTTPException(503, {"code": "busy"})
+
+    image_id = new_id()
+    keys = {
+        "blob_key": f"{photo.id}/{image_id}/orig.jpg",
+        "deriv_key": f"{photo.id}/{image_id}/deriv.jpg",
+        "thumb_key": f"{photo.id}/{image_id}/thumb.jpg",
+    }
+    # Claim the place first: the flush takes SQLite's write lock, so the
+    # entry and its photos are read again with no other add or delete
+    # between that read and this commit. An entry deleted meanwhile, or
+    # filled by an add from another phone, refuses this one (the row rolls
+    # back with the request) before a single file is written.
+    db.add(PhotoImage(
+        id=image_id,
+        photo_id=photo.id,
+        position=max([e.position for e in extras], default=0) + 1,
+        created_at=now,
+        **keys,
+    ))
+    db.flush()
+    db.refresh(photo)
+    if photo.owner_id != user.id or photo.deleted_at is not None or not photo.deriv_key:
+        raise HTTPException(404, "not found")
+    now_extras = entry_extras(db, photo.id)
+    if 1 + len(now_extras) > physics.PHOTOS_PER_ENTRY:
+        raise HTTPException(409, {"code": "entry_full"})
+    for position, extra in enumerate(now_extras, start=1):
+        extra.position = position
+    written: list[str] = []
+    try:
+        for key, blob in (
+            (keys["deriv_key"], prepared.derivative),
+            (keys["thumb_key"], prepared.thumbnail),
+        ):
+            storage.put(key, blob)
+            written.append(key)
+    except Exception:
+        for key in written:
+            with contextlib.suppress(Exception):
+                storage.delete(key)
+        raise HTTPException(503, {"code": "upload_failed"})
+
+    user.tz_last_seen = tz
+    db.flush()
+    background.add_task(
+        _store_original_blob, storage, keys["deriv_key"], keys["blob_key"], prepared
+    )
+    event("entry_photo_added", photo=photo.id, user=user.id)
+    return photo_payload(db, settings, now, photo, user)
+
+
+@router.delete("/photos/{photo_id}/images/{image_id}")
+def remove_image(
+    photo_id: str,
+    image_id: str,
+    tz: str,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(get_current_user),
+    clock=Depends(get_clock),
+    storage=Depends(get_storage),
+    settings=Depends(get_settings),
+):
+    """Take one photo out of today's entry (build 81). The entry itself stays
+    (its keeps, hearts and stories with it), and so does the day's redo: to
+    take the whole day back, delete the entry. Its only photo can't be taken
+    out this way (409 `last_photo`)."""
+    now = clock.now()
+    photo = _own_editable_entry(db, user, photo_id, tz, now)
+    extras = entry_extras(db, photo.id)
+    if image_id == photo.id:
+        if not extras:
+            raise HTTPException(409, {"code": "last_photo"})
+        # The first photo goes: the next one becomes the entry's own.
+        first = extras.pop(0)
+        for key in (photo.blob_key, photo.deriv_key, photo.thumb_key):
+            delete_after_commit(db, storage, key)
+        photo.blob_key, photo.deriv_key, photo.thumb_key = first.blob_key, first.deriv_key, first.thumb_key
+        db.delete(first)
+    else:
+        gone = next((e for e in extras if e.id == image_id), None)
+        if gone is None:
+            raise HTTPException(404, "not found")
+        extras.remove(gone)
+        for key in (gone.blob_key, gone.deriv_key, gone.thumb_key):
+            delete_after_commit(db, storage, key)
+        db.delete(gone)
+    for position, extra in enumerate(extras, start=1):
+        extra.position = position
+    user.tz_last_seen = tz
+    db.flush()
+    event("entry_photo_removed", photo=photo.id, user=user.id)
+    return photo_payload(db, settings, now, photo, user)
 
 
 @router.put("/photos/{photo_id}/score", dependencies=[per_person("journal")])

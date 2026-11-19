@@ -19,6 +19,11 @@ import UIKit
 /// With today's photo already posted in this circle, the sheet says so, warmly,
 /// instead of offering a camera whose photo would be refused.
 struct CaptureView: View {
+    /// Set to add a photo to this entry (today's, the owner's) instead of
+    /// posting the day's first. The caption, place and who was there belong
+    /// to the entry, so none of them is asked again.
+    var adding: Photo? = nil
+
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var hSizeClass
@@ -90,14 +95,16 @@ struct CaptureView: View {
                 VStack(spacing: 0) {
                     if let shot {
                         preview(shot)
-                        VStack(spacing: 0) {
-                            placeLine
-                                .padding(.top, 12)
-                            details
-                                .padding(.top, 20)
+                        if adding == nil {
+                            VStack(spacing: 0) {
+                                placeLine
+                                    .padding(.top, 12)
+                                details
+                                    .padding(.top, 20)
+                            }
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { below = $0 }
                         }
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { below = $0 }
-                    } else if let mine = state.sharedToday {
+                    } else if adding == nil, let mine = state.sharedToday {
                         sharedPage(mine)
                     } else {
                         waiting
@@ -119,7 +126,7 @@ struct CaptureView: View {
             // A sheet sits outside the root's floor, so it paints its own:
             // the camera button should land on the same temperature as Today.
             .atmosphereWash()
-            .navigationTitle("Today's photo")
+            .navigationTitle(adding == nil ? "Today's photo" : "Add to today's")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -130,7 +137,7 @@ struct CaptureView: View {
                 }
                 // Each circle has its own day, so with more than one, the
                 // sheet says whose day this photo is.
-                if state.circles.count > 1, let name = state.circle?.name {
+                if adding == nil, state.circles.count > 1, let name = state.circle?.name {
                     ToolbarItem(placement: .principal) {
                         VStack(spacing: 1) {
                             Text("Today's photo").font(.headline)
@@ -172,7 +179,8 @@ struct CaptureView: View {
                 Button("Discard", role: .destructive) { dismiss() }
                 Button("Keep It", role: .cancel) {}
             } message: {
-                Text("It hasn't been posted. Today's photo is still yours to take.")
+                Text(adding == nil ? "It hasn't been posted. Today's photo is still yours to take."
+                                   : "It hasn't been added.")
             }
         }
     }
@@ -210,9 +218,11 @@ struct CaptureView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Open the camera")
             VStack(spacing: 6) {
-                Text("One photo. This is today's.")
+                Text(adding == nil ? "One photo. This is today's." : "Add to today's.")
                     .font(.sectionTitle)
-                Text("From the camera or your library. It fades in six days unless someone keeps it.")
+                Text(adding == nil
+                     ? "From the camera or your library. It fades in six days unless someone keeps it."
+                     : "From the camera or your library. It joins the rest of today's.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -257,7 +267,7 @@ struct CaptureView: View {
     }
 
     /// Today's photo is posted here and nothing new is being framed.
-    private var spent: Bool { shot == nil && state.sharedToday != nil }
+    private var spent: Bool { adding == nil && shot == nil && state.sharedToday != nil }
 
     /// Where it was, right under the photo, where pilot users looked for it
     /// (lower down it was out of sight on the Duo's cover).
@@ -457,7 +467,7 @@ struct CaptureView: View {
     /// phone is: it could be from anywhere. Never over a place the person
     /// has already chosen.
     private func suggestPlace() async {
-        guard let shot, location.isEmpty else { return }
+        guard adding == nil, let shot, location.isEmpty else { return }
         let place: String?
         if shot.fromLibrary {
             guard let taken = shot.takenAt else { return }
@@ -539,6 +549,17 @@ struct CaptureView: View {
     }
 
     private func send(jpeg: Data) async {
+        if let adding {
+            do {
+                try await state.addImage(to: adding, jpeg: jpeg)
+                Haptics.posted()
+                dismiss()
+            } catch {
+                state.surface(error)
+            }
+            uploading = false
+            return
+        }
         do {
             let posted = try await state.capture(
                 jpeg: jpeg,

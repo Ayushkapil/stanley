@@ -93,6 +93,14 @@
   runbook); a one-time scheduled task (`stanley-r2-reconcile-and-delete-local`,
   November 20, 7:20 Bloomington) runs `reconcile --confirm`, `verify`,
   reads the logs, and only if all are clean `delete-local --confirm`.
+- **Build 81** (0.2.0): the day's entry of up to three photos, placed
+  like a scrapbook, and the Journal tab first (FEATURES.md). Server
+  deployed with it; the build is to be archived and uploaded after Ayush
+  has read the report. Not done: the Terms changed (November 19) but the
+  app's policy notice is keyed to the Privacy Policy, so no line tells
+  people the Terms changed; the Held viewer, mosaic, returned card, widget
+  and book pages show an entry's first photo only; the brand line "One
+  Day, One Photo" is unchanged.
 - **Build 80** (0.2.0): the November 19 policy in the app and its notice
   (one line: photos now stored by Cloudflare), nothing else. Uploaded
   right after the switch, and **added to Friends the same day** (Testing,

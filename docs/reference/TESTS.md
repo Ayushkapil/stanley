@@ -130,7 +130,7 @@ since build 73 the link's words, one; since build 74 the countdown's
 flight path, eleven; since build 76 the opened cover's words, four, and the
 cover colours' inks, one; since build 77 the offline queue's owner, three, and the heart and
 bookmark's rollback, five; since build 79 the photos kept on the phone,
-six; eighty in all). `tests/test_moods.py` (build 65) holds
+six; eighty in all). `tests/test_entries_build81.py` (build 81) holds the day's entry: a second entry refused, a third photo taken and a fourth refused, adding and removing within the day and both refused the next, the only photo not removable, the first's removal moving the next up, nobody else adding, `editable_today` the owner's alone, an old-shaped response still one photo in `urls`, no count on an entry, hearts and keeps on the entry and not a photo, every photo kept through purge or gone with the entry, the redo untouched by a removal, and the R2 reconcile naming every photo. `tests/test_moods.py` (build 65) holds
 the mark on a day: today only, the person's own, in no shared response. `tests/test_local_days.py`
 (build 64) holds every day a person lives as theirs in Bloomington, Delhi
 and across a clock change. `tests/test_writing_prompts.py` (build 63) holds the

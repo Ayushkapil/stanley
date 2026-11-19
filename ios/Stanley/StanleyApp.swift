@@ -282,7 +282,7 @@ struct HomeView: View {
     private enum Tab { case today, held, you, world, settings }
 
     @Environment(AppState.self) private var state
-    @State private var tab = Tab.today
+    @State private var tab = Tab.held
     @State private var capturing = false
     @State private var sideDock: CGRect?
 

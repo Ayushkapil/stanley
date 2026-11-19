@@ -3,7 +3,7 @@
 ## What it is
 
 Stanley is a small-circle photo app built on two structural laws: each person may
-post **exactly one photo per day** in each circle they're in, and every photo **decays out of existence
+post **exactly once a day** in each circle they're in (since build 81 one entry, of up to three photos), and every entry **decays out of existence
 within six days unless someone deliberately keeps (anchors) it**. The only social
 gestures are *holding* (a private act of keeping, never counted),
 *story-comments* (co-remembering), since build 26 the circle's *question
@@ -26,8 +26,30 @@ floor); the circle ceiling is a soft 100. Codename: Stanley.
 These are invariants, not preferences. Most are enforced structurally in code and
 guarded by tests; treat a change to any of them as a spec change.
 
-- **One photo per person per circle per local calendar day**, plus a 12-hour
-  minimum gap. Enforced server-side by `UNIQUE(owner_id, circle_id,
+- **One entry per person per circle per local calendar day**, plus a 12-hour
+  minimum gap. **Since build 81 the unit is the day, not the photo: a
+  deliberate reversal** (a product decision, Ayush, 2026-11-19, the brief
+  "Change the unit from the photo to the day"; it replaces "one photo per
+  person per circle per day", in force from the start). The reasoning, as
+  given: one photo a day existed to prevent performative posting and an
+  accumulating feed. Neither is threatened by one day holding three photos;
+  both are threatened by three separate posts across a day. So the
+  constraint moved from the photo to the entry. **An entry holds up to
+  three photos** (`physics.PHOTOS_PER_ENTRY`): the first is the entry's own
+  `photos` row, the others `photo_images` rows. Within the person's own
+  local day (the zone the phone sends; the app's `LocalDay`) they may add a
+  photo (`POST /photos/{id}/images`, 409 `entry_full` past three) or take
+  one out (`DELETE /photos/{id}/images/{image_id}`, 409 `last_photo` for the
+  only one); once their day ends the entry is fixed (409 `day_over`).
+  **Decay, keeping, hearts and stories belong to the entry as a whole**: one
+  heart per reader per entry, one keep, one fade; a further photo has no id
+  anything can be liked or kept by. In Today a person's day is one card;
+  several photos are laid out as placed prints (`Scrapbook.swift`: varied
+  sizes, a slight lean, edges overlapping), never a grid, and **nothing
+  anywhere says how many photos** an entry has. Builds before 81 read
+  `urls`, which is still the entry's first photo (a test holds the old
+  shape). Below, "photo" in the day's rules means the entry. Taking a photo
+  out doesn't touch the redo; deleting the entry is the redo, as before. Enforced server-side by `UNIQUE(owner_id, circle_id,
   local_date)` + an app check; a race returns 409, never a double post. Per
   circle since build 17 (a product decision, with multiple circles; it was
   `UNIQUE(owner_id, local_date)`): a photo goes to the circle on screen, and
@@ -225,6 +247,14 @@ guarded by tests; treat a change to any of them as a spec change.
   newest keep, **or a photo you chose from your library** (build 76, yours
   alone; shared journals have no chosen photo, also Ayush's answer). The
   opened cover's menu says "Use Automatic Photo", not "most kept".
+  **Asked a fourth time in build 81's brief and kept, Ayush's answer
+  (2026-11-19)**, applied to entries: a circle's cover is the first photo of
+  its newest entry still in its public life; your own book's is the first
+  photo of your newest kept entry, or a photo you chose. Nothing reads or
+  ranks keeps.
+- **The Journal tab is the one the app opens to** (build 81, a product
+  decision in the same brief; it had been Today). Today is still one tap
+  away and still the circle's day, reverse-chronological.
 - **The mark on your day is yours alone and never counts anything**
   (build 52, a product decision, the same brief, part 4; **reshaped in
   build 65**, the answer-sheet brief of 2026-11-15). Five bubbles, no
@@ -415,7 +445,7 @@ rule, the architecture, or the repo's way of working changes.
 
 ## Tests
 
-`cd server && .venv/bin/python -m pytest -q` (774 passing as of build 79).
+`cd server && .venv/bin/python -m pytest -q` (793 passing as of build 81).
 Physics uses Hypothesis property tests across DST/timezones; invariants A1/A2,
 decay boundaries, deletion cascades and "no counts" are all guarded. Coverage by
 area is in `docs/reference/TESTS.md`. iOS: build for the simulator with

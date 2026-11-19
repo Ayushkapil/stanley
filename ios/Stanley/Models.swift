@@ -55,6 +55,30 @@ struct Photo: Codable, Identifiable, Hashable {
     let hasJournal: Bool?
     // No mark on a day rides on a photo since build 65, not even your own:
     // they're `GET /moods`'s alone.
+
+    /// A person's day in a circle is one entry holding up to three photos.
+    /// `urls` stays the first one; this is all of them, in order, the first
+    /// with the entry's own id. Nil from an older server, or with no urls.
+    let images: [PhotoImage]?
+    /// Yours only: whether you may still add or remove photos on this entry
+    /// today. Nil on anyone else's photo, and from an older server.
+    let editableToday: Bool?
+
+    /// Every picture of the entry, in order: `images`, or just the first
+    /// from `urls`. Never a count shown anywhere; only what to draw.
+    var pictures: [PhotoImage] {
+        if let images, !images.isEmpty { return images }
+        guard let urls else { return [] }
+        return [PhotoImage(id: id, image: urls.image, thumb: urls.thumb)]
+    }
+}
+
+/// One picture of an entry. Likes, holds and stories belong to the entry,
+/// never to a picture.
+struct PhotoImage: Codable, Hashable, Identifiable {
+    let id: String
+    let image: String
+    let thumb: String
 }
 
 /// A sticky note on the circle's board (Part 4; one each since build 27). The

@@ -17,8 +17,10 @@ from __future__ import annotations
 from html import escape
 
 CONTACT = "ayushkapileshwar@gmail.com"
-# The Terms' date, and the Privacy Policy's own. The Privacy Policy last
-# changed on November 19, 2026 (the move to R2): photos, profile photos and
+# The Terms' date, and the Privacy Policy's own. Both changed on November 19,
+# 2026: the Terms for build 81 (a day's post holds up to three photos, added
+# or one taken out until the day ends; the policy's wording of the same rule
+# changed with it), and the Privacy Policy, the same day, for the move to R2: photos, profile photos and
 # chosen covers stored by Cloudflare, no longer on Fly's disk. Before that, on
 # November 17, 2026 (build 79): photos and profile photos you've
 # seen kept on your phone, erased a day after you last saw them. Before that,
@@ -45,7 +47,7 @@ CONTACT = "ayushkapileshwar@gmail.com"
 # November 7: Circle Posts, which carries the poster's name to the people in
 # their circle who turned it on (build 37); and November 4: the board's own notes (build 27) and Face ID or
 # Touch ID (build 29).
-EFFECTIVE = "November 14, 2026"
+EFFECTIVE = "November 19, 2026"
 PRIVACY_EFFECTIVE = "November 19, 2026"
 
 PRIVACY: list[tuple[str | None, list[str]]] = [
@@ -53,7 +55,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
         "1. Introduction",
         [
             "Stanley is built by Ayush Kapileshwar. This policy explains what data Stanley collects, how it's used, and your rights.",
-            "Stanley is a small app for small circles of people who know each other: one photo a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
+            "Stanley is a small app for small circles of people who know each other: one post a day, seen only by your circle, fading unless someone keeps it. We've tried to collect only what that needs, and to say plainly what it is. When this policy says “we” or “us”, it means Stanley and the person who builds it.",
             "This policy covers the Stanley app for iPhone and the server it talks to. It's effective November 19, 2026.",
         ],
     ),
@@ -107,7 +109,7 @@ PRIVACY: list[tuple[str | None, list[str]]] = [
             "We use what we collect to run Stanley, and for nothing else:",
             "- To show your photos, stories, answers and profile to your circle, and theirs to you",
             "- To keep the pages of your journal, your journal entries, your reflections and the marks you leave on your days, and show them to you alone, or, for a page you share, to the circle or the one person you shared it with",
-            "- To keep Stanley's rules: one photo a day in each circle, the fading, and the keeping",
+            "- To keep Stanley's rules: one post a day in each circle (up to three photos), the fading, and the keeping",
             "- To run your circles, their invite codes, and your blocks",
             "- To send the notices you've turned on, and only those",
             "- To show headlines from near you, if you've allowed location",
@@ -228,7 +230,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
             "Welcome to Stanley. These Terms of Use are an agreement between you and Ayush Kapileshwar, who builds and runs Stanley (“Stanley”, “we”, “us”). They cover the Stanley app and the server it uses.",
             "By creating an account or using Stanley, you agree to these terms and to our Privacy Policy. If you don't agree, please don't use Stanley.",
             "You must be at least 13 years old to use Stanley. If you're under the age of majority where you live, you need a parent's or guardian's permission, and they agree to these terms for you.",
-            "These terms are effective November 14, 2026.",
+            "These terms are effective November 19, 2026.",
         ],
     ),
     (
@@ -260,7 +262,7 @@ TERMS: list[tuple[str | None, list[str]]] = [
         "4. How Stanley works",
         [
             "Stanley is built on a few rules, and they're the point:",
-            "- One photo per day in each circle you're in, at least 12 hours apart. If you delete today's photo, you can take it again once; deleting it a second time spends the day",
+            "- One post a day in each circle you're in, at least 12 hours apart, holding up to three photos you may add to (or take one from) until your day ends. If you delete today's post, you can make it again once; deleting it a second time spends the day",
             "- Photos fade over approximately six days and then disappear, unless someone holds them",
             "- A photo you hold stays with you until you let go of it or delete your account, or until the person who posted it deletes it",
             "- Likes and holds are private: only the person who posted a photo sees who liked or held it, and Stanley never counts them",

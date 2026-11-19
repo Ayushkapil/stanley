@@ -2026,6 +2026,45 @@ final class AppState {
         }
     }
 
+    /// Add a photo to today's entry. Needs the network: nothing is queued.
+    /// Throws, so the capture sheet can keep the frame on a failure.
+    func addImage(to photo: Photo, jpeg: Data) async throws {
+        let updated = try await api.addImage(to: photo.id, jpeg: jpeg, circleId: circle?.id)
+        replace(updated)
+        Trail.note(.postedPhoto)
+    }
+
+    /// Take one photo off today's entry (never the only one).
+    func removeImage(_ imageId: String, from photo: Photo) async {
+        do {
+            let updated: Photo = try await api.send(
+                "DELETE", "/photos/\(photo.id)/images/\(imageId)",
+                query: ["tz": TimeZone.current.identifier]
+            )
+            replace(updated)
+            flash = "Removed."
+        } catch {
+            surface(error)
+        }
+    }
+
+    /// Put an updated entry where Today holds it, and tell the views that
+    /// keep their own copies.
+    private func replace(_ updated: Photo) {
+        feedItems = feedItems.map { item in
+            if item.photo?.id == updated.id {
+                return FeedItem(kind: item.kind, photo: updated, location: item.location, members: item.members, photos: item.photos)
+            }
+            if let photos = item.photos, photos.contains(where: { $0.id == updated.id }) {
+                return FeedItem(kind: item.kind, photo: item.photo, location: item.location, members: item.members,
+                                photos: photos.map { $0.id == updated.id ? updated : $0 })
+            }
+            return item
+        }
+        reloads += 1
+        Task { await refreshToday() }
+    }
+
     /// Take your own face off a photo someone tagged you in.
     func untagMe(from photo: Photo) async {
         do {

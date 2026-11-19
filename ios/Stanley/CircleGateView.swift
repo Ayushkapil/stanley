@@ -42,7 +42,7 @@ struct CircleGateView: View {
                     )
                     .padding(.bottom, Spacing.section)
                     Text(another
-                        ? "One photo a day in each, up to five circles."
+                        ? "One post a day in each, up to five circles."
                         : "Stanley is kept with a few people you actually know: a floor, a house, a team.")
                         .font(.body)
                         .foregroundStyle(.secondary)

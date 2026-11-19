@@ -47,6 +47,9 @@ enum APIError: LocalizedError {
             case "apple_auth_unconfigured": return "Signing in isn't available right now. Try again a little later."
             // The production audit (November 2026).
             case "words_not_allowed": return Self.wordsNotAllowed
+            case "day_over": return "Today's over for that one."
+            case "entry_full": return "That day's full."
+            case "last_photo": return "It's the only photo. Delete it instead."
             case "slow_down": return "That's a lot at once. Give it a minute, then try again."
             // Item 13 (build 77): the server is already working on two
             // photos. Nothing was posted, so the day is still open.
@@ -262,6 +265,30 @@ final class APIClient: Sendable {
         // Only a capture queued by a build before 44 carries one (filters
         // were removed): its name, since the look is in the JPEG below.
         if let filter { field("filter", filter) }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n")
+        append("Content-Type: image/jpeg\r\n\r\n")
+        body.append(jpeg)
+        append("\r\n--\(boundary)--\r\n")
+        request.httpBody = body
+        return try await perform(request)
+    }
+
+    /// Another photo for today's entry: multipart, the file and the zone the
+    /// day is in. Returns the updated entry.
+    func addImage(to photoId: String, jpeg: Data, circleId: String?) async throws -> Photo {
+        let boundary = "stanley-\(UUID().uuidString)"
+        var request = URLRequest(url: baseURL.appending(path: "/photos/\(photoId)/images"))
+        request.httpMethod = "POST"
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type"
+        )
+        authorize(&request)
+        if let circleId { request.setValue(circleId, forHTTPHeaderField: Self.circleHeader) }
+        var body = Data()
+        func append(_ s: String) { body.append(Data(s.utf8)) }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"tz\"\r\n\r\n\(TimeZone.current.identifier)\r\n")
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n")
         append("Content-Type: image/jpeg\r\n\r\n")

@@ -12,7 +12,7 @@ struct WelcomeView: View {
             Spacer()
             Text("Welcome to Stanley")
                 .font(.keepsake(34))
-            Text("A small circle. One photo a day.\nMoments fade unless someone keeps them.")
+            Text("A small circle. One post a day.\nMoments fade unless someone keeps them.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

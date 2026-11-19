@@ -155,7 +155,7 @@ struct SettingsView: View {
             } header: {
                 Text("Circle").smallCaps(11)
             } footer: {
-                Text("Stanley works best with people you actually know. Each circle keeps its own day: one photo a day in each. Muted, a page someone here writes to you won't notify you; it's still there when you look. Letters aren't muted here: they come from a person, not a circle.")
+                Text("Stanley works best with people you actually know. Each circle keeps its own day: one post a day in each. Muted, a page someone here writes to you won't notify you; it's still there when you look. Letters aren't muted here: they come from a person, not a circle.")
             }
         }
     }
