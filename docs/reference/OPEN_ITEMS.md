@@ -95,14 +95,15 @@
   reads the logs, and only if all are clean `delete-local --confirm`.
 - **Build 80** (0.2.0): the November 19 policy in the app and its notice
   (one line: photos now stored by Cloudflare), nothing else. Uploaded
-  right after the switch.
+  right after the switch, and **added to Friends the same day** (Testing,
+  with Pilot Testers), with a What to Test note.
 - **Build 79** (0.2.0): photos and faces kept on the phone, the renewal
   at once and ahead of time, loads run together (above). **Its server is
   on Fly as v39** (November 17, `main` as of `1e86d5a`, 774 passing:
   versioned faces at 256px, the November 17 Privacy Policy; `/health` ok,
   `/privacy` with the new words, integrity ok), deployed before the app.
-  **Archived and uploaded the same evening**; to be added to Friends once
-  the browser pane is signed in to App Store Connect again.
+  **Archived and uploaded the same evening**; never added to Friends
+  (80, which has everything in it, went instead).
 - **Build 78** (0.2.0): the phone's words for `busy` (item 13), and
   everything in 77. **Uploaded November 17, 2026** (after an App Store
   Connect outage turned the first six tries away with a 500) and **added
