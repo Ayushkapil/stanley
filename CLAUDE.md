@@ -301,9 +301,11 @@ The authoritative source for the physics constants is
   uncommitted while its full-size original encoded, so the app's refresh
   right after posting didn't see it. A test fails if any route goes back to
   the default.
-- **Blobs:** local disk by default (`BlobStore`), served via short-TTL (15 min)
-  **HMAC-signed URLs** — no public URLs ever. An `R2BlobStore` (S3-compatible,
-  presigned URLs) is wired behind `BLOB_BACKEND=r2`; switching is config-only.
+- **Blobs:** in production, **Cloudflare R2** since November 19, 2026
+  (`R2BlobStore`, `BLOB_BACKEND=r2` in `fly.toml`; the endpoint, bucket
+  `stanley-photos` and keys are Fly secrets; private bucket, no versioning,
+  presigned 15-minute links). Local disk (`BlobStore`, HMAC-signed `/blobs`
+  links) is the default in dev and tests. No public URLs ever, on either.
   Image pipeline strips all EXIF except the capture timestamp (**GPS removal is a
   hard rule**) and bakes in orientation. On the phone every photo and face is
   a `SignedImage` (build 21; it was `AsyncImage`). A page left open past 15

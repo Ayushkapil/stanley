@@ -391,7 +391,8 @@ Backend and iOS unless noted. All guarded by the test suite where testable.
       `little_to_reclaim`, `too_big_to_lock` or `disk_too_full`. The live
       database (115 pages, 1 free) would be skipped. Three tests beside the
       old one. 745 server tests.
-  - **Step 4 prepared, then parked (D1, photos to Cloudflare R2)**.
+  - **Step 4 prepared, then parked (D1, photos to Cloudflare R2)**;
+    **unparked and switched November 19, 2026** (see OPEN_ITEMS.md).
     Ayush asked whether R2 was needed and, on the answer (for a
     one-circle pilot the volume, Fly's daily snapshots and the daily
     database copy are enough; R2 adds a new processor, a policy change

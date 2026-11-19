@@ -82,6 +82,20 @@
   February 2027 at the earliest (17; the logging is in build 77); faster
   server tests and more phone unit tests (18). Also found: the news fetch
   inside requests, signed links that change every second.
+- **Photos moved to Cloudflare R2, November 19, 2026** (step 4, unparked
+  by Ayush once the bucket existed). 88 files (82.4 MB) copied, each
+  checked by size and a SHA-256 of what R2 hands back, twice (`copy`,
+  `verify`), then the switch as Fly release v41 with the November 19
+  Privacy Policy (Cloudflare named as a processor, photos in the eastern
+  US). After it: `copy`/`verify` 88/88 again, `reconcile` 0 strays, a
+  server-signed link loads from R2 (200) and the bare address is refused
+  (400). **The volume copies are held 24 hours** (Ayush's change to the
+  runbook); a one-time scheduled task (`stanley-r2-reconcile-and-delete-local`,
+  November 20, 7:20 Bloomington) runs `reconcile --confirm`, `verify`,
+  reads the logs, and only if all are clean `delete-local --confirm`.
+- **Build 80** (0.2.0): the November 19 policy in the app and its notice
+  (one line: photos now stored by Cloudflare), nothing else. Uploaded
+  right after the switch.
 - **Build 79** (0.2.0): photos and faces kept on the phone, the renewal
   at once and ahead of time, loads run together (above). **Its server is
   on Fly as v39** (November 17, `main` as of `1e86d5a`, 774 passing:
